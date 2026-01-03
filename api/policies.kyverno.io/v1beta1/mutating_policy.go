@@ -5,7 +5,9 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -17,6 +19,7 @@ import (
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
 // +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
 
 type MutatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -30,6 +33,85 @@ type MutatingPolicy struct {
 // BackgroundEnabled checks if background is set to true
 func (s MutatingPolicy) BackgroundEnabled() bool {
 	return s.Spec.BackgroundEnabled()
+}
+
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced",shortName=nmpol,categories=kyverno
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditionStatus.ready`
+// +kubebuilder:selectablefield:JSONPath=`.spec.evaluation.mode`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:storageversion
+
+type NamespacedMutatingPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MutatingPolicySpec `json:"spec"`
+	// Status contains policy runtime data.
+	// +optional
+	Status MutatingPolicyStatus `json:"status,omitempty"`
+}
+
+// BackgroundEnabled checks if background is set to true
+func (s NamespacedMutatingPolicy) BackgroundEnabled() bool {
+	return s.Spec.BackgroundEnabled()
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	if s.Spec.MatchConstraints == nil {
+		return admissionregistrationv1.MatchResources{}
+	}
+	return *s.Spec.MatchConstraints
+}
+
+func (s *NamespacedMutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
+	if s.Spec.TargetMatchConstraints == nil {
+		return TargetMatchConstraints{}
+	}
+	return *s.Spec.TargetMatchConstraints
+}
+
+func (s *NamespacedMutatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
+func (s *NamespacedMutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore() {
+		return admissionregistrationv1.Ignore
+	}
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return *s.Spec.FailurePolicy
+}
+
+func (s *NamespacedMutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
+func (s *NamespacedMutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
+}
+
+func (s *NamespacedMutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
+}
+
+func (s *NamespacedMutatingPolicy) GetSpec() *MutatingPolicySpec {
+	return &s.Spec
+}
+
+func (s *NamespacedMutatingPolicy) GetStatus() *MutatingPolicyStatus {
+	return &s.Status
+}
+
+func (s *NamespacedMutatingPolicy) GetKind() string {
+	return "NamespacedMutatingPolicy"
 }
 
 type MutatingPolicyStatus struct {
@@ -51,9 +133,31 @@ func (s *MutatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchReso
 	return *s.Spec.MatchConstraints
 }
 
-func (s *MutatingPolicy) GetTargetMatchConstraints() admissionregistrationv1.MatchResources {
+func (s *MutatingPolicySpec) SetMatchConstraints(in admissionregistrationv1.MatchResources) {
+	out := &admissionregistrationv1.MatchResources{}
+	out.NamespaceSelector = in.NamespaceSelector
+	out.ObjectSelector = in.ObjectSelector
+	for _, ex := range in.ExcludeResourceRules {
+		out.ExcludeResourceRules = append(out.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	for _, ex := range in.ResourceRules {
+		out.ResourceRules = append(out.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+			ResourceNames:      ex.ResourceNames,
+			RuleWithOperations: ex.RuleWithOperations,
+		})
+	}
+	if in.MatchPolicy != nil {
+		out.MatchPolicy = in.MatchPolicy
+	}
+	s.MatchConstraints = out
+}
+
+func (s *MutatingPolicy) GetTargetMatchConstraints() TargetMatchConstraints {
 	if s.Spec.TargetMatchConstraints == nil {
-		return admissionregistrationv1.MatchResources{}
+		return TargetMatchConstraints{}
 	}
 	return *s.Spec.TargetMatchConstraints
 }
@@ -74,6 +178,13 @@ func (s *MutatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolic
 
 func (s *MutatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
 	return s.Spec.WebhookConfiguration
+}
+
+func (s *MutatingPolicy) GetTimeoutSeconds() *int32 {
+	if s.Spec.WebhookConfiguration == nil {
+		return nil
+	}
+	return s.Spec.WebhookConfiguration.TimeoutSeconds
 }
 
 func (s *MutatingPolicy) GetVariables() []admissionregistrationv1.Variable {
@@ -106,6 +217,33 @@ type MutatingPolicyList struct {
 	Items           []MutatingPolicy `json:"items"`
 }
 
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespacedMutatingPolicyList is a list of NamespacedMutatingPolicy instances
+type NamespacedMutatingPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NamespacedMutatingPolicy `json:"items"`
+}
+
+// MutatingPolicyLike captures the common behaviour shared by mutating policies regardless of scope.
+// +k8s:deepcopy-gen=false
+type MutatingPolicyLike interface {
+	metav1.Object
+	runtime.Object
+	GetSpec() *MutatingPolicySpec
+	GetStatus() *MutatingPolicyStatus
+	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetMatchConstraints() admissionregistrationv1.MatchResources
+	GetTargetMatchConstraints() TargetMatchConstraints
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
+	GetVariables() []admissionregistrationv1.Variable
+	GetWebhookConfiguration() *WebhookConfiguration
+	BackgroundEnabled() bool
+	GetKind() string
+}
+
 // MutatingPolicySpec is the specification of the desired behavior of the MutatingPolicy.
 type MutatingPolicySpec struct {
 	// MatchConstraints specifies what resources this policy is designed to evaluate.
@@ -126,13 +264,14 @@ type MutatingPolicySpec struct {
 	// +kubebuilder:validation:Enum=Ignore;Fail
 	FailurePolicy *admissionregistrationv1.FailurePolicyType `json:"failurePolicy,omitempty"`
 
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	TargetMatchConstraints *TargetMatchConstraints `json:"targetMatchConstraints,omitempty"`
+
 	// MatchConditions is a list of conditions that must be met for a request to be validated.
 	// Match conditions filter requests that have already been matched by the rules,
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 	// There are a maximum of 64 match conditions allowed.
-	//
-	// If a parameter object is provided, it can be accessed via the `params` handle in the same
-	// manner as validation expressions.
 	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the policy is skipped.
@@ -166,10 +305,6 @@ type MutatingPolicySpec struct {
 	// +optional
 	AutogenConfiguration *MutatingPolicyAutogenConfiguration `json:"autogen,omitempty"`
 
-	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
-	// +optional
-	TargetMatchConstraints *admissionregistrationv1.MatchResources `json:"targetMatchConstraints,omitempty"`
-
 	// mutations contain operations to perform on matching objects.
 	// mutations may not be empty; a minimum of one mutation is required.
 	// mutations are evaluated in order, and are reinvoked according to
@@ -179,7 +314,7 @@ type MutatingPolicySpec struct {
 	//
 	// +listType=atomic
 	// +optional
-	Mutations []Mutation `json:"mutations,omitempty" protobuf:"bytes,4,rep,name=mutations"`
+	Mutations []admissionregistrationv1alpha1.Mutation `json:"mutations,omitempty" protobuf:"bytes,4,rep,name=mutations"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
@@ -200,6 +335,15 @@ type MutatingPolicySpec struct {
 	// reinvoked when mutations change the object after this mutation is invoked.
 	// Required.
 	ReinvocationPolicy admissionregistrationv1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,7,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+}
+
+type TargetMatchConstraints struct {
+	// +optional
+	Expression string `json:"expression,omitempty"`
+
+	// TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.
+	// +optional
+	admissionregistrationv1.MatchResources `json:",inline"`
 }
 
 // GenerateMutatingAdmissionPolicyEnabled checks if mutating admission policy generation is enabled
@@ -302,17 +446,6 @@ type MutateExistingConfiguration struct {
 	// +optional
 	// +kubebuilder:default=false
 	Enabled *bool `json:"enabled,omitempty"`
-}
-
-// Mutation specifies the CEL expression which is used to apply the Mutation.
-type Mutation struct {
-	// Target specifies the target of the mutation.
-	// +optional
-	Target *MutationTarget `json:"target,omitempty"`
-
-	// Expression specifies the CEL expression which is used to apply the mutation.
-	// Required.
-	Expression string `json:"expression"`
 }
 
 // MutationTarget specifies the target of the mutation.

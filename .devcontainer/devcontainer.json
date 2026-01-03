@@ -1,10 +1,15 @@
 // See https://containers.dev/implementors/json_reference/ for configuration reference
 {
-    "name": "Kyverno",
-    "build": {
-        "dockerfile": "Dockerfile"
+  "name": "Kyverno",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.25"
     },
-    "remoteUser": "root",
-    "mounts": ["source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"],
-    "runArgs": ["--privileged", "--network=host", "-p", "22:22", "-p", "80:80", "-p", "2375:2375", "-p", "8443:8443"]
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/mpriscella/features/kind:1": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
+  },
+  "remoteUser": "vscode",
+  "runArgs": ["--privileged", "--network=host", "-p", "22:22", "-p", "80:80", "-p", "2375:2375", "-p", "8443:8443"]
 }

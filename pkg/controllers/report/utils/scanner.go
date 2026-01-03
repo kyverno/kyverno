@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -64,7 +63,7 @@ type Scanner interface {
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 		[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-		[]*policiesv1alpha1.PolicyException,
+		[]*policiesv1beta1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -101,7 +100,7 @@ func (s *scanner) ScanResource(
 	ns *corev1.Namespace,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	exceptions []*policiesv1alpha1.PolicyException,
+	exceptions []*policiesv1beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -238,7 +237,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range mpols {
 		if pol := policy.AsMutatingPolicy(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -263,7 +262,7 @@ func (s *scanner) ScanResource(
 
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			request := celengine.Request(
@@ -306,7 +305,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicyLike{pol}, exceptions)
+			provider, err := ivpolengine.NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

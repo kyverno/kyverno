@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -18,6 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	errNilPolicy         = errors.New("generating policy is nil")
+	errNilCompiledPolicy = errors.New("compiled generating policy is nil")
 )
 
 type Engine interface {
@@ -101,19 +107,28 @@ func (e *engineImpl) generate(
 	response := GeneratingPolicyResponse{
 		Policy: policy.Policy,
 	}
+	if policy.Policy == nil {
+		response.Result = engineapi.RuleError("", engineapi.Generation, "policy is not provided", errNilPolicy, nil)
+		return response
+	}
+	spec := policy.Policy.GetSpec()
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
 		if err != nil {
-			response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to execute matching", err, nil)
+			response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to execute matching", err, nil)
 			return response
 		} else if !matches {
 			return response
 		}
 	}
-	context.SetGenerateContext(policy.Policy.Name, request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
+	if policy.CompiledPolicy == nil {
+		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "policy has not been compiled", errNilCompiledPolicy, nil)
+		return response
+	}
+	context.SetGenerateContext(policy.Policy.GetName(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
 	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
-		response.Result = engineapi.RuleError(policy.Policy.Name, engineapi.Generation, "failed to evaluate policy", err, nil)
+		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
 		return response
 	}
 	if len(exceptions) != 0 {
@@ -165,7 +180,7 @@ func (e *engineImpl) generate(
 		}
 		return response
 	}
-	response.Result = engineapi.RulePass(policy.Policy.Name, engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
+	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
 	return response
 }
 

@@ -33,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -160,7 +161,10 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 	go h.auditPool.Submit(func() {
-		auditResponses := vh.HandleValidationAudit(ctx, request)
+		// Create a new context with timeout for audit work, independent of HTTP request lifecycle
+		auditCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		auditResponses := vh.HandleValidationAudit(auditCtx, request)
 		var events []event.Info
 
 		switch {
@@ -238,14 +242,26 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
-		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
-		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
-		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, request.Namespace)...)
+
+		// Get namespace object if namespace is specified
+		var namespace *corev1.Namespace
+		if request.Namespace != "" {
+			var err error
+			namespace, err = h.nsLister.Get(request.Namespace)
+			if err != nil {
+				logger.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
+				// Continue with nil namespace if we can't get it
+			}
+		}
+
+		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, namespace)...)
+		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, namespace)...)
+		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, namespace)...)
+		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, namespace)...)
 		if mutation {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, namespace)...)
 		} else {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, namespace)...)
 			policies = append(policies, imageVerifyValidatePolicies...)
 		}
 	} else {

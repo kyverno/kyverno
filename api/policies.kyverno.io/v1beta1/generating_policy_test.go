@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -74,16 +75,15 @@ func TestGetFailurePolicyGpol(t *testing.T) {
 }
 
 func TestGetWebhookConfigurationGpol(t *testing.T) {
-	val := int32(3984)
 	gpol := &GeneratingPolicy{
 		Spec: GeneratingPolicySpec{
 			WebhookConfiguration: &WebhookConfiguration{
-				TimeoutSeconds: &val,
+				TimeoutSeconds: ptr.To[int32](3984),
 			},
 		},
 	}
-	res := gpol.GetWebhookConfiguration()
-	assert.Equal(t, res.TimeoutSeconds, &val, "timeout and val should be equal")
+	res := gpol.GetTimeoutSeconds()
+	assert.Equal(t, res, ptr.To[int32](3984), "timeout and val should be equal")
 }
 
 func TestVariablesGpol(t *testing.T) {
@@ -296,4 +296,122 @@ func TestAdmissionEnabled(t *testing.T) {
 		res := s.SynchronizationEnabled()
 		assert.False(t, res)
 	})
+}
+
+func TestNamespacedGeneratingPolicy_GetKind(t *testing.T) {
+	policy := &NamespacedGeneratingPolicy{}
+	expected := "NamespacedGeneratingPolicy"
+	result := policy.GetKind()
+	assert.Equal(t, expected, result, "GetKind should return NamespacedGeneratingPolicy")
+}
+
+func TestNamespacedGeneratingPolicy_GetMatchConstraints(t *testing.T) {
+	t.Run("nil match constraints", func(t *testing.T) {
+		policy := &NamespacedGeneratingPolicy{
+			Spec: GeneratingPolicySpec{},
+		}
+		res := policy.GetMatchConstraints()
+		assert.Nil(t, res.NamespaceSelector, "NamespaceSelector should be nil")
+		assert.Empty(t, res.ExcludeResourceRules, "ExcludeResourceRules should be empty")
+		assert.Nil(t, res.ObjectSelector, "ObjectSelector should be nil")
+		assert.Empty(t, res.ResourceRules, "ResourceRules should be empty")
+		assert.Nil(t, res.MatchPolicy, "MatchPolicy should be nil")
+	})
+
+	t.Run("with match constraints", func(t *testing.T) {
+		policy := &NamespacedGeneratingPolicy{
+			Spec: GeneratingPolicySpec{
+				MatchConstraints: &v1.MatchResources{
+					ResourceRules: []v1.NamedRuleWithOperations{
+						{
+							ResourceNames: []string{"pods"},
+							RuleWithOperations: v1.RuleWithOperations{
+								Operations: []v1.OperationType{"CREATE"},
+							},
+						},
+					},
+				},
+			},
+		}
+		res := policy.GetMatchConstraints()
+		assert.NotNil(t, res, "res should not be nil")
+		assert.Equal(t, "pods", res.ResourceRules[0].ResourceNames[0], "ResourceRules should be 'pods'")
+	})
+}
+
+func TestNamespacedGeneratingPolicy_GetMatchConditions(t *testing.T) {
+	policy := &NamespacedGeneratingPolicy{
+		Spec: GeneratingPolicySpec{
+			MatchConditions: []v1.MatchCondition{
+				{
+					Name:       "test-condition",
+					Expression: "true",
+				},
+			},
+		},
+	}
+	res := policy.GetMatchConditions()
+	assert.NotNil(t, res, "res should not be nil")
+	assert.Equal(t, "test-condition", res[0].Name, "name should be 'test-condition'")
+	assert.Equal(t, "true", res[0].Expression, "expression should be 'true'")
+}
+
+func TestNamespacedGeneratingPolicy_GetFailurePolicy(t *testing.T) {
+	policy := &NamespacedGeneratingPolicy{}
+	res := policy.GetFailurePolicy()
+	assert.Equal(t, v1.Ignore, res, "result should be 'Ignore'")
+}
+
+func TestNamespacedGeneratingPolicy_GetTimeoutSeconds(t *testing.T) {
+	t.Run("nil webhook configuration", func(t *testing.T) {
+		policy := &NamespacedGeneratingPolicy{
+			Spec: GeneratingPolicySpec{},
+		}
+		res := policy.GetTimeoutSeconds()
+		assert.Nil(t, res, "result should be nil")
+	})
+
+	t.Run("with timeout seconds", func(t *testing.T) {
+		policy := &NamespacedGeneratingPolicy{
+			Spec: GeneratingPolicySpec{
+				WebhookConfiguration: &WebhookConfiguration{
+					TimeoutSeconds: ptr.To[int32](3984),
+				},
+			},
+		}
+		res := policy.GetTimeoutSeconds()
+		assert.Equal(t, ptr.To[int32](3984), res, "timeout and val should be equal")
+	})
+}
+
+func TestNamespacedGeneratingPolicy_GetVariables(t *testing.T) {
+	policy := &NamespacedGeneratingPolicy{
+		Spec: GeneratingPolicySpec{
+			Variables: []v1.Variable{
+				{
+					Name:       "test-variable",
+					Expression: "test-expression",
+				},
+			},
+		},
+	}
+	res := policy.GetVariables()
+	assert.Equal(t, "test-variable", res[0].Name, "name should be equal")
+	assert.Equal(t, "test-expression", res[0].Expression, "expression should be equal")
+}
+
+func TestNamespacedGeneratingPolicy_GetSpec(t *testing.T) {
+	policy := &NamespacedGeneratingPolicy{
+		Spec: GeneratingPolicySpec{
+			Variables: []v1.Variable{
+				{
+					Name:       "test-variable",
+					Expression: "test-expression",
+				},
+			},
+		},
+	}
+	res := policy.GetSpec()
+	assert.NotNil(t, res, "res should not be nil")
+	assert.Equal(t, 1, len(res.Variables), "should have 1 variable")
 }

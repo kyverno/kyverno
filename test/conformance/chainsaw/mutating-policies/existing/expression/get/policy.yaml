@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-different-trigger-target-expression
+spec:
+  failurePolicy: Fail
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "secrets" ]
+      resourceNames: ["trigger-secret"]
+  targetMatchConstraints:
+    expression: resource.Get("v1", "configmaps", object.metadata.namespace, "test-cm-1")
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              mentorship: "kyverno"
+            }
+          }
+        }

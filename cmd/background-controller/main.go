@@ -81,7 +81,7 @@ func createrLeaderControllers(
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -203,7 +203,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
@@ -317,8 +317,9 @@ func main() {
 				// create provider
 				gpolProvider := gpolengine.NewFetchProvider(
 					compiler,
-					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
@@ -360,7 +361,7 @@ func main() {
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)
