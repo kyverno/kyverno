@@ -52,3 +52,7 @@ dependencies:
     version: "0.1.0"
     repository: "https://openreports.github.io/reports-api"
     condition: openreports.installCrds
+  - name: reports-server
+    version: "0.1.6"
+    repository: "https://kyverno.github.io/reports-server/"
+    condition: reportsServer.enabled
