@@ -59,11 +59,20 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	}
 
 	if len(attestor.Cosign.Annotations) != 0 {
+		var annotationErrors []error
+		annotationMatched := false
 		for _, sig := range sigs {
 			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
-				logger.Error(err, "image verification failed")
-				return err
+				annotationErrors = append(annotationErrors, err)
+			} else {
+				annotationMatched = true
+				break
 			}
+		}
+		if !annotationMatched {
+			err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
+			logger.Error(err, "image verification failed")
+			return err
 		}
 	}
 
@@ -101,6 +110,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	checkedTypes := []string{}
 	found := false
+	var annotationErrors []error
 	for _, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
@@ -112,9 +122,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
-			logger.Error(err, "image verification failed")
-			return err
+		if len(attestor.Cosign.Annotations) != 0 {
+			if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
+				annotationErrors = append(annotationErrors, err)
+				continue
+			}
 		}
 
 		found = true
@@ -122,6 +134,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	if !found {
+		if len(annotationErrors) > 0 {
+			err := fmt.Errorf("no attestation matched the required annotations: %v", annotationErrors)
+			logger.Error(err, "image verification failed")
+			return err
+		}
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err
