@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -173,6 +174,9 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 				),
 				x509.Lib(
 					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},

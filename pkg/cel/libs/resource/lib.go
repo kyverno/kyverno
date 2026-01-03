@@ -50,7 +50,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 }
 
 func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
+
 	impl := namespacedImpl{
 		namespace: c.namespace,
 		Adapter:   env.CELTypeAdapter(),
@@ -124,7 +124,7 @@ func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
 }
 
 func (c *lib) clusterEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
+
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
