@@ -337,7 +337,7 @@ func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLi
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
+func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyExceptionLister, namespace string) ([]*policiesv1beta1.PolicyException, error) {
 	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err

@@ -72,37 +72,37 @@ var (
 	validatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"validatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	namespacedValidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedvalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1beta1"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	imagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"imagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	namespacedimagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedimagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	generatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"generatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	namespacedGeneratingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedgeneratingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	deletingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"deletingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},

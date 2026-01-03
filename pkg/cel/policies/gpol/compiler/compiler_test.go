@@ -3,7 +3,6 @@ package compiler
 import (
 	"testing"
 
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	v1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -83,9 +82,9 @@ func TestCompile(t *testing.T) {
 		pol := &v1beta1.GeneratingPolicy{
 			Spec: v1beta1.GeneratingPolicySpec{},
 		}
-		polexs := []*v1alpha1.PolicyException{
+		polexs := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-exec",
@@ -105,9 +104,9 @@ func TestCompile(t *testing.T) {
 		pol := &v1beta1.GeneratingPolicy{
 			Spec: v1beta1.GeneratingPolicySpec{},
 		}
-		polexs := []*v1alpha1.PolicyException{
+		polexs := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-exec",
