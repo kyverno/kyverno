@@ -406,7 +406,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				found := false
 				if !p.Cluster {
 					mapping = &meta.RESTMapping{
 						Resource: schema.GroupVersionResource{
@@ -415,34 +414,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 
-					kindPrefix := strings.ToLower(gvk.Kind)
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				}
 
-					for _, newVp := range p.ValidatingPolicies {
-						if newVp.Spec.MatchConstraints != nil {
-							for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
-								for _, newR := range r.Resources {
-									if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-										mapping.Resource.Resource = newR
-										found = true
-										break
-									}
-								}
-								if found {
-									break
-								}
-							}
-						}
-						if found {
-							break
-						}
-					}
-				}
-				if !found {
-					if p.Cluster {
-						return nil, fmt.Errorf("failed to map GVK to GVR %s (%v)", gvk, err)
-					}
-					return nil, fmt.Errorf("failed to get GVR from  %s", gvk)
-				}
 			}
 
 			gvr := mapping.Resource
@@ -844,4 +824,24 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	}
 
 	return openapiclient.NewComposite(clients...)
+}
+
+func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
+
+	kindPrefix := strings.ToLower(kind)
+
+	for _, newVp := range p.ValidatingPolicies {
+		if newVp.Spec.MatchConstraints != nil {
+			for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
+				for _, newR := range r.Resources {
+					if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+						return newR, nil
+					}
+				}
+
+			}
+		}
+
+	}
+	return "", fmt.Errorf("failed to get resource from %s", kind)
 }
