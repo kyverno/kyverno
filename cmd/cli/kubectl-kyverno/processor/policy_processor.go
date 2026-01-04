@@ -422,7 +422,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				} else {
 					return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 				}
-
 			}
 
 			gvr := mapping.Resource
@@ -827,7 +826,6 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 }
 
 func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
-
 	kindPrefix := strings.ToLower(kind)
 
 	for _, newVp := range p.ValidatingPolicies {
@@ -838,10 +836,8 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 						return newR, nil
 					}
 				}
-
 			}
 		}
-
 	}
 	return "", fmt.Errorf("failed to get resource from %s", kind)
 }
