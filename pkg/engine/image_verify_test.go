@@ -1137,7 +1137,7 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(500 * time.Millisecond) // Optimized: reduced from 5s
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
@@ -1336,7 +1336,7 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(500 * time.Millisecond) // Optimized: reduced from 5s
 
 	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)

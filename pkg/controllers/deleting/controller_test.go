@@ -11,8 +11,8 @@ import (
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	enginecompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
-	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
+	"github.com/kyverno/kyverno/pkg/utils/testutil"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,7 +98,7 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	}
 	pol.Name = "dpol"
 
-	fakeClient := versionedfake.NewSimpleClientset(&pol)
+	fakeClient := testutil.NewKyvernoFakeClient(&pol)
 
 	baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),

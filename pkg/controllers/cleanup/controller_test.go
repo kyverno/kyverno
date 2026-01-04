@@ -9,12 +9,12 @@ import (
 	"github.com/golang/mock/gomock"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	v2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/utils/testutil"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,7 +199,7 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 		},
 	}
 
-	fakeClient := versionedfake.NewSimpleClientset(pol.DeepCopy())
+	fakeClient := testutil.NewKyvernoFakeClient(pol.DeepCopy())
 
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc,
 		cache.Indexers{
