@@ -1,0 +1,55 @@
+{{- $name := "require-non-root-groups" }}
+{{- if and (eq (include "kyverno-policies.podSecurityOther" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Require Non-Root Groups
+    policies.kyverno.io/category: Pod Security Standards (Other)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      Containers must be required to run as non-root groups. This policy ensures
+      `runAsGroup` is not set to `0` (root group).
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.securityContext) || 
+         !has(object.spec.securityContext.runAsGroup) || 
+         object.spec.securityContext.runAsGroup != 0) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.runAsGroup) || 
+          c.securityContext.runAsGroup != 0)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.runAsGroup) || 
+          c.securityContext.runAsGroup != 0)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.runAsGroup) || 
+          c.securityContext.runAsGroup != 0))
+      message: >-
+        Running as root group (GID 0) is not allowed. The fields
+        spec.securityContext.runAsGroup,
+        spec.containers[*].securityContext.runAsGroup,
+        spec.initContainers[*].securityContext.runAsGroup, and
+        spec.ephemeralContainers[*].securityContext.runAsGroup must not be set to `0`.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+
