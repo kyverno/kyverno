@@ -206,11 +206,13 @@ func (m *policyMap) get(key PolicyType, gvr schema.GroupVersionResource, subreso
 		ns, _, err := kcache.SplitMetaNamespaceKey(policyName)
 		if err != nil {
 			logger.Error(err, "failed to parse policy name", "policyName", policyName)
+			continue
 		}
 		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
 			logger.V(4).Info("nil policy in the cache, this should not happen")
+			continue
 		}
 		if !isNamespacedPolicy && namespace == "" {
 			result = append(result, policy)

@@ -41,7 +41,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}

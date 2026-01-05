@@ -12,10 +12,17 @@ import (
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -100,6 +107,29 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 				),
 				imagedata.Lib(
 					imagedata.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},
