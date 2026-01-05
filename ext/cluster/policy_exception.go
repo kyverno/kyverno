@@ -25,7 +25,7 @@ func (c policyExceptionSelector) Find(policy, rule string) ([]*kyvernov2.PolicyE
 			for i, exc := range list.Items {
 				for _, e := range exc.Spec.Exceptions {
 					if e.PolicyName == policy && slices.Contains(e.RuleNames, rule) {
-						pe := kyvernov2.PolicyException(list.Items[i])
+						pe := list.Items[i]
 						exceptions = append(exceptions, &pe)
 					}
 				}
