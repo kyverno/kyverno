@@ -5,14 +5,15 @@ import (
 	"strings"
 	"time"
 
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/playground/backend/data"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,8 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
-
-	"github.com/kyverno/playground/backend/data"
 )
 
 type SearchResult struct {
@@ -45,7 +44,7 @@ type Cluster interface {
 	Search(context.Context, string, string, string, map[string]string) ([]SearchResult, error)
 	Get(context.Context, string, string, string, string) (*unstructured.Unstructured, error)
 	DClient([]runtime.Object, ...runtime.Object) (dclient.Interface, error)
-	PolicyExceptionSelector(namespace string, exceptions ...*v2.PolicyException) engineapi.PolicyExceptionSelector
+	PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector
 	OpenAPIClient(version string) (openapi.Client, error)
 	IsFake() bool
 	RESTMapper(crds []*apiextensionsv1.CustomResourceDefinition) meta.RESTMapper
@@ -116,7 +115,7 @@ func (c cluster) Kinds(ctx context.Context, excludeGroups ...string) ([]Resource
 
 func (c cluster) Namespaces(ctx context.Context) ([]string, error) {
 	nsClient := c.kubeClient.CoreV1().Namespaces()
-	list, err := nsClient.List(ctx, v1.ListOptions{})
+	list, err := nsClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -128,9 +127,9 @@ func (c cluster) Namespaces(ctx context.Context) ([]string, error) {
 }
 
 func (c cluster) Search(ctx context.Context, apiVersion string, kind string, namespace string, labels map[string]string) ([]SearchResult, error) {
-	var selector *v1.LabelSelector
+	var selector *metav1.LabelSelector
 	if labels != nil {
-		selector = &v1.LabelSelector{MatchLabels: labels}
+		selector = &metav1.LabelSelector{MatchLabels: labels}
 	}
 	list, err := c.dClient.ListResource(ctx, apiVersion, kind, namespace, selector)
 	if err != nil {
@@ -150,7 +149,7 @@ func (c cluster) Get(ctx context.Context, apiVersion string, kind string, namesp
 	return c.dClient.GetResource(ctx, apiVersion, kind, namespace, name)
 }
 
-func (c cluster) PolicyExceptionSelector(namespace string, exceptions ...*v2.PolicyException) engineapi.PolicyExceptionSelector {
+func (c cluster) PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector {
 	return NewPolicyExceptionSelector(namespace, c.kyvernoClient, exceptions...)
 }
 

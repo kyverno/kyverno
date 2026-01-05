@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	v1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type secretLister struct {
@@ -54,6 +54,6 @@ func (s *secretLister) Get(name string) (*corev1.Secret, error) {
 	return secret, nil
 }
 
-func NewSecretLister(client dclient.Interface, ns string) v1.SecretNamespaceLister {
+func NewSecretLister(client dclient.Interface, ns string) corev1listers.SecretNamespaceLister {
 	return &secretLister{client, ns}
 }

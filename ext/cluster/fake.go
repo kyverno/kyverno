@@ -5,10 +5,13 @@ import (
 	"errors"
 	"time"
 
-	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kdata "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/playground/backend/data"
+	"github.com/kyverno/playground/backend/pkg/resource"
+	"github.com/kyverno/playground/backend/pkg/utils"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,10 +23,6 @@ import (
 	"k8s.io/client-go/openapi"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
-
-	"github.com/kyverno/playground/backend/data"
-	"github.com/kyverno/playground/backend/pkg/resource"
-	"github.com/kyverno/playground/backend/pkg/utils"
 )
 
 type fakeCluster struct{}
@@ -48,7 +47,7 @@ func (c fakeCluster) Get(ctx context.Context, apiVersion string, kind string, na
 	return nil, errors.New("getting resource not supported in fake cluster")
 }
 
-func (c fakeCluster) PolicyExceptionSelector(namespace string, exceptions ...*v2.PolicyException) engineapi.PolicyExceptionSelector {
+func (c fakeCluster) PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector {
 	return NewPolicyExceptionSelector(namespace, nil, exceptions...)
 }
 
