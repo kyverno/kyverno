@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -109,6 +110,11 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 			}
 		}()
 	}
+	metricsKeyAlgorithm, ok := kyvernotls.KeyAlgorithms[strings.ToUpper(metricsKeyAlgorithm)]
+	if !ok {
+		logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", metricsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
+		os.Exit(1)
+	}
 	// controllers
 	renewer := kyvernotls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -122,6 +128,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		config.KyvernoNamespace(),
 		metricsCaSecretName,
 		metricsTlsSecretName,
+		metricsKeyAlgorithm,
 	)
 	certController := NewController(
 		certmanager.ControllerName,
