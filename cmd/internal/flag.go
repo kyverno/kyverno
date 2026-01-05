@@ -32,6 +32,7 @@ var (
 	metricsPort          int
 	metricsCaSecretName  string
 	metricsTlsSecretName string
+	metricsKeyAlgorithm  string
 	renewBefore          time.Duration
 	serverIP             string
 	transportCreds       string
@@ -113,6 +114,7 @@ func initMetricsFlags() {
 	flag.IntVar(&metricsPort, "metricsPort", 8000, "Expose prometheus metrics at the given port, default to 8000.")
 	flag.StringVar(&metricsCaSecretName, "metricsCaSecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
 	flag.StringVar(&metricsTlsSecretName, "metricsTlsSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
+	flag.StringVar(&metricsKeyAlgorithm, "metricsTlsKeyAlgorithm", "RSA", "Set this flag to the key algorithm used for self-signed TLS certificates for the metrics endpoint. Supported values: RSA, ECDSA, Ed25519.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 

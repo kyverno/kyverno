@@ -1293,6 +1293,10 @@ admissionController:
     secure: false
     # -- Create self-signed certificates at deployment time.
     createSelfSignedCert: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1639,6 +1643,10 @@ backgroundController:
     secure: false
     # -- Create self-signed certificates at deployment time.
     createSelfSignedCert: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2032,6 +2040,10 @@ cleanupController:
     secure: false
     # -- Create self-signed certificates at deployment time.
     createSelfSignedCert: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2356,6 +2368,10 @@ reportsController:
     secure: false
     # -- Create self-signed certificates at deployment time.
     createSelfSignedCert: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
+    tlsKeyAlgorithm: RSA
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials

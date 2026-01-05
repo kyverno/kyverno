@@ -123,6 +123,7 @@ spec:
             {{- if .Values.reportsController.metering.secure }}
             - --metricsCaSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
             - --metricsTlsSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsTlsKeyAlgorithm={{ .Values.reportsController.metering.tlsKeyAlgorithm | default "RSA" }}
             {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}

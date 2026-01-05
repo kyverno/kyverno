@@ -137,6 +137,7 @@ spec:
             {{- if .Values.cleanupController.metering.secure }}
             - --metricsCaSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
             - --metricsTlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsTlsKeyAlgorithm={{ .Values.cleanupController.metering.tlsKeyAlgorithm | default "RSA" }}
             {{- end }}
             {{- with .Values.cleanupController.metering.collector }}
             - --otelCollector={{ . }}
