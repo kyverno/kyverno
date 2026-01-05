@@ -1224,8 +1224,10 @@ jobs:
         key-algorithm:
           - name: rsa
             test-dir: rsa-cert-manager
+            helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=RSA --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=RSA
           - name: ecdsa
             test-dir: ecdsa-cert-manager
+            helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=ECDSA --set admissionController.certManager.size=256 --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=ECDSA --set cleanupController.certManager.size=256
     needs:
       - prepare-images
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
@@ -1238,7 +1240,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
           install-cert-manager: 'true'
-          cert-manager-certs-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
     runs-on: ubuntu-latest
