@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -24,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -124,6 +126,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 
+	uniquesObjectArr := []runtime.Object{}
+	for _, t := range uniques {
+		uniquesObjectArr = append(uniquesObjectArr, t)
+	}
+
 	var json any
 	if testCase.Test.JSONPayload != "" {
 		// JSON payload
@@ -154,12 +161,35 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		paramObjectsArr = append(paramObjectsArr, p)
 	}
 
-	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
-	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+	cl := cluster.NewFake()
+	uniquesObjectArr = append(uniquesObjectArr, targetsObjectArr...)
+	uniquesObjectArr = append(uniquesObjectArr, paramObjectsArr...)
+
+	if contextPath != "" {
+		ctx, err := clicontext.Load(testCase.Fs, contextPath)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load context (%s)", err)
+		}
+
+		for _, resource := range ctx.ContextSpec.Resources {
+			uniquesObjectArr = append(uniquesObjectArr, &resource)
+		}
+	}
+
+	dClient, err = cl.DClient(nil, uniquesObjectArr...)
+	if err != nil {
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+		if err != nil {
+			return nil, err
+		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	}
+
+	var cmResolver engineapi.ConfigmapResolver
+	cmResolver, err = cluster.NewConfigMapResolver(dClient)
 	if err != nil {
 		return nil, err
 	}
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
@@ -289,6 +319,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			ConfigMapResolver:                 cmResolver,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

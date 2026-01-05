@@ -1,0 +1,57 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-context-resource-lookup
+context: context.yaml
+policies:
+  - policy.yaml
+resources:
+  - resources/pod-with-spot-computeclass.yaml
+  - resources/pod-with-non-spot-computeclass.yaml
+  - resources/pod-with-mixed-computeclass.yaml
+  - resources/pod-with-default-computeclass.yaml
+  - resources/deployment-with-spot-computeclass.yaml
+  - resources/deployment-with-non-spot-computeclass.yaml
+results:
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Pod
+    resources:
+      - pod-with-spot-computeclass
+    result: pass
+
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Pod
+    resources:
+      - pod-with-non-spot-computeclass
+    result: fail
+
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Pod
+    resources:
+      - pod-with-mixed-computeclass
+    result: pass
+
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Pod
+    resources:
+      - pod-with-default-computeclass
+    result: pass
+
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Deployment
+    resources:
+      - deployment-with-spot-computeclass
+    result: pass
+
+  - policy: computeclasses-enforce-non-spot-usage
+    rule: deny-non-spot-in-unapproved-namespace
+    kind: Deployment
+    resources:
+      - deployment-with-non-spot-computeclass
+    result: fail
+

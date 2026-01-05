@@ -1,0 +1,81 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: computeclasses-enforce-non-spot-usage
+  annotations:
+    policies.kyverno.io/title: Restrict Non-Spot ComputeClass to Approved Namespaces
+    policies.kyverno.io/category: GKE Compute Classes
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod, ComputeClass
+    policies.kyverno.io/description: >-
+      This policy denies create and update operations on any workloads
+      with only non-spot ComputeClasses.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-non-spot-in-unapproved-namespace
+      match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+            - DaemonSet
+            - Deployment
+            - Job
+            - Pod
+            operations:
+            - "CREATE"
+            - "UPDATE"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - balloon-pods
+            - cluster-jobs
+            - cos-auditd
+            - fluentbit
+            - gatekeeper-system
+            - gke-managed-cim
+            - gke-managed-dpv2-observability
+            - gmp-system
+            - kube-node-lease
+            - kube-public
+            - kube-system
+            - istio-system
+            - trident-system
+      context:
+        # Variable 1: Extract ComputeClass name from the resource's nodeSelector
+        # This tests variable extraction from request.object
+        - name: computeclassname
+          variable:
+            default: "default"
+            # This JMESPath expression looks for the 'compute-class' nodeSelector in two common
+            # locations (for Pods and for templated workloads like Deployments). If not found, it defaults to "default".
+            jmesPath: >-
+              request.object.spec.nodeSelector."cloud.google.com/compute-class" || 
+              request.object.spec.template.spec.nodeSelector."cloud.google.com/compute-class"
+        # Variable 2: Look up ConfigMap from fake client
+        # This tests that resources loaded into fake client can be accessed via context lookup
+        - name: computeclassconfig
+          configMap:
+            name: "computeclass-{{computeclassname}}"
+            namespace: "default"
+        # Variable 3: Extract spot values from ConfigMap
+        - name: spotvalues
+          variable:
+            default: '["true", "false", "false"]'
+            # Extract spot-values from the ConfigMap, or use default
+            # Note: Context variables are accessed directly by name in JMESPath (no {{}} syntax)
+            # Keys with hyphens must be quoted in JMESPath
+            jmesPath: 'computeclassconfig.data."spot-values"'
+      validate:
+        message: |-
+          Spot values: {{spotvalues}}
+        deny:
+          conditions:
+            all:
+            - key: true
+              operator: AllNotIn
+              value: "{{spotvalues}}"
+
