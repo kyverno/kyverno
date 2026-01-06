@@ -21,7 +21,7 @@ package v1
 import (
 	context "context"
 
-	policieskyvernoiov1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
+	policieskyvernoiov1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"

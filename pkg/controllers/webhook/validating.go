@@ -5,7 +5,7 @@ import (
 	"path"
 	"slices"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"

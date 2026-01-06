@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	github_com_kyverno_kyverno_api_policies_kyverno_io_v1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
+	github_com_kyverno_kyverno_api_policies_kyverno_io_v1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policies_kyverno_io_v1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
