@@ -56,7 +56,7 @@ func NewImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod t
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resync
 				}
 				return client.PoliciesV1beta1().ImageValidatingPolicies().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apipolicieskyvernoiov1beta1.ImageValidatingPolicy{},
 		resyncPeriod,
 		indexers,

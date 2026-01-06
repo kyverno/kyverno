@@ -1,33 +1,31 @@
 # ECDSA Certificate Manager Test
 
-This test verifies that Kyverno works correctly with ECDSA certificates provided by cert-manager.
+This test verifies that Kyverno works correctly with ECDSA certificates managed by cert-manager through the helm chart integration.
 
 ## Purpose
 
-This test verifies that Kyverno can use externally managed ECDSA TLS certificates from cert-manager.
+This test ensures Kyverno can use cert-manager for TLS certificate management with ECDSA algorithm. The certificates are created automatically by the helm chart when `certManager.enabled` is set to `true`.
 
 ## Prerequisites
 
 - cert-manager must be installed in the cluster before running this test
 
-## Test Flow
+## How It Works
 
-1. **Assert cert-manager ready**: Verify cert-manager deployment is available
-2. **Create namespace**: Create the `kyverno` namespace
-3. **Create CA infrastructure**: 
-   - Create a self-signed ClusterIssuer
-   - Create ECDSA CA certificates with the exact secret names Kyverno expects
-   - Create a CA Issuer using the CA certificate
-4. **Create TLS certificates**: Create ECDSA certificates with Kyverno's expected secret names for:
-   - `kyverno-svc` (admission controller)
-   - `kyverno-cleanup-controller` (cleanup controller)
-5. **Install Kyverno**: Install Kyverno using Helm (certificates already in place)
-6. **Verify Kyverno ready**: Assert that Kyverno admission controller is ready
-7. **Test webhook**: Apply a test policy to verify webhook functionality
+The test relies on the Kyverno helm chart's cert-manager integration:
+
+1. **cert-manager installation**: The GitHub Action installs cert-manager before Kyverno
+2. **Helm-based certificates**: The helm chart creates Certificate resources when `admissionController.certManager.enabled=true` and `cleanupController.certManager.enabled=true`
+3. **Automatic provisioning**: cert-manager automatically provisions the TLS certificates with the correct secret names that Kyverno expects
+
+## Test Steps
+
+1. **Verify ECDSA certificates**: Check that the certificates use ECDSA algorithm
+2. **Test webhook functionality**: Apply a test policy and verify the webhook works correctly
 
 ## Expected Result
 
-This test should **pass** as Kyverno supports externally managed ECDSA certificates.
+This test should **pass** - ECDSA certificates are fully supported by Kyverno.
 
 ## Reference Issue(s)
 

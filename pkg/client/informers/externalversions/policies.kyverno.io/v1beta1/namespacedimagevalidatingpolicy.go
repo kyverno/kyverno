@@ -57,7 +57,7 @@ func NewNamespacedImageValidatingPolicyInformer(client versioned.Interface, name
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredNamespacedImageValidatingPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredNamespacedImageValidatingPolicyInformer(client versioned.Interfa
 				}
 				return client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apipolicieskyvernoiov1beta1.NamespacedImageValidatingPolicy{},
 		resyncPeriod,
 		indexers,

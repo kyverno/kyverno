@@ -16,6 +16,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -110,7 +113,7 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 	)
 
-	base := environment.MustBaseEnvSet(dpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(dpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -162,8 +165,18 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 					&json.JsonImpl{},
 					json.Latest(),
 				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
 				random.Lib(
 					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},
