@@ -668,28 +668,21 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 
 	var errs []error
 	for _, p := range payloads {
-		matched := true
-		var mismatchErr error
+		allMatch := true
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				matched = false
-				mismatchErr = fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-					p.Optional[key], val, key)
+				errs = append(errs, fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+					p.Optional[key], val, key))
+				allMatch = false
 				break
 			}
 		}
-		if matched {
+		if allMatch {
 			// At least one payload matches all required annotations
 			return nil
 		}
-		if mismatchErr != nil {
-			errs = append(errs, mismatchErr)
-		}
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("no signature matched the required annotations: %v", errs)
-	}
 	return fmt.Errorf("no signatures found to match annotations")
 }
 

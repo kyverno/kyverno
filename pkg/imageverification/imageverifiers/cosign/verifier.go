@@ -60,20 +60,16 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 
 	if len(attestor.Cosign.Annotations) != 0 {
 		var annotationErrors []error
-		annotationMatched := false
 		for _, sig := range sigs {
 			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
 				annotationErrors = append(annotationErrors, err)
-			} else {
-				annotationMatched = true
-				break
+				continue
 			}
+			return nil
 		}
-		if !annotationMatched {
-			err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
-			logger.Error(err, "image verification failed")
-			return err
-		}
+		err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
+		logger.Error(err, "image verification failed")
+		return err
 	}
 
 	return nil
