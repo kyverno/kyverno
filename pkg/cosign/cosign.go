@@ -683,7 +683,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 		}
 	}
 
-	return fmt.Errorf("no signatures found to match annotations")
+	return fmt.Errorf("no signature matched the required annotations")
 }
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
