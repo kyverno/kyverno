@@ -113,7 +113,7 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 	)
 
-	base := environment.MustBaseEnvSet(dpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(dpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
