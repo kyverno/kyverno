@@ -500,7 +500,7 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "staging"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "no signatures found to match annotations")
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{})
@@ -512,7 +512,7 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
 		map[string]string{"pipeline": "cd"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "no signatures found to match annotations")
 
 	payloadMulti := payload.SimpleContainerImage{
 		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
@@ -523,5 +523,5 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
 		map[string]string{"pipeline": "ci", "env": "staging"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "no signatures found to match annotations")
 }
