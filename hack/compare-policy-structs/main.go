@@ -9,18 +9,99 @@ import (
 	"strings"
 )
 
+type policyTypeComparison struct {
+	name       string
+	sourcePath string
+	sourceAPI  string
+	targetPath string
+	targetAPI  string
+	structName string
+}
+
 func main() {
+	allGood := true
 
-	v1Fields := getFieldSet("api/kyverno/v1/policy_types.go", "Policy")
-	v2beta1Fields := getFieldSet("api/kyverno/v2beta1/policy_types.go", "Policy")
+	comparisons := []policyTypeComparison{
+		// Policy: v1 -> v2beta1
+		{
+			name:       "Policy",
+			sourcePath: "api/kyverno/v1/policy_types.go",
+			sourceAPI:  "v1",
+			targetPath: "api/kyverno/v2beta1/policy_types.go",
+			targetAPI:  "v2beta1",
+			structName: "Policy",
+		},
+		// ClusterPolicy: v1 -> v2beta1
+		{
+			name:       "ClusterPolicy",
+			sourcePath: "api/kyverno/v1/clusterpolicy_types.go",
+			sourceAPI:  "v1",
+			targetPath: "api/kyverno/v2beta1/clusterpolicy_types.go",
+			targetAPI:  "v2beta1",
+			structName: "ClusterPolicy",
+		},
+		// CleanupPolicy: v2 -> v2beta1
+		{
+			name:       "CleanupPolicy",
+			sourcePath: "api/kyverno/v2/cleanup_policy_types.go",
+			sourceAPI:  "v2",
+			targetPath: "api/kyverno/v2beta1/cleanup_policy_types.go",
+			targetAPI:  "v2beta1",
+			structName: "CleanupPolicy",
+		},
+		// ClusterCleanupPolicy: v2 -> v2beta1
+		{
+			name:       "ClusterCleanupPolicy",
+			sourcePath: "api/kyverno/v2/cleanup_policy_types.go",
+			sourceAPI:  "v2",
+			targetPath: "api/kyverno/v2beta1/cleanup_policy_types.go",
+			targetAPI:  "v2beta1",
+			structName: "ClusterCleanupPolicy",
+		},
+		// PolicyException: v2 -> v2beta1
+		{
+			name:       "PolicyException",
+			sourcePath: "api/kyverno/v2/policy_exception_types.go",
+			sourceAPI:  "v2",
+			targetPath: "api/kyverno/v2beta1/policy_exception_types.go",
+			targetAPI:  "v2beta1",
+			structName: "PolicyException",
+		},
+	}
 
-	fmt.Println("Checking for missing fields in v2beta1")
+	for _, comp := range comparisons {
+		fmt.Printf("\n=== Comparing %s (%s -> %s) ===\n", comp.name, comp.sourceAPI, comp.targetAPI)
 
-	for field := range v1Fields {
-		if _, ok := v2beta1Fields[field]; !ok {
-			fmt.Printf("[MISSING] Field %q exists in v1 but not in v2beta1\n", field)
+		sourceFields := getFieldSet(comp.sourcePath, comp.structName)
+		targetFields := getFieldSet(comp.targetPath, comp.structName)
+
+		fmt.Printf("Checking for missing fields in %s.%s\n", comp.targetAPI, comp.structName)
+		if !compareFields(sourceFields, targetFields, comp.sourceAPI+"."+comp.structName, comp.targetAPI+"."+comp.structName) {
+			allGood = false
 		}
 	}
+
+	fmt.Println("\n=== Comparison complete ===")
+	if !allGood {
+		fmt.Println("❌ Some fields are missing in target versions")
+		os.Exit(1)
+	} else {
+		fmt.Println("✓ All fields are present in target versions")
+	}
+}
+
+func compareFields(sourceFields, targetFields map[string]struct{}, sourceName, targetName string) bool {
+	allPresent := true
+	for field := range sourceFields {
+		if _, ok := targetFields[field]; !ok {
+			fmt.Printf("[MISSING] Field %q exists in %s but not in %s\n", field, sourceName, targetName)
+			allPresent = false
+		}
+	}
+	if allPresent {
+		fmt.Printf("✓ All fields present\n")
+	}
+	return allPresent
 }
 
 func getFieldSet(filepath string, structName string) map[string]struct{} {
