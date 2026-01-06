@@ -857,6 +857,44 @@ admissionController:
   # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
   tlsKeyAlgorithm: RSA
 
+  # -- Configure cert-manager to manage TLS certificates.
+  # When enabled, cert-manager Certificate resources will be created to provision
+  # the TLS certificates for the admission controller.
+  # Requires cert-manager to be installed in the cluster.
+  # Takes precedence over createSelfSignedCert when enabled.
+  certManager:
+    # -- Enable cert-manager integration for certificate management
+    enabled: false
+    # -- Create a self-signed ClusterIssuer for CA generation.
+    # Set to false if you want to use an existing issuer specified in issuerRef.
+    createSelfSignedIssuer: true
+    # -- Reference to an existing issuer for signing CA certificates.
+    # Only used when createSelfSignedIssuer is false.
+    issuerRef:
+      # -- Name of the issuer
+      name: ""
+      # -- Kind of the issuer (ClusterIssuer or Issuer)
+      kind: ClusterIssuer
+      # -- Group of the issuer
+      group: cert-manager.io
+    # -- Key algorithm for certificates (RSA, ECDSA, Ed25519)
+    algorithm: RSA
+    # -- Key size for RSA (2048, 4096) or ECDSA (256, 384).
+    # Ignored for Ed25519.
+    size: 2048
+    # -- CA certificate configuration
+    ca:
+      # -- Duration of the CA certificate (default 10 years)
+      duration: 87600h
+      # -- Time before expiry to renew the CA certificate (default 30 days)
+      renewBefore: 720h
+    # -- TLS certificate configuration
+    tls:
+      # -- Duration of the TLS certificate (default 1 year)
+      duration: 8760h
+      # -- Time before expiry to renew the TLS certificate (default 30 days)
+      renewBefore: 720h
+
   # -- (int) Desired number of pods
   replicas: ~
 
@@ -1626,6 +1664,44 @@ cleanupController:
   # Supported values: RSA, ECDSA, Ed25519
   # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
   tlsKeyAlgorithm: RSA
+
+  # -- Configure cert-manager to manage TLS certificates.
+  # When enabled, cert-manager Certificate resources will be created to provision
+  # the TLS certificates for the cleanup controller.
+  # Requires cert-manager to be installed in the cluster.
+  # Takes precedence over createSelfSignedCert when enabled.
+  certManager:
+    # -- Enable cert-manager integration for certificate management
+    enabled: false
+    # -- Create a self-signed ClusterIssuer for CA generation.
+    # Set to false if you want to use an existing issuer specified in issuerRef.
+    createSelfSignedIssuer: true
+    # -- Reference to an existing issuer for signing CA certificates.
+    # Only used when createSelfSignedIssuer is false.
+    issuerRef:
+      # -- Name of the issuer
+      name: ""
+      # -- Kind of the issuer (ClusterIssuer or Issuer)
+      kind: ClusterIssuer
+      # -- Group of the issuer
+      group: cert-manager.io
+    # -- Key algorithm for certificates (RSA, ECDSA, Ed25519)
+    algorithm: RSA
+    # -- Key size for RSA (2048, 4096) or ECDSA (256, 384).
+    # Ignored for Ed25519.
+    size: 2048
+    # -- CA certificate configuration
+    ca:
+      # -- Duration of the CA certificate (default 10 years)
+      duration: 87600h
+      # -- Time before expiry to renew the CA certificate (default 30 days)
+      renewBefore: 720h
+    # -- TLS certificate configuration
+    tls:
+      # -- Duration of the TLS certificate (default 1 year)
+      duration: 8760h
+      # -- Time before expiry to renew the TLS certificate (default 30 days)
+      renewBefore: 720h
 
   image:
     # -- Image registry

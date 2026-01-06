@@ -17,4 +17,5 @@ var (
 	YamlVersion          = version.MajorMinor(1, 0)
 	RandomVersion        = version.MajorMinor(1, 0)
 	X509Version          = version.MajorMinor(1, 0)
+	TimeVersion          = version.MajorMinor(1, 0)
 )
