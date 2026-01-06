@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -90,6 +91,9 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 				),
 				random.Lib(
 					random.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},
