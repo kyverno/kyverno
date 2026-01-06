@@ -33,7 +33,7 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion, false)
+	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, err
