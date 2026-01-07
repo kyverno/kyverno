@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -121,7 +123,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	}
 	return &Policy{
 		mode:             policiesv1beta1.EvaluationModeKubernetes,
-		failurePolicy:    policy.GetFailurePolicy(),
+		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,
@@ -208,7 +210,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 
 	return &Policy{
 		mode:            policiesv1beta1.EvaluationModeJSON,
-		failurePolicy:   policy.GetFailurePolicy(),
+		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
