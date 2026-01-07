@@ -28,6 +28,12 @@ inputs:
   shard-count:
     description: Shard count
     default: '0'
+  install-cert-manager:
+    description: Install cert-manager before running tests
+    default: 'false'
+  explicit-install-settings:
+    description: Additional helm install settings for Kyverno (e.g., --set admissionController.tlsKeyAlgorithm=Ed25519)
+    default: ''
 runs:
   using: composite
   steps:
@@ -59,12 +65,22 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
+    - name: Install cert-manager
+      if: inputs.install-cert-manager == 'true'
+      shell: bash
+      run: |
+        set -e
+        helm repo add jetstack https://charts.jetstack.io
+        helm install cert-manager jetstack/cert-manager \
+          --namespace cert-manager --create-namespace \
+          --set crds.enabled=true --wait --timeout 300s
     - name: Install Kyverno
       shell: bash
       run: |
         set -ex
         export HELM=${{ steps.helm.outputs.helm-path }}
         export USE_CONFIG=${{ inputs.kyverno-configs }}
+        export EXPLICIT_INSTALL_SETTINGS="${{ inputs.explicit-install-settings }}"
         echo "Installing Kyverno from main"
         make kind-install-kyverno
     # install kubectl-evict plugin needed for testing eviction subresource trigger

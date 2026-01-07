@@ -1,7 +1,0 @@
-# Self-signed ClusterIssuer for generating the CA certificate
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: selfsigned-issuer
-spec:
-  selfSigned: {}

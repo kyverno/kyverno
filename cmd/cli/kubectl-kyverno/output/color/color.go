@@ -79,3 +79,7 @@ func ResultError() string {
 func ResultSkip() string {
 	return color.BoldFgCyan.Sprint("Skip")
 }
+
+func InvalidPolicy() string {
+	return color.BoldYellow.Sprint("Invalid Policy")
+}
