@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -36,8 +37,23 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 				"time_now",
 				[]*cel.Type{},
 				types.TimestampType,
-				cel.FunctionBinding(func(...ref.Val) ref.Val { return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: time.Now()}) })))
-			return e.Extend(nowFunc)
+				cel.FunctionBinding(func(...ref.Val) ref.Val {
+					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: time.Now()})
+				})))
+
+			truncateFunc := cel.Function("truncate", cel.Overload(
+				"time_truncate",
+				[]*cel.Type{types.TimestampType},
+				types.TimestampType,
+				cel.BinaryBinding(func(arg1 ref.Val, arg2 ref.Val) ref.Val {
+					ts, err := utils.ConvertToNative[time.Time](arg1)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					dur, err := utils.ConvertToNative[time.Duration](arg2)
+					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: ts.Truncate(dur)})
+				})))
+			return e.Extend(nowFunc, truncateFunc)
 		},
 	}
 }
