@@ -1014,7 +1014,8 @@ admissionController:
     successThreshold: 1
 
   # -- Node labels for pod assignment
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1460,7 +1461,8 @@ backgroundController:
       memory: 64Mi
 
   # -- Node labels for pod assignment
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1836,7 +1838,8 @@ cleanupController:
     successThreshold: 1
 
   # -- Node labels for pod assignment
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -2140,7 +2143,8 @@ reportsController:
       memory: 64Mi
 
   # -- Node labels for pod assignment
-  nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- List of node taints to tolerate
   tolerations: []
