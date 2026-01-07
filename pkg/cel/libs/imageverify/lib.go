@@ -4,7 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
