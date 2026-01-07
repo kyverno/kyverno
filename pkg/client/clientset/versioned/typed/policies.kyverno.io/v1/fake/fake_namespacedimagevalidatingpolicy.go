@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
+	v1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policieskyvernoiov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policies.kyverno.io/v1"
 	gentype "k8s.io/client-go/gentype"
 )
