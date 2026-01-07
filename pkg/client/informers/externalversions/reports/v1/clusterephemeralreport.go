@@ -56,7 +56,7 @@ func NewClusterEphemeralReportInformer(client versioned.Interface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterEphemeralReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredClusterEphemeralReportInformer(client versioned.Interface, resyn
 				}
 				return client.ReportsV1().ClusterEphemeralReports().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apireportsv1.ClusterEphemeralReport{},
 		resyncPeriod,
 		indexers,

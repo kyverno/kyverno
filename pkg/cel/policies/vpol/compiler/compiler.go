@@ -231,7 +231,7 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(vpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err

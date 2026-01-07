@@ -70,7 +70,7 @@ func validateMatchConditionsExpression(expression string, preexistingExpressions
 	}
 
 	lazyNonStrictStatelessCELCompilerInit.Do(func() {
-		lazyNonStrictStatelessCELCompiler = plugincel.NewCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+		lazyNonStrictStatelessCELCompiler = plugincel.NewCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	})
 
 	compiler := lazyNonStrictStatelessCELCompiler
@@ -79,7 +79,6 @@ func validateMatchConditionsExpression(expression string, preexistingExpressions
 	}, plugincel.OptionalVariableDeclarations{
 		HasParams:     false,
 		HasAuthorizer: true,
-		StrictCost:    false,
 	}, envType, fldPath)
 }
 

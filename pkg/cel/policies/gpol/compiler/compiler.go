@@ -61,7 +61,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 	)
 
-	base := environment.MustBaseEnvSet(gpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(gpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err

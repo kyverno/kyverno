@@ -46,7 +46,7 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 
-	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
+	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
 	extendedEnvSet, err := baseEnvSet.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
@@ -90,7 +90,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		HasParams:     false,
 		HasAuthorizer: false,
 		HasPatchTypes: true,
-		StrictCost:    true,
 	}
 
 	if policy.GetSpec().Variables != nil {
