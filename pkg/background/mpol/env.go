@@ -9,7 +9,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -29,7 +33,7 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion, false)
+	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, err
@@ -75,8 +79,21 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 				user.Lib(
 					user.Latest(),
 				),
+				math.Lib(
+					math.Latest(),
+				),
 				hash.Lib(
 					hash.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},

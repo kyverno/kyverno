@@ -10,8 +10,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -40,7 +46,7 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 
-	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
+	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
 	extendedEnvSet, err := baseEnvSet.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
@@ -60,8 +66,14 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				http.Lib(image.Latest()),
 				image.Lib(image.Latest()),
 				imagedata.Lib(imagedata.Latest()),
+				math.Lib(math.Latest()),
 				resource.Lib(policy.GetNamespace(), resource.Latest()),
 				user.Lib(user.Latest()),
+				json.Lib(&json.JsonImpl{}, json.Latest()),
+				yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),
+				random.Lib(random.Latest()),
+				x509.Lib(x509.Latest()),
+				time.Lib(time.Latest()),
 			},
 		},
 	)
@@ -78,7 +90,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		HasParams:     false,
 		HasAuthorizer: false,
 		HasPatchTypes: true,
-		StrictCost:    true,
 	}
 
 	if policy.GetSpec().Variables != nil {

@@ -15,8 +15,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -46,7 +52,7 @@ type compilerImpl struct{}
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policiesv1beta1.EvaluationModeJSON:
-		return c.compileForJSON(policy)
+		return c.compileForJSON(policy, exceptions)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
@@ -123,7 +129,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -142,7 +148,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()))
+	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()), x509.Lib(x509.Latest()))
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -186,12 +192,26 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		}
 	}
 
+	// Compile exceptions' match conditions for JSON mode
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
+
 	return &Policy{
 		mode:            policiesv1beta1.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(),
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
+		exceptions:      compiledExceptions,
 	}, nil
 }
 
@@ -211,7 +231,7 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(vpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -260,6 +280,26 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 				),
 				hash.Lib(
 					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
 				),
 			},
 		},
