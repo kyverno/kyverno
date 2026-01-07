@@ -51,6 +51,9 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 						return types.WrapErr(err)
 					}
 					dur, err := utils.ConvertToNative[time.Duration](arg2)
+					if err != nil {
+						return types.WrapErr(err)
+					}
 					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: ts.Truncate(dur)})
 				})))
 			return e.Extend(nowFunc, truncateFunc)
