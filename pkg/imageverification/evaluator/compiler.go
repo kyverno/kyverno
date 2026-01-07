@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -245,6 +246,9 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 				),
 				time.Lib(
 					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
 				),
 			},
 		},
