@@ -16,6 +16,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
@@ -179,7 +181,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 		)
 	}
 
-	base := environment.MustBaseEnvSet(ivpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -241,6 +243,12 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 				),
 				random.Lib(
 					random.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
 				),
 			},
 		},
