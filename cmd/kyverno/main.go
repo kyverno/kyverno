@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -374,6 +375,7 @@ func main() {
 		maxAuditCapacity                int
 		maxAdmissionReports             int
 		controllerRuntimeMetricsAddress string
+		tlsKeyAlgorithm                 string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -403,6 +405,7 @@ func main() {
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
+	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -439,6 +442,11 @@ func main() {
 		}
 		if tlsSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
+			os.Exit(1)
+		}
+		keyAlgorithm, ok := tls.KeyAlgorithms[strings.ToUpper(tlsKeyAlgorithm)]
+		if !ok {
+			setup.Logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", tlsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
 			os.Exit(1)
 		}
 		// check if mutating admission policies are registered in the API server
@@ -484,6 +492,7 @@ func main() {
 			config.KyvernoNamespace(),
 			caSecretName,
 			tlsSecretName,
+			keyAlgorithm,
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)

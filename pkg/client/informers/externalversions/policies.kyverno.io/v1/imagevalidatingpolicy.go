@@ -22,7 +22,7 @@ import (
 	context "context"
 	time "time"
 
-	apipolicieskyvernoiov1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
+	apipolicieskyvernoiov1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	policieskyvernoiov1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1"
@@ -56,7 +56,7 @@ func NewImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod t
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredImageValidatingPolicyInformer(client versioned.Interface, resync
 				}
 				return client.PoliciesV1().ImageValidatingPolicies().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apipolicieskyvernoiov1.ImageValidatingPolicy{},
 		resyncPeriod,
 		indexers,

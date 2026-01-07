@@ -387,6 +387,22 @@ The chart values are organised per component.
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| admissionController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
+| admissionController.certManager | object | `{"algorithm":"RSA","ca":{"duration":"87600h","renewBefore":"720h"},"createSelfSignedIssuer":true,"enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"ClusterIssuer","name":""},"size":2048,"tls":{"duration":"8760h","renewBefore":"720h"}}` | Configure cert-manager to manage TLS certificates. When enabled, cert-manager Certificate resources will be created to provision the TLS certificates for the admission controller. Requires cert-manager to be installed in the cluster. Takes precedence over createSelfSignedCert when enabled. |
+| admissionController.certManager.enabled | bool | `false` | Enable cert-manager integration for certificate management |
+| admissionController.certManager.createSelfSignedIssuer | bool | `true` | Create a self-signed ClusterIssuer for CA generation. Set to false if you want to use an existing issuer specified in issuerRef. |
+| admissionController.certManager.issuerRef | object | `{"group":"cert-manager.io","kind":"ClusterIssuer","name":""}` | Reference to an existing issuer for signing CA certificates. Only used when createSelfSignedIssuer is false. |
+| admissionController.certManager.issuerRef.name | string | `""` | Name of the issuer |
+| admissionController.certManager.issuerRef.kind | string | `"ClusterIssuer"` | Kind of the issuer (ClusterIssuer or Issuer) |
+| admissionController.certManager.issuerRef.group | string | `"cert-manager.io"` | Group of the issuer |
+| admissionController.certManager.algorithm | string | `"RSA"` | Key algorithm for certificates (RSA, ECDSA, Ed25519) |
+| admissionController.certManager.size | int | `2048` | Key size for RSA (2048, 4096) or ECDSA (256, 384). Ignored for Ed25519. |
+| admissionController.certManager.ca | object | `{"duration":"87600h","renewBefore":"720h"}` | CA certificate configuration |
+| admissionController.certManager.ca.duration | string | `"87600h"` | Duration of the CA certificate (default 10 years) |
+| admissionController.certManager.ca.renewBefore | string | `"720h"` | Time before expiry to renew the CA certificate (default 30 days) |
+| admissionController.certManager.tls | object | `{"duration":"8760h","renewBefore":"720h"}` | TLS certificate configuration |
+| admissionController.certManager.tls.duration | string | `"8760h"` | Duration of the TLS certificate (default 1 year) |
+| admissionController.certManager.tls.renewBefore | string | `"720h"` | Time before expiry to renew the TLS certificate (default 30 days) |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
@@ -576,6 +592,22 @@ The chart values are organised per component.
 | cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| cleanupController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
+| cleanupController.certManager | object | `{"algorithm":"RSA","ca":{"duration":"87600h","renewBefore":"720h"},"createSelfSignedIssuer":true,"enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"ClusterIssuer","name":""},"size":2048,"tls":{"duration":"8760h","renewBefore":"720h"}}` | Configure cert-manager to manage TLS certificates. When enabled, cert-manager Certificate resources will be created to provision the TLS certificates for the cleanup controller. Requires cert-manager to be installed in the cluster. Takes precedence over createSelfSignedCert when enabled. |
+| cleanupController.certManager.enabled | bool | `false` | Enable cert-manager integration for certificate management |
+| cleanupController.certManager.createSelfSignedIssuer | bool | `true` | Create a self-signed ClusterIssuer for CA generation. Set to false if you want to use an existing issuer specified in issuerRef. |
+| cleanupController.certManager.issuerRef | object | `{"group":"cert-manager.io","kind":"ClusterIssuer","name":""}` | Reference to an existing issuer for signing CA certificates. Only used when createSelfSignedIssuer is false. |
+| cleanupController.certManager.issuerRef.name | string | `""` | Name of the issuer |
+| cleanupController.certManager.issuerRef.kind | string | `"ClusterIssuer"` | Kind of the issuer (ClusterIssuer or Issuer) |
+| cleanupController.certManager.issuerRef.group | string | `"cert-manager.io"` | Group of the issuer |
+| cleanupController.certManager.algorithm | string | `"RSA"` | Key algorithm for certificates (RSA, ECDSA, Ed25519) |
+| cleanupController.certManager.size | int | `2048` | Key size for RSA (2048, 4096) or ECDSA (256, 384). Ignored for Ed25519. |
+| cleanupController.certManager.ca | object | `{"duration":"87600h","renewBefore":"720h"}` | CA certificate configuration |
+| cleanupController.certManager.ca.duration | string | `"87600h"` | Duration of the CA certificate (default 10 years) |
+| cleanupController.certManager.ca.renewBefore | string | `"720h"` | Time before expiry to renew the CA certificate (default 30 days) |
+| cleanupController.certManager.tls | object | `{"duration":"8760h","renewBefore":"720h"}` | TLS certificate configuration |
+| cleanupController.certManager.tls.duration | string | `"8760h"` | Duration of the TLS certificate (default 1 year) |
+| cleanupController.certManager.tls.renewBefore | string | `"720h"` | Time before expiry to renew the TLS certificate (default 30 days) |
 | cleanupController.image.registry | string | `nil` | Image registry |
 | cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
@@ -779,9 +811,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | test.sleep | int | `20` | Sleep time before running test |
-| test.image.registry | string | `"curlimages"` | Image registry |
-| test.image.repository | string | `"curl"` | Image repository |
-| test.image.tag | string | `"8.10.1"` | Image tag Defaults to `latest` if omitted |
+| test.image.registry | string | `"bitnami"` | Image registry |
+| test.image.repository | string | `"kubectl"` | Image repository |
+| test.image.tag | string | `"latest"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -818,6 +850,9 @@ The chart values are organised per component.
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | openreports.enabled | bool | `false` | Enable OpenReports feature in controllers |
 | openreports.installCrds | bool | `false` | Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true. |
+| reportsServer.enabled | bool | `false` | Enable reports-server deployment alongside Kyverno |
+| reportsServer.waitForReady | bool | `true` | Wait for reports-server to be ready before starting Kyverno components |
+| reportsServer.readinessTimeout | int | `300` | Timeout for waiting for reports-server readiness (in seconds) |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -883,6 +918,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
