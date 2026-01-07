@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
 
