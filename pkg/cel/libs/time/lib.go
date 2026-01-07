@@ -43,7 +43,7 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 
 			truncateFunc := cel.Function("truncate", cel.Overload(
 				"time_truncate",
-				[]*cel.Type{types.TimestampType},
+				[]*cel.Type{types.TimestampType, types.DurationType},
 				types.TimestampType,
 				cel.BinaryBinding(func(arg1 ref.Val, arg2 ref.Val) ref.Val {
 					ts, err := utils.ConvertToNative[time.Time](arg1)
