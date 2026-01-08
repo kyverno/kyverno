@@ -21,13 +21,13 @@ package externalversions
 import (
 	fmt "fmt"
 
+	policieskyvernoiov1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
+	v1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	policieskyvernoiov1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1"
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	v1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

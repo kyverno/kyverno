@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	policieskyvernoiov1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoiov1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers"
 	cache "k8s.io/client-go/tools/cache"
