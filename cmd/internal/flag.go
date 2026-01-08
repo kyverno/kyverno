@@ -69,6 +69,9 @@ var (
 	resyncPeriod time.Duration
 	// custom resource watch
 	crdWatcher bool
+	// auto memlimit
+	autoMemLimitEnabled bool
+	autoMemLimitRatio   float64
 )
 
 func initLoggingFlags() {
@@ -77,6 +80,11 @@ func initLoggingFlags() {
 	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
+}
+
+func initMemLimitFlags() {
+	flag.BoolVar(&autoMemLimitEnabled, "autoMemLimitEnabled", true, "Enable automatic GOMEMLIMIT configuration based on container or system memory.")
+	flag.Float64Var(&autoMemLimitRatio, "autoMemLimitRatio", 0.9, "The ratio of reserved GOMEMLIMIT memory to the detected maximum container or system memory. Must be greater than 0 and less than or equal to 1.")
 }
 
 func initProfilingFlags() {
@@ -209,6 +217,8 @@ func initFlags(config Configuration, opts ...Option) {
 	}
 	// logging
 	initLoggingFlags()
+	// memlimit
+	initMemLimitFlags()
 	// profiling
 	if config.UsesProfiling() {
 		initProfilingFlags()
