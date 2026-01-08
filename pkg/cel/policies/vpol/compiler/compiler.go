@@ -1,13 +1,14 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -19,9 +20,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/math"
 	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -119,7 +123,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	}
 	return &Policy{
 		mode:             policiesv1beta1.EvaluationModeKubernetes,
-		failurePolicy:    policy.GetFailurePolicy(),
+		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,
@@ -206,7 +210,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 
 	return &Policy{
 		mode:            policiesv1beta1.EvaluationModeJSON,
-		failurePolicy:   policy.GetFailurePolicy(),
+		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
@@ -230,7 +234,7 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(vpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -296,6 +300,12 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 				),
 				x509.Lib(
 					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
 				),
 			},
 		},
