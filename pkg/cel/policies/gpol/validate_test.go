@@ -3,7 +3,7 @@ package gpol
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,16 +12,16 @@ import (
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		pol     *v1alpha1.GeneratingPolicy
+		pol     *v1beta1.GeneratingPolicy
 		wantErr bool
 	}{
 		{
 			name: "valid policy",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "valid-gpol",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -40,21 +40,21 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "missing matchConstraints",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "no-constraints",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{},
+				Spec: v1beta1.GeneratingPolicySpec{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "empty resourceRules",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "empty-rules",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{ /* empty config */ },
 					},
@@ -64,11 +64,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "only ExcludeResourceRules present (should fail)",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "exclude-only",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ExcludeResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -87,11 +87,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid policy",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "invalid-policy",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -116,11 +116,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "valid policy with match conditions",
-			pol: &v1alpha1.GeneratingPolicy{
+			pol: &v1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "valid-gpol-with-cel",
 				},
-				Spec: v1alpha1.GeneratingPolicySpec{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{

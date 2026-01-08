@@ -2,14 +2,14 @@ package compiler
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 var (
-	podImageExtractors = []v1alpha1.ImageExtractor{{
+	podImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
 		Expression: "(object != null ? object : oldObject).spec.?containers.orValue([]).map(e, e.image)",
 	}, {
@@ -19,7 +19,7 @@ var (
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}}
-	podControllerImageExtractors = []v1alpha1.ImageExtractor{{
+	podControllerImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?containers.orValue([]).map(e, e.image)",
 	}, {
@@ -29,7 +29,7 @@ var (
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}}
-	cronJobImageExtractors = []v1alpha1.ImageExtractor{{
+	cronJobImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
 		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?containers.orValue([]).map(e, e.image)",
 	}, {
@@ -55,7 +55,7 @@ type ImageExtractor struct {
 	cel.Program
 }
 
-func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1alpha1.ImageExtractor {
+func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageExtractor {
 	switch gvr {
 	case pods:
 		return podImageExtractors
@@ -79,8 +79,8 @@ func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
 	return result, nil
 }
 
-func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, imageExtractors ...v1alpha1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
-	var extractors []v1alpha1.ImageExtractor
+func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, imageExtractors ...v1beta1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
+	var extractors []v1beta1.ImageExtractor
 	if gvr != nil {
 		extractors = append(extractors, getImageExtractorsFromGVR(*gvr)...)
 	}

@@ -189,7 +189,7 @@ func (h *generationHandler) applyGeneration(
 	}
 }
 
-// handleFailedRules sync changes of the trigger to the downstream
+// syncTriggerAction sync changes of the trigger to the downstream
 // it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails or is skipped
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
@@ -344,7 +344,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			}
 		}
 		if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-			e := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+			e := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: new.GetKind(), Namespace: new.GetNamespace(), Name: new.GetName()})
 			h.eventGen.Add(e...)
 			return err

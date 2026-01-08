@@ -4,17 +4,17 @@ import (
 	"errors"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 type fakePolicyExceptionLister struct {
 	err        error
-	exceptions []*policiesv1alpha1.PolicyException
+	exceptions []*policiesv1beta1.PolicyException
 }
 
-func (l *fakePolicyExceptionLister) List(selector labels.Selector) ([]*policiesv1alpha1.PolicyException, error) {
+func (l *fakePolicyExceptionLister) List(selector labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return l.exceptions, l.err
 }
 
@@ -24,7 +24,7 @@ func TestListExceptions(t *testing.T) {
 		lister     policyExceptionLister
 		policyKind string
 		policyName string
-		want       []*policiesv1alpha1.PolicyException
+		want       []*policiesv1beta1.PolicyException
 		wantErr    bool
 	}{{
 		name: "with error",
@@ -35,9 +35,9 @@ func TestListExceptions(t *testing.T) {
 	}, {
 		name: "name doesn't match",
 		lister: &fakePolicyExceptionLister{
-			exceptions: []*policiesv1alpha1.PolicyException{{
-				Spec: policiesv1alpha1.PolicyExceptionSpec{
-					PolicyRefs: []policiesv1alpha1.PolicyRef{{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
 						Kind: "foo",
 						Name: "bar",
 					}},
@@ -49,9 +49,9 @@ func TestListExceptions(t *testing.T) {
 	}, {
 		name: "kind doesn't match",
 		lister: &fakePolicyExceptionLister{
-			exceptions: []*policiesv1alpha1.PolicyException{{
-				Spec: policiesv1alpha1.PolicyExceptionSpec{
-					PolicyRefs: []policiesv1alpha1.PolicyRef{{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
 						Kind: "foo",
 						Name: "bar",
 					}},
@@ -63,9 +63,9 @@ func TestListExceptions(t *testing.T) {
 	}, {
 		name: "match",
 		lister: &fakePolicyExceptionLister{
-			exceptions: []*policiesv1alpha1.PolicyException{{
-				Spec: policiesv1alpha1.PolicyExceptionSpec{
-					PolicyRefs: []policiesv1alpha1.PolicyRef{{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
 						Kind: "foo",
 						Name: "bar",
 					}},
@@ -74,9 +74,9 @@ func TestListExceptions(t *testing.T) {
 		},
 		policyKind: "foo",
 		policyName: "bar",
-		want: []*policiesv1alpha1.PolicyException{{
-			Spec: policiesv1alpha1.PolicyExceptionSpec{
-				PolicyRefs: []policiesv1alpha1.PolicyRef{{
+		want: []*policiesv1beta1.PolicyException{{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{
 					Kind: "foo",
 					Name: "bar",
 				}},

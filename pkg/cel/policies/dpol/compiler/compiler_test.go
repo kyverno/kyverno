@@ -3,7 +3,7 @@ package compiler
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,15 +12,15 @@ import (
 func TestCompile(t *testing.T) {
 	tests := []struct {
 		name       string
-		policy     *v1alpha1.DeletingPolicy
-		exceptions []*v1alpha1.PolicyException
+		policy     v1beta1.DeletingPolicyLike
+		exceptions []*v1beta1.PolicyException
 		wantErr    bool
 	}{
 		{
 			name: "empty policy",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 				},
 			},
@@ -28,9 +28,9 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "valid condition",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "valid-condition"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 					Conditions: []admissionv1.MatchCondition{
 						{
@@ -43,10 +43,20 @@ func TestCompile(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "namespaced policy",
+			policy: &v1beta1.NamespacedDeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "namespaced"},
+				Spec: v1beta1.DeletingPolicySpec{
+					Schedule: "* * * * *",
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid condition",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "invalid-condition"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 					Conditions: []admissionv1.MatchCondition{
 						{
@@ -60,9 +70,9 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "valid variable",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "valid-variable"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 					Variables: []admissionv1.Variable{
 						{
@@ -76,9 +86,9 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "invalid variable",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "invalid-variable"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 					Variables: []admissionv1.Variable{
 						{
@@ -92,16 +102,16 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "valid exception",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "valid-exception"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 				},
 			},
-			exceptions: []*v1alpha1.PolicyException{
+			exceptions: []*v1beta1.PolicyException{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "exc1"},
-					Spec: v1alpha1.PolicyExceptionSpec{
+					Spec: v1beta1.PolicyExceptionSpec{
 						MatchConditions: []admissionv1.MatchCondition{
 							{
 								Name:       "exc-cond",
@@ -115,16 +125,16 @@ func TestCompile(t *testing.T) {
 		},
 		{
 			name: "invalid exception",
-			policy: &v1alpha1.DeletingPolicy{
+			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "invalid-exception"},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					Schedule: "* * * * *",
 				},
 			},
-			exceptions: []*v1alpha1.PolicyException{
+			exceptions: []*v1beta1.PolicyException{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "exc-bad"},
-					Spec: v1alpha1.PolicyExceptionSpec{
+					Spec: v1beta1.PolicyExceptionSpec{
 						MatchConditions: []admissionv1.MatchCondition{
 							{
 								Name:       "exc-bad-cond",

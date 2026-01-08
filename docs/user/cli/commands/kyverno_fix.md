@@ -11,6 +11,8 @@ Fix inconsistencies and deprecated usage of Kyverno resources.
 
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
+  For more information visit https://kyverno.io/docs/kyverno-cli/#fix
+
 ```
 kyverno fix [flags]
 ```

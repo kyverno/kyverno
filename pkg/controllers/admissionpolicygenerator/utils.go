@@ -1,9 +1,9 @@
 package admissionpolicygenerator
 
 import (
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,7 +19,7 @@ func (c *controller) getClusterPolicy(name string) (*kyvernov1.ClusterPolicy, er
 }
 
 // getValidatngPolicy gets the Kyverno ValidatingPolicy
-func (c *controller) getValidatingPolicy(name string) (*policiesv1alpha1.ValidatingPolicy, error) {
+func (c *controller) getValidatingPolicy(name string) (*policiesv1beta1.ValidatingPolicy, error) {
 	vpol, err := c.vpolLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func (c *controller) getValidatingPolicy(name string) (*policiesv1alpha1.Validat
 }
 
 // getMutatingPolicy gets the Kyverno MutatingPolicy
-func (c *controller) getMutatingPolicy(name string) (*policiesv1alpha1.MutatingPolicy, error) {
+func (c *controller) getMutatingPolicy(name string) (*policiesv1beta1.MutatingPolicy, error) {
 	mpol, err := c.mpolLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -88,8 +88,8 @@ func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyE
 }
 
 // getCELExceptions get PolicyExceptions that match the ValidatingPolicy.
-func (c *controller) getCELExceptions(policyName string) ([]policiesv1alpha1.PolicyException, error) {
-	var exceptions []policiesv1alpha1.PolicyException
+func (c *controller) getCELExceptions(policyName string) ([]policiesv1beta1.PolicyException, error) {
+	var exceptions []policiesv1beta1.PolicyException
 	polexs, err := c.celpolexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err

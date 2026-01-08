@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -16,14 +16,14 @@ import (
 func Test_Match(t *testing.T) {
 	tests := []struct {
 		name           string
-		imageExtractor []v1alpha1.ImageExtractor
+		imageExtractor []v1beta1.ImageExtractor
 		request        map[string]any
 		gvr            *metav1.GroupVersionResource
 		wantResult     map[string][]string
 		wantErr        bool
 	}{{
 		name: "standard",
-		imageExtractor: []v1alpha1.ImageExtractor{{
+		imageExtractor: []v1beta1.ImageExtractor{{
 			Name:       "one",
 			Expression: "request.images",
 		}},
@@ -45,7 +45,7 @@ func Test_Match(t *testing.T) {
 		wantErr: false,
 	}, {
 		name: "pod image extraction",
-		imageExtractor: []v1alpha1.ImageExtractor{{
+		imageExtractor: []v1beta1.ImageExtractor{{
 			Name:       "one",
 			Expression: "request.images",
 		}},
@@ -98,7 +98,7 @@ func Test_Match(t *testing.T) {
 		wantErr: false,
 	}, {
 		name: "pod image extraction (old object)",
-		imageExtractor: []v1alpha1.ImageExtractor{{
+		imageExtractor: []v1beta1.ImageExtractor{{
 			Name:       "one",
 			Expression: "request.images",
 		}},
@@ -152,7 +152,7 @@ func Test_Match(t *testing.T) {
 		wantErr: false,
 	}, {
 		name: "standard fail",
-		imageExtractor: []v1alpha1.ImageExtractor{{
+		imageExtractor: []v1beta1.ImageExtractor{{
 			Name:       "one",
 			Expression: "request.images",
 		}},

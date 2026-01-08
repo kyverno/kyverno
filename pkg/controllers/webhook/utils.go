@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	policiesv1v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/maps"
@@ -16,18 +16,27 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.GenericPolicy {
+func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1v1beta1.GenericPolicy {
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		return vpol
 	}
+	if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		return nvpol
+	}
 	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
 		return ivpol
+	}
+	if nivpol := policy.AsNamespacedImageValidatingPolicy(); nivpol != nil {
+		return nivpol
 	}
 	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 		return gpol
 	}
 	if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		return mpol
+	}
+	if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+		return nmpol
 	}
 	return nil
 }
@@ -194,8 +203,11 @@ func less[T cmp.Ordered](a []T, b []T) int {
 }
 
 const (
-	ValidatingPolicyType      = "ValidatingPolicy"
-	ImageValidatingPolicyType = "ImageValidatingPolicy"
-	MutatingPolicyType        = "MutatingPolicy"
-	GeneratingPolicyType      = "GeneratingPolicy"
+	ValidatingPolicyType                = "ValidatingPolicy"
+	NamespacedValidatingPolicyType      = "NamespacedValidatingPolicy"
+	ImageValidatingPolicyType           = "ImageValidatingPolicy"
+	NamespacedImageValidatingPolicyType = "NamespacedImageValidatingPolicy"
+	MutatingPolicyType                  = "MutatingPolicy"
+	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
+	GeneratingPolicyType                = "GeneratingPolicy"
 )

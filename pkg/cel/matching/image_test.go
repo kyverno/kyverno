@@ -3,7 +3,7 @@ package matching
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -12,13 +12,13 @@ import (
 func Test_Match(t *testing.T) {
 	tests := []struct {
 		name                 string
-		MatchImageReferences []v1alpha1.MatchImageReference
+		MatchImageReferences []v1beta1.MatchImageReference
 		image                string
 		wantResult           bool
 		wantErr              bool
 	}{{
 		name: "standard pass",
-		MatchImageReferences: []v1alpha1.MatchImageReference{
+		MatchImageReferences: []v1beta1.MatchImageReference{
 			{
 				Glob: "ghcr.io/*",
 			},
@@ -31,7 +31,7 @@ func Test_Match(t *testing.T) {
 		wantErr:    false,
 	}, {
 		name: "standard fail",
-		MatchImageReferences: []v1alpha1.MatchImageReference{
+		MatchImageReferences: []v1beta1.MatchImageReference{
 			{
 				Glob: "ghcr.io/*",
 			},
@@ -44,7 +44,7 @@ func Test_Match(t *testing.T) {
 		wantErr:    false,
 	}, {
 		name: "second rule matches",
-		MatchImageReferences: []v1alpha1.MatchImageReference{
+		MatchImageReferences: []v1beta1.MatchImageReference{
 			{
 				Glob: "index.docker.io/*",
 			},

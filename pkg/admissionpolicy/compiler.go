@@ -2,7 +2,7 @@ package admissionpolicy
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
@@ -13,7 +13,7 @@ import (
 type Compiler struct {
 	compositedCompiler cel.CompositedCompiler
 	validations        []admissionregistrationv1.Validation
-	mutations          []admissionregistrationv1alpha1.Mutation
+	mutations          []admissionregistrationv1beta1.Mutation
 	auditAnnotations   []admissionregistrationv1.AuditAnnotation
 	matchConditions    []admissionregistrationv1.MatchCondition
 	variables          []admissionregistrationv1.Variable
@@ -23,7 +23,7 @@ func NewCompiler(
 	matchConditions []admissionregistrationv1.MatchCondition,
 	variables []admissionregistrationv1.Variable,
 ) (*Compiler, error) {
-	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (c *Compiler) WithValidations(validations []admissionregistrationv1.Validat
 	c.validations = validations
 }
 
-func (c *Compiler) WithMutations(mutations []admissionregistrationv1alpha1.Mutation) {
+func (c *Compiler) WithMutations(mutations []admissionregistrationv1beta1.Mutation) {
 	c.mutations = mutations
 }
 
@@ -50,7 +50,7 @@ func (c Compiler) CompileMutations(patchOptions cel.OptionalVariableDeclarations
 	var patchers []patch.Patcher
 	for _, m := range c.mutations {
 		switch m.PatchType {
-		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
+		case admissionregistrationv1beta1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
 				accessor := &patch.JSONPatchCondition{
 					Expression: m.JSONPatch.Expression,
@@ -58,7 +58,7 @@ func (c Compiler) CompileMutations(patchOptions cel.OptionalVariableDeclarations
 				compileResult := c.compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
 				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
-		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
+		case admissionregistrationv1beta1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
 				accessor := &patch.ApplyConfigurationCondition{
 					Expression: m.ApplyConfiguration.Expression,

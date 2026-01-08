@@ -8,5 +8,8 @@ dependencies:
 - name: openreports
   repository: https://openreports.github.io/reports-api
   version: 0.1.0
-digest: sha256:c159d6120b9143d844e087a74ca406fb80bd17ca014e869f97b70a705c8104d2
-generated: "2025-07-09T14:58:12.948526+03:00"
+- name: reports-server
+  repository: https://kyverno.github.io/reports-server/
+  version: 0.1.6
+digest: sha256:c85287abd438c5cff3d4c3a0b6de50744e7a59e8e267c4af54c61652ad37560b
+generated: "2026-01-02T23:46:35.995612+05:30"

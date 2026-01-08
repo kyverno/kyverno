@@ -34,6 +34,7 @@ const GroupName = "kyverno.io"
 var GroupVersion = v1.GroupVersion{Group: GroupName, Version: "v2beta1"}
 
 // SchemeGroupVersion is group version used to register these objects
+//
 // Deprecated: use GroupVersion instead.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v2beta1"}
 
@@ -67,6 +68,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ClusterCleanupPolicyList{},
 		&ClusterPolicy{},
 		&ClusterPolicyList{},
+		&GlobalContextEntry{},
+		&GlobalContextEntryList{},
 		&Policy{},
 		&PolicyException{},
 		&PolicyExceptionList{},

@@ -1,6 +1,6 @@
 {{- if .Values.backgroundController.enabled -}}
-{{- if not .Values.templating.debug -}}
-{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken -}}
+{{- if not .Values.global.templating.debug -}}
+{{- $automountSAToken := .Values.backgroundController.rbac.serviceAccount.automountServiceAccountToken -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -85,6 +85,10 @@ spec:
       {{- end }}
       serviceAccountName: {{ template "kyverno.background-controller.serviceAccountName" . }}
       automountServiceAccountToken: {{ $automountSAToken }}
+      {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
+      initContainers:
+        {{- include "kyverno.reportsServer.initContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: controller
           image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -174,11 +178,13 @@ spec:
           {{- end }}
           {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume (not $automountSAToken)}}
           volumeMounts:
+            {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
             - name: ca-certificates
               mountPath: /etc/ssl/certs/ca-certificates.crt
               {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
               subPath: ca-certificates.crt
               {{- end }}
+            {{- end }}
             {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount

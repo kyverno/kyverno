@@ -3,7 +3,7 @@ package dpol
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -11,16 +11,16 @@ import (
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		dpol    *v1alpha1.DeletingPolicy
+		dpol    *v1beta1.DeletingPolicy
 		wantErr bool
 	}{
 		{
 			name: "valid policy",
-			dpol: &v1alpha1.DeletingPolicy{
+			dpol: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "valid-policy",
 				},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -39,21 +39,21 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "missing matchConstraints",
-			dpol: &v1alpha1.DeletingPolicy{
+			dpol: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "no-constraints",
 				},
-				Spec: v1alpha1.DeletingPolicySpec{},
+				Spec: v1beta1.DeletingPolicySpec{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "empty resourceRules",
-			dpol: &v1alpha1.DeletingPolicy{
+			dpol: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "empty-rules",
 				},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{ /*empty config*/ },
 					},
@@ -63,11 +63,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "only ExcludeResourceRules present (should fail)",
-			dpol: &v1alpha1.DeletingPolicy{
+			dpol: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "exclude-only",
 				},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ExcludeResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -86,11 +86,11 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "invalid policy",
-			dpol: &v1alpha1.DeletingPolicy{
+			dpol: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "bad-cel",
 				},
-				Spec: v1alpha1.DeletingPolicySpec{
+				Spec: v1beta1.DeletingPolicySpec{
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{

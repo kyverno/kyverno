@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -290,7 +290,7 @@ func (i *ImageData) AddVerifiedIntotoPayloads(predicateType string, data []byte)
 	i.verifiedIntotoPayloads[predicateType] = data
 }
 
-func (i *ImageData) GetPayload(a v1alpha1.Attestation) (any, error) {
+func (i *ImageData) GetPayload(a v1beta1.Attestation) (any, error) {
 	var b []byte
 	if a.IsInToto() {
 		var ok bool

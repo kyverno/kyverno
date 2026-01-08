@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,13 +20,13 @@ type reconciler struct {
 	client       client.Client
 	lock         *sync.RWMutex
 	policies     map[string]Policy
-	polexLister  policiesv1alpha1listers.PolicyExceptionLister
+	polexLister  policiesv1beta1listers.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	client client.Client,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -39,7 +39,7 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var policy policiesv1alpha1.ImageValidatingPolicy
+	var policy policiesv1beta1.ImageValidatingPolicy
 	err := r.client.Get(ctx, req.NamespacedName, &policy)
 	if errors.IsNotFound(err) {
 		r.lock.Lock()
@@ -50,7 +50,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	var exceptions []*policiesv1alpha1.PolicyException
+	var exceptions []*policiesv1beta1.PolicyException
 	if r.polexEnabled {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {
@@ -74,7 +74,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			Name: name,
 		}
 		r.policies[namespacedName.String()] = Policy{
-			Policy: &policiesv1alpha1.ImageValidatingPolicy{
+			Policy: &policiesv1beta1.ImageValidatingPolicy{
 				TypeMeta:   policy.TypeMeta,
 				ObjectMeta: policy.ObjectMeta,
 				Spec:       *p.Spec,

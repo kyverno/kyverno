@@ -8,8 +8,9 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -55,65 +56,43 @@ func (e *evalErrorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.
 	return nil, nil, errors.New("forced match error")
 }
 
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
-
 func TestEvaluate(t *testing.T) {
 	ctx := context.Background()
 	obj := unstructured.Unstructured{}
-	ctxLib := &fakeContext{}
+	ns := unstructured.Unstructured{}
+	ctxLib := &libs.FakeContextProvider{}
 
 	t.Run("variable returns value", func(t *testing.T) {
 		p := &Policy{variables: map[string]cel.Program{"test": &valueProgram{}}}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.NotNil(t, result)
 	})
 
 	t.Run("variable returns error", func(t *testing.T) {
 		p := &Policy{variables: map[string]cel.Program{"test": &errorProgram{}}}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.NotNil(t, result)
 	})
 
 	t.Run("match returns true (conditions)", func(t *testing.T) {
 		p := &Policy{conditions: []cel.Program{&trueProgram{}}}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.True(t, result.Result)
 	})
 
 	t.Run("match returns false (conditions)", func(t *testing.T) {
 		p := &Policy{conditions: []cel.Program{&falseProgram{}}}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.False(t, result.Result)
 	})
 
 	t.Run("match returns error (conditions)", func(t *testing.T) {
 		p := &Policy{conditions: []cel.Program{&evalErrorProgram{}}}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.Error(t, err)
 		require.Nil(t, result)
 	})
@@ -121,11 +100,11 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns true", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&trueProgram{}},
 			}},
 		}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.Len(t, result.Exceptions, 1)
 	})
@@ -133,11 +112,11 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns false", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&falseProgram{}},
 			}},
 		}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.NoError(t, err)
 		require.Empty(t, result.Exceptions)
 	})
@@ -145,11 +124,11 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns error", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&evalErrorProgram{}},
 			}},
 		}
-		result, err := p.Evaluate(ctx, obj, ctxLib)
+		result, err := p.Evaluate(ctx, obj, &ns, ctxLib)
 		require.Error(t, err)
 		require.Nil(t, result)
 	})

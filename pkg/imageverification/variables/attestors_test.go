@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -13,42 +13,42 @@ import (
 func Test_Attestors(t *testing.T) {
 	tests := []struct {
 		name       string
-		attestors  []v1alpha1.Attestor
+		attestors  []v1beta1.Attestor
 		celOpts    []cel.EnvOption
 		data       map[string]any
-		wantResult []v1alpha1.Attestor
+		wantResult []v1beta1.Attestor
 		wantErr    bool
 	}{
 		{
 			name: "standard",
-			attestors: []v1alpha1.Attestor{
+			attestors: []v1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &v1alpha1.Notary{
-						Certs: &v1alpha1.StringOrExpression{
+					Notary: &v1beta1.Notary{
+						Certs: &v1beta1.StringOrExpression{
 							Expression: "data.foo[0]",
 						},
-						TSACerts: &v1alpha1.StringOrExpression{
+						TSACerts: &v1beta1.StringOrExpression{
 							Expression: "data.foo[1]",
 						},
 					},
 				},
 				{
 					Name: "cosign-keyed",
-					Cosign: &v1alpha1.Cosign{
-						Key: &v1alpha1.Key{
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
 							Expression: "data.foo[0]",
 						},
 					},
 				},
 				{
 					Name: "cosign-cert",
-					Cosign: &v1alpha1.Cosign{
-						Certificate: &v1alpha1.Certificate{
-							Certificate: &v1alpha1.StringOrExpression{
+					Cosign: &v1beta1.Cosign{
+						Certificate: &v1beta1.Certificate{
+							Certificate: &v1beta1.StringOrExpression{
 								Expression: "data.foo[0]",
 							},
-							CertificateChain: &v1alpha1.StringOrExpression{
+							CertificateChain: &v1beta1.StringOrExpression{
 								Expression: "data.foo[1]",
 							},
 						},
@@ -66,15 +66,15 @@ func Test_Attestors(t *testing.T) {
 			celOpts: []cel.EnvOption{
 				cel.Variable("data", cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 			},
-			wantResult: []v1alpha1.Attestor{
+			wantResult: []v1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &v1alpha1.Notary{
-						Certs: &v1alpha1.StringOrExpression{
+					Notary: &v1beta1.Notary{
+						Certs: &v1beta1.StringOrExpression{
 							Value:      "bar",
 							Expression: "data.foo[0]",
 						},
-						TSACerts: &v1alpha1.StringOrExpression{
+						TSACerts: &v1beta1.StringOrExpression{
 							Value:      "baz",
 							Expression: "data.foo[1]",
 						},
@@ -82,8 +82,8 @@ func Test_Attestors(t *testing.T) {
 				},
 				{
 					Name: "cosign-keyed",
-					Cosign: &v1alpha1.Cosign{
-						Key: &v1alpha1.Key{
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
 							Data:       "bar",
 							Expression: "data.foo[0]",
 						},
@@ -91,13 +91,13 @@ func Test_Attestors(t *testing.T) {
 				},
 				{
 					Name: "cosign-cert",
-					Cosign: &v1alpha1.Cosign{
-						Certificate: &v1alpha1.Certificate{
-							Certificate: &v1alpha1.StringOrExpression{
+					Cosign: &v1beta1.Cosign{
+						Certificate: &v1beta1.Certificate{
+							Certificate: &v1beta1.StringOrExpression{
 								Value:      "bar",
 								Expression: "data.foo[0]",
 							},
-							CertificateChain: &v1alpha1.StringOrExpression{
+							CertificateChain: &v1beta1.StringOrExpression{
 								Value:      "baz",
 								Expression: "data.foo[1]",
 							},
@@ -109,11 +109,11 @@ func Test_Attestors(t *testing.T) {
 		},
 		{
 			name: "data not string",
-			attestors: []v1alpha1.Attestor{
+			attestors: []v1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &v1alpha1.Notary{
-						Certs: &v1alpha1.StringOrExpression{
+					Notary: &v1beta1.Notary{
+						Certs: &v1beta1.StringOrExpression{
 							Expression: "data.foo",
 						},
 					},

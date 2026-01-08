@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: "disallow-privilege-escalation-for-corp-registry"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  matchConditions:
+  - name: has-corp-registry
+    expression: |
+      (
+        object.spec.containers.exists(container, 
+          image(container.image).registry() == "corp.reg.com"
+        ) ||
+        object.spec.?initContainers.orValue([]).exists(initContainer,
+          image(initContainer.image).registry() == "corp.reg.com"
+        )
+      )
+  validations:
+    - message: "Containers must not allow privilege escalation"
+      expression: >
+        object.spec.containers.all(container,
+          has(container.securityContext) &&
+          has(container.securityContext.allowPrivilegeEscalation) &&
+          container.securityContext.allowPrivilegeEscalation == false
+        )

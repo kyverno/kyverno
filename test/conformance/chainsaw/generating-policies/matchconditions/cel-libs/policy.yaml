@@ -1,0 +1,45 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: matchcondition-with-cel-lib
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  matchConditions:
+  - name: has-corp-registry
+    expression: |
+      (
+        object.spec.containers.exists(container, 
+          image(container.image).registry() == "corp.reg.com"
+        ) ||
+        object.spec.?initContainers.orValue([]).exists(initContainer,
+          image(initContainer.image).registry() == "corp.reg.com"
+        )
+      )
+  variables:
+    - name: resName
+      expression: "object.metadata.name"
+    - name: nsName
+      expression: "object.metadata.namespace"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": string(variables.resName),
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "KAFKA_ADDRESS": "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092",
+              "ZK_ADDRESS": "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply(variables.nsName, variables.configmap)

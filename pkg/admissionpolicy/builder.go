@@ -3,13 +3,16 @@ package admissionpolicy
 import (
 	"fmt"
 	"slices"
+	"strings"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	slicesutils "github.com/kyverno/kyverno/pkg/utils/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,7 +118,34 @@ func BuildValidatingAdmissionPolicy(
 						Expression: expression,
 					})
 				}
+				if len(celpolex.Spec.Images) > 0 {
+					quotedImages := make([]string, len(celpolex.Spec.Images))
+					for i, img := range celpolex.Spec.Images {
+						quotedImages[i] = fmt.Sprintf("'%s'", img)
+					}
+					variables = append(variables, admissionregistrationv1.Variable{
+						Name:       "allowedImages",
+						Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+					})
+				}
+				if len(celpolex.Spec.AllowedValues) > 0 {
+					quotedValues := make([]string, len(celpolex.Spec.AllowedValues))
+					for i, val := range celpolex.Spec.AllowedValues {
+						quotedValues[i] = fmt.Sprintf("'%s'", val)
+					}
+					variables = append(variables, admissionregistrationv1.Variable{
+						Name:       "allowedValues",
+						Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+					})
+				}
 			}
+		}
+		replacements := map[string]string{
+			"exceptions.allowedImages": "variables.allowedImages",
+			"exceptions.allowedValues": "variables.allowedValues",
+		}
+		for i := range validations {
+			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
 		}
 	}
 
@@ -139,7 +169,18 @@ func BuildValidatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vap)
+	policyLabels := policy.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		vap.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 	return nil
+}
+
+func replaceExpressions(expr string, replacements map[string]string) string {
+	for old, new := range replacements {
+		expr = strings.ReplaceAll(expr, old, new)
+	}
+	return expr
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
@@ -200,10 +241,10 @@ func BuildValidatingAdmissionPolicyBinding(
 // BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	mp *policiesv1alpha1.MutatingPolicy,
-	exceptions []policiesv1alpha1.PolicyException,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
 ) {
-	var matchConditions []admissionregistrationv1alpha1.MatchCondition
+	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
 	// convert celexceptions if exist
 	for _, exception := range exceptions {
 		for _, matchCondition := range exception.Spec.MatchConditions {
@@ -215,38 +256,60 @@ func BuildMutatingAdmissionPolicy(
 			})
 		}
 	}
-	matchConditions = append(matchConditions, mp.Spec.MatchConditions...)
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
+	}
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
 		},
 	}
+
+	var fpt *admissionregistrationv1alpha1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		fpt = &conv
+	}
+
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-		MatchConstraints:   mp.Spec.MatchConstraints,
-		MatchConditions:    matchConditions,
-		Mutations:          mp.Spec.Mutations,
-		Variables:          mp.Spec.Variables,
-		FailurePolicy:      mp.Spec.FailurePolicy,
+		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
+				return admissionregistrationv1alpha1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: rule.RuleWithOperations,
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations:       mp.Spec.Mutations,
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
+			return admissionregistrationv1alpha1.Variable(v)
+		}),
+		FailurePolicy:      fpt,
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
 }
 
 // BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
 func BuildMutatingAdmissionPolicyBinding(
 	mapbinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
-	mp *policiesv1alpha1.MutatingPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
 ) {
 	// set owner reference
 	mapbinding.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: policiesv1alpha1.GroupVersion.String(),
+			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
@@ -360,6 +423,7 @@ func constructValidatingAdmissionPolicyRules(
 				for i := range *rules {
 					if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
 						(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
+						slices.Sort((*rules)[i].Resources)
 						isNewRule = false
 						break
 					}
@@ -398,6 +462,7 @@ func buildNamedRuleWithOperations(
 	operations []admissionregistrationv1.OperationType,
 	resources ...string,
 ) admissionregistrationv1.NamedRuleWithOperations {
+	slices.Sort(resources)
 	return admissionregistrationv1.NamedRuleWithOperations{
 		ResourceNames: resourceNames,
 		RuleWithOperations: admissionregistrationv1.RuleWithOperations{

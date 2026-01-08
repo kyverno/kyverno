@@ -3,31 +3,32 @@ package deleting
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/metrics"
+	pkgmetrics "github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -44,30 +45,27 @@ type controller struct {
 
 	// queue
 	queue   workqueue.TypedRateLimitingInterface[any]
-	enqueue controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy]
+	enqueue controllerutils.EnqueueFuncT[v1beta1.DeletingPolicyLike]
 
 	// config
 	configuration config.Configuration
 	cmResolver    engineapi.ConfigmapResolver
 	eventGen      event.Interface
-	metrics       deletingMetrics
-}
-
-type deletingMetrics struct {
-	deletedObjectsTotal   metric.Int64Counter
-	deletingFailuresTotal metric.Int64Counter
+	metrics       pkgmetrics.DeletingMetrics
 }
 
 const (
-	maxRetries     = 10
-	Workers        = 3
-	ControllerName = "deleting-controller"
+	maxRetries      = 10
+	Workers         = 3
+	ControllerName  = "deleting-controller"
+	minRequeueDelay = 1 * time.Second
 )
 
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	polInformer kyvernov1alpha1informers.DeletingPolicyInformer,
+	polInformer kyvernov1beta1informers.DeletingPolicyInformer,
+	ndpolInformer kyvernov1beta1informers.NamespacedDeletingPolicyInformer,
 	provider engine.Provider,
 	engine *engine.Engine,
 	nsLister corev1listers.NamespaceLister,
@@ -79,11 +77,11 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
-	keyFunc := controllerutils.MetaNamespaceKeyT[*v1alpha1.DeletingPolicy]
+	keyFunc := controllerutils.MetaNamespaceKeyT[v1beta1.DeletingPolicyLike]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[*v1alpha1.DeletingPolicy] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[v1beta1.DeletingPolicyLike] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj *v1alpha1.DeletingPolicy) error {
+		return func(obj v1beta1.DeletingPolicyLike) error {
 			logger := logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
@@ -105,41 +103,37 @@ func NewController(
 		configuration: configuration,
 		cmResolver:    cmResolver,
 		eventGen:      eventGen,
-		metrics:       newDeletignMetrics(logger),
+		metrics:       pkgmetrics.GetDeletingMetrics(),
 		provider:      provider,
 		engine:        engine,
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
-		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletigPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "DeletigPolicy")),
-		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletigPolicy")),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "DeletingPolicy")),
+		// On update, enqueue only when generation (spec) changes; skip status-only updates
+		func(oldObj, obj v1beta1.DeletingPolicyLike) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "DeletingPolicy")(obj)
+			}
+		},
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "DeletingPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	if _, err := controllerutils.AddEventHandlersT(
+		ndpolInformer.Informer(),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "NamespacedDeletingPolicy")),
+		// On update, enqueue only when generation (spec) changes; skip status-only updates
+		func(oldObj, obj v1beta1.DeletingPolicyLike) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "NamespacedDeletingPolicy")(obj)
+			}
+		},
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "NamespacedDeletingPolicy")),
+	); err != nil {
+		logger.Error(err, "failed to register namespaced event handlers")
+	}
 	return c
-}
-
-func newDeletignMetrics(logger logr.Logger) deletingMetrics {
-	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	deletedObjectsTotal, err := meter.Int64Counter(
-		"kyverno_deleting_controller_deletedobjects",
-		metric.WithDescription("can be used to track number of deleted objects."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
-	}
-	cleanupFailuresTotal, err := meter.Int64Counter(
-		"kyverno_deleting_controller_errors",
-		metric.WithDescription("can be used to track number of cleanup failures."),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, cleanup_controller_errors_total")
-	}
-	return deletingMetrics{
-		deletedObjectsTotal:   deletedObjectsTotal,
-		deletingFailuresTotal: cleanupFailuresTotal,
-	}
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
@@ -147,8 +141,13 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy engine.Policy) error {
-	spec := ePolicy.Policy.Spec
+	if c.client == nil {
+		return nil
+	}
+
+	spec := ePolicy.Policy.GetDeletingPolicySpec()
 	policy := ePolicy.Policy
+	policyNamespace := policy.GetNamespace()
 
 	debug := logger.V(4)
 	var errs []error
@@ -160,32 +159,44 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return errors.New("matchConstraints is required")
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(spec.MatchConstraints.ObjectSelector)
+	if err != nil {
+		debug.Error(err, "failed to parse label selector")
+		return err
+	}
+
 	restMapper, err := restmapper.GetRESTMapper(c.client, false)
 	if err != nil {
 		return err
 	}
 
-	kinds := admissionpolicy.GetKinds(spec.MatchConstraints, restMapper)
+	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
-	for _, kind := range kinds {
-		commonLabels := []attribute.KeyValue{
-			attribute.String("policy_type", policy.Kind),
-			attribute.String("policy_namespace", policy.GetNamespace()),
-			attribute.String("policy_name", policy.GetName()),
-			attribute.String("resource_kind", kind),
-		}
-		debug := debug.WithValues("kind", kind)
+	for _, gvr := range gvrList {
+		var client dynamic.ResourceInterface
+
+		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		list, err := c.client.ListResource(ctx, "", kind, "", policy.Spec.MatchConstraints.ObjectSelector)
+		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
+			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
+			continue
+		}
+
+		client = c.client.GetDynamicInterface().Resource(gvr)
+		if policyNamespace != "" {
+			client = client.(dynamic.NamespaceableResourceInterface).Namespace(policyNamespace)
+		}
+
+		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			errs = append(errs, err)
-			if c.metrics.deletingFailuresTotal != nil {
-				c.metrics.deletingFailuresTotal.Add(ctx, 1, metric.WithAttributes(commonLabels...))
+			// record failure metric
+			if c.metrics != nil {
+				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
 			}
 			// Check if this is a recoverable error (permission denied, resource not found, etc.)
 			if dclient.IsRecoverableError(err) {
-				logger.V(2).Info("skipping resource kind due to access restrictions", "kind", kind, "error", err.Error())
+				logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
 			} else {
 				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
 				errs = append(errs, err)
@@ -224,24 +235,22 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				continue
 			}
 
-			var labels []attribute.KeyValue
-			labels = append(labels, commonLabels...)
-			labels = append(labels, attribute.String("resource_namespace", namespace))
-			if deleteOptions.PropagationPolicy != nil {
-				labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
-			}
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-				if c.metrics.deletingFailuresTotal != nil {
-					c.metrics.deletingFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				if apierrors.IsNotFound(err) {
+					debug.Info("resource not found")
+					continue
+				}
+				if c.metrics != nil {
+					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
 				c.eventGen.Add(e)
 			} else {
-				if c.metrics.deletedObjectsTotal != nil {
-					c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+				if c.metrics != nil {
+					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
@@ -253,7 +262,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	policy, err := c.provider.Get(ctx, name)
+	policy, err := c.provider.Get(ctx, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -275,11 +284,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, *executionTime); err != nil {
-			logger.Error(err, "failed to update the cleanup policy status")
+		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
+			logger.Error(err, "failed to update the deleting policy status")
 			return err
 		}
-		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(*executionTime)
+		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
 			return err
@@ -288,26 +297,63 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		nextExecutionTime = executionTime
 	}
 	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(*nextExecutionTime)
-	// add the item back to the queue after the remaining time.
-	c.queue.AddAfter(key, timeRemaining)
+	// clamp to a sane minimum to avoid immediate hot-loops when nextExecutionTime is past/now
+	delay := time.Until(*nextExecutionTime)
+	if delay <= 0 {
+		delay = minRequeueDelay
+	}
+	// add the item back to the queue after the delay
+	c.queue.AddAfter(key, delay)
 	return nil
 }
 
-func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1alpha1.DeletingPolicy, time time.Time) error {
-	err := controllerutils.UpdateStatus(ctx, &policy, c.kyvernoClient.PoliciesV1alpha1().DeletingPolicies(), func(p *v1alpha1.DeletingPolicy) error {
-		p.Status = v1alpha1.DeletingPolicyStatus{
-			LastExecutionTime: metav1.NewTime(time),
-		}
-
-		return nil
-	}, func(current, expect *v1alpha1.DeletingPolicy) bool {
-		return datautils.DeepEqual(current.Status, expect.Status)
-	})
-	if err != nil {
-		return err
+func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {
+	if mapper == nil {
+		return false
 	}
-	logging.Info("updated deleting policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", policy.Status)
+	kind, err := mapper.KindFor(gvr)
+	if err != nil {
+		return false
+	}
 
+	mapping, err := mapper.RESTMapping(kind.GroupKind(), kind.Version)
+	if err != nil || mapping.Scope == nil {
+		return false
+	}
+
+	return mapping.Scope.Name() == apimeta.RESTScopeNameNamespace
+}
+
+func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1beta1.DeletingPolicyLike, time time.Time) error {
+	switch p := policy.(type) {
+	case *v1beta1.DeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().DeletingPolicies(), func(p *v1beta1.DeletingPolicy) error {
+			p.Status = v1beta1.DeletingPolicyStatus{
+				LastExecutionTime: metav1.NewTime(time),
+			}
+			return nil
+		}, func(current, expect *v1beta1.DeletingPolicy) bool {
+			return datautils.DeepEqual(current.Status, expect.Status)
+		})
+		if err != nil {
+			return err
+		}
+		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+	case *v1beta1.NamespacedDeletingPolicy:
+		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1beta1.NamespacedDeletingPolicy) error {
+			p.Status = v1beta1.DeletingPolicyStatus{
+				LastExecutionTime: metav1.NewTime(time),
+			}
+			return nil
+		}, func(current, expect *v1beta1.NamespacedDeletingPolicy) bool {
+			return datautils.DeepEqual(current.Status, expect.Status)
+		})
+		if err != nil {
+			return err
+		}
+		logging.Info("updated namespaced deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+	default:
+		return fmt.Errorf("unsupported policy type: %T", policy)
+	}
 	return nil
 }
