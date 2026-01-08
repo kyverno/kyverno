@@ -36,7 +36,7 @@ func TestEventGenerator(t *testing.T) {
 	eventGenerator := NewEventGenerator(eventsClient, logger, 1000, config.NewDefaultConfiguration(false))
 
 	go eventGenerator.Run(ctx, Workers)
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond) // Optimized: reduced from 1s
 
 	info := Info{
 		Regarding: corev1.ObjectReference{

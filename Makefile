@@ -1202,3 +1202,30 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+
+
+#################
+# ENVTEST SETUP #
+#################
+ENVTEST_K8S_VERSION = 1.31.0
+ENVTEST_VERSION ?= latest
+ENVTEST = $(shell go env GOPATH)/bin/setup-envtest
+# Initialize KUBEBUILDER_ASSETS if not already set. 
+# We use a lazy assignment to ensure it's evaluated when needed.
+KUBEBUILDER_ASSETS = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null)
+
+.PHONY: envtest
+envtest: ## Download and setup envtest binaries
+	@echo "Setting up envtest..." >&2
+	@test -f $(ENVTEST) || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) >/dev/null 2>&1 || true
+	@echo "EnvTest ready. Use 'make test-integration' to run integration tests." >&2
+
+.PHONY: test-integration
+test-integration: envtest ## Run integration tests (slower, with real API server)
+	@echo "Running integration tests with envtest..." >&2
+	@KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -v -tags envtest -timeout 5m ./pkg/controllers/cleanup/...
+
+.PHONY: test-all
+test-all: test-unit test-integration ## Run all tests (unit + integration)
