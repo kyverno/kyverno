@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -64,11 +63,11 @@ var (
 		},
 	})
 
-	polex = &policiesv1alpha1.PolicyException{
+	polex = &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-exception",
 		},
-		Spec: policiesv1alpha1.PolicyExceptionSpec{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
 			// add req. fields if required
 		},
 	}
@@ -119,7 +118,7 @@ func TestHandleWithPolex(t *testing.T) {
 		Kind:    "Deployment",
 	}, meta.RESTScopeNamespace)
 
-	invalidCompiledPolicy, _ := comp.Compile(invalidDpol, []*policiesv1alpha1.PolicyException{polex})
+	invalidCompiledPolicy, _ := comp.Compile(invalidDpol, []*policiesv1beta1.PolicyException{polex})
 	pol := Policy{
 		Policy:         invalidDpol,
 		CompiledPolicy: invalidCompiledPolicy,

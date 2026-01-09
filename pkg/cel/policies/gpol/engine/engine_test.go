@@ -3,8 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -231,9 +230,9 @@ func TestHandle(t *testing.T) {
 				},
 			},
 		}
-		exceptions := []*v1alpha1.PolicyException{
+		exceptions := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-namespace",

@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 )
 
@@ -16,7 +14,7 @@ type fetchProvider struct {
 	compiler     compiler.Compiler
 	dpolLister   policiesv1beta1listers.DeletingPolicyLister
 	ndpolLister  policiesv1beta1listers.NamespacedDeletingPolicyLister
-	polexLister  policiesv1alpha1listers.PolicyExceptionLister
+	polexLister  policiesv1beta1listers.PolicyExceptionLister
 	polexEnabled bool
 }
 
@@ -24,7 +22,7 @@ func NewFetchProvider(
 	compiler compiler.Compiler,
 	dpolLister policiesv1beta1listers.DeletingPolicyLister,
 	ndpolLister policiesv1beta1listers.NamespacedDeletingPolicyLister,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	return &fetchProvider{
@@ -56,7 +54,7 @@ func (r *fetchProvider) Get(ctx context.Context, namespace, name string) (Policy
 		return Policy{}, fmt.Errorf("deleting policy %s/%s not found", namespace, name)
 	}
 	// get exceptions that match the policy
-	var exceptions []*policiesv1alpha1.PolicyException
+	var exceptions []*policiesv1beta1.PolicyException
 	if r.polexEnabled {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {

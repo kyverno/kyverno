@@ -6,21 +6,18 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -82,7 +79,7 @@ type controller struct {
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
-	celpolexListener      policiesv1alpha1listers.PolicyExceptionLister
+	celpolexListener      policiesv1beta1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
@@ -124,7 +121,7 @@ func NewController(
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
-	celpolexlInformer policiesv1alpha1informers.PolicyExceptionInformer,
+	celpolexlInformer policiesv1beta1informers.PolicyExceptionInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -296,15 +293,15 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	}
 }
 
-func (c *controller) deleteCELPolicy(obj *policiesv1alpha1.PolicyException) {
+func (c *controller) deleteCELPolicy(obj *policiesv1beta1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addCELException(obj *policiesv1alpha1.PolicyException) {
+func (c *controller) addCELException(obj *policiesv1beta1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateCELException(old, obj *policiesv1alpha1.PolicyException) {
+func (c *controller) updateCELException(old, obj *policiesv1beta1.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
@@ -570,7 +567,7 @@ func (c *controller) reconcileReport(
 	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
-	celexceptions []*policiesv1alpha1.PolicyException,
+	celexceptions []*policiesv1beta1.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,

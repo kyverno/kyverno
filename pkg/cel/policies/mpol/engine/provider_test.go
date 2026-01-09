@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	admissionv1 "k8s.io/apiserver/pkg/admission"
 
@@ -26,7 +25,7 @@ func TestNewProvider(t *testing.T) {
 	tests := []struct {
 		name          string
 		pols          []policiesv1beta1.MutatingPolicyLike
-		exceptions    []*policiesv1alpha1.PolicyException
+		exceptions    []*policiesv1beta1.PolicyException
 		expectErr     bool
 		expectedCount int
 	}{
@@ -47,10 +46,10 @@ func TestNewProvider(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "policy-exc"},
 				},
 			},
-			exceptions: []*policiesv1alpha1.PolicyException{
+			exceptions: []*policiesv1beta1.PolicyException{
 				{
-					Spec: policiesv1alpha1.PolicyExceptionSpec{
-						PolicyRefs: []policiesv1alpha1.PolicyRef{
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						PolicyRefs: []policiesv1beta1.PolicyRef{
 							{
 								Name: "policy-exc",
 								Kind: "MutatingPolicy",
@@ -74,8 +73,7 @@ func TestNewProvider(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, prov)
 
-				pols, err := prov.Fetch(context.Background(), false)
-				assert.NoError(t, err)
+				pols := prov.Fetch(context.Background(), false)
 				assert.GreaterOrEqual(t, len(pols), tt.expectedCount)
 			}
 		})
@@ -115,15 +113,13 @@ func TestStaticProviderFetch(t *testing.T) {
 	}
 
 	t.Run("fetch mutateExisting == true", func(t *testing.T) {
-		res, err := provider.Fetch(context.TODO(), true)
-		assert.NoError(t, err)
+		res := provider.Fetch(context.TODO(), true)
 		assert.Len(t, res, 1)
 		assert.Equal(t, "enabled-policy", res[0].Policy.GetName())
 	})
 
 	t.Run("fetch mutateExisting == false", func(t *testing.T) {
-		res, err := provider.Fetch(context.TODO(), false)
-		assert.NoError(t, err)
+		res := provider.Fetch(context.TODO(), false)
 		assert.Len(t, res, 1)
 		assert.Equal(t, "disabled-policy", res[0].Policy.GetName())
 	})

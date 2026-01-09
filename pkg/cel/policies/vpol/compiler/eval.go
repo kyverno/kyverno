@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -19,7 +19,7 @@ type EvaluationResult struct {
 	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
-	Exceptions       []*policiesv1alpha1.PolicyException
+	Exceptions       []*policiesv1beta1.PolicyException
 	PatchedResource  unstructured.Unstructured
 }
 

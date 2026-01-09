@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	policiesv1v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/maps"
@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1alpha1.GenericPolicy {
+func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1v1beta1.GenericPolicy {
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		return vpol
 	}

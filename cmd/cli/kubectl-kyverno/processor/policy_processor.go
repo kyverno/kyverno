@@ -10,10 +10,9 @@ import (
 
 	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -71,7 +70,7 @@ type PolicyProcessor struct {
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
-	CELExceptions                     []*policiesv1alpha1.PolicyException
+	CELExceptions                     []*policiesv1beta1.PolicyException
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables

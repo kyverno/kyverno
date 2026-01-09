@@ -4,10 +4,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -64,7 +63,7 @@ type Scanner interface {
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 		[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-		[]*policiesv1alpha1.PolicyException,
+		[]*policiesv1beta1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -101,7 +100,7 @@ func (s *scanner) ScanResource(
 	ns *corev1.Namespace,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	exceptions []*policiesv1alpha1.PolicyException,
+	exceptions []*policiesv1beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())

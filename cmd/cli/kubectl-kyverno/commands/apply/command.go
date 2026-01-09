@@ -12,11 +12,10 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -305,7 +304,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1alpha1.PolicyException
+	var celexceptions []*policiesv1beta1.PolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
@@ -434,7 +433,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	parameterResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	exceptions []*kyvernov2.PolicyException,
-	celExceptions []*policiesv1alpha1.PolicyException,
+	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *kyvernov2.RequestInfo,
@@ -564,7 +563,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
-	celExceptions []*policiesv1alpha1.PolicyException,
+	celExceptions []*policiesv1beta1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
@@ -695,7 +694,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
-	celExceptions []*policiesv1alpha1.PolicyException,
+	celExceptions []*policiesv1beta1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,

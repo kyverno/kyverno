@@ -3,8 +3,7 @@ package compiler
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -15,7 +14,7 @@ func TestCompile(t *testing.T) {
 	tests := []struct {
 		name    string
 		pol     *v1beta1.MutatingPolicy
-		polex   []*v1alpha1.PolicyException
+		polex   []*v1beta1.PolicyException
 		wantErr bool
 	}{
 		{
@@ -40,9 +39,9 @@ func TestCompile(t *testing.T) {
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{},
 			},
-			polex: []*v1alpha1.PolicyException{
+			polex: []*v1beta1.PolicyException{
 				{
-					Spec: v1alpha1.PolicyExceptionSpec{
+					Spec: v1beta1.PolicyExceptionSpec{
 						MatchConditions: []admissionv1.MatchCondition{
 							{Expression: "invalid && expression"},
 						},

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,7 +16,7 @@ type GenericPolicy interface {
 	metav1.Object
 	GetMatchConstraints() admissionregistrationv1.MatchResources
 	GetMatchConditions() []admissionregistrationv1.MatchCondition
-	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetFailurePolicy(bool) admissionregistrationv1.FailurePolicyType
 	GetVariables() []admissionregistrationv1.Variable
 }
 
@@ -124,7 +123,7 @@ func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMo
 		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-	case *v1alpha1.GeneratingPolicy:
+	case v1beta1.GeneratingPolicyLike:
 		policyType = "Generating"
 	}
 

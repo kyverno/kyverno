@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,13 +29,13 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 func NewProvider(
 	compiler vpolcompiler.Compiler,
 	policies []policiesv1beta1.ValidatingPolicyLike,
-	exceptions []*policiesv1alpha1.PolicyException,
+	exceptions []*policiesv1beta1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		spec := policy.GetValidatingPolicySpec()
 		actions := sets.New(spec.ValidationActions()...)
-		var matchedExceptions []*policiesv1alpha1.PolicyException
+		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
@@ -87,7 +86,7 @@ func NewProvider(
 func NewKubeProvider(
 	compiler vpolcompiler.Compiler,
 	mgr ctrl.Manager,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
@@ -105,7 +104,7 @@ func NewKubeProvider(
 				tce event.TypedCreateEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tce.Object.(*policiesv1alpha1.PolicyException)
+				polex := tce.Object.(*policiesv1beta1.PolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -119,7 +118,7 @@ func NewKubeProvider(
 				tue event.TypedUpdateEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tue.ObjectNew.(*policiesv1alpha1.PolicyException)
+				polex := tue.ObjectNew.(*policiesv1beta1.PolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -133,7 +132,7 @@ func NewKubeProvider(
 				tde event.TypedDeleteEvent[client.Object],
 				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
 			) {
-				polex := tde.Object.(*policiesv1alpha1.PolicyException)
+				polex := tde.Object.(*policiesv1beta1.PolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
 					trli.Add(reconcile.Request{
 						NamespacedName: client.ObjectKey{
@@ -143,8 +142,8 @@ func NewKubeProvider(
 				}
 			},
 		}
-		vpolBuilder = vpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
-		nvpolBuilder = nvpolBuilder.Watches(&policiesv1alpha1.PolicyException{}, exceptionHandlerFuncs)
+		vpolBuilder = vpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
+		nvpolBuilder = nvpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
 	}
 
 	if err := vpolBuilder.Complete(reconciler); err != nil {

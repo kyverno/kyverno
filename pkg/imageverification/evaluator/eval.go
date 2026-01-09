@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -19,7 +18,7 @@ import (
 
 type CompiledImageValidatingPolicy struct {
 	Policy     policiesv1beta1.ImageValidatingPolicyLike
-	Exceptions []*policiesv1alpha1.PolicyException
+	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 

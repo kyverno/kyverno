@@ -9,7 +9,7 @@ import (
 
 	cel2 "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
@@ -468,8 +468,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					// MatchConditions: []cel2.Program{
 					// 	// Add something here
 					// },
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -495,8 +495,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						&fakeProgram{refVal: types.String("test-ref")},
 					},
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -521,8 +521,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						&fakeProgram{refVal: types.String("test-ref"), err: errors.New("test-error")},
 					},
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -548,7 +548,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						// Add something
 					},
-					Exception: &policiesv1alpha1.PolicyException{},
+					Exception: &policiesv1beta1.PolicyException{},
 				},
 			},
 		}

@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 )
 
@@ -22,7 +21,7 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 func NewProvider(
 	compiler dpolcompiler.Compiler,
 	policies []policiesv1beta1.DeletingPolicyLike,
-	exceptions []*policiesv1alpha1.PolicyException,
+	exceptions []*policiesv1beta1.PolicyException,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
@@ -30,7 +29,7 @@ func NewProvider(
 			continue
 		}
 		policyKind := policy.GetKind()
-		var matchedExceptions []*policiesv1alpha1.PolicyException
+		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policyKind {

@@ -80,9 +80,9 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
 	)
@@ -93,9 +93,9 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("NMPOL"),
 	)
@@ -107,9 +107,9 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("VPOL"),
 	)
@@ -120,9 +120,9 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("NVPOL"),
 	)
@@ -133,9 +133,9 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(ivpolLogger.WithName("validate")).
 			ToHandlerFunc("IVPOL"),
 	)
@@ -146,10 +146,10 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 			WithMetrics(resourceLogger, metrics.WebhookMutating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(resourceLogger.WithName("mutate")).
 			ToHandlerFunc("IVPOL"),
 	)
@@ -160,11 +160,24 @@ func NewServer(
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
-			WithTopLevelGVK(discovery).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
 			WithAdmission(resourceLogger.WithName("generate")).
 			ToHandlerFunc("GPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/ngpol/*policies",
+		handlerFunc("GENERATE", resourceHandlers.NamespacedGeneratingPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
+			WithAdmission(resourceLogger.WithName("generate")).
+			ToHandlerFunc("NGPOL"),
 	)
 	registerWebhookHandlersWithAll(
 		mux,
@@ -176,10 +189,10 @@ func NewServer(
 				WithFilter(configuration).
 				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
-				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metrics.WebhookMutating).
+				WithTopLevelGVK(discovery).
 				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
@@ -193,9 +206,9 @@ func NewServer(
 				WithFilter(configuration).
 				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
-				WithTopLevelGVK(discovery).
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metrics.WebhookValidating).
+				WithTopLevelGVK(discovery).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
 	)

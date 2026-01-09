@@ -56,7 +56,7 @@ func NewClusterCleanupPolicyInformer(client versioned.Interface, resyncPeriod ti
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterCleanupPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredClusterCleanupPolicyInformer(client versioned.Interface, resyncP
 				}
 				return client.KyvernoV2().ClusterCleanupPolicies().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apikyvernov2.ClusterCleanupPolicy{},
 		resyncPeriod,
 		indexers,

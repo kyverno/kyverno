@@ -8,7 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/require"
@@ -100,7 +100,7 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns true", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&trueProgram{}},
 			}},
 		}
@@ -112,7 +112,7 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns false", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&falseProgram{}},
 			}},
 		}
@@ -124,7 +124,7 @@ func TestEvaluate(t *testing.T) {
 	t.Run("exception match returns error", func(t *testing.T) {
 		p := &Policy{
 			exceptions: []compiler.Exception{{
-				Exception:       &policiesv1alpha1.PolicyException{},
+				Exception:       &policiesv1beta1.PolicyException{},
 				MatchConditions: []cel.Program{&evalErrorProgram{}},
 			}},
 		}

@@ -2,11 +2,11 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -337,7 +337,7 @@ func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLi
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
+func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyExceptionLister, namespace string) ([]*policiesv1beta1.PolicyException, error) {
 	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err

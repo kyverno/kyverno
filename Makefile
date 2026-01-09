@@ -35,15 +35,15 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.30.0
+KIND_VERSION                       ?= v0.31.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.18.0
+CONTROLLER_GEN_VERSION             ?= v0.20.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.34.1
+CODE_GEN_VERSION                   ?= v0.35.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -55,7 +55,7 @@ HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.18.0
+KO_VERSION                         ?= v0.18.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
@@ -457,14 +457,16 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--clientset-name versioned \
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
-		--input-base github.com/kyverno/kyverno \
-		--input ./api/kyverno/v1 \
-		--input ./api/kyverno/v2 \
-		--input ./api/kyverno/v2alpha1 \
-		--input ./api/reports/v1 \
-		--input ./api/policyreport/v1alpha2 \
-		--input ./api/policies.kyverno.io/v1alpha1 \
-		--input ./api/policies.kyverno.io/v1beta1
+		--input-base github.com/kyverno \
+		--input kyverno/api/kyverno/v1 \
+		--input kyverno/api/kyverno/v2 \
+		--input kyverno/api/kyverno/v2alpha1 \
+		--input kyverno/api/kyverno/v2beta1 \
+		--input kyverno/api/reports/v1 \
+		--input kyverno/api/policyreport/v1alpha2 \
+		--input api/api/policies.kyverno.io/v1alpha1 \
+		--input api/api/policies.kyverno.io/v1beta1 \
+		--input api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -478,10 +480,12 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1
+		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -497,10 +501,12 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
+		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1
+		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -539,8 +545,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@echo Generate policies crds... >&2
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
-		paths=./api/policies.kyverno.io/v1alpha1/... \
-		paths=./api/policies.kyverno.io/v1beta1/... \
+		paths=github.com/kyverno/api/api/policies.kyverno.io/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
@@ -668,10 +673,15 @@ define generate_crd
 	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
-.PHONY: helm-setup-openreports
-helm-setup-openreports: $(HELM) ## Add openreports helm repo and build dependencies
+.PHONY: helm-setup-dependency-charts
+helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
+	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) dependency build ./charts/kyverno
+
+# Legacy alias for backward compatibility
+.PHONY: helm-setup-openreports  
+helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-setup-dependency-charts instead
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -723,7 +733,7 @@ codegen-helm-all: codegen-helm-docs
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
-codegen-manifest-install-latest: helm-setup-openreports
+codegen-manifest-install-latest: helm-setup-dependency-charts
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -739,7 +749,7 @@ codegen-manifest-install-latest: helm-setup-openreports
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
-codegen-manifest-debug: helm-setup-openreports
+codegen-manifest-debug: helm-setup-dependency-charts
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -755,7 +765,7 @@ codegen-manifest-debug: helm-setup-openreports
 
 .PHONY: codegen-manifest-release
 codegen-manifest-release: ## Create release manifest
-codegen-manifest-release: helm-setup-openreports
+codegen-manifest-release: helm-setup-dependency-charts
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -1037,7 +1047,7 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
-kind-install-kyverno: helm-setup-openreports ## Install kyverno helm chart
+kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
