@@ -1,20 +1,30 @@
 package eval
 
 import (
+	"context"
+
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -138,7 +148,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	return &compiledPolicy{
-		failurePolicy:        ivpolicy.GetFailurePolicy(),
+		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
 		validations:          validations,
@@ -174,7 +184,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 		)
 	}
 
-	base := environment.MustBaseEnvSet(ivpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -219,6 +229,29 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 				),
 				user.Lib(
 					user.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
 				),
 			},
 		},
