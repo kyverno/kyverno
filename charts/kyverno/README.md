@@ -811,9 +811,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | test.sleep | int | `20` | Sleep time before running test |
-| test.image.registry | string | `"bitnami"` | Image registry |
-| test.image.repository | string | `"kubectl"` | Image repository |
-| test.image.tag | string | `"latest"` | Image tag Defaults to `latest` if omitted |
+| test.image.registry | string | `"curlimages"` | Image registry |
+| test.image.repository | string | `"curl"` | Image repository |
+| test.image.tag | string | `"8.10.1"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
