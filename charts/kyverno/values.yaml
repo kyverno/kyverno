@@ -518,12 +518,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: bitnami
+    registry: curlimages
     # -- Image repository
-    repository: kubectl
+    repository: curl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: latest
+    tag: '8.10.1'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
