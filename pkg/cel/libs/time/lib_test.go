@@ -32,3 +32,40 @@ func Test_time_now(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func Test_time_truncate(t *testing.T) {
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		Lib(nil),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+
+	t.Run("time_truncate", func(t *testing.T) {
+		expr := `
+			truncate(
+				timestamp("2025-01-02T03:45:27Z"),
+				duration("1h")
+			)
+		`
+		ast, issues := env.Compile(expr)
+		assert.Nil(t, issues)
+		assert.NotNil(t, ast)
+
+		prog, err := env.Program(ast)
+		assert.NoError(t, err)
+		assert.NotNil(t, prog)
+
+		out, _, err := prog.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.NotNil(t, out)
+
+		// validate the truncated timestamp
+		got := out.Value().(time.Time)
+		expected := time.Date(2025, 1, 2, 3, 0, 0, 0, time.UTC)
+		assert.Equal(t, expected, got)
+	})
+}
