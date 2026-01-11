@@ -247,6 +247,7 @@ jobs:
           tests-path: generate
           shard-index: ${{ matrix.shard-index }}
           shard-count: 8
+          install-kubectl-evict: true
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -641,6 +642,7 @@ jobs:
           tests-path: generating-policies
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
+          install-kubectl-evict: true
 
   namespaced-validating-policies:
     runs-on: ubuntu-latest

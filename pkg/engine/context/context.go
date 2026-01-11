@@ -417,7 +417,7 @@ func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{
 	out := make(map[string]interface{}, len(in))
 	for k, v := range in {
 		if ReservedKeys.MatchString(k) {
-			out[k] = v
+			out[k] = runtime.DeepCopyJSONValue(v)
 		} else {
 			out[k] = runtime.DeepCopyJSONValue(v)
 		}
