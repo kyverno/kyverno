@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: conditions
+  name: conditions-deprecated
 spec:
   steps:
   - name: create policy
