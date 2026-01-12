@@ -155,6 +155,28 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deferred
 
+  deleting-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+        shard-index: [0, 1, 2]
+    needs: [prepare-images]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: deleting-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          chainsaw-config: autogen/.chainsaw.yaml
+
   events:
     runs-on: ubuntu-latest
     permissions:
@@ -583,27 +605,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
-  deleting-policies:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-        shard-index: [0, 1, 2]
-    needs: [prepare-images]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deleting-policies
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 3
-
   namespaced-deleting-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -621,7 +622,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deleting-policies/namespaced
+          tests-path: namespaced-deleting-policies
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
