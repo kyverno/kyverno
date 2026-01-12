@@ -806,6 +806,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhooks
+          chainsaw-config: autogen/.chainsaw.yaml
 
   sigstore-custom-tuf:
     runs-on: ubuntu-latest
