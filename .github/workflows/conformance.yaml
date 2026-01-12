@@ -133,6 +133,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cleanup
+          chainsaw-config: autogen/.chainsaw.yaml
 
   deferred:
     runs-on: ubuntu-latest
