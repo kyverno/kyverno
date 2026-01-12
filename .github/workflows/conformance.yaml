@@ -154,6 +154,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deferred
+          chainsaw-config: autogen/.chainsaw.yaml
 
   deleting-policies:
     runs-on: ubuntu-latest
