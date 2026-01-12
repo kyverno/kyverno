@@ -1,0 +1,12 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: configuration
+spec:
+  timeouts:
+    apply: 10s
+    assert: 30s
+    error: 30s
+  fullName: true
+  failFast: true
+  template: true
