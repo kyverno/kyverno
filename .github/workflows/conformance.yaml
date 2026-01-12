@@ -195,6 +195,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
+          chainsaw-config: autogen/.chainsaw.yaml
 
   exceptions:
     runs-on: ubuntu-latest
