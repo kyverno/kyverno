@@ -831,6 +831,7 @@ jobs:
         k8s-version:
           - v1.33.x
           - v1.34.x
+          - v1.35.x
         tests:
           - custom-sigstore
     needs: prepare-images
