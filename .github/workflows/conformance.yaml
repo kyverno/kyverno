@@ -78,6 +78,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
+          chainsaw-config: autogen/.chainsaw.yaml
 
   autogen:
     runs-on: ubuntu-latest
@@ -115,6 +116,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: background-only
+          chainsaw-config: autogen/.chainsaw.yaml
 
   cleanup:
     runs-on: ubuntu-latest
