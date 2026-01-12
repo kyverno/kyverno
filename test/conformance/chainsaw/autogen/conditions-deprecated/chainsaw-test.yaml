@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: conditions-deprecated
 spec:
+  concurrent: true
   steps:
   - name: create policy
     use:
