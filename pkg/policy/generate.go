@@ -275,7 +275,7 @@ type ruleResource struct {
 	kinds []string
 }
 
-// ruleDeletion returns true if any rule is deleted, along with deleted rules
+// ruleChange checks for changes between old and new policies, returns the modified policy, whether any rule was deleted, and the updated resources
 func ruleChange(old, new kyvernov1.PolicyInterface) (_ kyvernov1.PolicyInterface, ruleDeleted bool, _ updatedResource) {
 	if !new.GetDeletionTimestamp().IsZero() {
 		return nil, false, updatedResource{}
