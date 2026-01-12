@@ -217,6 +217,7 @@ jobs:
           tests-path: exceptions
           shard-index: ${{ matrix.shard-index }}
           shard-count: 2
+          chainsaw-config: autogen/.chainsaw.yaml
 
   filter:
     runs-on: ubuntu-latest
