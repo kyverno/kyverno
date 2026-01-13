@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: single-signature
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

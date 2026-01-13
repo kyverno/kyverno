@@ -25,11 +25,13 @@ jobs:
         timeout-minutes: 10
         with:
           free-disk-space: true
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
       - name: ko build
         shell: bash
         run: |
           set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -78,7 +80,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: assert/.chainsaw.yaml
 
   autogen:
     runs-on: ubuntu-latest
@@ -116,7 +118,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: background-only
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: background-only/.chainsaw.yaml
 
   cleanup:
     runs-on: ubuntu-latest
@@ -135,7 +137,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cleanup
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: cleanup/.chainsaw.yaml
 
   deferred:
     runs-on: ubuntu-latest
@@ -154,7 +156,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deferred
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: deferred/.chainsaw.yaml
 
   deleting-policies:
     runs-on: ubuntu-latest
@@ -176,7 +178,7 @@ jobs:
           tests-path: deleting-policies
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: deleting-policies/.chainsaw.yaml
 
   events:
     runs-on: ubuntu-latest
@@ -195,7 +197,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: events/.chainsaw.yaml
 
   exceptions:
     runs-on: ubuntu-latest
@@ -217,7 +219,7 @@ jobs:
           tests-path: exceptions
           shard-index: ${{ matrix.shard-index }}
           shard-count: 2
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: exceptions/.chainsaw.yaml
 
   filter:
     runs-on: ubuntu-latest
@@ -236,7 +238,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: filter
-          chainsaw-config: autogen/.chainsaw.yaml
+          chainsaw-config: filter/.chainsaw.yaml
 
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
@@ -415,8 +417,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kyverno-configs:
-          [standard, default, standard, force-failure-policy-ignore]
+        kyverno-configs: [standard, default, force-failure-policy-ignore]
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
     needs: [prepare-images]
     steps:
@@ -617,7 +618,6 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-        shard-index: [0, 1, 2]
     needs: [prepare-images]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -627,8 +627,6 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-deleting-policies
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 3
 
   generating-policies:
     runs-on: ubuntu-latest
