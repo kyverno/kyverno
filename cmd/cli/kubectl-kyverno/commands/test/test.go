@@ -156,8 +156,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		paramObjectsArr = append(paramObjectsArr, p)
 	}
 
-	allObjects := []runtime.Object{}
-	allObjects = append(uniquesObjectArr, targetsObjectArr...)
+	allObjects := append(uniquesObjectArr, targetsObjectArr...)
 	allObjects = append(allObjects, paramObjectsArr...)
 
 	cl := cluster.NewFake()
