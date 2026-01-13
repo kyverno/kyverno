@@ -12,24 +12,22 @@ import (
 )
 
 const (
-	// cosign-testbed repository images
-	testbedRegistry      = "ghcr.io/lucchmielowski/cosign-testbed"
-	testbedUnsigned      = testbedRegistry + ":unsigned"
-	testbedV2Traditional = testbedRegistry + ":v2-traditional"
-	testbedV2Keyless     = testbedRegistry + ":v2-keyless"
-	testbedV3Traditional = testbedRegistry + ":v3-traditional"
-	testbedV3Keyless     = testbedRegistry + ":v3-keyless"
-	testbedV3Bundle      = testbedRegistry + ":v3-bundle"
+	// Test images from cosign test repository
+	testRegistry    = "ghcr.io/lucchmielowski/cosign-testbed"
+	unsignedImage   = testRegistry + ":unsigned"
+	v2KeyBasedImage = testRegistry + ":v2-traditional"
+	v2KeylessImage  = testRegistry + ":v2-keyless"
+	v3KeyBasedImage = testRegistry + ":v3-traditional"
+	v3KeylessImage  = testRegistry + ":v3-keyless"
+	v3BundleImage   = testRegistry + ":v3-bundle"
 
-	// Public key from cosign-testbed repository
-	testbedPublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIOJTQ992VBJyyx52p3s1W/lqwNxI
-rFxZI4BL3S6ZGyJFockpfppxOycEkUaGVTUvL0Tp7Yi0eYRJ4TtKxs1lXQ==
------END PUBLIC KEY-----`
+	// GitHub Actions OIDC configuration for keyless signing
+	githubWorkflowID = "https://github.com/lucchmielowski/cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
+)
 
-	// GitHub Actions OIDC configuration
+const (
+	// testPublicKey is defined in opts_test.go and shared across test files
 	githubActionsIssuer = "https://token.actions.githubusercontent.com"
-	testbedWorkflowID   = "https://github.com/lucchmielowski/cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
 )
 
 // Test backward compatibility with existing images
@@ -37,9 +35,9 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 	idf, err := imagedataloader.New(nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), testbedV2Keyless)
+	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
 	if err != nil {
-		t.Skipf("testbed image not accessible: %v", err)
+		t.Skipf("test image not accessible: %v", err)
 	}
 
 	attestor := &v1beta1.Attestor{
@@ -49,7 +47,7 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 				Identities: []v1beta1.Identity{
 					{
 						Issuer:  githubActionsIssuer,
-						Subject: testbedWorkflowID,
+						Subject: githubWorkflowID,
 					},
 				},
 			},
@@ -69,9 +67,9 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 	idf, err := imagedataloader.New(nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), testbedV2Keyless)
+	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
 	if err != nil {
-		t.Skipf("testbed image not accessible: %v", err)
+		t.Skipf("test image not accessible: %v", err)
 	}
 
 	// Use wrong subject - should fail verification
@@ -102,16 +100,16 @@ func Test_ImageSignatureVerificationKeyed(t *testing.T) {
 	idf, err := imagedataloader.New(nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), testbedV2Traditional)
+	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
 	if err != nil {
-		t.Skipf("testbed image not accessible: %v", err)
+		t.Skipf("test image not accessible: %v", err)
 	}
 
 	attestor := &v1beta1.Attestor{
 		Name: "test-keyed",
 		Cosign: &v1beta1.Cosign{
 			Key: &v1beta1.Key{
-				Data: testbedPublicKey,
+				Data: testPublicKey,
 			},
 			CTLog: &v1beta1.CTLog{
 				URL:                "https://rekor.sigstore.dev",
@@ -130,9 +128,9 @@ func Test_ImageSignatureVerificationKeyedFail(t *testing.T) {
 	idf, err := imagedataloader.New(nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), testbedV2Traditional)
+	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
 	if err != nil {
-		t.Skipf("testbed image not accessible: %v", err)
+		t.Skipf("test image not accessible: %v", err)
 	}
 
 	// Use wrong public key - should fail verification
@@ -165,7 +163,7 @@ func TestCosign_V3_KeyBased(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Traditional)
+		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -174,7 +172,7 @@ func TestCosign_V3_KeyBased(t *testing.T) {
 			Name: "v3-key-based",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -195,7 +193,7 @@ func TestCosign_V3_Keyless(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Keyless)
+		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -207,7 +205,7 @@ func TestCosign_V3_Keyless(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: testbedWorkflowID,
+							Subject: githubWorkflowID,
 						},
 					},
 				},
@@ -229,7 +227,7 @@ func TestCosign_V3_MultiPlatform(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Bundle)
+		img, err := idf.FetchImageData(context.TODO(), v3BundleImage)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -238,7 +236,7 @@ func TestCosign_V3_MultiPlatform(t *testing.T) {
 			Name: "v3-multiplatform",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -263,7 +261,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 			Name: "compat-test",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -276,7 +274,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 
 		// Test v2 image
-		imgV2, err := idf.FetchImageData(context.TODO(), testbedV2Traditional)
+		imgV2, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV2, attestor)
 			assert.NoError(t, err, "v2 image should verify with cosign v3 library")
@@ -285,7 +283,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		}
 
 		// Test v3 image
-		imgV3, err := idf.FetchImageData(context.TODO(), testbedV3Traditional)
+		imgV3, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV3, attestor)
 			assert.NoError(t, err, "v3 image should verify with cosign v3 library")
@@ -305,7 +303,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: testbedWorkflowID,
+							Subject: githubWorkflowID,
 						},
 					},
 				},
@@ -319,7 +317,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 
 		// Test v2 keyless image
-		imgV2, err := idf.FetchImageData(context.TODO(), testbedV2Keyless)
+		imgV2, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV2, attestor)
 			assert.NoError(t, err, "v2 keyless image should verify with cosign v3 library")
@@ -328,7 +326,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		}
 
 		// Test v3 keyless image
-		imgV3, err := idf.FetchImageData(context.TODO(), testbedV3Keyless)
+		imgV3, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV3, attestor)
 			assert.NoError(t, err, "v3 keyless image should verify with cosign v3 library")
@@ -347,7 +345,7 @@ func TestBundleAutoDetection(t *testing.T) {
 			Name: "autodetect-key",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -364,7 +362,7 @@ func TestBundleAutoDetection(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: testbedWorkflowID,
+							Subject: githubWorkflowID,
 						},
 					},
 				},
@@ -382,11 +380,11 @@ func TestBundleAutoDetection(t *testing.T) {
 			image    string
 			attestor *v1beta1.Attestor
 		}{
-			{"v2-traditional", testbedV2Traditional, keyAttestor},
-			{"v2-keyless", testbedV2Keyless, keylessAttestor},
-			{"v3-traditional", testbedV3Traditional, keyAttestor},
-			{"v3-keyless", testbedV3Keyless, keylessAttestor},
-			{"v3-bundle", testbedV3Bundle, keyAttestor},
+			{"v2-traditional", v2KeyBasedImage, keyAttestor},
+			{"v2-keyless", v2KeylessImage, keylessAttestor},
+			{"v3-traditional", v3KeyBasedImage, keyAttestor},
+			{"v3-keyless", v3KeylessImage, keylessAttestor},
+			{"v3-bundle", v3BundleImage, keyAttestor},
 		}
 
 		for _, tc := range testCases {
@@ -412,7 +410,7 @@ func TestMultiPlatformImages(t *testing.T) {
 			Name: "multiplatform-test",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -424,7 +422,7 @@ func TestMultiPlatformImages(t *testing.T) {
 
 		v := Verifier{log: logr.Discard()}
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Bundle)
+		img, err := idf.FetchImageData(context.TODO(), v3BundleImage)
 		if err != nil {
 			t.Skipf("v3-bundle image not accessible: %v", err)
 		}
@@ -439,7 +437,7 @@ func TestNegative_UnsignedImage(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedUnsigned)
+		img, err := idf.FetchImageData(context.TODO(), unsignedImage)
 		if err != nil {
 			t.Skipf("unsigned image not accessible: %v", err)
 		}
@@ -448,7 +446,7 @@ func TestNegative_UnsignedImage(t *testing.T) {
 			Name: "unsigned-test",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -469,7 +467,7 @@ func TestNegative_WrongPublicKey(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Traditional)
+		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
 		if err != nil {
 			t.Skipf("v3-traditional image not accessible: %v", err)
 		}
@@ -504,7 +502,7 @@ func TestNegative_WrongKeylessIdentity(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), testbedV3Keyless)
+		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
 		if err != nil {
 			t.Skipf("v3-keyless image not accessible: %v", err)
 		}
@@ -546,7 +544,7 @@ func TestConcurrentVerification(t *testing.T) {
 			Name: "concurrent-test",
 			Cosign: &v1beta1.Cosign{
 				Key: &v1beta1.Key{
-					Data: testbedPublicKey,
+					Data: testPublicKey,
 				},
 				CTLog: &v1beta1.CTLog{
 					URL:                "https://rekor.sigstore.dev",
@@ -557,9 +555,9 @@ func TestConcurrentVerification(t *testing.T) {
 		}
 
 		images := []string{
-			testbedV2Traditional,
-			testbedV3Traditional,
-			testbedV3Bundle,
+			v2KeyBasedImage,
+			v3KeyBasedImage,
+			v3BundleImage,
 		}
 
 		done := make(chan bool, len(images))
@@ -586,5 +584,150 @@ func TestConcurrentVerification(t *testing.T) {
 		}
 
 		assert.Equal(t, len(images), successes, "all concurrent verifications should succeed")
+	})
+}
+
+func TestVerifyImageSignature_ErrorCases(t *testing.T) {
+	t.Run("nil cosign attestor", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		if err != nil {
+			t.Skipf("test image not accessible: %v", err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name:   "nil-cosign",
+			Cosign: nil,
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyImageSignature(context.TODO(), img, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cosign verifier only supports cosign attestor")
+	})
+
+	t.Run("invalid key data in checkOptions", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		if err != nil {
+			t.Skipf("test image not accessible: %v", err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name: "invalid-key",
+			Cosign: &v1beta1.Cosign{
+				Key: &v1beta1.Key{
+					Data: "invalid-key-data",
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:                "https://rekor.sigstore.dev",
+					InsecureIgnoreTlog: true,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyImageSignature(context.TODO(), img, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
+	})
+
+	t.Run("empty key data", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		if err != nil {
+			t.Skipf("test image not accessible: %v", err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name: "empty-key",
+			Cosign: &v1beta1.Cosign{
+				Key: &v1beta1.Key{
+					Data: "",
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:                "https://rekor.sigstore.dev",
+					InsecureIgnoreTlog: true,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyImageSignature(context.TODO(), img, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to verify cosign signatures")
+	})
+}
+
+func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
+	t.Run("nil cosign attestor", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		if err != nil {
+			t.Skipf("test image not accessible: %v", err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name:   "nil-cosign",
+			Cosign: nil,
+		}
+
+		attestation := &v1beta1.Attestation{
+			Name: "test-attestation",
+			InToto: &v1beta1.InToto{
+				Type: "slsaprovenance",
+			},
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cosign verifier only supports cosign attestor")
+	})
+
+	t.Run("invalid key data in attestation verification", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		if err != nil {
+			t.Skipf("test image not accessible: %v", err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name: "invalid-key-attestation",
+			Cosign: &v1beta1.Cosign{
+				Key: &v1beta1.Key{
+					Data: "invalid-key-data",
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:                "https://rekor.sigstore.dev",
+					InsecureIgnoreTlog: true,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+
+		attestation := &v1beta1.Attestation{
+			Name: "test-attestation",
+			InToto: &v1beta1.InToto{
+				Type: "slsaprovenance",
+			},
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
 	})
 }
