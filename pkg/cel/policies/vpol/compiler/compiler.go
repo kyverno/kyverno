@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	vpolCompilerVersion = version.MajorMinor(1, 0)
+	vpolCompilerVersion = version.MajorMinor(1, 1)
 	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
 )
 
