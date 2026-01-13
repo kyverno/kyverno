@@ -388,6 +388,21 @@ The chart values are organised per component.
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
+| admissionController.certManager | object | `{"algorithm":"RSA","ca":{"duration":"87600h","renewBefore":"720h"},"createSelfSignedIssuer":true,"enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"ClusterIssuer","name":""},"size":2048,"tls":{"duration":"8760h","renewBefore":"720h"}}` | Configure cert-manager to manage TLS certificates. When enabled, cert-manager Certificate resources will be created to provision the TLS certificates for the admission controller. Requires cert-manager to be installed in the cluster. Takes precedence over createSelfSignedCert when enabled. |
+| admissionController.certManager.enabled | bool | `false` | Enable cert-manager integration for certificate management |
+| admissionController.certManager.createSelfSignedIssuer | bool | `true` | Create a self-signed ClusterIssuer for CA generation. Set to false if you want to use an existing issuer specified in issuerRef. |
+| admissionController.certManager.issuerRef | object | `{"group":"cert-manager.io","kind":"ClusterIssuer","name":""}` | Reference to an existing issuer for signing CA certificates. Only used when createSelfSignedIssuer is false. |
+| admissionController.certManager.issuerRef.name | string | `""` | Name of the issuer |
+| admissionController.certManager.issuerRef.kind | string | `"ClusterIssuer"` | Kind of the issuer (ClusterIssuer or Issuer) |
+| admissionController.certManager.issuerRef.group | string | `"cert-manager.io"` | Group of the issuer |
+| admissionController.certManager.algorithm | string | `"RSA"` | Key algorithm for certificates (RSA, ECDSA, Ed25519) |
+| admissionController.certManager.size | int | `2048` | Key size for RSA (2048, 4096) or ECDSA (256, 384). Ignored for Ed25519. |
+| admissionController.certManager.ca | object | `{"duration":"87600h","renewBefore":"720h"}` | CA certificate configuration |
+| admissionController.certManager.ca.duration | string | `"87600h"` | Duration of the CA certificate (default 10 years) |
+| admissionController.certManager.ca.renewBefore | string | `"720h"` | Time before expiry to renew the CA certificate (default 30 days) |
+| admissionController.certManager.tls | object | `{"duration":"8760h","renewBefore":"720h"}` | TLS certificate configuration |
+| admissionController.certManager.tls.duration | string | `"8760h"` | Duration of the TLS certificate (default 1 year) |
+| admissionController.certManager.tls.renewBefore | string | `"720h"` | Time before expiry to renew the TLS certificate (default 30 days) |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
@@ -406,7 +421,7 @@ The chart values are organised per component.
 | admissionController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| admissionController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
 | admissionController.tolerations | list | `[]` | List of node taints to tolerate |
 | admissionController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | admissionController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -517,7 +532,7 @@ The chart values are organised per component.
 | backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| backgroundController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
 | backgroundController.tolerations | list | `[]` | List of node taints to tolerate |
 | backgroundController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | backgroundController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -578,6 +593,21 @@ The chart values are organised per component.
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
+| cleanupController.certManager | object | `{"algorithm":"RSA","ca":{"duration":"87600h","renewBefore":"720h"},"createSelfSignedIssuer":true,"enabled":false,"issuerRef":{"group":"cert-manager.io","kind":"ClusterIssuer","name":""},"size":2048,"tls":{"duration":"8760h","renewBefore":"720h"}}` | Configure cert-manager to manage TLS certificates. When enabled, cert-manager Certificate resources will be created to provision the TLS certificates for the cleanup controller. Requires cert-manager to be installed in the cluster. Takes precedence over createSelfSignedCert when enabled. |
+| cleanupController.certManager.enabled | bool | `false` | Enable cert-manager integration for certificate management |
+| cleanupController.certManager.createSelfSignedIssuer | bool | `true` | Create a self-signed ClusterIssuer for CA generation. Set to false if you want to use an existing issuer specified in issuerRef. |
+| cleanupController.certManager.issuerRef | object | `{"group":"cert-manager.io","kind":"ClusterIssuer","name":""}` | Reference to an existing issuer for signing CA certificates. Only used when createSelfSignedIssuer is false. |
+| cleanupController.certManager.issuerRef.name | string | `""` | Name of the issuer |
+| cleanupController.certManager.issuerRef.kind | string | `"ClusterIssuer"` | Kind of the issuer (ClusterIssuer or Issuer) |
+| cleanupController.certManager.issuerRef.group | string | `"cert-manager.io"` | Group of the issuer |
+| cleanupController.certManager.algorithm | string | `"RSA"` | Key algorithm for certificates (RSA, ECDSA, Ed25519) |
+| cleanupController.certManager.size | int | `2048` | Key size for RSA (2048, 4096) or ECDSA (256, 384). Ignored for Ed25519. |
+| cleanupController.certManager.ca | object | `{"duration":"87600h","renewBefore":"720h"}` | CA certificate configuration |
+| cleanupController.certManager.ca.duration | string | `"87600h"` | Duration of the CA certificate (default 10 years) |
+| cleanupController.certManager.ca.renewBefore | string | `"720h"` | Time before expiry to renew the CA certificate (default 30 days) |
+| cleanupController.certManager.tls | object | `{"duration":"8760h","renewBefore":"720h"}` | TLS certificate configuration |
+| cleanupController.certManager.tls.duration | string | `"8760h"` | Duration of the TLS certificate (default 1 year) |
+| cleanupController.certManager.tls.renewBefore | string | `"720h"` | Time before expiry to renew the TLS certificate (default 30 days) |
 | cleanupController.image.registry | string | `nil` | Image registry |
 | cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
@@ -603,7 +633,7 @@ The chart values are organised per component.
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
 | cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | cleanupController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -690,7 +720,7 @@ The chart values are organised per component.
 | reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| reportsController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
 | reportsController.tolerations | list | `[]` | List of node taints to tolerate |
 | reportsController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | reportsController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |

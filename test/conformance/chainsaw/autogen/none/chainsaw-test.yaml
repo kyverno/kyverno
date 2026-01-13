@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: none
 spec:
+  concurrent: true
   steps:
   - name: create policy
     use:

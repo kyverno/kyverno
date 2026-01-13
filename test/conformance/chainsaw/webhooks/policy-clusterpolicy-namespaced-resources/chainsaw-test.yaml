@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: policy-clusterpolicy-namespaced-resources
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

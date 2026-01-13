@@ -3,6 +3,8 @@ kind: Test
 metadata:
   name: policy-wildcard-resource
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: create policy
     use:

@@ -35,15 +35,15 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.30.0
+KIND_VERSION                       ?= v0.31.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.18.0
+CONTROLLER_GEN_VERSION             ?= v0.20.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
-CODE_GEN_VERSION                   ?= v0.34.1
+CODE_GEN_VERSION                   ?= v0.35.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
@@ -55,7 +55,7 @@ HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.18.0
+KO_VERSION                         ?= v0.18.1
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
@@ -457,16 +457,16 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--clientset-name versioned \
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
-		--input-base github.com/kyverno/kyverno \
-		--input ./api/kyverno/v1 \
-		--input ./api/kyverno/v2 \
-		--input ./api/kyverno/v2alpha1 \
-		--input ./api/kyverno/v2beta1 \
-		--input ./api/reports/v1 \
-		--input ./api/policyreport/v1alpha2 \
-		--input ./api/policies.kyverno.io/v1alpha1 \
-		--input ./api/policies.kyverno.io/v1beta1 \
-		--input ./api/policies.kyverno.io/v1
+		--input-base github.com/kyverno \
+		--input kyverno/api/kyverno/v1 \
+		--input kyverno/api/kyverno/v2 \
+		--input kyverno/api/kyverno/v2alpha1 \
+		--input kyverno/api/kyverno/v2beta1 \
+		--input kyverno/api/reports/v1 \
+		--input kyverno/api/policyreport/v1alpha2 \
+		--input api/api/policies.kyverno.io/v1alpha1 \
+		--input api/api/policies.kyverno.io/v1beta1 \
+		--input api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -483,9 +483,9 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1 \
-		./api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -504,9 +504,9 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		./api/policies.kyverno.io/v1alpha1 \
-		./api/policies.kyverno.io/v1beta1 \
-		./api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
+		github.com/kyverno/api/api/policies.kyverno.io/v1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -524,6 +524,8 @@ codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
+	@echo "Tidying modules after client generation..."
+	go mod tidy
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
@@ -545,9 +547,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@echo Generate policies crds... >&2
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
-		paths=./api/policies.kyverno.io/v1alpha1/... \
-		paths=./api/policies.kyverno.io/v1beta1/... \
-		paths=./api/policies.kyverno.io/v1/... \
+		paths=github.com/kyverno/api/api/policies.kyverno.io/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
