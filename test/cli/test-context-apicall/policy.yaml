@@ -1,15 +1,15 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: computeclasses-enforce-non-spot-usage
+  name: computeclasses-enforce-non-spot-usage-crd
   annotations:
-    policies.kyverno.io/title: Restrict Non-Spot ComputeClass to Approved Namespaces
+    policies.kyverno.io/title: Restrict Non-Spot ComputeClass to Approved Namespaces (CRD)
     policies.kyverno.io/category: GKE Compute Classes
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Pod, ComputeClass
     policies.kyverno.io/description: >-
       This policy denies create and update operations on any workloads
-      with only non-spot ComputeClasses.
+      with only non-spot ComputeClasses. Uses apiCall to fetch ComputeClass CRD resources.
 spec:
   validationFailureAction: Enforce
   background: false
@@ -24,6 +24,7 @@ spec:
             - Deployment
             - Job
             - Pod
+            - StatefulSet
             operations:
             - "CREATE"
             - "UPDATE"
@@ -51,14 +52,22 @@ spec:
             jmesPath: >-
               request.object.spec.nodeSelector."cloud.google.com/compute-class" || 
               request.object.spec.template.spec.nodeSelector."cloud.google.com/compute-class"
-        - name: computeclassconfig
-          configMap:
-            name: "computeclass-{{computeclassname}}"
-            namespace: "default"
+        - name: computeclass
+          apiCall:
+            urlPath: "/apis/cloud.google.com/v1/computeclasses/{{computeclassname}}"
         - name: spotvalues
           variable:
             default: '["true", "false", "false"]'
-            jmesPath: 'computeclassconfig.data."spot-values"'
+            jmesPath: 'computeclass.spec.priorities[*].spot'
+      #   - name: ownerReferences
+      #     variable:
+      #       default: []
+      #       jmesPath: (request.object.metadata.ownerReferences || `[]`)[?kind=='Workflow']
+      # preconditions:
+      #   all:
+      #   - key: "{{ ownerReferences | length(@) }}"
+      #     operator: Equals
+      #     value: 0
       validate:
         message: |-
           Spot values: {{spotvalues}}

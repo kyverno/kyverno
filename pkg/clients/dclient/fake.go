@@ -84,6 +84,15 @@ func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *
 
 type fakeDiscoveryClient struct {
 	registeredResources []schema.GroupVersionResource
+	gvrToGVK            map[schema.GroupVersionResource]schema.GroupVersionKind
+}
+
+// AddGVRToGVKMapping adds a mapping from GVR to GVK
+func (c *fakeDiscoveryClient) AddGVRToGVKMapping(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
+	if c.gvrToGVK == nil {
+		c.gvrToGVK = make(map[schema.GroupVersionResource]schema.GroupVersionKind)
+	}
+	c.gvrToGVK[gvr] = gvk
 }
 
 func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResource, error) {
@@ -95,11 +104,58 @@ func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResour
 	return schema.GroupVersionResource{}, errors.New("not found")
 }
 
-func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	return schema.GroupVersionKind{}, nil
+func (c *fakeDiscoveryClient) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	// First check if we have a direct mapping (e.g., from CRD definitions)
+	if c.gvrToGVK != nil {
+		if gvk, exists := c.gvrToGVK[gvr]; exists {
+			return gvk, nil
+		}
+	}
+
+	// Check if the GVR is in registered resources
+	for _, registered := range c.registeredResources {
+		if registered.Group == gvr.Group && registered.Version == gvr.Version && registered.Resource == gvr.Resource {
+			// Infer Kind from resource name (plural to singular)
+			kind := inferKindFromResourceName(gvr.Resource)
+			return schema.GroupVersionKind{
+				Group:   gvr.Group,
+				Version: gvr.Version,
+				Kind:    kind,
+			}, nil
+		}
+	}
+	return schema.GroupVersionKind{}, fmt.Errorf("GVR not found: %s", gvr.String())
+}
+
+// inferKindFromResourceName converts a plural resource name to a singular kind
+// e.g., "computeclasses" -> "ComputeClass", "pods" -> "Pod"
+func inferKindFromResourceName(resource string) string {
+	// Simple plural to singular conversion
+	kind := resource
+	if strings.HasSuffix(kind, "ies") {
+		kind = strings.TrimSuffix(kind, "ies") + "y"
+	} else if strings.HasSuffix(kind, "es") {
+		kind = strings.TrimSuffix(kind, "es")
+	} else if strings.HasSuffix(kind, "s") {
+		kind = strings.TrimSuffix(kind, "s")
+	}
+	// Capitalize first letter
+	if len(kind) > 0 {
+		kind = strings.ToUpper(kind[:1]) + kind[1:]
+	}
+	return kind
 }
 
 func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	// First try to find in reverse mapping (from gvrToGVK)
+	if c.gvrToGVK != nil {
+		for gvr, mappedGVK := range c.gvrToGVK {
+			if mappedGVK.Group == gvk.Group && mappedGVK.Version == gvk.Version && mappedGVK.Kind == gvk.Kind {
+				return gvr, nil
+			}
+		}
+	}
+	// Fallback: infer resource name from kind
 	resource := strings.ToLower(gvk.Kind) + "s"
 	return c.getGVR(resource)
 }
