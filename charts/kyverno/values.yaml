@@ -1279,8 +1279,6 @@ admissionController:
     port: 8000
     # -- Is TLS required for endpoint
     secure: false
-    # -- Create self-signed certificates at deployment time.
-    createSelfSignedCert: false
     # -- Key algorithm for self-signed TLS certificates.
     # Supported values: RSA, ECDSA, Ed25519
     # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
@@ -1619,8 +1617,6 @@ backgroundController:
     port: 8000
     # -- Is TLS required for endpoint
     secure: false
-    # -- Create self-signed certificates at deployment time.
-    createSelfSignedCert: false
     # -- Key algorithm for self-signed TLS certificates.
     # Supported values: RSA, ECDSA, Ed25519
     # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
@@ -2006,8 +2002,6 @@ cleanupController:
     port: 8000
     # -- Is TLS required for endpoint
     secure: false
-    # -- Create self-signed certificates at deployment time.
-    createSelfSignedCert: false
     # -- Key algorithm for self-signed TLS certificates.
     # Supported values: RSA, ECDSA, Ed25519
     # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
@@ -2325,8 +2319,6 @@ reportsController:
     port: 8000
     # -- Is TLS required for endpoint
     secure: false
-    # -- Create self-signed certificates at deployment time.
-    createSelfSignedCert: false
     # -- Key algorithm for self-signed TLS certificates.
     # Supported values: RSA, ECDSA, Ed25519
     # Only used when createSelfSignedCert is false (Kyverno-managed certificates).
