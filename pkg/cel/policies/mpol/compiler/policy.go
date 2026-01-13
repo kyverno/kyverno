@@ -128,6 +128,10 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 	if err != nil {
 		return false
 	}
+	requestObject, err := utils.ConvertObjectToUnstructured(&request)
+	if err != nil {
+		return false
+	}
 
 	ctxData := map[string]any{
 		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: contextProvider},
@@ -135,7 +139,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 		compiler.ImageDataKey:     imagedata.Context{ContextInterface: contextProvider},
 		compiler.ResourceKey:      resource.Context{ContextInterface: contextProvider},
 		compiler.VariablesKey:     lazyMap,
-		compiler.RequestKey:       request,
+		compiler.RequestKey:       requestObject,
 		compiler.ObjectKey:        object,
 		compiler.OldObjectKey:     oldObject,
 		compiler.ExceptionsKey: map[string]any{
@@ -194,13 +198,17 @@ func (p *Policy) Evaluate(
 	if err != nil {
 		return &EvaluationResult{Error: fmt.Errorf("failed to convert oldObject: %w", err)}
 	}
+	requestObject, err := utils.ConvertObjectToUnstructured(&request)
+	if err != nil {
+		return &EvaluationResult{Error: fmt.Errorf("failed to convert request: %w", err)}
+	}
 
 	ctxData := map[string]interface{}{
 		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: contextProvider},
 		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
 		compiler.ImageDataKey:     imagedata.Context{ContextInterface: contextProvider},
 		compiler.ResourceKey:      resource.Context{ContextInterface: contextProvider},
-		compiler.RequestKey:       request,
+		compiler.RequestKey:       requestObject,
 		compiler.VariablesKey:     lazyMap,
 		compiler.ObjectKey:        object,
 		compiler.OldObjectKey:     oldObject,
