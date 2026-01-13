@@ -3,6 +3,8 @@ kind: Test
 metadata:
   name: expected-webhooks
 spec:
+  concurrent: true
+  namespace: default
   steps:
   - name: step-01
     try:

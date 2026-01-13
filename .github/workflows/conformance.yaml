@@ -236,6 +236,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: filter
+          chainsaw-config: autogen/.chainsaw.yaml
 
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
@@ -806,6 +807,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhooks
+          chainsaw-config: webhooks/.chainsaw.yaml
 
   sigstore-custom-tuf:
     runs-on: ubuntu-latest
