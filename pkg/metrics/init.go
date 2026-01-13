@@ -44,6 +44,14 @@ func InitMetrics(
 			return nil, nil, nil
 		}
 
+		if tlsSecretInformer == nil {
+			return nil, nil, fmt.Errorf("tls secret informer is nil when value should be provided")
+		}
+
+		if caSecretInformer == nil {
+			return nil, nil, fmt.Errorf("ca secret informer is nil when value should be provided")
+		}
+
 		secret, err := tlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTlsSecretName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get metrics TLS secret %s: %w", metricsTlsSecretName, err)
@@ -51,12 +59,12 @@ func InitMetrics(
 
 		certPem, exists := secret.Data[corev1.TLSCertKey]
 		if !exists {
-			return nil, nil, fmt.Errorf("Metrics TLS certificate \"tls.crt\" not found in secret %s", metricsTlsSecretName)
+			return nil, nil, fmt.Errorf("metrics TLS certificate \"tls.crt\" not found in secret %s", metricsTlsSecretName)
 		}
 
 		keyPem, exists := secret.Data[corev1.TLSPrivateKeyKey]
 		if !exists {
-			return nil, nil, fmt.Errorf("Metrics TLS private key \"tls.key\" not found in secret %s", metricsTlsSecretName)
+			return nil, nil, fmt.Errorf("metrics TLS private key \"tls.key\" not found in secret %s", metricsTlsSecretName)
 		}
 
 		return certPem, keyPem, nil

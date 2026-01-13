@@ -33,8 +33,8 @@ var (
 	metricsCaSecretName  string
 	metricsTlsSecretName string
 	metricsKeyAlgorithm  string
-	renewBefore          time.Duration
-	serverIP             string
+	metricsRenewBefore   time.Duration
+	metricsServerIP      string
 	transportCreds       string
 	disableMetricsExport bool
 	// kubeconfig
@@ -115,6 +115,8 @@ func initMetricsFlags() {
 	flag.StringVar(&metricsCaSecretName, "metricsCaSecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
 	flag.StringVar(&metricsTlsSecretName, "metricsTlsSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
 	flag.StringVar(&metricsKeyAlgorithm, "metricsTlsKeyAlgorithm", "RSA", "Set this flag to the key algorithm used for self-signed TLS certificates for the metrics endpoint. Supported values: RSA, ECDSA, Ed25519.")
+	flag.DurationVar(&metricsRenewBefore, "metricsRenewBefore", 15*24*time.Hour, "The certificate renewal time before expiration for metrics TLS certificates.")
+	flag.StringVar(&metricsServerIP, "metricsServerIP", "", "IP address where metrics server runs. Used to add IP addresses to the metrics TLS certificate SANs. Only required if accessing metrics endpoint out-of-cluster by IP address.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
@@ -321,14 +323,6 @@ func CleanupServerHost() string {
 
 func GlobalContextEnabled() bool {
 	return enableGlobalContext
-}
-
-func MetricsCaSecretName() string {
-	return metricsCaSecretName
-}
-
-func MetricsTlsSecretName() string {
-	return metricsTlsSecretName
 }
 
 func printFlagSettings(logger logr.Logger) {
