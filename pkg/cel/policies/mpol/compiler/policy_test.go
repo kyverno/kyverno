@@ -24,16 +24,15 @@ import (
 	cel1 "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
+	environment "k8s.io/apiserver/pkg/cel/environment"
 
 	celtypes "github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
@@ -101,7 +100,7 @@ func TestVariables(t *testing.T) {
 		}
 
 		cctx := &compositionContext{
-			ctx:             ctx,
+			Context:         ctx,
 			evaluator:       evaluator,
 			contextProvider: &libs.FakeContextProvider{},
 		}
@@ -156,7 +155,7 @@ func TestVariables(t *testing.T) {
 		}
 
 		cctx := &compositionContext{
-			ctx:             ctx,
+			Context:         ctx,
 			evaluator:       evaluator,
 			contextProvider: &libs.FakeContextProvider{},
 		}
@@ -218,7 +217,7 @@ func TestDeadline(t *testing.T) {
 	defer cancel()
 
 	cctx := &compositionContext{
-		ctx: ctx,
+		Context: ctx,
 	}
 
 	deadline, ok := cctx.Deadline()
@@ -228,7 +227,7 @@ func TestDeadline(t *testing.T) {
 
 func TestDoneAndErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	cctx := &compositionContext{ctx: ctx}
+	cctx := &compositionContext{Context: ctx}
 
 	// Not cancelled yet
 	select {
@@ -256,7 +255,7 @@ func TestValue(t *testing.T) {
 	value := "testValue"
 
 	ctx := context.WithValue(context.Background(), key, value)
-	cctx := &compositionContext{ctx: ctx}
+	cctx := &compositionContext{Context: ctx}
 
 	result := cctx.Value(key)
 	assert.Equal(t, value, result)
@@ -264,18 +263,6 @@ func TestValue(t *testing.T) {
 	// Key not present
 	result = cctx.Value("nonexistent")
 	assert.Nil(t, result)
-}
-
-type fakeMatcher struct {
-	err     error
-	matches bool
-}
-
-func (f *fakeMatcher) Match(ctx context.Context, versionedAttr *admission.VersionedAttributes, versionedParams runtime.Object, authz authorizer.Authorizer) matchconditions.MatchResult {
-	return matchconditions.MatchResult{
-		Matches: f.matches,
-		Error:   f.err,
-	}
 }
 
 type fakeTCM struct{}
@@ -331,45 +318,17 @@ func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeC
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
-	t.Run("error in matcher", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.NotNil(t, res)
-		assert.EqualError(t, res.Error, "match error")
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: false,
-				},
-			},
-		}
-
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.Nil(t, resp)
-	})
-
 	t.Run("patch error", func(t *testing.T) {
+		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
 		p := Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: nil,
 						err:    errors.New("patch failed"),
 					},
 				},
+				CompositionEnv: env,
 			},
 		}
 
@@ -379,18 +338,17 @@ func TestEvaluate(t *testing.T) {
 	})
 
 	t.Run("successful evaluation", func(t *testing.T) {
+		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: patchedObj,
 						err:    nil,
 					},
 				},
+				CompositionEnv: env,
 			},
 		}
 
@@ -402,42 +360,30 @@ func TestEvaluate(t *testing.T) {
 
 func TestMatchesConditions(t *testing.T) {
 	ctx := context.TODO()
-	t.Run("no matcher", func(t *testing.T) {
-		p := Policy{}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.False(t, res)
-	})
-
-	t.Run("with error", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.False(t, res)
-	})
-
+	env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
 	t.Run("no match", func(t *testing.T) {
 		p := Policy{
+			matchConditions: []cel2.Program{
+				&fakeProgram{refVal: types.Bool(false)},
+			},
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: false},
+				CompositionEnv: env,
 			},
 		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, nil)
 		assert.False(t, res)
 	})
 
 	t.Run("match successfully", func(t *testing.T) {
 		p := Policy{
+			matchConditions: []cel2.Program{
+				&fakeProgram{refVal: types.Bool(true)},
+			},
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: true},
+				CompositionEnv: env,
 			},
 		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, nil)
 		assert.True(t, res)
 	})
 }

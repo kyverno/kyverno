@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-deploy
+  labels:
+    foo: bar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-bad-deploy

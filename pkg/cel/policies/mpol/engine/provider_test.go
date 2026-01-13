@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	admissionv1 "k8s.io/apiserver/pkg/admission"
 
@@ -149,7 +150,7 @@ func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	}
 
 	t.Run("match all", func(t *testing.T) {
-		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, &corev1.Namespace{})
+		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, &corev1.Namespace{}, v1.AdmissionRequest{}, nil)
 		assert.Equal(t, []string{"match"}, names)
 	})
 }

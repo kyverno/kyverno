@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: "exclude-images"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["deployments"]
+  matchConditions:
+    - name: "has-exception"
+      expression: >
+        object.spec.template.spec.containers.all(container, string(container.image) in exceptions.allowedImages)
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              foo: "bar"
+            }
+          }
+        }

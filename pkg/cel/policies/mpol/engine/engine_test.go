@@ -198,7 +198,7 @@ type mockFailingProvider struct{}
 func (m *mockFailingProvider) Fetch(ctx context.Context, mutate bool) []Policy {
 	return nil
 }
-func (m *mockFailingProvider) MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string {
+func (m *mockFailingProvider) MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace, admissionv1.AdmissionRequest, libs.Context) []string {
 	return nil
 }
 

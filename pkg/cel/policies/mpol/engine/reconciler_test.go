@@ -9,6 +9,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -180,6 +181,8 @@ func (f *fakeFetchWithError) Fetch(ctx context.Context, mutateExisting bool) ([]
 }
 
 func TestMatchesMutateExisting(t *testing.T) {
+	c := compiler.NewCompiler()
+
 	trueBool := true
 
 	tests := []struct {
@@ -204,7 +207,6 @@ func TestMatchesMutateExisting(t *testing.T) {
 								MatchConditions:  nil,                                       // no conditions
 							},
 						},
-						CompiledPolicy: &compiler.Policy{},
 					},
 				},
 			},
@@ -226,12 +228,11 @@ func TestMatchesMutateExisting(t *testing.T) {
 								MatchConstraints: &admissionregistrationv1.MatchResources{},
 								MatchConditions: []admissionregistrationv1.MatchCondition{
 									{
-										Expression: `request.object.metadata.labels.env == "dev"`,
+										Expression: `object.metadata.labels.env == "dev"`,
 									},
 								},
 							},
 						},
-						CompiledPolicy: &compiler.Policy{},
 					},
 				},
 			},
@@ -254,13 +255,21 @@ func TestMatchesMutateExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.policies {
+				for i := range v {
+					compiled, err := c.Compile(v[i].Policy, nil)
+					assert.NoError(t, err.ToAggregate())
+					tt.policies[k][i].CompiledPolicy = compiled
+				}
+			}
+
 			r := &reconciler{
 				lock:     &sync.RWMutex{},
 				policies: tt.policies,
 			}
 			attrs := &mockAttributes{}
 			namespace := &corev1.Namespace{}
-			got := r.MatchesMutateExisting(context.TODO(), attrs, namespace)
+			got := r.MatchesMutateExisting(context.TODO(), attrs, namespace, admissionv1.AdmissionRequest{}, nil)
 			assert.ElementsMatch(t, tt.expectedNames, got)
 		})
 	}
