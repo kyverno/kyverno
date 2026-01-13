@@ -33,7 +33,7 @@ var (
 	metricsCaSecretName  string
 	metricsTlsSecretName string
 	metricsKeyAlgorithm  string
-	renewBefore          time.Duration
+	metricsRenewBefore   time.Duration
 	serverIP             string
 	transportCreds       string
 	disableMetricsExport bool
@@ -106,6 +106,8 @@ func initMetricsFlags() {
 	flag.StringVar(&metricsCaSecretName, "metricsCaSecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
 	flag.StringVar(&metricsTlsSecretName, "metricsTlsSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
 	flag.StringVar(&metricsKeyAlgorithm, "metricsTlsKeyAlgorithm", "RSA", "Set this flag to the key algorithm used for self-signed TLS certificates for the metrics endpoint. Supported values: RSA, ECDSA, Ed25519.")
+	flag.DurationVar(&metricsRenewBefore, "metricsRenewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
+	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 

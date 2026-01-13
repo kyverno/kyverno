@@ -28,17 +28,62 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTlsSecretName)
 	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
 
-	var tlsSecretInformer corev1informers.SecretInformer
-	var caSecretInformer corev1informers.SecretInformer
+	var metricsTlsSecretInformer corev1informers.SecretInformer
+	var metricsCaSecretInformer corev1informers.SecretInformer
 	if metricsTlsSecretName != "" {
 		logger.Info("Metrics TLS secret name is provided, metrics server will use TLS")
-		tlsSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsTlsSecretName, resyncPeriod)
-		caSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsCaSecretName, resyncPeriod)
-		if !informers.StartInformersAndWaitForCacheSync(ctx, logger, caSecretInformer, tlsSecretInformer) {
+		metricsTlsSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsTlsSecretName, resyncPeriod)
+		metricsCaSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsCaSecretName, resyncPeriod)
+		if !informers.StartInformersAndWaitForCacheSync(ctx, logger, metricsCaSecretInformer, metricsTlsSecretInformer) {
 			logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
+		metricsKeyAlgorithm, ok := kyvernotls.KeyAlgorithms[strings.ToUpper(metricsKeyAlgorithm)]
+		if !ok {
+			logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", metricsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
+			os.Exit(1)
+		}
+		renewer := kyvernotls.NewCertRenewer(
+			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			kyvernotls.CertRenewalInterval,
+			kyvernotls.CAValidityDuration,
+			kyvernotls.TLSValidityDuration,
+			metricsRenewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			metricsCaSecretName,
+			metricsTlsSecretName,
+			metricsKeyAlgorithm,
+		)
+		certController := NewController(
+			certmanager.ControllerName,
+			certmanager.NewController(
+				metricsCaSecretInformer,
+				metricsTlsSecretInformer,
+				renewer,
+				metricsCaSecretName,
+				metricsTlsSecretName,
+				config.KyvernoNamespace(),
+			),
+			certmanager.Workers,
+		)
+		var wg wait.Group
+		certController.Run(ctx, logger, &wg)
+		// Wait for the certificate controller to create the TLS secrets
+		// This ensures they exist before InitMetrics tries to use them
+		if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+			caSecret, _ := metricsCaSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsCaSecretName)
+			tlsSecret, _ := metricsTlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTlsSecretName)
+			return caSecret != nil && tlsSecret != nil, nil
+		}); err != nil {
+			logger.Error(err, "timeout waiting for metrics TLS secrets to be created")
+			os.Exit(1)
+		}
+
 	}
+
 	// in case of otel collector being GRPC the metrics Host is the target address instead of the listening address
 	metricsConfig, tlsProvider, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		ctx,
@@ -49,8 +94,8 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		metricsConfiguration,
 		transportCreds,
 		kubeClient,
-		tlsSecretInformer,
-		caSecretInformer,
+		metricsTlsSecretInformer,
+		metricsCaSecretInformer,
 		metricsCaSecretName,
 		metricsTlsSecretName,
 		logging.WithName("metrics"),
@@ -115,45 +160,6 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 				}
 			}
 		}()
-	}
-	// Setup certificate renewer for metrics server.
-	// Only setup if metricsTlsSecretName is provided.
-	if metricsTlsSecretName != "" {
-		metricsKeyAlgorithm, ok := kyvernotls.KeyAlgorithms[strings.ToUpper(metricsKeyAlgorithm)]
-		if !ok {
-			logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", metricsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
-			os.Exit(1)
-		}
-
-		renewer := kyvernotls.NewCertRenewer(
-			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-			kyvernotls.CertRenewalInterval,
-			kyvernotls.CAValidityDuration,
-			kyvernotls.TLSValidityDuration,
-			renewBefore,
-			serverIP,
-			config.KyvernoServiceName(),
-			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-			config.KyvernoNamespace(),
-			metricsCaSecretName,
-			metricsTlsSecretName,
-			metricsKeyAlgorithm,
-		)
-		certController := NewController(
-			certmanager.ControllerName,
-			certmanager.NewController(
-				caSecretInformer,
-				tlsSecretInformer,
-				renewer,
-				metricsCaSecretName,
-				metricsTlsSecretName,
-				config.KyvernoNamespace(),
-			),
-			certmanager.Workers,
-		)
-
-		var wg wait.Group
-		certController.Run(ctx, logger, &wg)
 	}
 
 	return metricsConfig, cancel
