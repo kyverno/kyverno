@@ -1,0 +1,16 @@
+global:
+  image:
+    registry: override-registry.io
+
+admissionController:
+  enabled: true
+
+test:
+  enabled: true
+    
+openreports:
+  enabled: false
+  installCrds: false
+
+reportsServer:
+  enabled: false
