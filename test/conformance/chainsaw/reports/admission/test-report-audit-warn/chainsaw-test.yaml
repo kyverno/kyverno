@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: test-report-audit-warn
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

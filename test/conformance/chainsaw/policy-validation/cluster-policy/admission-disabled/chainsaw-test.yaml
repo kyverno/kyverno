@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: admission-disabled
 spec:
+  concurrent: true
   steps:
   - name: step-01
     try:

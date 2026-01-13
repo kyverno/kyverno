@@ -12,5 +12,3 @@ spec:
     fastDelete: true
   timeouts:
     apply: 10s
-    assert: 1m30s
-    error: 1m30s

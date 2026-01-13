@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: invalid-pod-security-rule
 spec:
+  concurrent: true
   steps:
   - name: Apply the first policy
     try:

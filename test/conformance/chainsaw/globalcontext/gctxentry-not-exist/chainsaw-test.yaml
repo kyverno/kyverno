@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: gctxentry-not-exist
 spec:
+  concurrent: false
   steps:
     - name: setup
       try:
