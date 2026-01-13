@@ -1,7 +1,7 @@
 apiVersion: cli.kyverno.io/v1alpha1
-kind: Context
+kind: ClusterResource
 metadata:
-  name: kyverno-test.yaml
+  name: clusterresources
 spec:
   resources:
   - apiVersion: v1
@@ -39,5 +39,3 @@ spec:
     data:
       name: non-spot-compute-class
       spot-values: '["false", "false", "false"]'
-
-  

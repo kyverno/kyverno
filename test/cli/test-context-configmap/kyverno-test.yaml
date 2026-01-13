@@ -3,7 +3,8 @@ kind: Test
 metadata:
   name: test-context-resource-lookup
 
-context: context.yaml
+clusterResources:
+  - clusterresources.yaml
 
 policies:
   - policy.yaml
