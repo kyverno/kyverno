@@ -319,7 +319,7 @@ func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeC
 func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
 	t.Run("patch error", func(t *testing.T) {
-		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 		p := Policy{
 			evaluator: mutating.PolicyEvaluator{
 				Mutators: []patch.Patcher{
@@ -338,7 +338,7 @@ func TestEvaluate(t *testing.T) {
 	})
 
 	t.Run("successful evaluation", func(t *testing.T) {
-		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+		env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
 			evaluator: mutating.PolicyEvaluator{
@@ -360,7 +360,7 @@ func TestEvaluate(t *testing.T) {
 
 func TestMatchesConditions(t *testing.T) {
 	ctx := context.TODO()
-	env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
+	env, _ := cel1.NewCompositionEnv(cel1.VariablesTypeName, environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 	t.Run("no match", func(t *testing.T) {
 		p := Policy{
 			matchConditions: []cel2.Program{
