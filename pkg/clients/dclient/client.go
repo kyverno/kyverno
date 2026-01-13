@@ -158,10 +158,8 @@ func (c *client) GetResource(ctx context.Context, apiVersion string, kind string
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
-// RawAbsPath performs a raw call to the kubernetes API
 func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	if c.rest == nil {
-		// Handle fake client case - parse path and use GetResource
 		return c.rawAbsPathForFakeClient(ctx, path, method, dataReader)
 	}
 
@@ -183,14 +181,13 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 		return nil, fmt.Errorf("method %s not supported for fake client", method)
 	}
 
-	// Parse path: /apis/group/version/resource/name or /api/v1/resource/name
 	path = strings.TrimPrefix(path, "/")
 	parts := strings.Split(path, "/")
 
 	var group, version, resource, name, namespace string
 
 	if len(parts) >= 2 && parts[0] == "api" {
-		// Core API: /api/v1/namespaces/namespace/resource/name
+		// Core API: /api/v1/namespaces/namespace/resource/nam
 		version = parts[1]
 		if len(parts) >= 4 && parts[2] == "namespaces" {
 			namespace = parts[3]
@@ -230,18 +227,15 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 		return nil, fmt.Errorf("failed to parse path: %s", path)
 	}
 
-	// Construct GVR from path
 	gvr := schema.GroupVersionResource{
 		Group:    group,
 		Version:  version,
 		Resource: resource,
 	}
 
-	// Get GVK from GVR using discovery client
 	gvk, err := c.disco.GetGVKFromGVR(gvr)
 	if err != nil {
-		// Fallback: try to infer kind from resource name if discovery fails
-		kind := inferKindFromResource(resource)
+		kind := inferKindFromResourceName(resource)
 		apiVersion := version
 		if group != "" {
 			apiVersion = group + "/" + version
@@ -257,44 +251,22 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 		return jsonData, nil
 	}
 
-	// Construct apiVersion
 	apiVersion := gvk.GroupVersion().String()
 	if gvk.Group == "" {
 		apiVersion = gvk.Version
 	}
 
-	// Get resource from fake client using the discovered kind
 	obj, err := c.GetResource(ctx, apiVersion, gvk.Kind, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", apiVersion, gvk.Kind, name, err)
 	}
 
-	// Marshal to JSON
 	jsonData, err := json.Marshal(obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal resource to JSON: %w", err)
 	}
 
 	return jsonData, nil
-}
-
-// inferKindFromResource converts a plural resource name to a singular kind
-// e.g., "computeclasses" -> "ComputeClass", "pods" -> "Pod"
-func inferKindFromResource(resource string) string {
-	// Simple plural to singular conversion
-	kind := resource
-	if strings.HasSuffix(kind, "ies") {
-		kind = strings.TrimSuffix(kind, "ies") + "y"
-	} else if strings.HasSuffix(kind, "es") {
-		kind = strings.TrimSuffix(kind, "es")
-	} else if strings.HasSuffix(kind, "s") {
-		kind = strings.TrimSuffix(kind, "s")
-	}
-	// Capitalize first letter
-	if len(kind) > 0 {
-		kind = strings.ToUpper(kind[:1]) + kind[1:]
-	}
-	return kind
 }
 
 // PatchResource patches the resource

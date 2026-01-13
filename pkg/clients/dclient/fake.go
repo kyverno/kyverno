@@ -87,7 +87,6 @@ type fakeDiscoveryClient struct {
 	gvrToGVK            map[schema.GroupVersionResource]schema.GroupVersionKind
 }
 
-// AddGVRToGVKMapping adds a mapping from GVR to GVK
 func (c *fakeDiscoveryClient) AddGVRToGVKMapping(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
 	if c.gvrToGVK == nil {
 		c.gvrToGVK = make(map[schema.GroupVersionResource]schema.GroupVersionKind)
@@ -105,17 +104,14 @@ func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResour
 }
 
 func (c *fakeDiscoveryClient) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	// First check if we have a direct mapping (e.g., from CRD definitions)
 	if c.gvrToGVK != nil {
 		if gvk, exists := c.gvrToGVK[gvr]; exists {
 			return gvk, nil
 		}
 	}
 
-	// Check if the GVR is in registered resources
 	for _, registered := range c.registeredResources {
 		if registered.Group == gvr.Group && registered.Version == gvr.Version && registered.Resource == gvr.Resource {
-			// Infer Kind from resource name (plural to singular)
 			kind := inferKindFromResourceName(gvr.Resource)
 			return schema.GroupVersionKind{
 				Group:   gvr.Group,
@@ -130,7 +126,6 @@ func (c *fakeDiscoveryClient) GetGVKFromGVR(gvr schema.GroupVersionResource) (sc
 // inferKindFromResourceName converts a plural resource name to a singular kind
 // e.g., "computeclasses" -> "ComputeClass", "pods" -> "Pod"
 func inferKindFromResourceName(resource string) string {
-	// Simple plural to singular conversion
 	kind := resource
 	if strings.HasSuffix(kind, "ies") {
 		kind = strings.TrimSuffix(kind, "ies") + "y"
@@ -139,7 +134,6 @@ func inferKindFromResourceName(resource string) string {
 	} else if strings.HasSuffix(kind, "s") {
 		kind = strings.TrimSuffix(kind, "s")
 	}
-	// Capitalize first letter
 	if len(kind) > 0 {
 		kind = strings.ToUpper(kind[:1]) + kind[1:]
 	}
