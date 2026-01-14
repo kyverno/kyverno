@@ -25,7 +25,7 @@ func Test_CheckKind(t *testing.T) {
 
 	// Though both 'pods', 'pods/status' have same kind i.e. 'Pod' but they are different resources, 'subresourceInAdmnReview' is used in determining that.
 	match = CheckKind([]string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "status", false)
-	assert.Equal(t, match, true)
+	assert.Equal(t, match, false)
 
 	// Though both 'pods', 'pods/ephemeralcontainers' have same kind i.e. 'Pod' but they are different resources, allowEphemeralContainers governs how to match this case.
 	match = CheckKind([]string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "ephemeralcontainers", true)
