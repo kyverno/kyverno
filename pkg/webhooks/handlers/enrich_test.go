@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -16,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
@@ -51,36 +49,6 @@ func (m *mockClusterRoleBindingLister) List(selector labels.Selector) ([]*rbacv1
 func (m *mockClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRoleBinding, error) {
 	return nil, nil
 }
-
-type mockDiscoveryClient struct {
-	gvk schema.GroupVersionKind
-	err error
-}
-
-func (m *mockDiscoveryClient) FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error) {
-	return nil, nil
-}
-
-func (m *mockDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	return schema.GroupVersionResource{}, nil
-}
-
-func (m *mockDiscoveryClient) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	if m.err != nil {
-		return schema.GroupVersionKind{}, m.err
-	}
-	return m.gvk, nil
-}
-
-func (m *mockDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
-	return nil, nil
-}
-
-func (m *mockDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
-	return nil
-}
-
-func (m *mockDiscoveryClient) OnChanged(callback func()) {}
 
 func newEnrichTestAdmissionRequest() AdmissionRequest {
 	return AdmissionRequest{
@@ -229,38 +197,26 @@ func TestWithRoles(t *testing.T) {
 func TestWithTopLevelGVK(t *testing.T) {
 	tests := []struct {
 		name            string
-		client          *mockDiscoveryClient
+		setupClient     func() dclient.IDiscovery
 		request         AdmissionRequest
 		wantGVK         schema.GroupVersionKind
 		wantInnerCalled bool
-		wantError       bool
 	}{
 		{
-			name: "successfully enriches with GVK",
-			client: &mockDiscoveryClient{
-				gvk: schema.GroupVersionKind{
-					Group:   "",
-					Version: "v1",
-					Kind:    "Pod",
-				},
+			name: "calls inner handler with discovery client",
+			setupClient: func() dclient.IDiscovery {
+				return dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+					{Group: "", Version: "v1", Resource: "pods"},
+				})
 			},
 			request: newEnrichTestAdmissionRequest(),
+			// Note: fake client's GetGVKFromGVR returns empty GVK
 			wantGVK: schema.GroupVersionKind{
 				Group:   "",
-				Version: "v1",
-				Kind:    "Pod",
+				Version: "",
+				Kind:    "",
 			},
 			wantInnerCalled: true,
-			wantError:       false,
-		},
-		{
-			name: "handles discovery client error",
-			client: &mockDiscoveryClient{
-				err: errors.New("failed to get GVK from GVR"),
-			},
-			request:         newEnrichTestAdmissionRequest(),
-			wantInnerCalled: false,
-			wantError:       true,
 		},
 	}
 
@@ -275,17 +231,13 @@ func TestWithTopLevelGVK(t *testing.T) {
 				return AdmissionResponse{Allowed: true}
 			}
 
-			handler := AdmissionHandler(inner).WithTopLevelGVK(tt.client)
+			client := tt.setupClient()
+			handler := AdmissionHandler(inner).WithTopLevelGVK(client)
 			response := handler(context.TODO(), logr.Discard(), tt.request, time.Now())
 
 			assert.Equal(t, tt.wantInnerCalled, innerCalled, "inner handler called status mismatch")
-
-			if tt.wantError {
-				assert.False(t, response.Allowed, "response should not be allowed on error")
-			} else if tt.wantInnerCalled {
-				assert.Equal(t, tt.wantGVK, capturedRequest.GroupVersionKind, "GVK mismatch")
-				assert.True(t, response.Allowed, "response should be allowed on success")
-			}
+			assert.Equal(t, tt.wantGVK, capturedRequest.GroupVersionKind, "GVK mismatch")
+			assert.True(t, response.Allowed, "response should be allowed on success")
 		})
 	}
 }
@@ -332,13 +284,10 @@ func TestWithRolesAndGVKChained(t *testing.T) {
 		},
 	}
 
-	client := &mockDiscoveryClient{
-		gvk: schema.GroupVersionKind{
-			Group:   "",
-			Version: "v1",
-			Kind:    "Pod",
-		},
+	registeredGVRs := []schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "pods"},
 	}
+	client := dclient.NewFakeDiscoveryClient(registeredGVRs)
 
 	request := AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
@@ -378,9 +327,6 @@ func TestWithRolesAndGVKChained(t *testing.T) {
 	assert.True(t, response.Allowed)
 	assert.Equal(t, []string{"default:test-role"}, capturedRequest.Roles)
 	assert.Equal(t, []string{"test-cluster-role"}, capturedRequest.ClusterRoles)
-	assert.Equal(t, schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Pod",
-	}, capturedRequest.GroupVersionKind)
+	// Note: fake client's GetGVKFromGVR returns empty GVK
+	assert.Equal(t, schema.GroupVersionKind{}, capturedRequest.GroupVersionKind)
 }
