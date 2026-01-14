@@ -13,7 +13,7 @@ import (
 type ClusterResource struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ClusterResourceSpec
+	Spec              ClusterResourceSpec `json:"spec"`
 }
 
 type ClusterResourceSpec struct {

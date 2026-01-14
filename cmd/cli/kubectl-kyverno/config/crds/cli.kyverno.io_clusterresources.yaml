@@ -37,6 +37,19 @@ spec:
             type: string
           metadata:
             type: object
+          spec:
+            properties:
+              crds:
+                items:
+                  type: string
+                type: array
+              resources:
+                items:
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

@@ -56,9 +56,6 @@ type Test struct {
 
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
-
-	// HTTPResponses are the HTTP responses to be used in the test
-	HTTPResponses []string `json:"httpResponses,omitempty"`
 }
 
 type CheckResult struct {
