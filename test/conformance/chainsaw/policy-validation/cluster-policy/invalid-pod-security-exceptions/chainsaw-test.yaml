@@ -3,7 +3,7 @@ kind: Test
 metadata:
   name: invalid-pod-security-exceptions
 spec:
-  concurrent: true
+  concurrent: false
   steps:
     - name: Apply the first policy exception
       try:

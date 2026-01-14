@@ -5,12 +5,12 @@ metadata:
   name: configuration
 spec:
   cleanup:
-    delayBeforeCleanup: 1s
+    delayBeforeCleanup: 3s
   discovery:
     fullName: true
   execution:
     failFast: true
-    forceTerminationGracePeriod: 1s
+    forceTerminationGracePeriod: 5s
   namespace:
     fastDelete: true
   timeouts:

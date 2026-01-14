@@ -18,11 +18,11 @@ runs:
       with:
         android: true
         docker-images: false
-        dotnet: false
-        haskell: false
+        dotnet: true
+        haskell: true
         large-packages: false
         swap-storage: false
-        tool-cache: false
+        tool-cache: true
     - shell: bash
       if: ${{ inputs.unshallow == 'true' }}
       run: |

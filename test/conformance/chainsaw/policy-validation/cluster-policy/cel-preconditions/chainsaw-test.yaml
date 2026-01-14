@@ -3,7 +3,7 @@ kind: Test
 metadata:
   name: test-cel-preconditions
 spec:
-  concurrent: true
+  concurrent: false
   steps:
     - name: apply mutate
       try:

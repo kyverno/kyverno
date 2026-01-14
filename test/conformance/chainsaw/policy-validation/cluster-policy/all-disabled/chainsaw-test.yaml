@@ -3,7 +3,7 @@ kind: Test
 metadata:
   name: all-disabled
 spec:
-  concurrent: true
+  concurrent: false
   steps:
   - name: step-01
     try:

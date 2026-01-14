@@ -13,9 +13,6 @@ inputs:
   token:
     description: GH token
     required: true
-  chainsaw-config:
-    description: Chainsaw config
-    default: ../../../.chainsaw.yaml
   tests-path:
     description: Tests path
     default: '.'
