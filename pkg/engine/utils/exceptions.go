@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -113,7 +114,21 @@ func checkResourceDescription(
 	subresource string,
 ) bool {
 	if len(conditionBlock.Kinds) > 0 {
-		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
+		// Check if any kind in the exception explicitly specifies a subresource
+		hasExplicitSubresource := false
+		for _, k := range conditionBlock.Kinds {
+			if strings.Contains(k, "/") {
+				hasExplicitSubresource = true
+				break
+			}
+		}
+		// If no explicit subresource is specified in the exception, ignore the incoming subresource for matching
+		// This allows an exception with "Pod" to match both "Pod" and "Pod/exec"
+		subresourceToCheck := subresource
+		if !hasExplicitSubresource {
+			subresourceToCheck = ""
+		}
+		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresourceToCheck, true) {
 			return false
 		}
 	}
