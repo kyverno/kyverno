@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: test-exclusion-running-as-nonroot-user
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

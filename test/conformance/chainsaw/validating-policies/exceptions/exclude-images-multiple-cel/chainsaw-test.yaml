@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: exclude-images-multiple-cel
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

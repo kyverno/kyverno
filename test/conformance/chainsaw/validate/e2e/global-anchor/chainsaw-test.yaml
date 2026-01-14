@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: global-anchor
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-any-match-resource
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

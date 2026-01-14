@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: two-foreach-rules
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

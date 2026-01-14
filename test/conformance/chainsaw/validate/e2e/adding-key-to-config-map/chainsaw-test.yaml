@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: adding-key-to-config-map
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

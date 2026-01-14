@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-validation-failure-action-overrides-with-namespace
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
