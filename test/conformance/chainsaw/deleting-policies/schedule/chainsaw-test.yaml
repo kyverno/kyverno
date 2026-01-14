@@ -4,6 +4,7 @@ metadata:
   name: restart-survivability-cleanup-controller
   namespace: default
 spec:
+  concurrent: false
   steps:
     - name: step-00
       try:

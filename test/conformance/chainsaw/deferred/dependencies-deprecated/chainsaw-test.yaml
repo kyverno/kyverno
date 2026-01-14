@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: dependencies
 spec:
+  concurrent: false
   steps:
   - name: create namespace
     try:

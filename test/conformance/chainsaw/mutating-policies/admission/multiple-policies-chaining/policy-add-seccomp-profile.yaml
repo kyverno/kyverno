@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: add-seccomp-profile
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+  - name: is-test-namespace
+    expression: request.namespace == 'test-chaining'
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          !has(object.spec.securityContext) ?
+          [
+            JSONPatch{
+              op: "add",
+              path: "/spec/securityContext",
+              value: { "seccompProfile": { "type": "RuntimeDefault" } }
+            }
+          ] :
+          (
+            !has(object.spec.securityContext.seccompProfile) ?
+            [
+              JSONPatch{
+                op: "add",
+                path: "/spec/securityContext/seccompProfile",
+                value: { "type": "RuntimeDefault" }
+              }
+            ] :
+            []
+          )

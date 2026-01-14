@@ -1,8 +1,9 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: none
+  name: none-deprecated
 spec:
+  concurrent: true
   steps:
   - name: create policy
     use:

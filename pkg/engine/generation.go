@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -14,9 +16,11 @@ func (e *engine) generateResponse(
 ) engineapi.PolicyResponse {
 	resp := engineapi.NewPolicyResponse()
 	for _, rule := range autogen.Default.ComputeRules(policyContext.Policy(), "") {
+		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.Rules = append(resp.Rules, *ruleResp)
+			r := *ruleResp
+			resp.Rules = append(resp.Rules, r.WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		}
 	}
 	return resp

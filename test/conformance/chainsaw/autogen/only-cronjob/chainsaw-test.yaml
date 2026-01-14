@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: only-cronjob
 spec:
+  concurrent: true
   steps:
   - name: create policy
     use:
