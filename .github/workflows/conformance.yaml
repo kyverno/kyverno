@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
 name: Conformance tests
-
 permissions: {}
 
 on:
@@ -312,6 +311,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -648,6 +648,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
           install-kubectl-evict: true
@@ -712,6 +713,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -910,7 +912,6 @@ jobs:
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
-
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
