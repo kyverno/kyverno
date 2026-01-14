@@ -52,5 +52,4 @@ func Test_CheckKind(t *testing.T) {
 
 	match = CheckKind([]string{"v1alpha1/Pod.eviction"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "eviction", false)
 	assert.Equal(t, match, false)
-
 }
