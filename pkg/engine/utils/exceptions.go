@@ -122,8 +122,8 @@ func checkResourceDescription(
 				break
 			}
 		}
-		// If no explicit subresource is specified in the exception, ignore the incoming subresource for matching
-		// This allows an exception with "Pod" to match both "Pod" and "Pod/exec"
+		// if no explicit subresource is specified in the exception, ignore the incoming subresource for matching
+		// this allows an exception with "Pod" to match both "Pod" and "Pod/exec"
 		subresourceToCheck := subresource
 		if !hasExplicitSubresource {
 			subresourceToCheck = ""

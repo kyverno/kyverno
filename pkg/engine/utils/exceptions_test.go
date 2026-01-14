@@ -1,4 +1,3 @@
-// pkg/engine/utils/exceptions_test.go
 package utils
 
 import (
