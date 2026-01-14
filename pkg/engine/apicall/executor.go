@@ -15,6 +15,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Executor interface {
@@ -56,6 +57,9 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 	}
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
 	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return nil, fmt.Errorf("permission denied: Kyverno service account lacks RBAC permissions to %v resource at %s. Grant the required permissions in a ClusterRole/Role bound to the Kyverno service account. Original error: %v", method, path, err)
+		}
 		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
 	}
 	a.logger.V(4).Info("executed APICall", "name", a.name, "path", path, "method", method, "len", len(jsonData))
