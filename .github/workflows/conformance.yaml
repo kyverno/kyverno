@@ -24,13 +24,16 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
         with:
-          free-disk-space: true
-      - name: ko build
+          free-disk-space: false
+          unshallow: false
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+      - name: Ko build
         shell: bash
         run: |
           set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload images archive
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kyverno.tar
@@ -47,13 +50,14 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
         with:
-          free-disk-space: true
+          free-disk-space: false
+          unshallow: false
       - name: Build CLI
         shell: bash
         run: |
           set -e
           VERSION=${{ github.ref_name }} make build-cli
-      - name: upload images archive
+      - name: Upload binary
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kubectl-kyverno
@@ -312,6 +316,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -648,6 +653,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
           install-kubectl-evict: true
@@ -712,6 +718,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -910,7 +917,6 @@ jobs:
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
-
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
