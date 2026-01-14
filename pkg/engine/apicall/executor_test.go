@@ -125,7 +125,7 @@ func TestExecuteK8sAPICall_Success(t *testing.T) {
 
 func TestExecuteK8sAPICall_ForbiddenPreservesOriginalError(t *testing.T) {
 	originalMsg := "User \"system:serviceaccount:kyverno:kyverno-admission-controller\" cannot list resource \"volumeattachments\" in API group \"storage.k8s.io\" at the cluster scope"
-	
+
 	client := &mockClient{
 		err: &apierrors.StatusError{
 			ErrStatus: metav1.Status{
@@ -152,11 +152,11 @@ func TestExecuteK8sAPICall_ForbiddenPreservesOriginalError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	
+
 	// Should contain the helpful message
 	assert.Contains(t, err.Error(), "permission denied")
 	assert.Contains(t, err.Error(), "RBAC permissions")
-	
+
 	// Should also preserve the original error details
 	errMsg := err.Error()
 	assert.True(t, strings.Contains(errMsg, "volumeattachments") || strings.Contains(errMsg, "storage.k8s.io"),
