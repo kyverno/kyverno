@@ -19,7 +19,7 @@ const (
 	v2KeylessImage  = testRegistry + ":v2-keyless"
 	v3KeyBasedImage = testRegistry + ":v3-traditional"
 	v3KeylessImage  = testRegistry + ":v3-keyless"
-	v3BundleImage   = testRegistry + ":v3-	bundle"
+	v3BundleImage   = testRegistry + ":v3-bundle"
 
 	// GitHub Actions OIDC configuration for keyless signing
 	githubWorkflowID = "https://github.com/lucchmielowski/cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
