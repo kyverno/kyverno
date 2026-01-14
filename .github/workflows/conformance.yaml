@@ -825,8 +825,6 @@ jobs:
         k8s-version:
           - v1.33.x
           - v1.34.x
-        tests:
-          - custom-sigstore
     needs: prepare-images
     steps:
       - name: Checkout
@@ -843,6 +841,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
         with:
           verify: true
+          release: v0.2.15-beta.3
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
@@ -893,7 +892,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test ${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -963,6 +962,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
         with:
           verify: true
+          release: v0.2.15-beta.3
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
@@ -984,7 +984,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw/cli && chainsaw test --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
 
   helm-upgrade:
     runs-on: ubuntu-latest

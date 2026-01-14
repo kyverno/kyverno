@@ -12,7 +12,7 @@ spec:
     failFast: true
     forceTerminationGracePeriod: 1s
   namespace:
-    fastDelete: true
+    fastDelete: false
   timeouts:
     apply: 10s
     assert: 1m30s
