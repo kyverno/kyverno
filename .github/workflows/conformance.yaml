@@ -77,6 +77,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
+          chainsaw-config: autogen/.chainsaw.yaml
 
   autogen:
     runs-on: ubuntu-latest
@@ -114,6 +115,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: background-only
+          chainsaw-config: autogen/.chainsaw.yaml
 
   cleanup:
     runs-on: ubuntu-latest
@@ -132,6 +134,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cleanup
+          chainsaw-config: autogen/.chainsaw.yaml
 
   deferred:
     runs-on: ubuntu-latest
@@ -150,6 +153,29 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deferred
+          chainsaw-config: autogen/.chainsaw.yaml
+
+  deleting-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+        shard-index: [0, 1, 2]
+    needs: [prepare-images]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: deleting-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 3
+          chainsaw-config: autogen/.chainsaw.yaml
 
   events:
     runs-on: ubuntu-latest
@@ -168,6 +194,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
+          chainsaw-config: autogen/.chainsaw.yaml
 
   exceptions:
     runs-on: ubuntu-latest
@@ -189,6 +216,7 @@ jobs:
           tests-path: exceptions
           shard-index: ${{ matrix.shard-index }}
           shard-count: 2
+          chainsaw-config: autogen/.chainsaw.yaml
 
   filter:
     runs-on: ubuntu-latest
@@ -207,6 +235,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: filter
+          chainsaw-config: autogen/.chainsaw.yaml
 
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
@@ -246,6 +275,7 @@ jobs:
           tests-path: generate
           shard-index: ${{ matrix.shard-index }}
           shard-count: 8
+          install-kubectl-evict: true
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -579,27 +609,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
-  deleting-policies:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-        shard-index: [0, 1, 2]
-    needs: [prepare-images]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deleting-policies
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 3
-
   namespaced-deleting-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -617,7 +626,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deleting-policies/namespaced
+          tests-path: namespaced-deleting-policies
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
@@ -642,6 +651,7 @@ jobs:
           quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
+          install-kubectl-evict: true
 
   namespaced-validating-policies:
     runs-on: ubuntu-latest
@@ -799,6 +809,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhooks
+          chainsaw-config: webhooks/.chainsaw.yaml
 
   sigstore-custom-tuf:
     runs-on: ubuntu-latest

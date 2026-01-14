@@ -3,6 +3,8 @@ kind: Test
 metadata:
   name: only-pod
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: create policy
     use:

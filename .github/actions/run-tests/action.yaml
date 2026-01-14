@@ -34,6 +34,9 @@ inputs:
   install-cert-manager:
     description: Install cert-manager before running tests
     default: 'false'
+  install-kubectl-evict:
+    description: Install kubectl-evict before running tests
+    default: 'false'
   explicit-install-settings:
     description: Additional helm install settings for Kyverno (e.g., --set admissionController.tlsKeyAlgorithm=Ed25519)
     default: ''
@@ -52,6 +55,7 @@ runs:
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:
         verify: true
+        release: v0.2.15-beta.3
     # create cluster
     - name: Create kind cluster
       uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
@@ -88,8 +92,8 @@ runs:
         export EXPLICIT_INSTALL_SETTINGS="${{ inputs.explicit-install-settings }}"
         echo "Installing Kyverno from main"
         make kind-install-kyverno
-    # install kubectl-evict plugin needed for testing eviction subresource trigger
     - name: Install kubectl-evict
+      if: inputs.install-kubectl-evict == 'true'
       shell: bash
       run: |
         set -e
