@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: good-pod
-  namespace: default
+  namespace: test
 spec:
   hostNetwork: false
   containers:

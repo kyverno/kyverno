@@ -16,6 +16,9 @@ inputs:
   tests-path:
     description: Tests path
     default: '.'
+  install-openreports:
+    description: install openreports crds
+    default: "false"
   chainsaw-tests:
     description: Test regex
     default: ''
@@ -71,6 +74,11 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
+    - name: Install OpenReports
+      if: inputs.install-openreports == 'true'
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
     - name: Install cert-manager
       if: inputs.install-cert-manager == 'true'
       shell: bash
