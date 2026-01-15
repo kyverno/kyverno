@@ -304,7 +304,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
-		if spec.HasValidate() && *spec.EmitWarning {
+		if spec.HasValidate() && spec.EmitWarning != nil && *spec.EmitWarning {
 			auditWarnPolicies = append(auditWarnPolicies, policy)
 		}
 	}
