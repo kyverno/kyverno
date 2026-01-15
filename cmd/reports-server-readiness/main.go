@@ -69,7 +69,7 @@ func main() {
 func getKubernetesClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initalize kube client: %w", err)
+		return nil, fmt.Errorf("failed to initialize kube client: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
