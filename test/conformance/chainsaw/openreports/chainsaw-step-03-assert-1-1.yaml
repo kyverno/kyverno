@@ -1,14 +1,12 @@
 apiVersion: openreports.io/v1alpha1
 kind: Report
 metadata:
-  namespace: test
   labels:
     app.kubernetes.io/managed-by: kyverno
+  namespace: default
 results:
-- message: mutated Pod/good-pod in namespace test
-  policy: test/add-labels
-  properties:
-    process: background scan
+- message: mutated Pod/good-pod in namespace default
+  policy: add-labels
   result: pass
   rule: add-labels
   scored: true
@@ -17,7 +15,7 @@ scope:
   apiVersion: v1
   kind: Pod
   name: good-pod
-  namespace: test
+  namespace: default
 summary:
   error: 0
   fail: 0

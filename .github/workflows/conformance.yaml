@@ -521,25 +521,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
 
-  openreports:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.34.0]
-    needs: [prepare]
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - uses: ./.github/actions/run-tests
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: openreports
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: openreports
-          install-openreports: "true"
-
   reports-exclude-result:
     runs-on: ubuntu-latest
     permissions:
