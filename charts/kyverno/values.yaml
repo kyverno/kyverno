@@ -518,12 +518,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: curlimages
+    registry: ghcr.io
     # -- Image repository
-    repository: curl
+    repository: kyverno/reports-server-readiness
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '8.10.1'
+    tag: 'main'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~

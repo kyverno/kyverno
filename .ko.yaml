@@ -30,3 +30,8 @@ builds:
     main: ./cmd/background-controller
     ldflags:
       - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+  - id: reports-server-readiness
+    main: ./scripts/reports-server-readiness
+    ldflags:
+      - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
