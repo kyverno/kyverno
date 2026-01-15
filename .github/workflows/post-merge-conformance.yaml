@@ -15,45 +15,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare-images:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
-          free-disk-space: true
-      - name: ko build
+          go-version-file: go.mod
+          cache: false
+      - name: Set Go cache variables
+        run: |
+          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+      - name: Normalize runner architecture
+        shell: bash
+        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Set cache OS suffix for Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
+      - name: Go cache
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        with:
+          path: |
+            ${{ env.GO_MOD_CACHE }}
+            ${{ env.GO_BUILD_CACHE }}
+          key: conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+      - name: Ko build
         shell: bash
         run: |
           set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload images archive
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
           retention-days: 1
           if-no-files-found: error
-
-  prepare-cli:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: true
       - name: Build CLI
         shell: bash
         run: |
           set -e
           VERSION=${{ github.ref_name }} make build-cli
-      - name: upload images archive
+      - name: Upload binary
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kubectl-kyverno
@@ -69,8 +81,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     needs:
-      - prepare-images
-      - prepare-cli
+      - prepare
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
