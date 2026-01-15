@@ -60,7 +60,7 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 		if apierrors.IsForbidden(err) {
 			return nil, fmt.Errorf("permission denied: Kyverno service account lacks RBAC permissions to %v resource at %s. Grant the required permissions in a ClusterRole/Role bound to the Kyverno service account. Original error: %v", method, path, err)
 		}
-		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+		return nil, fmt.Errorf("failed to %v resource with raw url: %s: %v", method, path, err)
 	}
 	a.logger.V(4).Info("executed APICall", "name", a.name, "path", path, "method", method, "len", len(jsonData))
 	return jsonData, nil
