@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: concurrent-policy-execution
 spec:
+  concurrent: false
   steps:
   - name: install-pss-policies
     try:

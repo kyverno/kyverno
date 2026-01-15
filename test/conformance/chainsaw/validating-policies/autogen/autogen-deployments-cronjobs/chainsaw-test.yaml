@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: autogen-deployments-cronjobs
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

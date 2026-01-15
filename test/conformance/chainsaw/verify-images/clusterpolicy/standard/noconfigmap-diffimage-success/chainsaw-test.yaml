@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: noconfigmap-diffimage-success
 spec:
+  concurrent: false
   timeouts:
     delete: 2m
   steps:

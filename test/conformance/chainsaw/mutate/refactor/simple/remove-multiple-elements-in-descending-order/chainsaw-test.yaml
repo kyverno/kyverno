@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: remove-multiple-elements-in-descending-order
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -3,6 +3,8 @@ kind: Test
 metadata:
   name: pod-all-subresources
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: create policy
     use:

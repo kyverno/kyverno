@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-data-nosync-delete-policy
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

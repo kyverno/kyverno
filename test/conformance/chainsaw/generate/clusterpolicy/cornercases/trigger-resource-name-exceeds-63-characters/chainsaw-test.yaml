@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: trigger-resource-name-exceeds-63-characters
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

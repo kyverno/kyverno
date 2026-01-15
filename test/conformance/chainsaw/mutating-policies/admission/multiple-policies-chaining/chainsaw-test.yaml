@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: multiple-policies-chaining
 spec:
+  concurrent: false
   description: |
     This test verifies that multiple MutatingPolicies correctly chain their mutations.
     When multiple policies match a resource, each policy should receive the output of the

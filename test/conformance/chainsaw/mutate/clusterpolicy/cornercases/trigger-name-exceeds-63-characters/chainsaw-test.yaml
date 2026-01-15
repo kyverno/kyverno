@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: trigger-name-exceeds-63-characters
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

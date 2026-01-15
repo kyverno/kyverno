@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: invalid-cel-expression
 spec:
+  concurrent: false
   steps:
   - name: Apply the policy
     try:

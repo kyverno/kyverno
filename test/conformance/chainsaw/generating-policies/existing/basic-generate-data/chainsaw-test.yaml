@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: basic-generate-data
 spec:
+  concurrent: false
   steps:
   - name: create namespace
     try:

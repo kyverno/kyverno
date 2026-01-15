@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: keyless-mutatedigest-verifydigest-required
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

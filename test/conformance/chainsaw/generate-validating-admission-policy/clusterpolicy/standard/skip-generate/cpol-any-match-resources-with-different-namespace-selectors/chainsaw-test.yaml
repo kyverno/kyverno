@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-any-match-resources-with-different-namespace-selectors
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
