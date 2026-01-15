@@ -4,6 +4,7 @@ metadata:
   creationTimestamp: null
   name: update-deployment
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

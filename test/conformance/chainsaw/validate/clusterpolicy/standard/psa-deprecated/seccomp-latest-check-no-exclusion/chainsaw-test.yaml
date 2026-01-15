@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: seccomp-latest-check-no-exclusion
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

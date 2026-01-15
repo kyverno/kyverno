@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: gctx-validate-reference
 spec:
+  concurrent: false
   steps:
     - try:
         - create:

@@ -3,15 +3,17 @@ kind: Test
 metadata:
   name: apply-ivps-in-cluster-mode
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: step-01
     try:
-    - script:
-        content: kubectl apply -f bad-pod.yaml
+    - create:
+        file: bad-pod.yaml
   - name: step-02
     try:
-    - script:
-        content: kubectl apply -f good-pod.yaml
+    - create:
+        file: good-pod.yaml
   - name: step-03
     try:
     - script:

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: apply-v1
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

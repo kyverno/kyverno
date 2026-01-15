@@ -3,11 +3,13 @@ kind: Test
 metadata:
   name: apply-ivps-in-cluster-mode-with-polex
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: step-01
     try:
-    - script:
-        content: kubectl apply -f resources.yaml
+    - create:
+        file: resources.yaml
   - name: step-02
     try:
     - script:

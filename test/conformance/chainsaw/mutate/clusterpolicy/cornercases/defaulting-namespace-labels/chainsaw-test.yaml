@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: defaulting-namespace-labels
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

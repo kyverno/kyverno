@@ -4,11 +4,8 @@ kind: Test
 metadata:
   name: validation-rules-reject
 spec:
+  concurrent: true
   steps:
-  - name: create namespace
-    try:
-    - create:
-        file: namespace.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -23,8 +20,6 @@ spec:
         bindings:
         - name: name
           value: nivpol-reject
-        - name: namespace
-          value: test-nivpol
   - name: create bad pod (should be denied)
     try:
     - create:
@@ -33,7 +28,6 @@ spec:
           kind: Pod
           metadata:
             name: bad-pod
-            namespace: test-nivpol
             labels:
               prod: "true"
           spec:

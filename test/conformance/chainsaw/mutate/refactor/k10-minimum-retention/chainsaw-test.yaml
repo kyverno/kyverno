@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: k10-minimum-retention
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

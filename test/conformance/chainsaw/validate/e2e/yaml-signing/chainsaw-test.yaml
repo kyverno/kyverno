@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: yaml-signing
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

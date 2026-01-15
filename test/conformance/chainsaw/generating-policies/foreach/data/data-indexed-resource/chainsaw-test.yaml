@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: data-indexed-resource
 spec:
+  concurrent: false
   steps:
   - name: create namespaces
     try:
