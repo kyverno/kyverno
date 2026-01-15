@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno/scripts/reports-server-readiness
 
-go 1.23
+go 1.25
 
 require (
 	k8s.io/apimachinery v0.35.0

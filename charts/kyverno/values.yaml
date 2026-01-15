@@ -523,7 +523,7 @@ test:
     repository: kyverno/reports-server-readiness
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'main'
+    tag: '0.1.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
