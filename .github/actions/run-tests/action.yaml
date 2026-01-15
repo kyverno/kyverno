@@ -100,7 +100,6 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
-
     - name: Add excluded tests
       shell: bash
       run: |
