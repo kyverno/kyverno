@@ -36,7 +36,7 @@ inputs:
     default: 'false'
   install-openreports:
     description: install openreports crds
-    default: "false"
+    default: 'false'
   explicit-install-settings:
     description: Additional helm install settings for Kyverno (e.g., --set admissionController.tlsKeyAlgorithm=Ed25519)
     default: ''

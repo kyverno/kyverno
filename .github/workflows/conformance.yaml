@@ -729,7 +729,7 @@ jobs:
           kyverno-configs: openreports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: openreports
-          install-openreports: "true"
+          install-openreports: true
 
   reports:
     runs-on: ubuntu-latest
