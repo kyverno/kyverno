@@ -15,12 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare-images:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version-file: go.mod
@@ -36,14 +37,15 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
-      - name: Restore Go cache
-        id: go-cache
-        uses: actions/cache@v5
+      - name: Go cache
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: |
             ${{ env.GO_MOD_CACHE }}
             ${{ env.GO_BUILD_CACHE }}
-          key: prepare-images-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
       - name: Install Ko
         uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
       - name: Ko build
@@ -58,18 +60,6 @@ jobs:
           path: kyverno.tar
           retention-days: 1
           if-no-files-found: error
-
-  prepare-cli:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-          unshallow: false
       - name: Build CLI
         shell: bash
         run: |
@@ -91,7 +81,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -109,7 +99,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -127,7 +117,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -145,7 +135,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -163,7 +153,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -182,7 +172,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -202,7 +192,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -221,7 +211,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -241,7 +231,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -259,7 +249,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -278,7 +268,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -299,7 +289,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -317,7 +307,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -337,7 +327,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -355,7 +345,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -374,7 +364,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -394,7 +384,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -412,7 +402,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -431,7 +421,7 @@ jobs:
       matrix:
         kyverno-configs: [standard, default, force-failure-policy-ignore]
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -450,7 +440,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -470,7 +460,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -489,7 +479,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -509,7 +499,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -527,7 +517,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -547,7 +537,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -568,7 +558,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -589,7 +579,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -610,7 +600,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -632,7 +622,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -651,7 +641,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -672,7 +662,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -690,7 +680,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -709,7 +699,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -729,7 +719,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -747,7 +737,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -766,7 +756,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -786,7 +776,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -804,7 +794,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -822,7 +812,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: ./.github/actions/run-tests
@@ -843,7 +833,7 @@ jobs:
         k8s-version:
           - v1.33.x
           - v1.34.x
-    needs: prepare-images
+    needs: prepare
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -919,7 +909,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: read
-    needs: prepare-images
+    needs: prepare
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -965,7 +955,7 @@ jobs:
     permissions:
       packages: read
     needs:
-      - prepare-cli
+      - prepare
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -1013,7 +1003,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         kyverno-version: ["3.2"]
-    needs: [prepare-images]
+    needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Install helm
@@ -1074,7 +1064,7 @@ jobs:
             values:
               - kyverno-cleanup
     needs:
-      - prepare-images
+      - prepare
     name: ${{ matrix.k8s-version.name }} - kyverno uninstall
     steps:
       - name: Checkout kyverno/kyverno
@@ -1153,7 +1143,7 @@ jobs:
             test-dir: ecdsa-cert-manager
             helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=ECDSA --set admissionController.certManager.size=256 --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=ECDSA --set cleanupController.certManager.size=256
     needs:
-      - prepare-images
+      - prepare
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -1184,7 +1174,7 @@ jobs:
             test-dir: ed25519-self-signed
             helm-settings: --set admissionController.tlsKeyAlgorithm=Ed25519 --set cleanupController.tlsKeyAlgorithm=Ed25519
     needs:
-      - prepare-images
+      - prepare
     name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
