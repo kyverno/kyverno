@@ -143,14 +143,13 @@ clean-tools: ## Remove installed tools
 #################
 
 CMD_DIR        := cmd
-SCRIPTS_DIR    := scripts
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 REPORTS_DIR    := $(CMD_DIR)/reports-controller
 BACKGROUND_DIR := $(CMD_DIR)/background-controller
-READINESS_DIR  := $(SCRIPTS_DIR)/reports-server-readiness
+READINESS_DIR  := $(CMD_DIR)/reports-server-readiness
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno

@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - 'scripts/reports-server-readiness/**'
+      - 'cmd/reports-server-readiness/**'
       - '.github/workflows/reports-server-readiness.yaml'
 
 concurrency:
@@ -34,7 +34,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           scan-type: 'fs'
-          scan-ref: './scripts/reports-server-readiness'
+          scan-ref: './cmd/reports-server-readiness'
           ignore-unfixed: true
           format: 'sarif'
           output: 'trivy-results.sarif'
@@ -57,4 +57,4 @@ jobs:
           sbom-name: reports-server-readiness
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./scripts/reports-server-readiness
+          main-path: ./cmd/reports-server-readiness
