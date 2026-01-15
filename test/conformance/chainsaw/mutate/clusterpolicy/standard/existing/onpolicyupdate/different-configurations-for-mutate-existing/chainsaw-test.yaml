@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: different-configurations-for-mutate-existing
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

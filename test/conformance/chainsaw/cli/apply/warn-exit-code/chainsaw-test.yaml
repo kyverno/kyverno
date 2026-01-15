@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: test-name
 spec:
+  concurrent: false
   steps:
     - try:
       - script:

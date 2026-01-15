@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: block-exec-in-pods
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

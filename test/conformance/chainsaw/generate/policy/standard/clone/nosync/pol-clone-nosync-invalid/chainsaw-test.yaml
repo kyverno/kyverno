@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: pol-clone-nosync-invalid
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:
