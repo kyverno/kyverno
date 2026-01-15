@@ -4,6 +4,7 @@ metadata:
   name: apicall-http-post
   
 spec:
+  concurrent: false
   steps:
   - try:
     - apply:

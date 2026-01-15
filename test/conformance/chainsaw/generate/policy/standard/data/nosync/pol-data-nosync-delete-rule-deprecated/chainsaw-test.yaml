@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: pol-data-nosync-delete-rule
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

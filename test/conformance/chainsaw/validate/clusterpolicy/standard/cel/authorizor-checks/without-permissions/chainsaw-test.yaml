@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: without-permissions
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

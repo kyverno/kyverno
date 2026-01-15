@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: applies-to-delete
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

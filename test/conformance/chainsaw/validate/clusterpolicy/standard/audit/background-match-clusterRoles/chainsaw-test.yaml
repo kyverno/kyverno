@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: background-match-clusterroles
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

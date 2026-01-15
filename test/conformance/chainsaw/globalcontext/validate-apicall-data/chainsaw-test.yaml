@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: validate-apicall-data
 spec:
+  concurrent: false
   steps:
     - name: validation
       try:

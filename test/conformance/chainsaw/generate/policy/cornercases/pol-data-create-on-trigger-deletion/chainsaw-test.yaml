@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: pol-data-create-on-trigger-deletion
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:
