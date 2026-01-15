@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: different-generate-existing-values
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

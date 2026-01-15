@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-clone-list-sync-update
 spec:
+  concurrent: false
   steps:
   - name: step-00
     try:

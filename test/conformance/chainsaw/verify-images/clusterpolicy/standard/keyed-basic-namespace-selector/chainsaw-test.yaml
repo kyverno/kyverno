@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: keyed-basic-namespace-selector
 spec:
+  concurrent: false
   timeouts:
     delete: 2m
   steps:

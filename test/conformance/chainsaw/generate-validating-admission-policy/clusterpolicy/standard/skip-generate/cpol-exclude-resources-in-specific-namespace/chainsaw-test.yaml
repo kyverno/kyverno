@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-exclude-resources-in-specific-namespace
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

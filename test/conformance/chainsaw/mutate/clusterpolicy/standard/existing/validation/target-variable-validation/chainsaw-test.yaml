@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: target-variable-validation
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:
