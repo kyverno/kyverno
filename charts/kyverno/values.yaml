@@ -30,8 +30,7 @@ global:
     # -- Global value to set single volume to be mounted for CA certificates for all deployments.
     # Not used when `.Values.global.caCertificates.data` is defined
     # Individual  controller values will override this global value
-    volume:
-      subPath: ""
+    volume: {}
     # Example to use hostPath:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
