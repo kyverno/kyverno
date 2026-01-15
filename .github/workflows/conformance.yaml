@@ -1227,9 +1227,11 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1278,9 +1280,11 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
