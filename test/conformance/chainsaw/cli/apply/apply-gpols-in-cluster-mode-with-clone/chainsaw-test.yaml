@@ -11,8 +11,8 @@ spec:
         content: kubectl create namespace test-ns-2
   - name: step-02
     try:
-    - script:
-        content: kubectl apply -f sources.yaml
+    - create:
+        file: sources.yaml
   - name: step-03
     try:
     - script:

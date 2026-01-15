@@ -15,8 +15,8 @@ spec:
         content: kubectl label ns ns-1 kyverno.tess.io/mutateresource=false
   - name: step-03
     try:
-    - script:
-        content: kubectl apply -f pod.yaml
+    - create:
+        file: pod.yaml
   - name: step-04
     try:
     - script:
