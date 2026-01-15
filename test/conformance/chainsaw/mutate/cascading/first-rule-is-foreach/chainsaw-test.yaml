@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: first-rule-is-foreach
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

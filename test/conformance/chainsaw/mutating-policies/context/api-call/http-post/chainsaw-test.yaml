@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: mpol-http-post
 spec:
+  concurrent: false
   steps:
   - name: setup-http-service
     try:

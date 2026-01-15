@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: events-creation
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

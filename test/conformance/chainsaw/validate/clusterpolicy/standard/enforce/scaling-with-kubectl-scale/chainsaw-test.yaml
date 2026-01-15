@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: scaling-with-kubectl-scale
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

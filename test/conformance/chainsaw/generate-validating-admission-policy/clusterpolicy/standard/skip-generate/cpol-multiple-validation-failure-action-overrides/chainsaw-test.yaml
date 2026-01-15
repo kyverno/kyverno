@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-multiple-validation-failure-action-overrides
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

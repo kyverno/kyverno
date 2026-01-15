@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: policy-exceptions-disabled
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

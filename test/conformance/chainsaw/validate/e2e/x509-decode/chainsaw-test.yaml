@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: x509-decode
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

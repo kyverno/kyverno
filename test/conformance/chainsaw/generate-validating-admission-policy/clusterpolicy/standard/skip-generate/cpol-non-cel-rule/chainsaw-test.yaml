@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-non-cel-rule
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

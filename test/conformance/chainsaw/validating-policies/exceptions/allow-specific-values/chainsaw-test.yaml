@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: allow-specific-values
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

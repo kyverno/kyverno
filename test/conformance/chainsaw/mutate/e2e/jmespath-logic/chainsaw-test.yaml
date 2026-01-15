@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: jmespath-logic
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

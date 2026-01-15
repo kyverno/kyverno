@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: assert-validation
 spec:
+  concurrent: false
   steps:
   - try:
     - create:

@@ -3,11 +3,12 @@ kind: Test
 metadata:
   name: apply-maps-in-cluster-mode
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:
-    - script:
-        content: kubectl apply -f resource.yaml
+    - create:
+        file: resource.yaml
   - name: step-02
     try:
     - script:
