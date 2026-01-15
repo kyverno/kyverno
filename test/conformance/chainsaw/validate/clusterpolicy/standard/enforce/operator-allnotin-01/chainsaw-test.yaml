@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: operator-allnotin-01
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

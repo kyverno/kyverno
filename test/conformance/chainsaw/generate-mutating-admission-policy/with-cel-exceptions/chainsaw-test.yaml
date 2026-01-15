@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: with-cel-exceptions
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

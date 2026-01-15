@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-with-exception-in-specific-namespace
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

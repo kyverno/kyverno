@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: with-exception
 spec:
+  concurrent: false
   steps:
   - name: create bad deployment
     try:

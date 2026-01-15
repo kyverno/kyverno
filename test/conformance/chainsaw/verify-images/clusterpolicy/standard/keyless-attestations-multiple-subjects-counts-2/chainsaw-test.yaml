@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: keyless-attestations-multiple-subjects-counts-2
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: mpol-trigger-unchanged
 spec:
+  concurrent: false
   steps:
   - name: create-namespace-and-secret
     try:
