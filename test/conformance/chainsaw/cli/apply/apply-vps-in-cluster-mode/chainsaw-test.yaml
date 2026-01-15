@@ -4,6 +4,7 @@ metadata:
   name: apply-vps-in-cluster-mode
 spec:
   concurrent: false
+  namespace: default
   steps:
   - name: step-01
     try:
