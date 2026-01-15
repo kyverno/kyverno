@@ -1,28 +1,25 @@
-apiVersion : chainsaw.kyverno.io/v1alpha1
-kind : Test
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
 metadata:
-   name: test-cel-preconditions
+  name: test-cel-preconditions
 spec:
+  concurrent: false
   steps:
-   - name: apply mutate
-     try:
-      - script:
-         content: kubectl apply -f mutate-policy.yaml
-         check: 
+    - name: apply mutate
+      try:
+        - script:
+            content: kubectl apply -f mutate-policy.yaml
+            check:
               (contains($stderr, 'celPrecondition can only be used with validate.cel')): true
-   - name: apply generate
-     try:
-      - script:
-         content: kubectl apply -f generate-policy.yaml
-         check: 
-            (contains($stderr, 'celPrecondition can only be used with validate.cel')): true
-   - name: apply validate
-     try:
-      - script:
-         content: kubectl apply -f validate-policy.yaml
-         check: 
-            (contains($stderr, 'celPrecondition can only be used with validate.cel')): true
-
-
-             
-           
+    - name: apply generate
+      try:
+        - script:
+            content: kubectl apply -f generate-policy.yaml
+            check:
+              (contains($stderr, 'celPrecondition can only be used with validate.cel')): true
+    - name: apply validate
+      try:
+        - script:
+            content: kubectl apply -f validate-policy.yaml
+            check:
+              (contains($stderr, 'celPrecondition can only be used with validate.cel')): true

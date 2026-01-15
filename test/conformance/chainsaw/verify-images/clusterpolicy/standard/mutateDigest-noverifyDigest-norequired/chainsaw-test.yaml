@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: mutatedigest-noverifydigest-norequired
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

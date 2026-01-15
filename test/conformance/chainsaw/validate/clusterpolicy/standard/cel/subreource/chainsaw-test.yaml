@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cel-subresource
 spec:
+  concurrent: false
   steps:
   - name: create policies
     use:
