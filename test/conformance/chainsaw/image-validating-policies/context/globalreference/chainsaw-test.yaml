@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: apicall-correct
 spec:
+  concurrent: false
   steps:
   - try:
     - apply:

@@ -199,27 +199,33 @@ unused-package-check:
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
 
-$(BACKGROUND_BIN): fmt vet
+$(BACKGROUND_BIN): fmt
+$(BACKGROUND_BIN): vet
 	@echo Build background controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
-$(CLEANUP_BIN): fmt vet
+$(CLEANUP_BIN): fmt
+$(CLEANUP_BIN): vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
-$(CLI_BIN): fmt vet
+$(CLI_BIN): fmt
+# $(CLI_BIN): vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
-$(KYVERNO_BIN): fmt vet
+$(KYVERNO_BIN): fmt
+$(KYVERNO_BIN): vet
 	@echo Build kyverno binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
-$(KYVERNOPRE_BIN): fmt vet
+$(KYVERNOPRE_BIN): fmt
+$(KYVERNOPRE_BIN): vet
 	@echo Build kyvernopre binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
-$(REPORTS_BIN): fmt vet
+$(REPORTS_BIN): fmt
+$(REPORTS_BIN): vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
@@ -524,6 +530,8 @@ codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
+	@echo "Tidying modules after client generation..."
+	go mod tidy
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
@@ -978,7 +986,7 @@ debug-deploy: codegen-manifest-debug ## Install debug manifests
 ##########
 
 .PHONY: docker-save-image-all
-docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
+docker-save-image-all: image-build-all ## Save docker images in archive
 	docker save \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \

@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: ns-selector-with-wildcard-kind
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

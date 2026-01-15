@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: immutable-clonelist
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

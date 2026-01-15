@@ -4,6 +4,7 @@ metadata:
   name: deleting-policy-configmap-without-rbac
   namespace: default
 spec:
+  concurrent: false
   steps:
     - name: step-01
       try:

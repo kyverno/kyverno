@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: conditional-anchor
 spec:
+  concurrent: false
   steps:
   - name: apply-namespace
     try:
