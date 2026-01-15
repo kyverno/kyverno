@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cpol-match-all-exclude-one
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -13,9 +13,6 @@ inputs:
   token:
     description: GH token
     required: true
-  chainsaw-config:
-    description: Chainsaw config
-    default: ../../../.chainsaw.yaml
   tests-path:
     description: Tests path
     default: '.'
@@ -143,9 +140,9 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
-        cd ./test/conformance/chainsaw
-        chainsaw test ${{ inputs.tests-path }} \
-          --config ${{ inputs.chainsaw-config }} \
+        cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
+        chainsaw test \
+          --config .chainsaw.yaml \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}

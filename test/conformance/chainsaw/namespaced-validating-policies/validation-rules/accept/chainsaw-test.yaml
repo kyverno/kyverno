@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: accept
 spec:
+  concurrent: false
   steps:
   - name: create namespace
     try:

@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: validating-admission-policy-pass
 spec:
+  concurrent: false
   steps:
   - name: step-01
     try:

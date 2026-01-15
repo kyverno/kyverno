@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: enforce-validate-existing
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

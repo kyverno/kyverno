@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: missing-generate
 spec:
+  concurrent: false
   steps:
   - name: Apply the policy
     try:

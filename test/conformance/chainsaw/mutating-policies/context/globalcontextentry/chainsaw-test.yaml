@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: mpol-globalcontextentry
 spec:
+  concurrent: false
   steps:
   - try:
     - apply:
