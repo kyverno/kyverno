@@ -13,16 +13,17 @@ import (
 
 const (
 	// Test images from cosign test repository
-	testRegistry    = "ghcr.io/lucchmielowski/cosign-testbed"
-	unsignedImage   = testRegistry + ":unsigned"
-	v2KeyBasedImage = testRegistry + ":v2-traditional"
-	v2KeylessImage  = testRegistry + ":v2-keyless"
-	v3KeyBasedImage = testRegistry + ":v3-traditional"
-	v3KeylessImage  = testRegistry + ":v3-keyless"
-	v3BundleImage   = testRegistry + ":v3-bundle"
+	testRegistry           = "ghcr.io/lucchmielowski/kyverno-cosign-testbed"
+	unsignedImage          = testRegistry + ":unsigned"
+	githubAttestationImage = testRegistry + ":github-attestation"
+	v2KeyBasedImage        = testRegistry + ":v2-traditional"
+	v2KeylessImage         = testRegistry + ":v2-keyless"
+	v3KeyBasedImage        = testRegistry + ":v3-traditional"
+	v3KeylessImage         = testRegistry + ":v3-keyless"
+	v3BundleImage          = testRegistry + ":v3-bundle"
 
 	// GitHub Actions OIDC configuration for keyless signing
-	githubWorkflowID = "https://github.com/lucchmielowski/cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
+	githubWorkflowID = "https://github.com/lucchmielowski/kyverno-cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
 )
 
 const (
@@ -540,6 +541,20 @@ func TestConcurrentVerification(t *testing.T) {
 		idf, err := imagedataloader.New(nil)
 		require.NoError(t, err)
 
+		// Pre-check that all images are accessible before running concurrent tests
+		images := []string{
+			v2KeyBasedImage,
+			v3KeyBasedImage,
+			v3BundleImage,
+		}
+
+		for _, image := range images {
+			_, err := idf.FetchImageData(context.TODO(), image)
+			if err != nil {
+				t.Skipf("image %s not accessible: %v", image, err)
+			}
+		}
+
 		attestor := &v1beta1.Attestor{
 			Name: "concurrent-test",
 			Cosign: &v1beta1.Cosign{
@@ -554,32 +569,42 @@ func TestConcurrentVerification(t *testing.T) {
 			},
 		}
 
-		images := []string{
-			v2KeyBasedImage,
-			v3KeyBasedImage,
-			v3BundleImage,
+		type result struct {
+			image   string
+			success bool
+			err     error
 		}
 
-		done := make(chan bool, len(images))
+		results := make(chan result, len(images))
 
 		for _, image := range images {
 			go func(img string) {
 				imgData, err := idf.FetchImageData(context.TODO(), img)
 				if err != nil {
-					done <- false
+					results <- result{image: img, success: false, err: err}
 					return
 				}
 
 				v := Verifier{log: logr.Discard()}
 				err = v.VerifyImageSignature(context.TODO(), imgData, attestor)
-				done <- err == nil
+				results <- result{image: img, success: err == nil, err: err}
 			}(image)
 		}
 
+		var failures []result
 		successes := 0
 		for i := 0; i < len(images); i++ {
-			if <-done {
+			res := <-results
+			if res.success {
 				successes++
+			} else {
+				failures = append(failures, res)
+			}
+		}
+
+		if len(failures) > 0 {
+			for _, failure := range failures {
+				t.Errorf("verification failed for image %s: %v", failure.image, failure.err)
 			}
 		}
 
@@ -729,5 +754,49 @@ func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
 		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
+	})
+}
+
+func Test_GitHubAttestationVerification(t *testing.T) {
+	t.Run("verify SLSA provenance attestation with GitHub Actions keyless", func(t *testing.T) {
+		idf, err := imagedataloader.New(nil)
+		require.NoError(t, err)
+
+		// Use an image that should have SLSA provenance attestations
+		// Based on the policy: ghcr.io/lucchmielowski/kyverno-cosign-testbed:*
+		// The image must have SLSA provenance attestations signed with GitHub Actions
+		img, err := idf.FetchImageData(context.TODO(), githubAttestationImage)
+		if err != nil {
+			t.Skipf("test image %s not accessible: %v", githubAttestationImage, err)
+		}
+
+		attestor := &v1beta1.Attestor{
+			Name: "github-keyless-attestation",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  githubActionsIssuer,
+							Subject: githubWorkflowID,
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		}
+
+		attestation := &v1beta1.Attestation{
+			Name: "slsa",
+			InToto: &v1beta1.InToto{
+				Type: "https://slsa.dev/provenance/v1",
+			},
+		}
+
+		v := Verifier{log: logr.Discard()}
+		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+		assert.NoError(t, err, "SLSA provenance attestation verification should succeed with GitHub Actions keyless")
 	})
 }
