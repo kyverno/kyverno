@@ -86,7 +86,7 @@ func Test_serviceGetRequest(t *testing.T) {
 		entry := kyvernov1.ContextEntry{}
 		ctx := enginecontext.NewContext(jp)
 
-		_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 		assert.ErrorContains(t, err, "missing APICall")
 
 		entry.Name = "test"
@@ -102,19 +102,19 @@ func Test_serviceGetRequest(t *testing.T) {
 			},
 		}
 
-		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 		assert.NilError(t, err)
 		_, err = call.FetchAndLoad(context.TODO())
 		assert.ErrorContains(t, err, "invalid request type")
 
 		entry.APICall.Method = "GET"
-		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 		assert.NilError(t, err)
 		_, err = call.FetchAndLoad(context.TODO())
 		assert.ErrorContains(t, err, "HTTP 404")
 
 		entry.APICall.Service.URL = s.URL + "/resource"
-		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 		assert.NilError(t, err)
 
 		data, err := call.FetchAndLoad(context.TODO())
@@ -122,12 +122,12 @@ func Test_serviceGetRequest(t *testing.T) {
 		assert.Assert(t, data != nil, "nil data")
 		assert.Equal(t, string(serverResponse), string(data))
 
-		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed, "")
 		assert.NilError(t, err)
 		_, err = call.FetchAndLoad(context.TODO())
 		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
 
-		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck, "")
 		assert.NilError(t, err)
 		data, err = call.FetchAndLoad(context.TODO())
 		assert.NilError(t, err)
@@ -157,7 +157,7 @@ func Test_servicePostRequest(t *testing.T) {
 	}
 
 	ctx := enginecontext.NewContext(jp)
-	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 	assert.NilError(t, err)
 	data, err := call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
@@ -190,7 +190,7 @@ func Test_servicePostRequest(t *testing.T) {
 			  "name": "busybox",
 			  "tag": "latest"
 			}
-		  }		
+		  }
 	  }`
 
 	err = ctx.AddContextEntry("images", []byte(imageData))
@@ -205,7 +205,7 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 	assert.NilError(t, err)
 	data, err = call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
@@ -240,7 +240,7 @@ func Test_fallbackToDefault(t *testing.T) {
 	}
 
 	entry.APICall.Method = "GET"
-	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 	assert.NilError(t, err)
 
 	jsonData, err := call.Fetch(context.TODO())
@@ -292,7 +292,7 @@ func Test_serviceHeaders(t *testing.T) {
 	}
 
 	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
 	assert.NilError(t, err)
 	data, err := call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
@@ -304,4 +304,88 @@ func Test_serviceHeaders(t *testing.T) {
 	assert.Equal(t, 4, len(responseHeaders))
 	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
+}
+
+type mockClient struct{}
+
+func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+func Test_CrossNamespaceAccess(t *testing.T) {
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				URLPath: "/api/v1/namespaces/kube-system/secrets/top-secret",
+				Method:  "GET",
+			},
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+	client := &mockClient{}
+
+	// Namespaced policy in 'default' trying to access 'kube-system' - should fail
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
+
+	// Namespaced policy in 'kube-system' trying to access 'kube-system' - should pass
+	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "kube-system")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
+
+	// Namespaced policy in 'default' trying to access a cluster-scoped resource - should fail
+	clusterScopedEntry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				URLPath: "/api/v1/nodes",
+				Method:  "GET",
+			},
+		},
+	}
+	call, err = New(logr.Discard(), jp, clusterScopedEntry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "does not contain a namespace segment, which is required for namespaced policies")
+
+	// ClusterPolicy (empty namespace) accessing any namespace - should pass
+	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
+}
+
+func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
+	// URLPath with a variable that will be substituted
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				URLPath: "/api/v1/namespaces/{{ targetNs }}/secrets/mysecret",
+				Method:  "GET",
+			},
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+	client := &mockClient{}
+
+	// Set up context so variable resolves to 'kube-system'
+	err := ctx.AddContextEntry("targetNs", []byte(`"kube-system"`))
+	assert.NilError(t, err)
+
+	// Policy in 'default' - variable resolves to 'kube-system' - should fail
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
+
+	// Policy in 'kube-system' - variable resolves to 'kube-system' - should pass
+	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "kube-system")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
 }
