@@ -5,12 +5,6 @@ metadata:
 spec:
   concurrent: false
   steps:
-  - name: create ns
-    try:
-    - apply:
-        file: namespace.yaml
-    - assert:
-        file: namespace.yaml
   - name: create policy
     use:
       template: ../_step-templates/create-policy.yaml
@@ -18,13 +12,18 @@ spec:
         bindings:
         - name: file
           value: policy.yaml
-  - name: step-02
+  - name: wait policy ready
+    use:
+      template: ../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-labels
+  - name: create resource
     try:
-    - apply:
-        file: chainsaw-step-02-apply-1-1.yaml
-    - assert:
-        file: chainsaw-step-02-assert-1-1.yaml
+    - create:
+        file: resource.yaml
   - name: step-03
     try:
     - assert:
-        file: chainsaw-step-03-assert-1-1.yaml
+        file: report.yaml
