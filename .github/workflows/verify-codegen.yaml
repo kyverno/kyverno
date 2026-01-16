@@ -9,6 +9,20 @@ on:
     branches:
     - main
     - release-*
+    paths:
+    - 'api/**'
+    - 'charts/**'
+    - 'cmd/cli/kubectl-kyverno/apis/**'
+    - 'hack/**'
+    - 'scripts/boilerplate.go.txt'
+    - 'docs/user/template/**'
+    - 'docs/user/config*.yaml'
+    - 'docs/user/config.json'
+    - 'Makefile'
+    - 'go.mod'
+    - 'go.sum'
+    - '.github/workflows/verify-codegen.yaml'
+    - '.github/actions/setup-build-env/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,6 +38,13 @@ jobs:
       with:
         go-version-file: go.mod
         cache-dependency-path: "**/*.sum"
+    - name: Cache tools
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: .tools
+        key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
+        restore-keys: |
+          tools-${{ runner.os }}-
     - name: Generate code
       run:  |
         set -e
@@ -42,6 +63,13 @@ jobs:
       with:
         go-version-file: go.mod
         cache-dependency-path: "**/*.sum"
+    - name: Cache tools
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: .tools
+        key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
+        restore-keys: |
+          tools-${{ runner.os }}-
     - name: Generate api docs
       run:  |
         set -e
