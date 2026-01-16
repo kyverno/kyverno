@@ -61,6 +61,7 @@ type Spec struct {
 	ApplyRules *ApplyRulesType `json:"applyRules,omitempty"`
 
 	// Deprecated, use failurePolicy under the webhookConfiguration instead.
+	// +kubebuilder:default=Fail
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// Deprecated, use validationFailureAction under the validate rule instead.

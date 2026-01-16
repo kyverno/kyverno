@@ -62,6 +62,7 @@ type WebhookConfiguration struct {
 	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
+	// +kubebuilder:default=Fail
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
