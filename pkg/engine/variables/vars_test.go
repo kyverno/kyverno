@@ -588,6 +588,46 @@ func Test_SubstituteShallow(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
 }
 
+func Test_subVars_withShallowReplaceAll(t *testing.T) {
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"data": {
+					"config": "{{ replace_all('{{- request.object.data.config }}', 'from_string', 'to_string') }}"
+				}
+			}
+		}
+	}`)
+
+	resourceRaw := []byte(`{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"data": {
+			"config": "some_prefix from_string some_suffix {{ unresolvable_token }}"
+		}
+	}`)
+	expected := []byte(`{"mutate":{"overlay":{"data":{"config":"some_prefix to_string some_suffix {{ unresolvable_token }}"}}}}`)
+
+	var pattern, resource interface{}
+	var err error
+	err = json.Unmarshal(patternMap, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	// context
+	ctx := context.NewContext(jp)
+	err = context.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	output, err := SubstituteAll(logr.Discard(), ctx, pattern)
+	assert.NilError(t, err)
+	out, err := json.Marshal(output)
+	assert.NilError(t, err)
+	assert.Equal(t, string(out), string(expected))
+}
+
 func Test_policyContextValidation(t *testing.T) {
 	policyContext := []byte(`
 	{
