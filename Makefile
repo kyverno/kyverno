@@ -451,7 +451,6 @@ codegen-api-docs: $(GENREF)
 codegen-api-all: ## Generate API related code
 codegen-api-all: codegen-api-register
 codegen-api-all: codegen-api-deepcopy
-codegen-api-all: codegen-api-docs
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
@@ -656,7 +655,6 @@ codegen-cli-all: ## Generate all CLI related code and docs
 codegen-cli-all: codegen-cli-api-group-resources
 codegen-cli-all: codegen-cli-crds
 codegen-cli-all: codegen-cli-docs
-codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -807,15 +805,25 @@ codegen-fix-all: codegen-fix-tests
 # TODO: fix this target
 # codegen-fix-all: codegen-fix-policies
 
+.PHONY: codegen-all-code
+codegen-all-code: ## Generate all generated code
+codegen-all-code: codegen-api-all
+codegen-all-code: codegen-client-all
+codegen-all-code: codegen-crds-all
+codegen-all-code: codegen-cli-all
+codegen-all-code: codegen-helm-all
+codegen-all-code: codegen-manifest-all
+codegen-all-code: codegen-fix-all
+
+.PHONY: codegen-all-docs
+codegen-all-docs: ## Generate all generated docs
+codegen-all-docs: codegen-api-docs
+codegen-all-docs: codegen-cli-api-docs
+
 .PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-api-all
-codegen-all: codegen-client-all
-codegen-all: codegen-crds-all
-codegen-all: codegen-cli-all
-codegen-all: codegen-helm-all
-codegen-all: codegen-manifest-all
-codegen-all: codegen-fix-all
+codegen-all: ## Generate all generated code and docs
+codegen-all: codegen-all-code
+codegen-all: codegen-all-docs
 
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
@@ -840,10 +848,9 @@ codegen-helm-update-versions: ## Update helm charts versions
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: codegen-all
 	@echo Checking git diff... >&2
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-all".' >&2
+	@echo 'To correct this, locally run "make codegen-all", commit the changes, and re-run tests.' >&2
 	@git diff --exit-code
 
 ##############

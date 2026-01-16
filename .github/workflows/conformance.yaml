@@ -36,7 +36,7 @@ jobs:
       - name: Set cache OS suffix for Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
+        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
       - name: Go cache
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
@@ -712,6 +712,25 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
 
+  openreports:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.34.0]
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: openreports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: openreports
+          install-openreports: true
+
   reports:
     runs-on: ubuntu-latest
     permissions:
@@ -1208,9 +1227,11 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1259,9 +1280,11 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
