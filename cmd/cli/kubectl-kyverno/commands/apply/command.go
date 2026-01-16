@@ -163,7 +163,7 @@ func Command() *cobra.Command {
 							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
 
 						}
-						fmt.Fprintln(out, "")
+
 					}
 				}
 				printViolations(out, rc)
