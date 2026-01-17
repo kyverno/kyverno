@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: crd-non-exist
 spec:
+  concurrent: false
   description: |
     Test that ClusterPolicy works with multiple resources including non-existent ones.
     Validates that policy blocks spec.replicas for both existing and non-existent resources,

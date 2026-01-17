@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: variable-substitution-failure-messages
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

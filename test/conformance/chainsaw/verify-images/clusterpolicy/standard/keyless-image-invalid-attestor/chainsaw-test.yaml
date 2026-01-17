@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: keyless-image-invalid-attestor
 spec:
+  concurrent: false
   timeouts:
     delete: 2m
   steps:

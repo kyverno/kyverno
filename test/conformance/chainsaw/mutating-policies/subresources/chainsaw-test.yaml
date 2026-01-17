@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: mutate-node-status
 spec:
+  concurrent: false
   steps:
   - name: create rbac
     try:

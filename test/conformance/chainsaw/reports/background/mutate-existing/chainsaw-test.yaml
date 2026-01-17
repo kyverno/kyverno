@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: basic-create
 spec:
+  concurrent: false
   steps:
   - name: add permisssions
     try:

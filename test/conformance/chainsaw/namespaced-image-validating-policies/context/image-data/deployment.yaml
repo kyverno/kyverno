@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: test-deploy
-  namespace: test-nivpol
   labels:
     prod: "true"
 spec:

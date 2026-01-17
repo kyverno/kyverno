@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: verify-image-background-existing
 spec:
+  concurrent: false
   timeouts:
     delete: 2m
   steps:

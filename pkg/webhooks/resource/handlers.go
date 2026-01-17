@@ -161,7 +161,10 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 	go h.auditPool.Submit(func() {
-		auditResponses := vh.HandleValidationAudit(ctx, request)
+		// Create a new context with timeout for audit work, independent of HTTP request lifecycle
+		auditCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		auditResponses := vh.HandleValidationAudit(auditCtx, request)
 		var events []event.Info
 
 		switch {
@@ -301,7 +304,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
-		if spec.HasValidate() && *spec.EmitWarning {
+		if spec.HasValidate() && spec.EmitWarning != nil && *spec.EmitWarning {
 			auditWarnPolicies = append(auditWarnPolicies, policy)
 		}
 	}

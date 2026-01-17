@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: cel-messages-upon-resource-failure
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

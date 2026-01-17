@@ -3,7 +3,7 @@ kind: Test
 metadata:
   name: cleanup-controller-lease
 spec:
-  concurrent: false
+  concurrent: true
   steps:
   - try:
     - assert:

@@ -3,15 +3,17 @@ kind: Test
 metadata:
   name: apply-vaps-in-cluster-mode
 spec:
+  concurrent: false
+  namespace: default
   steps:
   - name: step-01
     try:
-    - script:
-        content: kubectl apply -f deployment1.yaml
+    - create:
+        file: deployment1.yaml
   - name: step-02
     try:
-    - script:
-        content: kubectl apply -f deployment2.yaml
+    - create:
+        file: deployment2.yaml
   - name: step-03
     try:
     - script:

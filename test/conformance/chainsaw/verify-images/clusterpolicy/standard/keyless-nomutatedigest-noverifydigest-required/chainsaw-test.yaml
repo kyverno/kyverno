@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: keyless-nomutatedigest-noverifydigest-required
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

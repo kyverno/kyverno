@@ -22,7 +22,7 @@ import (
 	context "context"
 	time "time"
 
-	apipolicieskyvernoiov1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	apipolicieskyvernoiov1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	policieskyvernoiov1beta1 "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -56,7 +56,7 @@ func NewMutatingPolicyInformer(client versioned.Interface, resyncPeriod time.Dur
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredMutatingPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredMutatingPolicyInformer(client versioned.Interface, resyncPeriod 
 				}
 				return client.PoliciesV1beta1().MutatingPolicies().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apipolicieskyvernoiov1beta1.MutatingPolicy{},
 		resyncPeriod,
 		indexers,

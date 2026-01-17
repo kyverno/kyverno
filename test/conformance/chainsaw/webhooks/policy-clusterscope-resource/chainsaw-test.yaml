@@ -3,6 +3,8 @@ kind: Test
 metadata:
   name: policy-clusterscope-resource
 spec:
+  concurrent: true
+  namespace: default
   steps:
     - name: step-01
       try:

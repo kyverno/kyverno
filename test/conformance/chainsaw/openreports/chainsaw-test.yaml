@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: basic-check-output
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
@@ -13,18 +14,16 @@ spec:
           value: policy.yaml
   - name: wait policy ready
     use:
-      template: ../_step-templates/cluster-policy-ready.yaml
+      template: ../_step-templates/policy-ready.yaml
       with:
         bindings:
         - name: name
           value: add-labels
-  - name: step-02
+  - name: create resource
     try:
-    - apply:
-        file: chainsaw-step-02-apply-1-1.yaml
-    - assert:
-        file: chainsaw-step-02-assert-1-1.yaml
+    - create:
+        file: resource.yaml
   - name: step-03
     try:
     - assert:
-        file: chainsaw-step-03-assert-1-1.yaml
+        file: report.yaml
