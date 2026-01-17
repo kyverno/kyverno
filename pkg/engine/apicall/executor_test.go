@@ -14,13 +14,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// mockClient implements ClientInterface for testing
-type mockClient struct {
+// mockAPICallClient implements ClientInterface for testing
+type mockAPICallClient struct {
 	response []byte
 	err      error
 }
 
-func (m *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+func (m *mockAPICallClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return m.response, m.err
 }
 
@@ -68,7 +68,7 @@ func TestExecuteK8sAPICall_ForbiddenError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &mockClient{
+			client := &mockAPICallClient{
 				err: tt.clientErr,
 			}
 
@@ -100,7 +100,7 @@ func TestExecuteK8sAPICall_ForbiddenError(t *testing.T) {
 
 func TestExecuteK8sAPICall_Success(t *testing.T) {
 	expectedData := []byte(`{"items": []}`)
-	client := &mockClient{
+	client := &mockAPICallClient{
 		response: expectedData,
 		err:      nil,
 	}
@@ -126,7 +126,7 @@ func TestExecuteK8sAPICall_Success(t *testing.T) {
 func TestExecuteK8sAPICall_ForbiddenPreservesOriginalError(t *testing.T) {
 	originalMsg := "User \"system:serviceaccount:kyverno:kyverno-admission-controller\" cannot list resource \"volumeattachments\" in API group \"storage.k8s.io\" at the cluster scope"
 
-	client := &mockClient{
+	client := &mockAPICallClient{
 		err: &apierrors.StatusError{
 			ErrStatus: metav1.Status{
 				Status:  metav1.StatusFailure,
