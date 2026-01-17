@@ -10,7 +10,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -27,11 +26,16 @@ import (
 type Policy struct {
 	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -111,7 +115,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}
