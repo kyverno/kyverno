@@ -637,10 +637,12 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:  image,
-		Cert:      attestor.Certificates.Certificate,
-		CertChain: attestor.Certificates.CertificateChain,
-		Client:    iv.rclient,
+		ImageRef:        image,
+		Cert:            attestor.Certificates.Certificate,
+		CertChain:       attestor.Certificates.CertificateChain,
+		TSACert:         attestor.Certificates.TSACert,
+		VerifyTimeStamp: attestor.Certificates.VerifyTimestamp,
+		Client:          iv.rclient,
 	}
 
 	if attestation != nil {

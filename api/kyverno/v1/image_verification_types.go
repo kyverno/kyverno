@@ -239,6 +239,20 @@ type CertificateAttestor struct {
 	// +kubebuilder:validation:Optional
 	CertificateChain string `json:"certChain,omitempty"`
 
+	// TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+	// certificate used to verify timestamp tokens embedded in Notary signatures.
+	// When provided, Kyverno configures a TSA trust store for timestamp validation.
+	// +kubebuilder:validation:Optional
+	TSACert string `json:"tsaCert,omitempty"`
+
+	// VerifyTimestamp controls how RFC3161 timestamps are verified during
+	// Notary signature verification. Valid values are "always" or
+	// "afterCertExpiry". If omitted, timestamp verification is disabled
+	// and the default Notation behavior is used.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=always;afterCertExpiry
+	VerifyTimestamp string `json:"verifyTimestamp,omitempty"`
+
 	// Rekor provides configuration for the Rekor transparency log service. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional

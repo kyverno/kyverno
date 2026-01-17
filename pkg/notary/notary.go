@@ -3,6 +3,7 @@ package notary
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 
@@ -41,6 +42,30 @@ type notaryVerifier struct {
 	log logr.Logger
 }
 
+func buildPolicy(tsa []*x509.Certificate, verifyTimeStamp string) *trustpolicy.Document {
+	truststores := []string{"ca:kyverno"}
+	if len(tsa) != 0 {
+		truststores = append(truststores, "tsa:kyverno")
+	}
+	sigVerify := trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name}
+	if verifyTimeStamp != "" {
+		sigVerify.VerifyTimestamp = trustpolicy.TimestampOption(verifyTimeStamp)
+	}
+
+	return &trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name:                  "kyverno",
+				RegistryScopes:        []string{"*"},
+				SignatureVerification: sigVerify,
+				TrustStores:           truststores,
+				TrustedIdentities:     []string{"*"},
+			},
+		},
+	}
+}
+
 func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
@@ -50,11 +75,13 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, errors.Wrapf(err, "failed to parse certificates")
 	}
 
-	trustStore := NewTrustStore("kyverno", certs)
-	policyDoc := v.buildPolicy()
-	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
+	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(opts.TSACert)))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to created verifier")
+		return nil, err
+	}
+	notationVerifier, err := verifier.New(buildPolicy(tsacerts, opts.VerifyTimeStamp), NewTrustStore("kyverno", certs, tsacerts), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	v.log.V(4).Info("creating notation repo", "reference", opts.ImageRef)
@@ -100,21 +127,6 @@ func combineCerts(opts images.Options) string {
 	}
 
 	return certs
-}
-
-func (v *notaryVerifier) buildPolicy() *trustpolicy.Document {
-	return &trustpolicy.Document{
-		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
-			{
-				Name:                  "kyverno",
-				RegistryScopes:        []string{"*"},
-				SignatureVerification: trustpolicy.SignatureVerification{VerificationLevel: trustpolicy.LevelStrict.Name},
-				TrustStores:           []string{"ca:kyverno"},
-				TrustedIdentities:     []string{"*"},
-			},
-		},
-	}
 }
 
 func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome) error {
@@ -234,9 +246,11 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	v.log.V(4).Info("parsed certificates")
-	trustStore := NewTrustStore("kyverno", certs)
-	policyDoc := v.buildPolicy()
-	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
+	tsacerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(opts.TSACert)))
+	if err != nil {
+		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse tsacerts")
+	}
+	notationVerifier, err := verifier.New(buildPolicy(tsacerts, opts.VerifyTimeStamp), NewTrustStore("kyverno", certs, tsacerts), nil)
 	if err != nil {
 		v.log.V(4).Info("failed to created verifier", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
