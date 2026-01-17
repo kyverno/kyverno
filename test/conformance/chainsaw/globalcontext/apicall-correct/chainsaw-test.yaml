@@ -11,6 +11,10 @@ spec:
     - apply:
         file: main-deployment.yaml
     - apply:
+        file: clusterrole.yaml
+    - apply:
+        file: clusterrolebinding.yaml
+    - apply:
         file: gctxentry.yaml
     - sleep:
         duration: 3s
