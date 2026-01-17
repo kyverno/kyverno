@@ -34,6 +34,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -140,6 +141,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.metricsConfig,
 		h.nsLister,
 		h.reportingConfig,
+		h.client.GetKubeClient(),
 	)
 	var wg wait.Group
 	var ok bool
@@ -249,8 +251,14 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 			var err error
 			namespace, err = h.nsLister.Get(request.Namespace)
 			if err != nil {
-				logger.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
-				// Continue with nil namespace if we can't get it
+				// Cache miss - fall back to direct API server fetch to avoid policy bypass
+				// This can happen during namespace creation race conditions
+				logger.V(4).Info("namespace not in cache, fetching from API server", "namespace", request.Namespace)
+				namespace, err = h.client.GetKubeClient().CoreV1().Namespaces().Get(ctx, request.Namespace, metav1.GetOptions{})
+				if err != nil {
+					logger.Error(err, "failed to get namespace from cache and API server", "namespace", request.Namespace)
+					return nil, nil, nil, nil, nil, fmt.Errorf("failed to get namespace %s: %w", request.Namespace, err)
+				}
 			}
 		}
 

@@ -22,8 +22,10 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -46,6 +48,7 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	nsLister corev1listers.NamespaceLister,
 	reportConfig reportutils.ReportingConfiguration,
+	kubeClient kubernetes.Interface,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -58,6 +61,7 @@ func NewValidationHandler(
 		metrics:          metrics,
 		nsLister:         nsLister,
 		reportConfig:     reportConfig,
+		kubeClient:       kubeClient,
 	}
 }
 
@@ -72,6 +76,7 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	nsLister         corev1listers.NamespaceLister
 	reportConfig     reportutils.ReportingConfiguration
+	kubeClient       kubernetes.Interface
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -186,8 +191,15 @@ func (v *validationHandler) HandleValidationAudit(
 		var err error
 		namespace, err = v.nsLister.Get(request.Namespace)
 		if err != nil {
-			v.log.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
-			// Continue with nil namespace if we can't get it
+			// Cache miss - fall back to direct API server fetch to avoid incorrect policy filtering
+			// This can happen during namespace creation race conditions
+			v.log.V(4).Info("namespace not in cache, fetching from API server", "namespace", request.Namespace)
+			namespace, err = v.kubeClient.CoreV1().Namespaces().Get(ctx, request.Namespace, metav1.GetOptions{})
+			if err != nil {
+				v.log.Error(err, "failed to get namespace from cache and API server", "namespace", request.Namespace)
+				// For audit mode, we can continue without namespace but log the error
+				// This is non-blocking so we don't fail the request
+			}
 		}
 	}
 
