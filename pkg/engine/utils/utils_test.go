@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestMatchesResourceDescription(t *testing.T) {
@@ -1742,7 +1743,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "failureAction": "enforce", "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": {"message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: false,
 		},
 		{
@@ -1769,7 +1770,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1beta1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "failureAction": "enforce", "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
 			areErrorsExpected: true,
 		},
 		{
@@ -2466,5 +2467,34 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
+	}
+}
+
+func TestMatchesResourceDescription_NamespaceSelectorWithNilResourceObject(t *testing.T) {
+	resource := unstructured.Unstructured{}
+	resource.SetKind("Pod")
+	resource.SetNamespace("test-ns")
+	resource.Object = nil
+
+	namespaceLabels := map[string]string{"env": "prod"}
+
+	rule := v1.Rule{
+		Name: "test-ns-selector",
+		MatchResources: v1.MatchResources{
+			Any: v1.ResourceFilters{
+				{
+					ResourceDescription: v1.ResourceDescription{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "prod"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := MatchesResourceDescription(resource, rule, v2.RequestInfo{}, namespaceLabels, "", resource.GroupVersionKind(), "", "CREATE")
+	if err != nil {
+		t.Errorf("expected no error when resource.Object is nil but namespace selector and labels are present, got: %v", err)
 	}
 }
