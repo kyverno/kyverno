@@ -34,6 +34,9 @@ inputs:
   install-kubectl-evict:
     description: Install kubectl-evict before running tests
     default: 'false'
+  install-openreports:
+    description: install openreports crds
+    default: 'false'
   explicit-install-settings:
     description: Additional helm install settings for Kyverno (e.g., --set admissionController.tlsKeyAlgorithm=Ed25519)
     default: ''
@@ -71,6 +74,11 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
+    - name: Install OpenReports
+      if: inputs.install-openreports == 'true'
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
     - name: Install cert-manager
       if: inputs.install-cert-manager == 'true'
       shell: bash
