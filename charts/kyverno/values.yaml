@@ -582,7 +582,8 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: registry.k8s.io
+    registry: ~
+    defaultRegistry: registry.k8s.io
     # -- Image repository
     repository: kubectl
     # -- Image tag
