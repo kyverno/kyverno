@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: clone-generate-secrets-with-exceptions
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:

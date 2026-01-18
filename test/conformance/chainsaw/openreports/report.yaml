@@ -3,10 +3,11 @@ kind: Report
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  namespace: default
 results:
-- message: mutated Pod/good-pod in namespace default
-  policy: add-labels
+- message: (join(' ', ['mutated Pod/good-pod in namespace', $namespace]))
+  policy: (join('/', [$namespace, 'add-labels']))
+  properties:
+    process: background scan
   result: pass
   rule: add-labels
   scored: true
@@ -15,7 +16,7 @@ scope:
   apiVersion: v1
   kind: Pod
   name: good-pod
-  namespace: default
+  namespace: ($namespace)
 summary:
   error: 0
   fail: 0

@@ -4,20 +4,13 @@ kind: Configuration
 metadata:
   name: configuration
 spec:
-  cleanup:
-    delayBeforeCleanup: 3s
   discovery:
-    excludeTestRegex: _.+
     fullName: true
   execution:
     failFast: true
-    forceTerminationGracePeriod: 5s
-    parallel: 1
-  report:
-    name: chainsaw-report
+  namespace:
+    fastDelete: true
+  timeouts:
+    apply: 10s
   templating:
     enabled: false
-  timeouts:
-    apply: 30s
-    assert: 1m30s
-    error: 1m30s
