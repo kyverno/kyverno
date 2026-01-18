@@ -706,3 +706,94 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		assert.Nil(t, resp)
 	})
 }
+
+func TestHandleJSONPayload(t *testing.T) {
+	t.Run("basic JSON payload handling", func(t *testing.T) {
+		// Create a sample JSON payload
+		jsonPayload := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name":      "test-config",
+					"namespace": "default",
+				},
+				"data": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}
+
+		req := engine.RequestFromJSON(&fakeContext{}, jsonPayload)
+
+		pols := []policiesv1alpha1.MutatingPolicy{}
+		polexs := []*policiesv1alpha1.PolicyException{}
+
+		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+
+		resp, err := eng.Handle(ctx, req, nil)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.Resource)
+		assert.Equal(t, jsonPayload, resp.Resource)
+	})
+
+	t.Run("JSON payload without policies", func(t *testing.T) {
+		// Create a sample JSON payload
+		jsonPayload := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"user": map[string]interface{}{
+					"name":  "john",
+					"email": "john@example.com",
+				},
+				"settings": map[string]interface{}{
+					"theme": "light",
+				},
+			},
+		}
+
+		req := engine.RequestFromJSON(&fakeContext{}, jsonPayload)
+
+		pols := []policiesv1alpha1.MutatingPolicy{}
+		polexs := []*policiesv1alpha1.PolicyException{}
+
+		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+
+		resp, err := eng.Handle(ctx, req, nil)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.Resource)
+		assert.Equal(t, jsonPayload, resp.Resource)
+		assert.Len(t, resp.Policies, 0) // No policies applied
+	})
+}
+
+func TestMatchedMutateExistingPoliciesJSONPayload(t *testing.T) {
+	t.Run("JSON payload in MatchedMutateExistingPolicies returns nil", func(t *testing.T) {
+		// Create a sample JSON payload
+		jsonPayload := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"data": map[string]interface{}{
+					"key1": "value1",
+				},
+			},
+		}
+
+		req := engine.RequestFromJSON(&fakeContext{}, jsonPayload)
+
+		pols := []policiesv1alpha1.MutatingPolicy{}
+		polexs := []*policiesv1alpha1.PolicyException{}
+
+		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &fakeContext{})
+
+		resp := eng.MatchedMutateExistingPolicies(ctx, req)
+
+		// JSON payloads should return nil since there's no concept of "mutate existing" for non-K8s resources
+		assert.Nil(t, resp)
+	})
+}
