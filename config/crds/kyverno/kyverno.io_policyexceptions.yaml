@@ -144,6 +144,11 @@ spec:
                       type: object
                     type: array
                 type: object
+              description:
+                description: |-
+                  Description provides context for why this exception exists.
+                  Can be used to store references like ServiceNow ticket numbers.
+                type: string
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
@@ -166,6 +171,13 @@ spec:
                   - ruleNames
                   type: object
                 type: array
+              expiresAt:
+                description: |-
+                  ExpiresAt specifies when this exception should stop being applied.
+                  The exception will be ignored after this time (not deleted).
+                  Format: RFC3339 timestamp (e.g., "2026-12-31T23:59:59Z")
+                format: date-time
+                type: string
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception

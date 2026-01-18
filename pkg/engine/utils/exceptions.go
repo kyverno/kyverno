@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -40,6 +41,15 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 		}
 	}
 	for _, polex := range polexs {
+		if polex.Spec.ExpiresAt != nil {
+			if time.Now().After(polex.Spec.ExpiresAt.Time) {
+				logger.V(3).Info("policy exception has expired, ignoring",
+					"name", polex.GetName(),
+					"namespace", polex.GetNamespace(),
+					"expiresAt", polex.Spec.ExpiresAt.Time)
+				continue
+			}
+		}
 		match := checkMatchesResources(
 			resource,
 			polex.Spec.Match,
