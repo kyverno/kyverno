@@ -838,15 +838,20 @@ admissionController:
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
-      extraResources: []
-      # - apiGroups:
-      #     - ''
-      #   resources:
-      #     - pods
-      #   verbs:
-      #     - create
-      #     - update
-      #     - delete
+      extraResources:
+      # Required for clusters where API Priority and Fairness (APF) is enabled.
+      # The reports-controller may list FlowSchema and PriorityLevelConfiguration
+      # resources during reporting, and without these read permissions it can
+      # encounter forbidden errors.
+        - apiGroups:
+            # APF API group
+            - flowcontrol.apiserver.k8s.io
+          resources:
+            # APF priority level configurations
+            - prioritylevelconfigurations
+            # APF flow schemas
+            - flowschemas
+
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
