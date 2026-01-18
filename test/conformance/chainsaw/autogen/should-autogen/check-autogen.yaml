@@ -9,12 +9,12 @@ status:
         any:
         - resources:
             kinds:
-            - DaemonSet
-            - Deployment
-            - Job
-            - ReplicaSet
-            - ReplicationController
-            - StatefulSet
+            - apps/v1/DaemonSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/ReplicaSet
+            - v1/ReplicationController
+            - apps/v1/StatefulSet
       name: autogen-require-image-tag
       validate:
         failureAction: Audit
@@ -29,7 +29,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-require-image-tag
       validate:
         failureAction: Audit
@@ -46,12 +46,12 @@ status:
         any:
         - resources:
             kinds:
-            - DaemonSet
-            - Deployment
-            - Job
-            - ReplicaSet
-            - ReplicationController
-            - StatefulSet
+            - apps/v1/DaemonSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/ReplicaSet
+            - v1/ReplicationController
+            - apps/v1/StatefulSet
       name: autogen-validate-image-tag
       validate:
         failureAction: Audit
@@ -66,7 +66,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-validate-image-tag
       validate:
         failureAction: Audit

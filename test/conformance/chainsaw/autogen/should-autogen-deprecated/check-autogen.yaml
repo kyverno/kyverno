@@ -9,12 +9,12 @@ status:
         any:
         - resources:
             kinds:
-            - DaemonSet
-            - Deployment
-            - Job
-            - ReplicaSet
-            - ReplicationController
-            - StatefulSet
+            - apps/v1/DaemonSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/ReplicaSet
+            - v1/ReplicationController
+            - apps/v1/StatefulSet
       name: autogen-require-image-tag
       validate:
         message: An image tag is required.
@@ -28,7 +28,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-require-image-tag
       validate:
         message: An image tag is required.
@@ -44,12 +44,12 @@ status:
         any:
         - resources:
             kinds:
-            - DaemonSet
-            - Deployment
-            - Job
-            - ReplicaSet
-            - ReplicationController
-            - StatefulSet
+            - apps/v1/DaemonSet
+            - apps/v1/Deployment
+            - batch/v1/Job
+            - apps/v1/ReplicaSet
+            - v1/ReplicationController
+            - apps/v1/StatefulSet
       name: autogen-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
@@ -63,7 +63,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
