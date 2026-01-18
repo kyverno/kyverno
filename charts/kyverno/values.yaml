@@ -36,6 +36,10 @@ global:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+    # This option is useful to mount a configmap containing the CA certificates.
+    # when activated, a "subPath" option to "ca-certificates.crt" will be added.
+    useSubPathWithVolume: false
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
@@ -1084,6 +1088,10 @@ admissionController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+    # This option is useful to mount a configmap containing the CA certificates.
+    # when activated, a "subPath" option to "ca-certificates.crt" will be added.
+    useSubPathWithVolume: false
+
   # -- Image pull secrets
   imagePullSecrets: []
     # - secretName
@@ -1535,6 +1543,10 @@ backgroundController:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
+    # This option is useful to mount a configmap containing the CA certificates.
+    # when activated, a "subPath" option to "ca-certificates.crt" will be added.
+    useSubPathWithVolume: false
 
   metricsService:
     # -- Create service.
@@ -2225,6 +2237,9 @@ reportsController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+    # This option is useful to mount a configmap containing the CA certificates.
+    # when activated, a "subPath" option to "ca-certificates.crt" will be added.
+    useSubPathWithVolume: false
 
   metricsService:
     # -- Create service.
