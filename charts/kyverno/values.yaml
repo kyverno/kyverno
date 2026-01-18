@@ -518,12 +518,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: bitnami
+    registry: ghcr.io
     # -- Image repository
-    repository: kubectl
+    repository: kyverno/reports-server-readiness
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: latest
+    tag: '0.1.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
