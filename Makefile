@@ -598,11 +598,17 @@ codegen-crds-all: codegen-crds-cli
 codegen-cli-api-group-resources: ## Generate API group resources
 codegen-cli-api-group-resources: $(API_GROUP_RESOURCES)
 codegen-cli-api-group-resources: $(KIND)
-	@echo Generate API group resources... >&2
-	@$(KIND) delete cluster --name codegen-cli-api-group-resources || true
-	@$(KIND) create cluster --name codegen-cli-api-group-resources --image $(KIND_IMAGE) --config ./scripts/config/kind/codegen.yaml
-	@$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json
-	@$(KIND) delete cluster --name codegen-cli-api-group-resources
+	@if [ -f cmd/cli/kubectl-kyverno/data/api-group-resources.json ]; then \
+		echo "Skipping API group resources generation (file exists)." >&2; \
+		echo "To regenerate: rm cmd/cli/kubectl-kyverno/data/api-group-resources.json && make codegen-cli-api-group-resources" >&2; \
+	else \
+		echo Generate API group resources... >&2; \
+		$(KIND) delete cluster --name codegen-cli-api-group-resources || true; \
+		$(KIND) create cluster --name codegen-cli-api-group-resources --image $(KIND_IMAGE) --config ./scripts/config/kind/codegen.yaml; \
+		$(API_GROUP_RESOURCES) > cmd/cli/kubectl-kyverno/data/api-group-resources.json; \
+		$(KIND) delete cluster --name codegen-cli-api-group-resources; \
+	fi
+# TODO: Consider hashing KIND_IMAGE to auto-invalidate api-group-resources.json when Kubernetes version changes
 
 .PHONY: codegen-cli-crds
 codegen-cli-crds: ## Copy generated CRDs to embed in the CLI
