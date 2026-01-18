@@ -19,6 +19,7 @@ metadata:
       when a scale operation is performed.
 spec:
   background: false
+  validationFailureAction: Enforce
   rules:
     # This rule can be used to limit scale operations based upon Deployment labels assuming the given label
     # is also used as a selector.
@@ -29,7 +30,6 @@ spec:
               kinds:
                 - Deployment/scale
       validate:
-        failureAction: Enforce
         message: The replica count for this Deployment may not exceed 8.
         pattern:
           (status):
