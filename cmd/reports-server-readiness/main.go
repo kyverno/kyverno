@@ -18,7 +18,7 @@ var (
 	namespace                  string
 	timeout                    time.Duration
 	existingEndpointSliceNames []string
-	noReadyEndpointsErr        = errors.New("no ready endpoints")
+	errNoReadyEndpoints        = errors.New("no ready endpoints")
 )
 
 func main() {
@@ -53,7 +53,7 @@ func main() {
 		default:
 			err := attemptCheckReportsServer(ctx, clientset)
 			if err != nil {
-				if err == noReadyEndpointsErr {
+				if err == errNoReadyEndpoints {
 					fmt.Println("failed to find a ready endpoint for the reports server, sleeping for 5 seconds")
 					time.Sleep(5 * time.Second)
 					continue
@@ -99,7 +99,7 @@ func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Client
 
 					// we aren't ready, need to store the endpoints to later fetch them with Get
 					if existingEndpointSliceNames == nil {
-						existingEndpointSliceNames = make([]string, 1)
+						existingEndpointSliceNames = []string{}
 					}
 					for _, existing := range existingEndpointSliceNames {
 						if e.Name == existing {
@@ -110,7 +110,7 @@ func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Client
 				}
 			}
 		}
-		return noReadyEndpointsErr
+		return errNoReadyEndpoints
 	}
 	// we had existing endpoints from the previous list call. get those again and check if they became ready
 	for _, existingEps := range existingEndpointSliceNames {
@@ -126,5 +126,5 @@ func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Client
 		}
 	}
 
-	return noReadyEndpointsErr
+	return errNoReadyEndpoints
 }
