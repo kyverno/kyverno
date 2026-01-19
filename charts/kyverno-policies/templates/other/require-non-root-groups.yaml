@@ -1,5 +1,5 @@
 {{- $name := "require-non-root-groups" }}
-{{- if eq (include "kyverno-policies.podSecurityOther" (merge (dict "name" $name) .)) "true" }}
+{{- if and (eq (include "kyverno-policies.podSecurityOther" (merge (dict "name" $name) .)) "true") (ne (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 apiVersion: kyverno.io/v1
 kind: {{ .Values.policyKind }}
 metadata:

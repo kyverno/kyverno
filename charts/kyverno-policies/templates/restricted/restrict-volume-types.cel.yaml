@@ -1,0 +1,48 @@
+{{- $name := "restrict-volume-types" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Restrict Volume Types
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod,Volume
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/description: >-
+      In addition to restricting HostPath volumes, the restricted pod security profile
+      limits usage of non-core volume types to those defined through PersistentVolumes.
+      This policy blocks any other type of volume other than those in the allow list.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        !has(object.spec.volumes) || object.spec.volumes.all(v, 
+          has(v.configMap) || 
+          has(v.csi) || 
+          has(v.downwardAPI) || 
+          has(v.emptyDir) || 
+          has(v.ephemeral) || 
+          has(v.persistentVolumeClaim) || 
+          has(v.projected) || 
+          has(v.secret))
+      message: >-
+        Only the following types of volumes may be used: configMap, csi, downwardAPI,
+        emptyDir, ephemeral, persistentVolumeClaim, projected, and secret.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+

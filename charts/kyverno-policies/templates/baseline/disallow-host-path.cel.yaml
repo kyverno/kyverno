@@ -1,0 +1,38 @@
+{{- $name := "disallow-host-path" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow hostPath
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod,Volume
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      HostPath volumes let Pods use host directories and volumes in containers.
+      Using host resources can be used to access shared data or escalate privileges
+      and should not be allowed. This policy ensures no hostPath volumes are in use.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        !has(object.spec.volumes) || object.spec.volumes.all(v, !has(v.hostPath))
+      message: >-
+        HostPath volumes are forbidden. The field spec.volumes[*].hostPath must be unset.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+
