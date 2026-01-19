@@ -6,4 +6,3 @@ rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "watch"]
-  namespaces: ["test-globalcontext-apicall-correct"]
