@@ -43,4 +43,5 @@ spec:
                 resource Deployment/test-globalcontext-apicall-failed/new-deployment was blocked due to the following policies 
                 
                 cpol-apicall-failed:
-                  autogen-main-deployment-exists: 'failed to check deny conditions: failed to substitute variables in condition key: failed to resolve deploymentCount at path : failed to marshal APICall data for context entry deploymentCount: permission denied: Kyverno service account lacks RBAC permissions to GET resource at /apis/apps/v1/namespaces/default/unknown. Grant the required permissions in a ClusterRole/Role bound to the Kyverno service account. Original error: unknown'
+                  autogen-main-deployment-exists: |-
+                    failed to check deny conditions: failed to substitute variables in condition key: failed to resolve deploymentCount at path : failed to marshal APICall data for context entry deploymentCount: permission denied: Kyverno service account lacks RBAC permissions to GET resource at /apis/apps/v1/namespaces/default/unknown. Grant the required permissions in a ClusterRole/Role bound to the Kyverno service account. Original error: unknown
