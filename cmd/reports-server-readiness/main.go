@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,25 +13,26 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var (
+	releaseName                string
+	namespace                  string
+	timeout                    time.Duration
+	existingEndpointSliceNames []string
+	noReadyEndpointsErr        = errors.New("no ready endpoints")
+)
+
 func main() {
-	var (
-		releaseName string
-		namespace   string
-		timeout     int
-	)
-
-	flag.StringVar(&releaseName, "release-name", "", "Helm release name")
+	flag.StringVar(&releaseName, "release-name", "kyverno", "Helm release name")
 	flag.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
-	flag.IntVar(&timeout, "timeout", 300, "Timeout in seconds")
+	flag.DurationVar(&timeout, "timeout", 300*time.Second, "Timeout duration")
 	flag.Parse()
-
-	if releaseName == "" {
-		fmt.Println("Error: --release-name is required")
-		os.Exit(1)
-	}
 
 	if namespace == "" {
 		fmt.Println("Error: --namespace is required")
+		os.Exit(1)
+	}
+	if releaseName == "" {
+		fmt.Println("Error: --release-name is required")
 		os.Exit(1)
 	}
 
@@ -40,30 +42,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	endpointName := fmt.Sprintf("%s-reports-server", releaseName)
-	ctx := context.Background()
-	elapsed := 0
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	for elapsed < timeout {
-		endpoints, err := clientset.CoreV1().Endpoints(namespace).Get(ctx, endpointName, metav1.GetOptions{})
-		if err == nil {
-			if len(endpoints.Subsets) > 0 {
-				for _, subset := range endpoints.Subsets {
-					if len(subset.Addresses) > 0 {
-						fmt.Println("Reports-server is ready!")
-						os.Exit(0)
-					}
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Timeout reached after %s. Reports-server is not ready.\n", timeout)
+			os.Exit(1)
+		default:
+			err := attemptCheckReportsServer(ctx, clientset)
+			if err != nil {
+				if err == noReadyEndpointsErr {
+					fmt.Println("failed to find a ready endpoint for the reports server, sleeping for 5 seconds")
+					time.Sleep(5 * time.Second)
+					continue
 				}
+				panic(err)
 			}
 		}
-
-		fmt.Printf("Waiting for reports-server... (%d/%d seconds)\n", elapsed, timeout)
-		time.Sleep(5 * time.Second)
-		elapsed += 5
 	}
-
-	fmt.Printf("Timeout reached after %d seconds. Reports-server is not ready.\n", timeout)
-	os.Exit(1)
 }
 
 func getKubernetesClient() (*kubernetes.Clientset, error) {
@@ -78,4 +76,52 @@ func getKubernetesClient() (*kubernetes.Clientset, error) {
 	}
 
 	return clientset, nil
+}
+
+func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Clientset) error {
+	if existingEndpointSliceNames == nil {
+		endpointSlices, err := clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, e := range endpointSlices.Items {
+			for _, owner := range e.OwnerReferences {
+				if owner.Kind == "Service" && owner.Name == fmt.Sprintf("%s-reports-server", releaseName) {
+					// we are ready, no need to do further processing
+					for _, endpoint := range e.Endpoints {
+						if *endpoint.Conditions.Ready {
+							return nil
+						}
+					}
+
+					// we aren't ready, need to store the endpoints to later fetch them with Get
+					if existingEndpointSliceNames == nil {
+						existingEndpointSliceNames = make([]string, 1)
+					}
+					for _, existing := range existingEndpointSliceNames {
+						if e.Name == existing {
+							continue
+						}
+					}
+					existingEndpointSliceNames = append(existingEndpointSliceNames, e.Name)
+				}
+			}
+		}
+		return noReadyEndpointsErr
+	}
+	// we had existing endpoints from the previous list call. get those again and check if they became ready
+	for _, existingEps := range existingEndpointSliceNames {
+		eps, err := clientset.DiscoveryV1().EndpointSlices(namespace).Get(ctx, existingEps, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("Error fetching endpoint %s: %s", eps, err.Error())
+			continue
+		}
+		for _, endpoint := range eps.Endpoints {
+			if *endpoint.Conditions.Ready {
+				return nil
+			}
+		}
+	}
+
+	return noReadyEndpointsErr
 }

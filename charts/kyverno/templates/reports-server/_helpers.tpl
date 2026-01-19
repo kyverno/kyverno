@@ -21,27 +21,10 @@ Reports Server readiness init container
 - name: wait-for-reports-server
   image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" .Values.test.image.tag) | quote }}
   imagePullPolicy: {{ .Values.test.image.pullPolicy | default "IfNotPresent" }}
-  command:
-    - /bin/sh
-    - -c
-    - |
-      echo "Waiting for reports-server to be ready..."
-      timeout={{ .Values.reportsServer.readinessTimeout | default 300 }}
-      elapsed=0
-
-      # use nc to check if the HTTPS port is reachable on the reports server container
-      while [ $elapsed -lt $timeout ]; do
-        if nc -z {{ .Release.Name }}-reports-server.{{ include "kyverno.namespace" . }}.svc.cluster.local 443 2>/dev/null; then
-        echo "Reports-server is responding on port 443!"
-        exit 0
-        fi
-        echo "Waiting for reports-server... ($elapsed/$timeout seconds)"
-        sleep 5
-        elapsed=$((elapsed + 5))
-      done
-
-      echo "Timeout waiting for reports-server to be ready"
-      exit 1
+  args:
+    - --release-name={{ .Release.Name }}
+    - --namespace={{ .Release.Namespace }}
+    - --timeout={{ .Values.reportsServer.readinessTimeout }}
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
