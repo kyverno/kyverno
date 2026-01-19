@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: good-pod
-  namespace: test
-  labels:
-    foo: bar
