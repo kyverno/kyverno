@@ -160,6 +160,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	allObjects = append(allObjects, paramObjectsArr...)
 
 	cl := cluster.NewFake()
+	var cmResolver engineapi.ConfigmapResolver
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
@@ -192,6 +193,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				allObjects = append(allObjects, crd)
 			}
 		}
+
+		cmResolver, err = cluster.NewConfigMapResolver(dClient)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	dClient, err = cl.DClient(allObjects)
@@ -201,12 +208,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			return nil, err
 		}
 		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	}
-
-	var cmResolver engineapi.ConfigmapResolver
-	cmResolver, err = cluster.NewConfigMapResolver(dClient)
-	if err != nil {
-		return nil, err
 	}
 
 	// exceptions
