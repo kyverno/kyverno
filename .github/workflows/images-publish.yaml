@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      id-token: write 
+      id-token: write
     outputs:
       kyverno-digest: ${{ steps.publish-kyverno.outputs.digest }}
       kyverno-init-digest: ${{ steps.publish-kyverno-init.outputs.digest }}
@@ -137,6 +137,21 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
+      - name: Publish reports-server-readiness
+        id: publish-reports-server-readiness
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-reports-server-readiness
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
+          sign-image: true
+          sbom-name: reports-server-readiness
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/reports-server-readiness
 
   generate-kyverno-provenance:
     needs: publish-images
