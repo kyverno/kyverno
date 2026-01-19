@@ -490,6 +490,9 @@ The chart values are organised per component.
 | admissionController.metering.disabled | bool | `false` | Disable metrics export |
 | admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
+| admissionController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.metering.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. |
+| admissionController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | admissionController.metering.collector | string | `""` | Otel collector endpoint |
 | admissionController.metering.creds | string | `""` | Otel collector credentials |
 | admissionController.profiling.enabled | bool | `false` | Enable profiling |
@@ -572,6 +575,9 @@ The chart values are organised per component.
 | backgroundController.metering.disabled | bool | `false` | Disable metrics export |
 | backgroundController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
+| backgroundController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| backgroundController.metering.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. |
+| backgroundController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
 | backgroundController.server | object | `{"port":9443}` | backgroundController server port in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to |
@@ -676,6 +682,9 @@ The chart values are organised per component.
 | cleanupController.metering.disabled | bool | `false` | Disable metrics export |
 | cleanupController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
+| cleanupController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| cleanupController.metering.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. |
+| cleanupController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
 | cleanupController.profiling.enabled | bool | `false` | Enable profiling |
@@ -762,6 +771,9 @@ The chart values are organised per component.
 | reportsController.metering.disabled | bool | `false` | Disable metrics export |
 | reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
+| reportsController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| reportsController.metering.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. |
+| reportsController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
 | reportsController.server | object | `{"port":9443}` | reportsController server port in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to |
