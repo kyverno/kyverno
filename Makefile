@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.34.0
+KIND_IMAGE           ?= kindest/node:v1.35.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -113,7 +113,7 @@ $(HELM):
 
 $(HELM_DOCS):
 	@echo Install helm-docs... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install -ldflags "-X main.version=$(HELM_DOCS_VERSION:v%=%)" github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 $(KO):
 	@echo Install ko... >&2
@@ -451,7 +451,6 @@ codegen-api-docs: $(GENREF)
 codegen-api-all: ## Generate API related code
 codegen-api-all: codegen-api-register
 codegen-api-all: codegen-api-deepcopy
-codegen-api-all: codegen-api-docs
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
@@ -656,7 +655,6 @@ codegen-cli-all: ## Generate all CLI related code and docs
 codegen-cli-all: codegen-cli-api-group-resources
 codegen-cli-all: codegen-cli-crds
 codegen-cli-all: codegen-cli-docs
-codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -683,13 +681,10 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) dependency build ./charts/kyverno
-
-# Legacy alias for backward compatibility
-.PHONY: helm-setup-openreports  
-helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-setup-dependency-charts instead
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -730,9 +725,9 @@ codegen-helm-crds: codegen-crds-all
 	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
+codegen-helm-docs: $(HELM_DOCS) ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
+	@$(HELM_DOCS) -s file --chart-search-root charts
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
@@ -807,15 +802,25 @@ codegen-fix-all: codegen-fix-tests
 # TODO: fix this target
 # codegen-fix-all: codegen-fix-policies
 
+.PHONY: codegen-all-code
+codegen-all-code: ## Generate all generated code
+codegen-all-code: codegen-api-all
+codegen-all-code: codegen-client-all
+codegen-all-code: codegen-crds-all
+codegen-all-code: codegen-cli-all
+codegen-all-code: codegen-helm-all
+codegen-all-code: codegen-manifest-all
+codegen-all-code: codegen-fix-all
+
+.PHONY: codegen-all-docs
+codegen-all-docs: ## Generate all generated docs
+codegen-all-docs: codegen-api-docs
+codegen-all-docs: codegen-cli-api-docs
+
 .PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-api-all
-codegen-all: codegen-client-all
-codegen-all: codegen-crds-all
-codegen-all: codegen-cli-all
-codegen-all: codegen-helm-all
-codegen-all: codegen-manifest-all
-codegen-all: codegen-fix-all
+codegen-all: ## Generate all generated code and docs
+codegen-all: codegen-all-code
+codegen-all: codegen-all-docs
 
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
@@ -840,10 +845,9 @@ codegen-helm-update-versions: ## Update helm charts versions
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: codegen-all
 	@echo Checking git diff... >&2
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-all".' >&2
+	@echo 'To correct this, locally run "make codegen-all", commit the changes, and re-run tests.' >&2
 	@git diff --exit-code
 
 ##############
