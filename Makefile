@@ -113,7 +113,7 @@ $(HELM):
 
 $(HELM_DOCS):
 	@echo Install helm-docs... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install -ldflags "-X main.version=$(HELM_DOCS_VERSION:v%=%)" github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 $(KO):
 	@echo Install ko... >&2
@@ -725,9 +725,9 @@ codegen-helm-crds: codegen-crds-all
 	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
+codegen-helm-docs: $(HELM_DOCS) ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
+	@$(HELM_DOCS) -s file --chart-search-root charts
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
