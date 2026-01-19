@@ -17,8 +17,8 @@ spec:
   {{- end }}
   containers:
     - name: test
-      image: {{ template "kyverno.test.image" . }}
-      imagePullPolicy: {{ template "kyverno.test.imagePullPolicy" . }}
+      image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" "latest")) | quote }}
+      imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.test.image.pullPolicy }}
       {{- with .Values.test.resources }}
       resources:
         {{- tpl (toYaml .) $ | nindent 8 }}

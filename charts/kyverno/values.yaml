@@ -526,7 +526,7 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: bitnami
+    registry: ~
     # -- Image repository
     repository: kubectl
     # -- Image tag
@@ -590,7 +590,7 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: registry.k8s.io
+    registry: ~
     # -- Image repository
     repository: kubectl
     # -- Image tag
@@ -797,7 +797,7 @@ features:
 admissionController:
   autoscaling:
     # -- Enable horizontal pod autoscaling
-    enabled: false
+    enabled: true
 
     # -- Minimum number of pods
     minReplicas: 1
