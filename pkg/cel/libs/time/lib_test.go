@@ -69,3 +69,34 @@ func Test_time_truncate(t *testing.T) {
 		assert.Equal(t, expected, got)
 	})
 }
+
+func Test_time_toCron(t *testing.T) {
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	options := []cel.EnvOption{
+		Lib(nil),
+	}
+	env, err := base.Extend(options...)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+
+	t.Run("time_toCron", func(t *testing.T) {
+		expr := `toCron(timestamp("2025-01-02T15:30:00Z"))`
+		ast, issues := env.Compile(expr)
+		assert.Nil(t, issues)
+		assert.NotNil(t, ast)
+
+		prog, err := env.Program(ast)
+		assert.NoError(t, err)
+		assert.NotNil(t, prog)
+
+		out, _, err := prog.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.NotNil(t, out)
+
+		got := out.Value().(string)
+		expected := "30 15 2 1 4"
+		assert.Equal(t, expected, got)
+	})
+}
