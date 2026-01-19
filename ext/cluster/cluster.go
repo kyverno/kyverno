@@ -43,7 +43,7 @@ type Cluster interface {
 	Namespaces(context.Context) ([]string, error)
 	Search(context.Context, string, string, string, map[string]string) ([]SearchResult, error)
 	Get(context.Context, string, string, string, string) (*unstructured.Unstructured, error)
-	DClient([]runtime.Object, ...runtime.Object) (dclient.Interface, error)
+	DClient([]runtime.Object) (dclient.Interface, error)
 	PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector
 	OpenAPIClient(version string) (openapi.Client, error)
 	IsFake() bool
@@ -169,7 +169,7 @@ func (c cluster) OpenAPIClient(version string) (openapi.Client, error) {
 	), nil
 }
 
-func (c cluster) DClient(resources []runtime.Object, _ ...runtime.Object) (dclient.Interface, error) {
+func (c cluster) DClient(resources []runtime.Object) (dclient.Interface, error) {
 	return c.dClient, nil
 }
 

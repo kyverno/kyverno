@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -24,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -43,6 +45,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,7 +59,6 @@ type TestResponse struct {
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
-	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -67,17 +69,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	contextPath := ""
 	if testCase.Test.Context != "" {
 		contextPath = filepath.Join(testDir, testCase.Test.Context)
-		fmt.Fprintln(out, "testDir", testDir)
-		fmt.Fprintln(out, "contextPath", contextPath)
 	}
-	// values/variables
+
 	fmt.Fprintln(out, "  Loading values/variables", "...")
 	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
 	}
-	// user info
+
 	var userInfo *kyvernov2.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Fprintln(out, "  Loading user infos", "...")
@@ -90,7 +90,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 		userInfo = &info.RequestInfo
 	}
-	// policies
+
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
@@ -108,7 +108,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
 	}
 
-	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
@@ -116,17 +115,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
 	resources = ProcessResources(resources)
-
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
 			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	uniquesObjectArr := []runtime.Object{}
+	for _, t := range uniques {
+		uniquesObjectArr = append(uniquesObjectArr, t)
+	}
 
 	var json any
 	if testCase.Test.JSONPayload != "" {
-		// JSON payload
 		fmt.Fprintln(out, "  Loading JSON payload", "...")
 		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
 		json, err = payload.Load(jsonFullPath[0])
@@ -134,6 +135,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
 		}
 	}
+
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
@@ -154,12 +156,58 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		paramObjectsArr = append(paramObjectsArr, p)
 	}
 
-	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
-	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
-	if err != nil {
-		return nil, err
+	allObjects := append(uniquesObjectArr, targetsObjectArr...)
+	allObjects = append(allObjects, paramObjectsArr...)
+
+	cl := cluster.NewFake()
+	var cmResolver engineapi.ConfigmapResolver
+	if len(testCase.Test.ClusterResources) > 0 {
+		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
+
+		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
+			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
+				return &v1alpha1.ClusterResource{}
+			})
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
+			}
+			crds := []*apiextensionsv1.CustomResourceDefinition{}
+			if len(src.Spec.CRDs) > 0 {
+				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
+					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
+						return &apiextensionsv1.CustomResourceDefinition{}
+					})
+					if err != nil {
+						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
+					}
+					crds = append(crds, crd)
+				}
+			}
+			if len(src.Spec.Resources) > 0 {
+				for _, resource := range src.Spec.Resources {
+					allObjects = append(allObjects, resource)
+				}
+			}
+			cl.RESTMapper(crds)
+			for _, crd := range crds {
+				allObjects = append(allObjects, crd)
+			}
+		}
+
+		cmResolver, err = cluster.NewConfigMapResolver(dClient)
+		if err != nil {
+			return nil, err
+		}
 	}
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	dClient, err = cl.DClient(allObjects)
+	if err != nil {
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+		if err != nil {
+			return nil, err
+		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	}
 
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
@@ -176,6 +224,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
+	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
@@ -289,6 +338,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			ConfigMapResolver:                 cmResolver,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
