@@ -198,7 +198,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	dClient, err = cl.DClient(allObjects)
