@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: with-match-conditions
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
