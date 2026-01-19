@@ -4,15 +4,8 @@ kind: Test
 metadata:
   name: should-autogen
 spec:
+  concurrent: true
   steps:
-  - name: create namespace
-    try:
-    - create:
-        resource:
-          apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: test-nivpol
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -27,8 +20,6 @@ spec:
         bindings:
         - name: name
           value: ivpol-autogen-sample
-        - name: namespace
-          value: test-nivpol
   - name: check autogen policy
     try:
     - assert:
@@ -38,7 +29,6 @@ spec:
           kind: NamespacedImageValidatingPolicy
           metadata:
             name: ivpol-autogen-sample
-            namespace: test-nivpol
           status:
             autogen:
               configs:

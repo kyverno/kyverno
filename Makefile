@@ -199,27 +199,33 @@ unused-package-check:
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
 
-$(BACKGROUND_BIN): fmt vet
+$(BACKGROUND_BIN): fmt
+$(BACKGROUND_BIN): vet
 	@echo Build background controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
-$(CLEANUP_BIN): fmt vet
+$(CLEANUP_BIN): fmt
+$(CLEANUP_BIN): vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
-$(CLI_BIN): fmt vet
+$(CLI_BIN): fmt
+# $(CLI_BIN): vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
-$(KYVERNO_BIN): fmt vet
+$(KYVERNO_BIN): fmt
+$(KYVERNO_BIN): vet
 	@echo Build kyverno binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
-$(KYVERNOPRE_BIN): fmt vet
+$(KYVERNOPRE_BIN): fmt
+$(KYVERNOPRE_BIN): vet
 	@echo Build kyvernopre binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
-$(REPORTS_BIN): fmt vet
+$(REPORTS_BIN): fmt
+$(REPORTS_BIN): vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
@@ -445,7 +451,6 @@ codegen-api-docs: $(GENREF)
 codegen-api-all: ## Generate API related code
 codegen-api-all: codegen-api-register
 codegen-api-all: codegen-api-deepcopy
-codegen-api-all: codegen-api-docs
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
@@ -650,7 +655,6 @@ codegen-cli-all: ## Generate all CLI related code and docs
 codegen-cli-all: codegen-cli-api-group-resources
 codegen-cli-all: codegen-cli-crds
 codegen-cli-all: codegen-cli-docs
-codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -801,15 +805,25 @@ codegen-fix-all: codegen-fix-tests
 # TODO: fix this target
 # codegen-fix-all: codegen-fix-policies
 
+.PHONY: codegen-all-code
+codegen-all-code: ## Generate all generated code
+codegen-all-code: codegen-api-all
+codegen-all-code: codegen-client-all
+codegen-all-code: codegen-crds-all
+codegen-all-code: codegen-cli-all
+codegen-all-code: codegen-helm-all
+codegen-all-code: codegen-manifest-all
+codegen-all-code: codegen-fix-all
+
+.PHONY: codegen-all-docs
+codegen-all-docs: ## Generate all generated docs
+codegen-all-docs: codegen-api-docs
+codegen-all-docs: codegen-cli-api-docs
+
 .PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-api-all
-codegen-all: codegen-client-all
-codegen-all: codegen-crds-all
-codegen-all: codegen-cli-all
-codegen-all: codegen-helm-all
-codegen-all: codegen-manifest-all
-codegen-all: codegen-fix-all
+codegen-all: ## Generate all generated code and docs
+codegen-all: codegen-all-code
+codegen-all: codegen-all-docs
 
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
@@ -834,10 +848,9 @@ codegen-helm-update-versions: ## Update helm charts versions
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: codegen-all
 	@echo Checking git diff... >&2
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-all".' >&2
+	@echo 'To correct this, locally run "make codegen-all", commit the changes, and re-run tests.' >&2
 	@git diff --exit-code
 
 ##############
@@ -980,7 +993,7 @@ debug-deploy: codegen-manifest-debug ## Install debug manifests
 ##########
 
 .PHONY: docker-save-image-all
-docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
+docker-save-image-all: image-build-all ## Save docker images in archive
 	docker save \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \

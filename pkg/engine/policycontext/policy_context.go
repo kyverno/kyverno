@@ -201,37 +201,37 @@ func NewPolicyContext(
 	admissionInfo *kyvernov2.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	enginectx := enginectx.NewContext(jp)
+	engineCtx := enginectx.NewContextWithMaxSize(jp, configuration.GetMaxContextSize())
 
 	if operation != kyvernov1.Delete {
-		if err := enginectx.AddResource(resource.Object); err != nil {
+		if err := engineCtx.AddResource(resource.Object); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := enginectx.AddOldResource(resource.Object); err != nil {
+		if err := engineCtx.AddOldResource(resource.Object); err != nil {
 			return nil, err
 		}
 	}
-	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+	if err := engineCtx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
 
-	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
+	if err := engineCtx.AddImageInfos(&resource, configuration); err != nil {
 		return nil, err
 	}
 
 	if admissionInfo != nil {
-		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
+		if err := engineCtx.AddUserInfo(*admissionInfo); err != nil {
 			return nil, err
 		}
-		if err := enginectx.AddServiceAccount(admissionInfo.AdmissionUserInfo.Username); err != nil {
+		if err := engineCtx.AddServiceAccount(admissionInfo.AdmissionUserInfo.Username); err != nil {
 			return nil, err
 		}
 	}
-	if err := enginectx.AddOperation(string(operation)); err != nil {
+	if err := engineCtx.AddOperation(string(operation)); err != nil {
 		return nil, err
 	}
-	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	policyContext := newPolicyContextWithJsonContext(operation, engineCtx)
 	if operation != kyvernov1.Delete {
 		policyContext = policyContext.WithNewResource(resource)
 	} else {
@@ -251,7 +251,7 @@ func NewPolicyContextFromAdmissionRequest(
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
-	engineCtx, err := newJsonContext(jp, request, &admissionInfo)
+	engineCtx, err := newJsonContext(jp, request, &admissionInfo, configuration.GetMaxContextSize())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
@@ -277,8 +277,9 @@ func newJsonContext(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
 	userRequestInfo *kyvernov2.RequestInfo,
+	maxContextSize int64,
 ) (enginectx.Interface, error) {
-	engineCtx := enginectx.NewContext(jp)
+	engineCtx := enginectx.NewContextWithMaxSize(jp, maxContextSize)
 	if err := engineCtx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}

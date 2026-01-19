@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: nosync-modify-downstream
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:

@@ -28,13 +28,13 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
-          scan-type: 'image'
-          image-ref: kyverno-devcontainer
+          scan-type: image
+          scan-ref: kyverno-devcontainer
+          format: sarif
+          output: trivy-results.sarif
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          cache: false
         env:
-          # Trivy is returning TOOMANYREQUESTS
-          # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
-          TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2

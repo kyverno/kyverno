@@ -15,19 +15,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-codegen:
+  verify-codegen-code:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-    - name: Setup build env
-      uses: ./.github/actions/setup-build-env
-      timeout-minutes: 10
-    - name: Create cluster
-      run: |
+    - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: "**/*.sum"
+    - name: Generate code
+      run:  |
         set -e
-        make kind-create-cluster
-    - name: Verify generated code is up to date
+        make codegen-all-code
+    - name: Verify codegen is up to date
       run:  |
         set -e
         make verify-codegen
+
+  verify-codegen-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: "**/*.sum"
+    - name: Generate api docs
+      run:  |
+        set -e
+        make codegen-all-docs
+    - name: Verify codegen is up to date
+      run:  |
+        set -e
+        make verify-codegen
+
+  verify-codegen-success:
+    name: verify-codegen
+    needs:
+      - verify-codegen-code
+      - verify-codegen-docs
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+      - run: ${{ true }}
+
+  verify-codegen-failure:
+    name: verify-codegen
+    needs:
+      - verify-codegen-code
+      - verify-codegen-docs
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+      - run: ${{ false }}

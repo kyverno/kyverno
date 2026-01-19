@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: exceptions-with-allowed-images
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

@@ -26,7 +26,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -66,7 +65,6 @@ type resourceHandlers struct {
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
-	reportingConfig              reportutils.ReportingConfiguration
 	breaker.Breaker
 }
 
@@ -89,7 +87,6 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportingConfig reportutils.ReportingConfiguration,
 ) *resourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -109,7 +106,6 @@ func NewHandlers(
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
-		reportingConfig:              reportingConfig,
 	}
 }
 
@@ -139,7 +135,6 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.admissionReports,
 		h.metricsConfig,
 		h.nsLister,
-		h.reportingConfig,
 	)
 	var wg wait.Group
 	var ok bool
@@ -201,7 +196,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig)
+	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports)
 	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
@@ -222,7 +217,6 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 			h.eventGen,
 			h.admissionReports,
 			h.nsLister,
-			h.reportingConfig,
 		)
 		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 		if err != nil {
@@ -304,7 +298,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
-		if spec.HasValidate() && *spec.EmitWarning {
+		if spec.HasValidate() && spec.EmitWarning != nil && *spec.EmitWarning {
 			auditWarnPolicies = append(auditWarnPolicies, policy)
 		}
 	}

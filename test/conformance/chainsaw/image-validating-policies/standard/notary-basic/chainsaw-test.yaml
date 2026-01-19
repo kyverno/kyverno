@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: exception-test
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

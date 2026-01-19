@@ -13,14 +13,15 @@ import (
 )
 
 type apiLoader struct {
-	ctx       context.Context //nolint:containedctx
-	logger    logr.Logger
-	entry     kyvernov1.ContextEntry
-	enginectx enginecontext.Interface
-	jp        jmespath.Interface
-	client    engineapi.RawClient
-	config    apicall.APICallConfiguration
-	data      []byte
+	ctx             context.Context //nolint:containedctx
+	logger          logr.Logger
+	entry           kyvernov1.ContextEntry
+	enginectx       enginecontext.Interface
+	jp              jmespath.Interface
+	client          engineapi.RawClient
+	config          apicall.APICallConfiguration
+	data            []byte
+	policyNamespace string
 }
 
 func NewAPILoader(
@@ -31,15 +32,17 @@ func NewAPILoader(
 	jp jmespath.Interface,
 	client engineapi.RawClient,
 	apiCallConfig apicall.APICallConfiguration,
+	policyNamespace string,
 ) enginecontext.Loader {
 	return &apiLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
-		jp:        jp,
-		client:    client,
-		config:    apiCallConfig,
+		ctx:             ctx,
+		logger:          logger,
+		entry:           entry,
+		enginectx:       enginectx,
+		jp:              jp,
+		client:          client,
+		config:          apiCallConfig,
+		policyNamespace: policyNamespace,
 	}
 }
 
@@ -48,7 +51,7 @@ func (a *apiLoader) HasLoaded() bool {
 }
 
 func (a *apiLoader) LoadData() error {
-	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client, a.config)
+	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client, a.config, a.policyNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to initiaize APICal: %w", err)
 	}

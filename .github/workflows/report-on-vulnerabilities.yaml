@@ -31,32 +31,38 @@ jobs:
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
     - name: Scan for vulnerabilities in latest image
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      with:
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
         output: scan1.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
+      with:
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
         output: scan2.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
+      with:
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
         output: scan3.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Upload vulnerability scan report

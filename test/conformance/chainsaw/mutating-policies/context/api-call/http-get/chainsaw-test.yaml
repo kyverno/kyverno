@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: mpol-http-get
 spec:
+  concurrent: false
   steps:
   - name: setup-http-service
     try:

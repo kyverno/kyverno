@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: generation-config-enabled
 spec:
+  concurrent: false
   steps:
   - name: create policy
     try:

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: globalcontextentry-gpol
 spec:
+  concurrent: false
   steps:
   - name: create configmap and global context entry
     try:

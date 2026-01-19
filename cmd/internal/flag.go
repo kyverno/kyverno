@@ -65,6 +65,7 @@ var (
 	enableGlobalContext bool
 	// reporting
 	enableReporting string
+	allowedResults  string
 	// resync
 	resyncPeriod time.Duration
 	// custom resource watch
@@ -155,7 +156,8 @@ func initCleanupFlags() {
 }
 
 func initReportingFlags() {
-	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enable reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&allowedResults, "allowedResults", "pass,fail,error,warn,skip", "Comma separated list of result types for which creating reports is desired. (pass,fail,error,warn,skip)")
 }
 
 func initOpenreportsFlagSet() *flag.FlagSet {

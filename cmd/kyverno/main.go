@@ -842,14 +842,12 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
-			setup.ReportingConfiguration,
 		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		ivpolHandlers := ivpol.New(
@@ -857,7 +855,6 @@ func main() {
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())

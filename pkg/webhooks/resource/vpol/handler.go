@@ -30,7 +30,6 @@ type handler struct {
 	engine           vpolengine.Engine
 	kyvernoClient    versioned.Interface
 	admissionReports bool
-	reportConfig     reportutils.ReportingConfiguration
 	eventGen         event.Interface
 }
 
@@ -39,7 +38,6 @@ func New(
 	context libs.Context,
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
-	reportConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
 ) *handler {
 	return &handler{
@@ -47,7 +45,6 @@ func New(
 		engine:           engine,
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
-		reportConfig:     reportConfig,
 		eventGen:         eventGen,
 	}
 }
@@ -113,7 +110,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
+	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
 		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")

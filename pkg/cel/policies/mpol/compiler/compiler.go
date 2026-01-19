@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	mpolCompilerVersion = version.MajorMinor(1, 0)
+	mpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + " error: %s"
 )
 

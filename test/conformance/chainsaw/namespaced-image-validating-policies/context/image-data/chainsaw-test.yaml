@@ -4,11 +4,8 @@ kind: Test
 metadata:
   name: image-data
 spec:
+  concurrent: true
   steps:
-  - name: create namespace
-    try:
-    - create:
-        file: namespace.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -23,8 +20,6 @@ spec:
         bindings:
         - name: name
           value: nivpol-image-data
-        - name: namespace
-          value: test-nivpol
   - name: create deployment
     try:
     - create:

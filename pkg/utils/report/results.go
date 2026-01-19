@@ -267,6 +267,9 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
 func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
 	}

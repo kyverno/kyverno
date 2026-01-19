@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: with-cel-exception
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
