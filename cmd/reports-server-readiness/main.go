@@ -60,6 +60,9 @@ func main() {
 				}
 				panic(err)
 			}
+
+			fmt.Println("reports server is ready!")
+			return
 		}
 	}
 }
