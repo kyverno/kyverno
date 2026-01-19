@@ -24,5 +24,3 @@ spec:
     try:
     - create:
         file: deployment.yaml
-
-
