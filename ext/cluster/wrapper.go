@@ -44,6 +44,11 @@ func (c *Client) RawAbsPath(ctx context.Context, path string, method string, dat
 		method = "GET"
 	}
 
+	// Try fake client first (for testing scenarios)
+	if result, err := c.fake.RawAbsPath(ctx, path, method, dataReader); err == nil {
+		return result, nil
+	}
+
 	return c.inner.RawAbsPath(ctx, path, method, dataReader)
 }
 
