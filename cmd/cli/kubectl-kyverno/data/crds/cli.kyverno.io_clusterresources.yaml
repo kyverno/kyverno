@@ -4,20 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
-  name: contexts.cli.kyverno.io
+  name: clusterresources.cli.kyverno.io
 spec:
   group: cli.kyverno.io
   names:
-    kind: Context
-    listKind: ContextList
-    plural: contexts
-    singular: context
+    kind: ClusterResource
+    listKind: ClusterResourceList
+    plural: clusterresources
+    singular: clusterresource
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Values declares values to be loaded by the Kyverno CLI
+        description: ClusterResource declares Kubernetes specific resources to be
+          loaded by the Kyverno CLI
         properties:
           apiVersion:
             description: |-
@@ -38,40 +39,11 @@ spec:
             type: object
           spec:
             properties:
-              images:
+              crds:
                 items:
-                  properties:
-                    config:
-                      description: Any can be any type.
-                      type: object
-                    digest:
-                      type: string
-                    image:
-                      type: string
-                    imageIndex:
-                      description: Any can be any type.
-                      type: object
-                    manifest:
-                      description: Any can be any type.
-                      type: object
-                    registry:
-                      type: string
-                    repository:
-                      type: string
-                    resolvedImage:
-                      type: string
-                    tag:
-                      type: string
-                  required:
-                  - image
-                  - registry
-                  - repository
-                  - resolvedImage
-                  type: object
+                  type: string
                 type: array
               resources:
-                description: deprecate, use ClusterResource to define Kubernetes specific
-                  resources
                 items:
                   type: object
                 type: array
