@@ -13,7 +13,7 @@ func (v *mutationHandler) needsReports(request handlers.AdmissionRequest, admiss
 	if admissionutils.IsDryRun(request.AdmissionRequest) {
 		createReport = false
 	}
-	if !v.reportsConfig.MutateReportsEnabled() {
+	if !reportutils.ReportingCfg.MutateReportsEnabled() {
 		createReport = false
 	}
 	// we don't need reports for deletions
