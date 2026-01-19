@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
@@ -209,4 +210,32 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string)
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+// ReadFile reads a file from either a billy.Filesystem or the local filesystem.
+func ReadFile(f billy.Filesystem, filepath string) ([]byte, error) {
+	if f != nil {
+		file, err := f.Open(filepath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		return io.ReadAll(file)
+	}
+	return os.ReadFile(filepath)
+}
+
+// LoadYAML loads a YAML file and unmarshals it into a value of type T.
+// T must be a pointer type that can be unmarshaled from YAML.
+func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) (T, error) {
+	var zero T
+	yamlBytes, err := ReadFile(f, filepath)
+	if err != nil {
+		return zero, err
+	}
+	vals := newInstance()
+	if err := yaml.UnmarshalStrict(yamlBytes, vals); err != nil {
+		return zero, err
+	}
+	return vals, nil
 }
