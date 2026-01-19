@@ -224,8 +224,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
-	// todo(shuting): decide when to allow apicall
-	store.AllowApiCall(true)
+	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
