@@ -9,7 +9,9 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 )
 
 func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1beta1.ImageValidatingPolicy) error {
@@ -50,5 +52,26 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1beta
 			return datautils.DeepEqual(current.Status, expect.Status)
 		},
 	)
+	if err != nil && apierrors.IsConflict(err) {
+		// Retry on conflict by getting the latest version and trying again
+		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			objNew, getErr := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, ivpol.GetName(), metav1.GetOptions{})
+			if getErr != nil {
+				return getErr
+			}
+			return controllerutils.UpdateStatus(ctx,
+				objNew,
+				c.client.PoliciesV1beta1().ImageValidatingPolicies(),
+				updateFunc,
+				func(current, expect *policiesv1beta1.ImageValidatingPolicy) bool {
+					return datautils.DeepEqual(current.Status, expect.Status)
+				},
+			)
+		})
+		if retryErr != nil {
+			return retryErr
+		}
+		return nil
+	}
 	return err
 }
