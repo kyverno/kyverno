@@ -1,0 +1,18 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: issue-14556
+spec:
+  steps:
+  - name: create policy
+    try:
+    - apply:
+        file: policy.yaml
+  - name: create ingress (should be denied)
+    try:
+    - apply:
+        file: resource.yaml
+    # We catch the error to confirm the DENY happened
+    catch:
+    - error:
+        message: "Must be dev-ingressclass"
