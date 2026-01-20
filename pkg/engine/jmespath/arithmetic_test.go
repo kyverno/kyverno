@@ -790,14 +790,20 @@ func Test_Round(t *testing.T) {
 		{
 			name:           "Scalar roundoff Scalar -> Scalar",
 			test:           "round(`9.414675`, `2`)",
-			expectedResult: 9.41,
-			retFloat:       true,
+			expectedResult: "9.41",
+			retFloat:       false,
 		},
 		{
-			name:           "Scalar roundoff zero -> error",
+			name:           "Scalar roundoff with trailing zeros",
 			test:           "round(`14.123`, `6`)",
-			expectedResult: 14.123,
-			retFloat:       true,
+			expectedResult: "14.123000",
+			retFloat:       false,
+		},
+		{
+			name:           "Issue: round 48.604 to 2 decimal places should be 48.60",
+			test:           "round(`48.604`, `2`)",
+			expectedResult: "48.60",
+			retFloat:       false,
 		},
 		// round with non int values
 		{

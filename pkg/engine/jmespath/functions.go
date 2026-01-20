@@ -329,8 +329,8 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 			},
 			Handler: jpRound,
 		},
-		ReturnType: []jpType{jpNumber},
-		Note:       "does roundoff to upto the given decimal places",
+		ReturnType: []jpType{jpString},
+		Note:       "does roundoff to upto the given decimal places, preserving trailing zeros",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
@@ -947,7 +947,7 @@ func jpRound(arguments []any) (any, error) {
 	}
 	shift := math.Pow(10, float64(intLength))
 	rounded := math.Round(op.Float()*shift) / shift
-	return rounded, nil
+	return strconv.FormatFloat(rounded, 'f', intLength, 64), nil
 }
 
 func jpBase64Decode(arguments []any) (any, error) {
