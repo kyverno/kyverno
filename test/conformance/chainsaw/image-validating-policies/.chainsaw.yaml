@@ -4,10 +4,13 @@ kind: Configuration
 metadata:
   name: configuration
 spec:
+  cleanup:
+    delayBeforeCleanup: 1s
   discovery:
     fullName: true
   execution:
     failFast: true
+    forceTerminationGracePeriod: 1s
   namespace:
     fastDelete: true
   timeouts:
