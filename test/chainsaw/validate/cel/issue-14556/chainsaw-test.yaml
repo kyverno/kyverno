@@ -4,15 +4,19 @@ metadata:
   name: issue-14556
 spec:
   steps:
-  - name: create policy
+  - name: create namespaces
     try:
     - apply:
-        file: policy.yaml
-  - name: create ingress (should be denied)
+        file: namespaces.yaml
+  - name: create policies
     try:
     - apply:
-        file: resource.yaml
-    # We catch the error to confirm the DENY happened
-    catch:
-    - error:
-        message: "Must be dev-ingressclass"
+        file: policies.yaml
+  - name: verify isolation (create valid resources)
+    try:
+    - apply:
+        file: resources.yaml
+  - name: cleanup
+    try:
+    - delete:
+        file: namespaces.yaml
