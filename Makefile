@@ -941,7 +941,6 @@ test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
 	@echo Running local cli exception tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-exceptions
 
-
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
 	@echo Running local cli selector tests... >&2
