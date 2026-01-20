@@ -36,9 +36,9 @@ jobs:
       - name: Set cache OS suffix for Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
+        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
       - name: Go cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: |
             ${{ env.GO_MOD_CACHE }}
@@ -521,6 +521,24 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
 
+  reports-exclude-result:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.34.0]
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: exclude-result
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: reports-exclude-result
+
   mutating-policies:
     runs-on: ubuntu-latest
     permissions:
@@ -638,6 +656,25 @@ jobs:
           tests-path: namespaced-validating-policies
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
+
+  openreports:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: openreports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: openreports
+          install-openreports: true
 
   policy-exceptions-disabled:
     runs-on: ubuntu-latest
@@ -975,7 +1012,6 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:v1.33.1
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
@@ -994,6 +1030,121 @@ jobs:
           set -e
           cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
 
+  helm-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+    needs:
+      - prepare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Create kind cluster
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Helm test
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          make helm-test
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+      - name: Get logs from liveness pod
+        if: failure()
+        run: |
+          kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
+
+  helm-uninstall:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+    needs:
+      - prepare
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Create kind cluster
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=kyverno-cleanup
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Log finalizers from deployments
+        shell: bash
+        run: |
+          set -e
+          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
+          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
+      - name: Uninstall kyverno
+        shell: bash
+        run: |
+          set -e
+          helm uninstall kyverno -n kyverno --wait --no-hooks
+      - name: Check validating webhook count
+        shell: bash
+        run: |
+          set -e
+          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
+          then
+          exit 1
+          fi
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
   helm-upgrade:
     runs-on: ubuntu-latest
     permissions:
@@ -1002,7 +1153,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
-        kyverno-version: ["3.2"]
+        kyverno-version: ["3.6"]
     needs: [prepare]
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -1013,7 +1164,6 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
@@ -1045,82 +1195,6 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
-
-  helm-uninstall:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - name: v1.33
-            version: v1.33.1
-        kyverno-config:
-          - name: cleanup
-            values:
-              - kyverno-cleanup
-    needs:
-      - prepare
-    name: ${{ matrix.k8s-version.name }} - kyverno uninstall
-    steps:
-      - name: Checkout kyverno/kyverno
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-      - name: Install Kubectl
-        run: |
-          set -e
-          curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
-        with:
-          version: v0.29.0
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.kyverno-config.values, ',') }}
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      - name: Log finalizers from deployments
-        shell: bash
-        run: |
-          set -e
-          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
-          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
-      - name: Uninstall kyverno
-        shell: bash
-        run: |
-          set -e
-          helm uninstall kyverno -n kyverno --wait --no-hooks
-      - name: Check validating webhook count
-        shell: bash
-        run: |
-          set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
-          then
-          exit 1
-          fi
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -1208,14 +1282,18 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
+      - openreports
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
       - rbac
       - reports
+      - reports-exclude-result
       - sigstore-custom-tuf
       - ttl
       - validate
@@ -1228,8 +1306,9 @@ jobs:
       - webhooks
       - monitor-helm-secret-size
       - check-tests
-      - helm-upgrade
+      - helm-tests
       - helm-uninstall
+      - helm-upgrade
       - cert-manager-certificates
       - self-signed-certificates
     runs-on: ubuntu-latest
@@ -1259,9 +1338,12 @@ jobs:
       - image-validating-policies
       - lease
       - mutate
-      - namespaced-validating-policies
-      - namespaced-mutating-policies
+      - namespaced-deleting-policies
       - namespaced-generating-policies
+      - namespaced-image-validating-policies
+      - namespaced-mutating-policies
+      - namespaced-validating-policies
+      - openreports
       - policy-exceptions-disabled
       - policy-validation
       - rangeoperators
@@ -1279,8 +1361,9 @@ jobs:
       - webhooks
       - monitor-helm-secret-size
       - check-tests
-      - helm-upgrade
+      - helm-tests
       - helm-uninstall
+      - helm-upgrade
       - cert-manager-certificates
       - self-signed-certificates
     runs-on: ubuntu-latest
