@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.34.0
+KIND_IMAGE           ?= kindest/node:v1.35.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -113,7 +113,7 @@ $(HELM):
 
 $(HELM_DOCS):
 	@echo Install helm-docs... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install -ldflags "-X main.version=$(HELM_DOCS_VERSION:v%=%)" github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 $(KO):
 	@echo Install ko... >&2
@@ -199,27 +199,33 @@ unused-package-check:
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
 
-$(BACKGROUND_BIN): fmt vet
+$(BACKGROUND_BIN): fmt
+$(BACKGROUND_BIN): vet
 	@echo Build background controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
-$(CLEANUP_BIN): fmt vet
+$(CLEANUP_BIN): fmt
+$(CLEANUP_BIN): vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
-$(CLI_BIN): fmt vet
+$(CLI_BIN): fmt
+# $(CLI_BIN): vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
-$(KYVERNO_BIN): fmt vet
+$(KYVERNO_BIN): fmt
+$(KYVERNO_BIN): vet
 	@echo Build kyverno binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
-$(KYVERNOPRE_BIN): fmt vet
+$(KYVERNOPRE_BIN): fmt
+$(KYVERNOPRE_BIN): vet
 	@echo Build kyvernopre binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
-$(REPORTS_BIN): fmt vet
+$(REPORTS_BIN): fmt
+$(REPORTS_BIN): vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
@@ -445,7 +451,6 @@ codegen-api-docs: $(GENREF)
 codegen-api-all: ## Generate API related code
 codegen-api-all: codegen-api-register
 codegen-api-all: codegen-api-deepcopy
-codegen-api-all: codegen-api-docs
 
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
@@ -524,6 +529,8 @@ codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
+	@echo "Tidying modules after client generation..."
+	go mod tidy
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
@@ -648,7 +655,6 @@ codegen-cli-all: ## Generate all CLI related code and docs
 codegen-cli-all: codegen-cli-api-group-resources
 codegen-cli-all: codegen-cli-crds
 codegen-cli-all: codegen-cli-docs
-codegen-cli-all: codegen-cli-api-docs
 
 define generate_crd
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
@@ -661,40 +667,23 @@ define generate_crd
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
-	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
-	@cat $(CRDS_PATH)/$(2)/$(1) \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
-		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
- 		>> ./charts/crds/templates/$(3)/$(1)
-	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
-	@$(HELM) dependency build ./charts/kyverno
-
-# Legacy alias for backward compatibility
-.PHONY: helm-setup-openreports  
-helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-setup-dependency-charts instead
+	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
+	@$(HELM) dependency update ./charts/kyverno
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
-	@rm -rf ./charts/crds/templates/kyverno.io && mkdir -p ./charts/crds/templates/kyverno.io
-	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
-	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/policies.kyverno.io
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
@@ -702,29 +691,15 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
-	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
-	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedgeneratingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedgeneratingpolicies)
-	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedmutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedmutatingpolicies)
-	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
-	@rm -rf ./charts/crds/templates/kyverno.io
-	@rm -rf ./charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
-codegen-helm-docs: ## Generate helm docs
+codegen-helm-docs: $(HELM_DOCS) ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) -s file
+	@$(HELM_DOCS) -s file --chart-search-root charts
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
@@ -799,15 +774,25 @@ codegen-fix-all: codegen-fix-tests
 # TODO: fix this target
 # codegen-fix-all: codegen-fix-policies
 
+.PHONY: codegen-all-code
+codegen-all-code: ## Generate all generated code
+codegen-all-code: codegen-api-all
+codegen-all-code: codegen-client-all
+codegen-all-code: codegen-crds-all
+codegen-all-code: codegen-cli-all
+codegen-all-code: codegen-helm-all
+codegen-all-code: codegen-manifest-all
+codegen-all-code: codegen-fix-all
+
+.PHONY: codegen-all-docs
+codegen-all-docs: ## Generate all generated docs
+codegen-all-docs: codegen-api-docs
+codegen-all-docs: codegen-cli-api-docs
+
 .PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-api-all
-codegen-all: codegen-client-all
-codegen-all: codegen-crds-all
-codegen-all: codegen-cli-all
-codegen-all: codegen-helm-all
-codegen-all: codegen-manifest-all
-codegen-all: codegen-fix-all
+codegen-all: ## Generate all generated code and docs
+codegen-all: codegen-all-code
+codegen-all: codegen-all-docs
 
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
@@ -832,10 +817,9 @@ codegen-helm-update-versions: ## Update helm charts versions
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: codegen-all
 	@echo Checking git diff... >&2
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
-	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-all".' >&2
+	@echo 'To correct this, locally run "make codegen-all", commit the changes, and re-run tests.' >&2
 	@git diff --exit-code
 
 ##############
@@ -929,7 +913,6 @@ test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
 	@echo Running local cli exception tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-exceptions
 
-
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
 	@echo Running local cli selector tests... >&2
@@ -978,7 +961,7 @@ debug-deploy: codegen-manifest-debug ## Install debug manifests
 ##########
 
 .PHONY: docker-save-image-all
-docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
+docker-save-image-all: image-build-all ## Save docker images in archive
 	docker save \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \
