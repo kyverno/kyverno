@@ -128,13 +128,14 @@ func runCheckHTTP() {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	client := &http.Client{}
+
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Printf("timeout waiting for endpoint %s to become ready\n", url)
 			os.Exit(1)
 		default:
-			client := &http.Client{}
 			resp, err := client.Get(url)
 			if err != nil {
 				fmt.Printf("Failed to fetch: %v\n", err)
