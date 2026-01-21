@@ -531,7 +531,7 @@ test:
     repository: aerosouund/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v0.1.1'
+    tag: 'latest'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
