@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: sync-modify-policy-with-two-triggers
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

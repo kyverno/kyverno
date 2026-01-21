@@ -114,6 +114,19 @@ type Interface interface {
 	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
 }
 
+// DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
+const DefaultMaxContextSize = 2 * 1024 * 1024
+
+// ContextSizeLimitExceededError is returned when context size exceeds the limit
+type ContextSizeLimitExceededError struct {
+	Size  int64
+	Limit int64
+}
+
+func (e ContextSizeLimitExceededError) Error() string {
+	return fmt.Sprintf("context size limit exceeded: %d bytes exceeds limit of %d bytes", e.Size, e.Limit)
+}
+
 // Context stores the data resources as JSON
 type context struct {
 	jp                 jmespath.Interface
@@ -122,6 +135,8 @@ type context struct {
 	images             map[string]map[string]apiutils.ImageInfo
 	operation          kyvernov1.AdmissionOperation
 	deferred           DeferredLoaders
+	contextSize        int64
+	maxContextSize     int64
 }
 
 // NewContext returns a new context
@@ -136,6 +151,18 @@ func NewContextFromRaw(jp jmespath.Interface, raw map[string]interface{}) Interf
 		jsonRaw:            raw,
 		jsonRawCheckpoints: make([]map[string]interface{}, 0),
 		deferred:           NewDeferredLoaders(),
+		maxContextSize:     DefaultMaxContextSize,
+	}
+}
+
+// NewContextWithMaxSize returns a new context with a specified maximum context size
+func NewContextWithMaxSize(jp jmespath.Interface, maxSize int64) Interface {
+	return &context{
+		jp:                 jp,
+		jsonRaw:            map[string]interface{}{},
+		jsonRawCheckpoints: make([]map[string]interface{}, 0),
+		deferred:           NewDeferredLoaders(),
+		maxContextSize:     maxSize,
 	}
 }
 
@@ -187,15 +214,22 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
+	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+		return err
+	}
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
+	ctx.contextSize += int64(len(dataRaw))
 	return addToContext(ctx, data, false, name)
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
+	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+		return err
+	}
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
@@ -206,6 +240,7 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
+	ctx.contextSize += int64(len(dataRaw))
 	return addToContext(ctx, data, false, name)
 }
 
@@ -417,7 +452,7 @@ func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{
 	out := make(map[string]interface{}, len(in))
 	for k, v := range in {
 		if ReservedKeys.MatchString(k) {
-			out[k] = v
+			out[k] = runtime.DeepCopyJSONValue(v)
 		} else {
 			out[k] = runtime.DeepCopyJSONValue(v)
 		}
@@ -462,5 +497,16 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
 	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
+	return nil
+}
+
+// checkContextSizeLimit checks if adding additionalSize bytes would exceed the context size limit
+func (ctx *context) checkContextSizeLimit(additionalSize int64) error {
+	if ctx.maxContextSize > 0 && ctx.contextSize+additionalSize > ctx.maxContextSize {
+		return ContextSizeLimitExceededError{
+			Size:  ctx.contextSize + additionalSize,
+			Limit: ctx.maxContextSize,
+		}
+	}
 	return nil
 }

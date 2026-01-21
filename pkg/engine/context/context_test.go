@@ -1,7 +1,10 @@
 package context
 
 import (
+	stdjson "encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -283,4 +286,178 @@ func Test_ImageInfoLoader_OnDirectCall(t *testing.T) {
 	// images loaded on explicit call to ImageInfo
 	imageinfos := newctx.ImageInfo()
 	assert.Equal(t, imageinfos["containers"]["test_container"].Name, "nginx")
+}
+
+func Test_ContextSizeLimit(t *testing.T) {
+	tests := []struct {
+		name    string
+		maxSize int64
+		entries []struct {
+			name string
+			data string
+		}
+		wantErr        bool
+		expectedErrMsg string
+	}{
+		{
+			name:    "within limit",
+			maxSize: 1024,
+			entries: []struct {
+				name string
+				data string
+			}{
+				{name: "small", data: `"hello"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "exceeds limit single entry",
+			maxSize: 10,
+			entries: []struct {
+				name string
+				data string
+			}{
+				{name: "large", data: `"this is a string that exceeds the limit"`},
+			},
+			wantErr:        true,
+			expectedErrMsg: "context size limit exceeded",
+		},
+		{
+			name:    "exceeds limit cumulative",
+			maxSize: 50,
+			entries: []struct {
+				name string
+				data string
+			}{
+				{name: "first", data: `"first entry data"`},
+				{name: "second", data: `"second entry data"`},
+				{name: "third", data: `"third entry that pushes over"`},
+			},
+			wantErr:        true,
+			expectedErrMsg: "context size limit exceeded",
+		},
+		{
+			name:    "zero limit disables check",
+			maxSize: 0,
+			entries: []struct {
+				name string
+				data string
+			}{
+				{name: "large", data: `"this can be any size when limit is zero"`},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &context{
+				jp:             jp,
+				jsonRaw:        map[string]interface{}{},
+				maxContextSize: tt.maxSize,
+				deferred:       NewDeferredLoaders(),
+			}
+
+			var lastErr error
+			for _, entry := range tt.entries {
+				lastErr = ctx.AddContextEntry(entry.name, []byte(entry.data))
+				if lastErr != nil {
+					break
+				}
+			}
+
+			if tt.wantErr {
+				assert.Error(t, lastErr)
+				assert.Contains(t, lastErr.Error(), tt.expectedErrMsg)
+				// Verify it's the correct error type
+				var sizeErr ContextSizeLimitExceededError
+				assert.ErrorAs(t, lastErr, &sizeErr)
+			} else {
+				assert.NoError(t, lastErr)
+			}
+		})
+	}
+}
+
+func Test_ContextSizeLimitWithReplace(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 30,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	// First entry should succeed
+	err := ctx.ReplaceContextEntry("var1", []byte(`"a"`))
+	assert.NoError(t, err)
+	assert.Greater(t, ctx.contextSize, int64(0))
+
+	// Second entry should succeed
+	err = ctx.ReplaceContextEntry("var2", []byte(`"b"`))
+	assert.NoError(t, err)
+
+	// Large entry that exceeds limit should fail
+	largeData := []byte(`"this string is definitely larger than 30 bytes total"`)
+	err = ctx.ReplaceContextEntry("var3", largeData)
+	assert.Error(t, err)
+	var sizeErr ContextSizeLimitExceededError
+	assert.ErrorAs(t, err, &sizeErr)
+}
+
+func Test_ContextSizeLimitExceededError(t *testing.T) {
+	err := ContextSizeLimitExceededError{Size: 3000, Limit: 2000}
+	assert.Equal(t, "context size limit exceeded: 3000 bytes exceeds limit of 2000 bytes", err.Error())
+}
+
+// Test_ContextSizeLimitBlocksExponentialAmplification simulates a case where
+// exponential string doubling via context variables attempts to consume
+// unbounded memory (e.g., 1KB -> 2KB -> 4KB -> ... -> 256MB).
+// This test verifies that the context size limit blocks such attacks.
+func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
+	// Use a small limit to make the test fast (16KB instead of 2MB default)
+	const testLimit = 16 * 1024
+
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: testLimit,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	// Simulate the pattern:
+	// l0 = random('[a-zA-Z0-9]{1000}') -> ~1KB
+	// l1 = join('', [l0, l0]) -> ~2KB
+	// l2 = join('', [l1, l1]) -> ~4KB
+	// ... exponential growth until blocked
+
+	baseString := strings.Repeat("a", 1000)
+	currentData := baseString
+
+	var lastErr error
+	level := 0
+
+	for level < 20 { // Would reach 1GB if unchecked
+		jsonData, err := stdjson.Marshal(currentData)
+		assert.NoError(t, err)
+
+		entryName := fmt.Sprintf("l%d", level)
+		lastErr = ctx.AddContextEntry(entryName, jsonData)
+
+		if lastErr != nil {
+			// Attack blocked by size limit
+			break
+		}
+
+		// Double the string for next iteration (simulating join('', [prev, prev]))
+		currentData = currentData + currentData
+		level++
+	}
+
+	// Verify the attack was blocked before reaching dangerous levels
+	assert.Error(t, lastErr, "exponential amplification should be blocked")
+	assert.Less(t, level, 20, "attack should be blocked well before 20 doublings (1GB)")
+
+	var sizeErr ContextSizeLimitExceededError
+	assert.ErrorAs(t, lastErr, &sizeErr)
+	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
 }
