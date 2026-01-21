@@ -110,7 +110,7 @@ func runCheckHTTP() {
 	fs.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
 	fs.StringVar(&path, "path", "", "The endpoint path")
 	fs.IntVar(&port, "port", 8000, "Metrics service port")
-	fs.DurationVar(&timeout, "timeout", 30*time.Second, "HTTP request timeout")
+	fs.DurationVar(&timeout, "timeout", 60*time.Second, "HTTP request timeout")
 	fs.Parse(os.Args[2:])
 
 	if serviceName == "" {
@@ -125,24 +125,30 @@ func runCheckHTTP() {
 	url := fmt.Sprintf("http://%s.%s:%d/%s", serviceName, namespace, port, path)
 	fmt.Printf("Checking endpoint: %s\n", url)
 
-	// should this be a loop ?
-	client := &http.Client{
-		Timeout: timeout,
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	resp, err := client.Get(url)
-	if err != nil {
-		fmt.Printf("Failed to fetch: %v\n", err)
-		os.Exit(1)
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("timeout waiting for endpoint %s to become ready\n", url)
+			os.Exit(1)
+		default:
+			client := &http.Client{}
+			resp, err := client.Get(url)
+			if err != nil {
+				fmt.Printf("Failed to fetch: %v\n", err)
+				os.Exit(1)
+			}
+			defer resp.Body.Close()
+			fmt.Printf("HTTP Status: %s\n", resp.Status)
+			if resp.StatusCode != http.StatusOK {
+				fmt.Printf("Endpoint returned non-OK status: %d\n", resp.StatusCode)
+				continue
+			}
+			return
+		}
 	}
-	defer resp.Body.Close()
-	fmt.Printf("HTTP Status: %s\n", resp.Status)
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Endpoint returned non-OK status: %d\n", resp.StatusCode)
-		os.Exit(1)
-	}
-
-	fmt.Println("Endpoint is accessible!")
 }
 
 func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Clientset, releaseName, namespace string, existingEndpointSliceNames []string) error {
