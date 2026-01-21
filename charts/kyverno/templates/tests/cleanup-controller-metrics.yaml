@@ -29,7 +29,7 @@ spec:
       {{- end }}
       args:
         - check-http
-        - --service-name={{ template "kyverno.cleanup-controller.serviceName" . }}-metrics
+        - --service-name={{ template "kyverno.cleanup-controller.name" . }}-metrics
         - --namespace={{ template "kyverno.namespace" . }}
         - --port={{ .Values.cleanupController.service.port }}
         - --path=metrics
