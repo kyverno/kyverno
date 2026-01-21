@@ -681,10 +681,13 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
-	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) dependency build ./charts/kyverno
+
+# Legacy alias for backward compatibility
+.PHONY: helm-setup-openreports  
+helm-setup-openreports: helm-setup-dependency-charts ## (Deprecated) Use helm-setup-dependency-charts instead
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -725,9 +728,10 @@ codegen-helm-crds: codegen-crds-all
 	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
-codegen-helm-docs: $(HELM_DOCS) ## Generate helm docs
+codegen-helm-docs: ## Generate helm docs
+codegen-helm-docs: $(HELM_DOCS)
 	@echo Generate helm docs... >&2
-	@$(HELM_DOCS) -s file --chart-search-root charts
+	@cd charts && $(HELM_DOCS) -s file
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
