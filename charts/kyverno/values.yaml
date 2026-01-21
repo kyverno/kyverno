@@ -528,7 +528,7 @@ test:
     # -- (string) Image registry
     registry: ghcr.io
     # -- Image repository
-    repository: kyverno/reports-server-readiness
+    repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: 'latest'

@@ -20,7 +20,7 @@ CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
 BACKGROUND_IMAGE     := background-controller
-READINESS_IMAGE      := reports-server-readiness
+READINESS_IMAGE      := readiness-checker
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
@@ -149,14 +149,14 @@ CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 REPORTS_DIR    := $(CMD_DIR)/reports-controller
 BACKGROUND_DIR := $(CMD_DIR)/background-controller
-READINESS_DIR  := $(CMD_DIR)/reports-server-readiness
+READINESS_DIR  := $(CMD_DIR)/readiness-checker
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
-READINESS_BIN  := $(READINESS_DIR)/reports-server-readiness
+READINESS_BIN  := $(READINESS_DIR)/readiness-checker
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -234,7 +234,7 @@ $(REPORTS_BIN): vet
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
 $(READINESS_BIN): fmt vet
-	@echo Build reports-server-readiness binary... >&2
+	@echo Build readiness-checker binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(READINESS_BIN) -ldflags=$(LD_FLAGS) ./$(READINESS_DIR)
 
 .PHONY: build-background-controller
@@ -261,9 +261,9 @@ build-kyverno-init: $(KYVERNOPRE_BIN)
 build-reports-controller: ## Build reports controller binary
 build-reports-controller: $(REPORTS_BIN)
 
-.PHONY: build-reports-server-readiness
-build-reports-server-readiness: ## Build reports-server-readiness binary
-build-reports-server-readiness: $(READINESS_BIN)
+.PHONY: build-readiness-checker
+build-readiness-checker: ## Build readiness-checker binary
+build-readiness-checker: $(READINESS_BIN)
 
 build-all: ## Build all binaries
 build-all: build-background-controller
@@ -272,7 +272,7 @@ build-all: build-cli
 build-all: build-kyverno
 build-all: build-kyverno-init
 build-all: build-reports-controller
-build-all: build-reports-server-readiness
+build-all: build-readiness-checker
 
 ##############
 # BUILD (KO) #
@@ -332,14 +332,14 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
-.PHONY: ko-build-reports-server-readiness
-ko-build-reports-server-readiness: $(KO) ## Build reports-server-readiness local image (with ko)
-	@echo Build reports-server-readiness local image with ko... >&2
+.PHONY: ko-build-readiness-checker
+ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
+	@echo Build readiness-checker local image with ko... >&2
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-reports-server-readiness ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -388,14 +388,14 @@ ko-publish-background-controller: ko-login ## Build and publish background contr
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
 		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/background-controller'
 
-.PHONY: ko-publish-reports-server-readiness
-ko-publish-reports-server-readiness: ko-login ## Build and publish reports-server-readiness image (with ko)
+.PHONY: ko-publish-readiness-checker
+ko-publish-readiness-checker: ko-login ## Build and publish readiness-checker image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_READINESS) \
 		$(KO) build ./$(READINESS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
-		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/reports-server-readiness'
+		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/readiness-checker'
 
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ko-publish-reports-server-readiness ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ko-publish-readiness-checker ## Build and publish all images (with ko)
 
 #################
 # BUILD (IMAGE) #

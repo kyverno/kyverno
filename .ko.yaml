@@ -31,7 +31,7 @@ builds:
     ldflags:
       - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
-  - id: reports-server-readiness
-    main: ./cmd/reports-server-readiness
+  - id: readiness-checker
+    main: ./cmd/readiness-checker
     ldflags:
       - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
