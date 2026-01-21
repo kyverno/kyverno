@@ -138,7 +138,7 @@ func runCheckHTTP() {
 			resp, err := client.Get(url)
 			if err != nil {
 				fmt.Printf("Failed to fetch: %v\n", err)
-				os.Exit(1)
+				continue
 			}
 			defer resp.Body.Close()
 			fmt.Printf("HTTP Status: %s\n", resp.Status)
