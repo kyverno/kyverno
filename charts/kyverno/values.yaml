@@ -526,9 +526,9 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: docker.io
     # -- Image repository
-    repository: kyverno/readiness-checker
+    repository: aerosouund/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: 'latest'
