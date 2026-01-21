@@ -47,45 +47,9 @@ customPolicies:
     spec: # spec
 ````
 
-## Policy Engine Types
-
-This chart supports two policy engine types:
-
-### ClusterPolicy (Default)
-- Uses `kyverno.io/v1` ClusterPolicy resources
-- Pattern-based validation
-- **Deprecated**: Will be deprecated in Kyverno 1.17
-- Default behavior for backward compatibility
-
-### ValidatingPolicy (CEL-based)
-- Uses `policies.kyverno.io/v1beta1` ValidatingPolicy resources
-- CEL expression-based validation
-- **Recommended**: Future-proof for Kyverno 1.17+
-- Better performance and more flexible validation
-
-### Switching to CEL-based Policies
-
-To use CEL-based ValidatingPolicy resources, set `policyType` to `ValidatingPolicy`:
-
-```yaml
-policyType: ValidatingPolicy
-```
-
-**Why CEL?**
-- Better performance: CEL expressions are compiled and executed natively by Kubernetes
-- More flexible: Direct access to Kubernetes API objects
-- Future-proof: ClusterPolicy will be deprecated in Kyverno 1.17
-- Standard: Uses Kubernetes-native ValidatingAdmissionPolicy framework
-
-**Migration Notes:**
-- CEL policies maintain the same security checks as ClusterPolicy versions
-- All 21 PSS policies are available in both formats
-- Existing ClusterPolicy deployments continue to work (default behavior)
-- No breaking changes by default - existing installations are unaffected
-
 ## Installing the Chart
 
-These PSS policies presently have a minimum requirement of Kyverno 1.6.0 for ClusterPolicy, and Kyverno 1.17+ for ValidatingPolicy.
+These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
 
 ```console
 ## Add the Kyverno Helm repository
@@ -109,8 +73,8 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`). Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+). ClusterPolicy will be deprecated in Kyverno 1.17. |
-| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies (only applies when `policyType` is `ClusterPolicy`) |
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
+| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
