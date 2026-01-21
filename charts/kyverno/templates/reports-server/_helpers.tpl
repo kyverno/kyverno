@@ -23,7 +23,7 @@ Reports Server readiness init container
   imagePullPolicy: {{ .Values.test.image.pullPolicy | default "IfNotPresent" }}
   args:
     - check-endpoints
-    - --release-name={{ .Release.Name }}
+    - --service-name={{ .Release.Name }}-reports-server
     - --namespace={{ .Release.Namespace }}
     - --timeout={{ .Values.reportsServer.readinessTimeout }}
   securityContext:

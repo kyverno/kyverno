@@ -43,13 +43,13 @@ func main() {
 
 func runCheckEndpoints() {
 	var (
-		releaseName string
+		serviceName string
 		namespace   string
 		timeout     time.Duration
 	)
 
 	fs := flag.NewFlagSet("check-endpoints", flag.ExitOnError)
-	fs.StringVar(&releaseName, "release-name", "kyverno", "Helm release name")
+	fs.StringVar(&serviceName, "service-name", "", "Service name")
 	fs.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
 	fs.DurationVar(&timeout, "timeout", 300*time.Second, "Timeout duration")
 	fs.Parse(os.Args[2:])
@@ -58,8 +58,8 @@ func runCheckEndpoints() {
 		fmt.Println("Error: --namespace is required")
 		os.Exit(1)
 	}
-	if releaseName == "" {
-		fmt.Println("Error: --release-name is required")
+	if serviceName == "" {
+		fmt.Println("Error: --service-name is required")
 		os.Exit(1)
 	}
 
@@ -77,13 +77,13 @@ func runCheckEndpoints() {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("Timeout reached after %s. Reports-server is not ready.\n", timeout)
+			fmt.Printf("Timeout reached after %s. service %s is not ready.\n", timeout)
 			os.Exit(1)
 		default:
-			err := attemptCheckReportsServer(ctx, clientset, releaseName, namespace, existingEndpointSliceNames)
+			err := attemptCheckEndpoints(ctx, clientset, serviceName, namespace, existingEndpointSliceNames)
 			if err != nil {
 				if err == errNoReadyEndpoints {
-					fmt.Println("failed to find a ready endpoint for the reports server, sleeping for 5 seconds")
+					fmt.Println("failed to find a ready endpoint, sleeping for 5 seconds")
 					time.Sleep(5 * time.Second)
 					continue
 				}
@@ -152,7 +152,7 @@ func runCheckHTTP() {
 	}
 }
 
-func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Clientset, releaseName, namespace string, existingEndpointSliceNames []string) error {
+func attemptCheckEndpoints(ctx context.Context, clientset *kubernetes.Clientset, svcName, namespace string, existingEndpointSliceNames []string) error {
 	if existingEndpointSliceNames == nil {
 		endpointSlices, err := clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -160,7 +160,7 @@ func attemptCheckReportsServer(ctx context.Context, clientset *kubernetes.Client
 		}
 		for _, e := range endpointSlices.Items {
 			for _, owner := range e.OwnerReferences {
-				if owner.Kind == "Service" && owner.Name == fmt.Sprintf("%s-reports-server", releaseName) {
+				if owner.Kind == "Service" && owner.Name == svcName {
 					// we are ready, no need to do further processing
 					for _, endpoint := range e.Endpoints {
 						if *endpoint.Conditions.Ready {
