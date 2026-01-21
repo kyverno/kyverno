@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2
+kind: UpdateRequest
+metadata:
+  namespace: kyverno
+  labels:
+    kyverno.io/policy-name: multi-rule-generate-accumulation
+status:
+  state: Completed
+  # Verify that generatedResources contains BOTH ConfigMaps from both rules
+  # This assertion will fail if only the last rule's resources are tracked (the bug)
+  (length(generatedResources)): 2
+  generatedResources:
+  - apiVersion: v1
+    kind: ConfigMap
+    name: app-config
+    namespace: multi-rule-test-ns
+  - apiVersion: v1
+    kind: ConfigMap
+    name: db-config
+    namespace: multi-rule-test-ns
