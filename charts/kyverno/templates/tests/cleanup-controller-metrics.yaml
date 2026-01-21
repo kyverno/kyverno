@@ -31,7 +31,7 @@ spec:
         - check-http
         - --service-name={{ template "kyverno.cleanup-controller.name" . }}-metrics
         - --namespace={{ template "kyverno.namespace" . }}
-        - --port={{ .Values.cleanupController.service.port }}
+        - --port={{ .Values.cleanupController.metricsService.port }}
         - --path=metrics
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
