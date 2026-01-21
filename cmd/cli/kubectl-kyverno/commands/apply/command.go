@@ -161,9 +161,7 @@ func Command() *cobra.Command {
 								msg = "validation failed"
 							}
 							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
-
 						}
-
 					}
 				}
 				printViolations(out, rc)
