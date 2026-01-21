@@ -1,0 +1,52 @@
+{{- $name := "disallow-capabilities-strict" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow Capabilities (Strict)
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Adding capabilities other than `NET_BIND_SERVICE` is disallowed. In addition,
+      all containers must explicitly drop `ALL` capabilities.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          ((!has(c.securityContext.capabilities.drop) || 'ALL' in c.securityContext.capabilities.drop) &&
+           (!has(c.securityContext.capabilities.add) || c.securityContext.capabilities.add.all(cap, cap == 'NET_BIND_SERVICE'))))) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          ((!has(c.securityContext.capabilities.drop) || 'ALL' in c.securityContext.capabilities.drop) &&
+           (!has(c.securityContext.capabilities.add) || c.securityContext.capabilities.add.all(cap, cap == 'NET_BIND_SERVICE'))))) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          ((!has(c.securityContext.capabilities.drop) || 'ALL' in c.securityContext.capabilities.drop) &&
+           (!has(c.securityContext.capabilities.add) || c.securityContext.capabilities.add.all(cap, cap == 'NET_BIND_SERVICE')))))
+      message: >-
+        Containers must drop `ALL` capabilities and may only add `NET_BIND_SERVICE`.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+

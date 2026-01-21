@@ -115,9 +115,14 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-			c.eventGen.Add(events...)
+			// Only create policy-referenced event if policy is non-nil to avoid nil pointer panic
+			if policy != nil {
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+				c.eventGen.Add(events...)
+			} else {
+				logger.Error(err, "failed to process rule for deleted policy", "rule", rule.Rule, "policy", ur.Spec.GetPolicyKey())
+			}
 		}
 	}
 
