@@ -22,6 +22,7 @@ Reports Server readiness init container
   image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" .Values.test.image.tag) | quote }}
   imagePullPolicy: {{ .Values.test.image.pullPolicy | default "IfNotPresent" }}
   args:
+    - check-endpoints
     - --release-name={{ .Release.Name }}
     - --namespace={{ .Release.Namespace }}
     - --timeout={{ .Values.reportsServer.readinessTimeout }}
