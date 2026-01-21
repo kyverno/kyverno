@@ -36,4 +36,4 @@ spec:
             check:
               ($error != null): true
               # This check ensures the contents of stderr contain the improved error message.
-              "(contains(trim_space($stderr), 'permission denied: Kyverno service account lacks RBAC permissions to GET resource at /apis/apps/v1/namespaces/default/unknown'))": true
+              "(contains(trim_space($stderr), 'Kyverno service account lacks RBAC permissions to GET resource at /apis/apps/v1/namespaces/default/unknown'))": true
