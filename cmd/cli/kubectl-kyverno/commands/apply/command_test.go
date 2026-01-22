@@ -15,6 +15,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func copyFileToThisDir(sourceFile string) (string, error) {
+	input, err := os.ReadFile(sourceFile)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
+}
+
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		expectedReports []openreportsv1alpha1.Report
@@ -453,6 +462,7 @@ func Test_Apply(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -719,6 +729,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -781,6 +792,7 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -875,6 +887,7 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -1000,6 +1013,7 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -1043,15 +1057,6 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 	for i, resp := range combined {
 		compareSummary(t, tc.expectedReports[i].Summary, resp.Summary, desc)
 	}
-}
-
-func copyFileToThisDir(sourceFile string) (string, error) {
-	input, err := os.ReadFile(sourceFile)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
 }
 
 func TestCommand(t *testing.T) {

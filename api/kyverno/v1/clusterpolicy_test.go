@@ -79,6 +79,7 @@ func Test_ClusterPolicy_HasAutoGenAnnotation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			policy := &ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Annotations: tc.annotations}}
 			result := policy.HasAutoGenAnnotation()
 			if result != tc.expected {

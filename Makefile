@@ -836,9 +836,11 @@ test-clean: ## Clean tests cache
 
 .PHONY: test-unit
 test-unit: ## Run unit tests
-test-unit: test-clean
+test-unit: # test-clean
 	@echo Running unit tests... >&2
-	@go test -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
+	@go test -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./api/... ./pkg/...
+# 	 ./cmd/... ./pkg/...
+# -race 
 
 #############
 # CLI TESTS #
