@@ -14,6 +14,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"gotest.tools/assert"
 )
 
