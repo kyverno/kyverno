@@ -33,9 +33,9 @@ jobs:
         shell: bash
         run: |
           set -e
-          go mod download
-          (cd hack/controller-gen && go mod download)
-          (cd hack/api-group-resources && go mod download)
+          go mod download && go mod tidy
+          (cd hack/controller-gen && go mod download && go mod tidy)
+          (cd hack/api-group-resources && go mod download && go mod tidy)
           make install-tools
       - name: Go cache
         uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
