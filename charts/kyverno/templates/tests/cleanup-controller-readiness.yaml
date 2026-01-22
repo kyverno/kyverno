@@ -33,6 +33,7 @@ spec:
         - --namespace={{ template "kyverno.namespace" . }}
         - --port={{ .Values.cleanupController.service.port }}
         - --path=health/readiness
+        - --https
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}
