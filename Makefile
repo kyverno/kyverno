@@ -530,7 +530,7 @@ codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
 	@echo "Tidying modules after client generation..."
-	go mod tidy
+	@go mod tidy
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
