@@ -15,9 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var (
-	errNoReadyEndpoints = errors.New("no ready endpoints")
-)
+var errNoReadyEndpoints = errors.New("no ready endpoints")
 
 func main() {
 	if len(os.Args) < 2 {
@@ -146,7 +144,7 @@ func runCheckHTTP() {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, //nolint:gosec
 			},
 		},
 	}
