@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -101,6 +102,7 @@ func runCheckHTTP() {
 		serviceName string
 		namespace   string
 		path        string
+		https       bool
 		port        int
 		timeout     time.Duration
 	)
@@ -109,7 +111,8 @@ func runCheckHTTP() {
 	fs.StringVar(&serviceName, "service-name", "", "Service name")
 	fs.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
 	fs.StringVar(&path, "path", "", "The endpoint path")
-	fs.IntVar(&port, "port", 8000, "Metrics service port")
+	fs.BoolVar(&https, "https", false, "Use HTTPS in the request")
+	fs.IntVar(&port, "port", 8000, "Service port")
 	fs.DurationVar(&timeout, "timeout", 60*time.Second, "HTTP request timeout")
 	fs.Parse(os.Args[2:])
 
@@ -123,12 +126,22 @@ func runCheckHTTP() {
 	}
 
 	url := fmt.Sprintf("http://%s.%s:%d/%s", serviceName, namespace, port, path)
+	if https {
+		url = fmt.Sprintf("https://%s.%s:%d/%s", serviceName, namespace, port, path)
+	}
+
 	fmt.Printf("Checking endpoint: %s\n", url)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
 
 	for {
 		select {
