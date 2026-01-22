@@ -53,7 +53,11 @@ func runCheckEndpoints() {
 	fs.StringVar(&serviceName, "service-name", "", "Service name")
 	fs.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
 	fs.DurationVar(&timeout, "timeout", 300*time.Second, "Timeout duration")
-	fs.Parse(os.Args[2:])
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		fmt.Printf("error parsing flags: %s", err.Error())
+		os.Exit(1)
+	}
 
 	if namespace == "" {
 		fmt.Println("Error: --namespace is required")
@@ -78,7 +82,7 @@ func runCheckEndpoints() {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("Timeout reached after %s. service %s is not ready.\n", timeout)
+			fmt.Printf("Timeout reached after %s. service %s is not ready.\n", serviceName, timeout)
 			os.Exit(1)
 		default:
 			err := attemptCheckEndpoints(ctx, clientset, serviceName, namespace, existingEndpointSliceNames)
@@ -114,7 +118,11 @@ func runCheckHTTP() {
 	fs.BoolVar(&https, "https", false, "Use HTTPS in the request")
 	fs.IntVar(&port, "port", 8000, "Service port")
 	fs.DurationVar(&timeout, "timeout", 60*time.Second, "HTTP request timeout")
-	fs.Parse(os.Args[2:])
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		fmt.Printf("error parsing flags: %s", err.Error())
+		os.Exit(1)
+	}
 
 	if serviceName == "" {
 		fmt.Println("Error: --service-name is required")
@@ -143,17 +151,24 @@ func runCheckHTTP() {
 		},
 	}
 
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		fmt.Printf("error building request: %s", err.Error())
+		os.Exit(1)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Printf("timeout waiting for endpoint %s to become ready\n", url)
 			os.Exit(1)
 		default:
-			resp, err := client.Get(url)
+			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("Failed to fetch: %v\n", err)
+				fmt.Printf("Failed to fetch: %s", err.Error())
 				continue
 			}
+
 			defer resp.Body.Close()
 			fmt.Printf("HTTP Status: %s\n", resp.Status)
 			if resp.StatusCode != http.StatusOK {
