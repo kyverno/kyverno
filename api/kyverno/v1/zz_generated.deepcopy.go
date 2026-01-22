@@ -1291,6 +1291,11 @@ func (in *ResourceDescription) DeepCopyInto(out *ResourceDescription) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Clusters != nil {
+		in, out := &in.Clusters, &out.Clusters
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Annotations != nil {
 		in, out := &in.Annotations, &out.Annotations
 		*out = make(map[string]string, len(*in))

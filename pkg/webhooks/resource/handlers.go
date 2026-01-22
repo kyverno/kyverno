@@ -191,7 +191,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind, request.ClusterName)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
@@ -205,7 +205,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	if len(verifyImagesPolicies) != 0 {
 		newRequest := patchRequest(patches, request.AdmissionRequest, logger)
 		// rebuild context to process images updated via mutate policies
-		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind, request.ClusterName)
 		if err != nil {
 			logger.Error(err, "failed to build policy context")
 			return admissionutils.Response(request.UID, err)
@@ -306,7 +306,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 }
 
 func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
-	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind, request.ClusterName)
 	if err != nil {
 		return nil, err
 	}

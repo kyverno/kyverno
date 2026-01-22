@@ -334,6 +334,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 					gvk,
 					subresource,
 					policyContext.Operation(),
+					policyContext.ClusterName(),
 				); err == nil {
 					h.log.V(4).Info("skip creating UR as the admission resource is both the source and the trigger")
 					continue

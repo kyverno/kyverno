@@ -26,6 +26,8 @@ type PolicyContext interface {
 	AdmissionOperation() bool
 	Element() unstructured.Unstructured
 	SetElement(element unstructured.Unstructured)
+	// ClusterName returns the cluster name for multi-cluster policy support
+	ClusterName() string
 
 	JSONContext() enginecontext.Interface
 	Copy() PolicyContext

@@ -905,7 +905,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1810,7 +1810,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1877,7 +1877,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1980,7 +1980,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// First test: confirm that this above rule produces errors (and raise an error if err == nil)
-	if err := MatchesResourceDescription(*resource, rule, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil")
 	}
 
@@ -2000,7 +2000,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase was expected to not fail, but err was %s", err)
 	}
 
@@ -2014,7 +2014,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}}
 
 	// Third test: confirm that now the custom exclude-snippet should run in CheckSubjects() and that should result in this rule failing (raise if err == nil for that reason)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil #1!")
 	}
 }
@@ -2073,7 +2073,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2131,7 +2131,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2190,7 +2190,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2248,7 +2248,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2315,7 +2315,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2383,7 +2383,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2464,7 +2464,182 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		ExcludeResources: &v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
-	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
+	}
+}
+
+// Test cluster matching for multi-cluster support
+func TestCheckCluster(t *testing.T) {
+	tests := []struct {
+		name        string
+		clusters    []string
+		clusterName string
+		expected    bool
+	}{
+		{
+			name:        "exact match",
+			clusters:    []string{"cluster-a", "cluster-b"},
+			clusterName: "cluster-a",
+			expected:    true,
+		},
+		{
+			name:        "no match",
+			clusters:    []string{"cluster-a", "cluster-b"},
+			clusterName: "cluster-c",
+			expected:    false,
+		},
+		{
+			name:        "wildcard match with *",
+			clusters:    []string{"prod-*"},
+			clusterName: "prod-us-east",
+			expected:    true,
+		},
+		{
+			name:        "wildcard match with ?",
+			clusters:    []string{"cluster-?"},
+			clusterName: "cluster-a",
+			expected:    true,
+		},
+		{
+			name:        "wildcard match all",
+			clusters:    []string{"*"},
+			clusterName: "any-cluster",
+			expected:    true,
+		},
+		{
+			name:        "empty clusters list",
+			clusters:    []string{},
+			clusterName: "cluster-a",
+			expected:    false,
+		},
+		{
+			name:        "empty cluster name",
+			clusters:    []string{"cluster-a"},
+			clusterName: "",
+			expected:    false,
+		},
+		{
+			name:        "complex wildcard pattern",
+			clusters:    []string{"prod-*-us-*"},
+			clusterName: "prod-app-us-east",
+			expected:    true,
+		},
+		{
+			name:        "complex wildcard pattern no match",
+			clusters:    []string{"prod-*-us-*"},
+			clusterName: "prod-app-eu-west",
+			expected:    false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := checkCluster(tc.clusters, tc.clusterName)
+			if result != tc.expected {
+				t.Errorf("checkCluster(%v, %s) = %v, expected %v", tc.clusters, tc.clusterName, result, tc.expected)
+			}
+		})
+	}
+}
+
+// Test cluster matching in MatchesResourceDescription
+func TestMatchesResourceDescription_ClusterMatching(t *testing.T) {
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default"
+		}
+	}`)
+	resource, _ := kubeutils.BytesToUnstructured(rawResource)
+
+	tests := []struct {
+		name              string
+		clusterName       string
+		matchClusters     []string
+		excludeClusters   []string
+		areErrorsExpected bool
+	}{
+		{
+			name:              "match cluster exact",
+			clusterName:       "cluster-a",
+			matchClusters:     []string{"cluster-a", "cluster-b"},
+			areErrorsExpected: false,
+		},
+		{
+			name:              "no match cluster",
+			clusterName:       "cluster-c",
+			matchClusters:     []string{"cluster-a", "cluster-b"},
+			areErrorsExpected: true,
+		},
+		{
+			name:              "match cluster wildcard",
+			clusterName:       "prod-us-east",
+			matchClusters:     []string{"prod-*"},
+			areErrorsExpected: false,
+		},
+		{
+			name:              "empty cluster list matches all",
+			clusterName:       "any-cluster",
+			matchClusters:     []string{},
+			areErrorsExpected: false,
+		},
+		{
+			name:              "empty cluster name with cluster filter",
+			clusterName:       "",
+			matchClusters:     []string{"cluster-a"},
+			areErrorsExpected: true,
+		},
+		{
+			name:              "exclude cluster",
+			clusterName:       "cluster-a",
+			matchClusters:     []string{"cluster-*"},
+			excludeClusters:   []string{"cluster-a"},
+			areErrorsExpected: true,
+		},
+		{
+			name:              "exclude cluster wildcard",
+			clusterName:       "dev-cluster",
+			matchClusters:     []string{"*"},
+			excludeClusters:   []string{"dev-*"},
+			areErrorsExpected: true,
+		},
+		{
+			name:              "exclude cluster no match",
+			clusterName:       "prod-cluster",
+			matchClusters:     []string{"*"},
+			excludeClusters:   []string{"dev-*"},
+			areErrorsExpected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceDescription := v1.ResourceDescription{
+				Kinds:    []string{"Pod"},
+				Clusters: tc.matchClusters,
+			}
+			rule := v1.Rule{
+				MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
+			}
+
+			if len(tc.excludeClusters) > 0 {
+				rule.ExcludeResources = &v1.MatchResources{
+					ResourceDescription: v1.ResourceDescription{
+						Clusters: tc.excludeClusters,
+					},
+				}
+			}
+
+			err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE", tc.clusterName)
+			if tc.areErrorsExpected && err == nil {
+				t.Errorf("expected error but got none")
+			}
+			if !tc.areErrorsExpected && err != nil {
+				t.Errorf("expected no error but got: %v", err)
+			}
+		})
 	}
 }

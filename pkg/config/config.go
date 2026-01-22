@@ -141,6 +141,9 @@ var (
 	kyvernoMetricsConfigMapName = osutils.GetEnvWithFallback("METRICS_CONFIG", "kyverno-metrics")
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
+	// kyvernoClusterName is the name of the cluster where Kyverno is deployed
+	// This is used for multi-cluster policy support to identify which cluster the request comes from
+	kyvernoClusterName = osutils.GetEnvWithFallback("KYVERNO_CLUSTER_NAME", "")
 )
 
 func KyvernoNamespace() string {
@@ -181,6 +184,11 @@ func KyvernoMetricsConfigMapName() string {
 
 func KyvernoUserName(serviceaccount string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s", kyvernoNamespace, serviceaccount)
+}
+
+// KyvernoClusterName returns the configured cluster name for multi-cluster support
+func KyvernoClusterName() string {
+	return kyvernoClusterName
 }
 
 // Configuration to be used by consumer to check filters

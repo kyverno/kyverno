@@ -835,7 +835,7 @@ func newMockPolicyContextBuilder(
 	}
 }
 
-func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
+func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind, clusterName string) (*engine.PolicyContext, error) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -847,6 +847,10 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	pc, err := engine.NewPolicyContextFromAdmissionRequest(b.jp, request, userRequestInfo, gvk, b.configuration)
 	if err != nil {
 		return nil, err
+	}
+	// Add cluster name for multi-cluster support
+	if clusterName != "" {
+		pc = pc.WithClusterName(clusterName)
 	}
 	b.contexts = append(b.contexts, pc)
 	return pc, err

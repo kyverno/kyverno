@@ -200,6 +200,7 @@ func (e *engine) matches(
 		gvk,
 		subresource,
 		policyContext.Operation(),
+		policyContext.ClusterName(),
 	)
 	if err == nil {
 		return nil
@@ -215,6 +216,7 @@ func (e *engine) matches(
 			gvk,
 			subresource,
 			policyContext.Operation(),
+			policyContext.ClusterName(),
 		)
 		if err == nil {
 			return nil

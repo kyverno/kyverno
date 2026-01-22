@@ -380,6 +380,14 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	if err != nil {
 		return nil, err
 	}
+	// Add cluster name for multi-cluster support
+	clusterName := config.KyvernoClusterName()
+	if clusterName != "" {
+		policyCtx = policyCtx.WithClusterName(clusterName)
+		if err := policyCtx.JSONContext().AddClusterInfo(clusterName); err != nil {
+			return nil, err
+		}
+	}
 	policyCtx = policyCtx.
 		WithNewResource(resource).
 		WithPolicy(policy).
@@ -401,6 +409,14 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	policyCtx, err := engine.NewPolicyContext(s.jp, resource, kyvernov1.Create, nil, s.config)
 	if err != nil {
 		return nil, err
+	}
+	// Add cluster name for multi-cluster support
+	clusterName := config.KyvernoClusterName()
+	if clusterName != "" {
+		policyCtx = policyCtx.WithClusterName(clusterName)
+		if err := policyCtx.JSONContext().AddClusterInfo(clusterName); err != nil {
+			return nil, err
+		}
 	}
 	policyCtx = policyCtx.
 		WithNewResource(resource).

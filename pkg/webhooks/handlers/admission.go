@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -53,6 +54,7 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		admissionRequest := AdmissionRequest{
 			AdmissionRequest: *admissionReview.Request,
 			URLParams:        params.ByName("policy"),
+			ClusterName:      config.KyvernoClusterName(),
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse

@@ -183,7 +183,7 @@ func validateOldObject(ctx context.Context, logger logr.Logger, policyContext en
 		payload["operation"] = kyvernov1.Update
 	}()
 
-	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext(), policyContext.ClusterName()); !ok {
 		return
 	}
 

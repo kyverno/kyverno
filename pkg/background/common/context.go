@@ -67,6 +67,14 @@ func NewBackgroundContext(
 	if err != nil {
 		return nil, err
 	}
+	// Add cluster name for multi-cluster support
+	clusterName := config.KyvernoClusterName()
+	if clusterName != "" {
+		policyContext = policyContext.WithClusterName(clusterName)
+		if err := policyContext.JSONContext().AddClusterInfo(clusterName); err != nil {
+			return nil, fmt.Errorf("failed to add cluster info in context: %w", err)
+		}
+	}
 	policyContext = policyContext.
 		WithPolicy(policy).
 		WithNewResource(*trigger).

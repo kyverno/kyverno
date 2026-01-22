@@ -32,6 +32,13 @@ type ResourceDescription struct {
 	// +optional
 	Namespaces []string `json:"namespaces,omitempty"`
 
+	// Clusters is a list of cluster names. Each name supports wildcard characters
+	// "*" (matches zero or many characters) and "?" (at least one character).
+	// This field is used for multi-cluster policy support to match resources
+	// from specific clusters when Kyverno is deployed with KYVERNO_CLUSTER_NAME.
+	// +optional
+	Clusters []string `json:"clusters,omitempty"`
+
 	// Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
 	// and values support the wildcard characters "*" (matches zero or many characters) and
 	// "?" (matches at least one character).
@@ -63,6 +70,7 @@ func (r ResourceDescription) IsEmpty() bool {
 		r.Name == "" &&
 		len(r.Names) == 0 &&
 		len(r.Namespaces) == 0 &&
+		len(r.Clusters) == 0 &&
 		len(r.Annotations) == 0 &&
 		r.Selector == nil &&
 		r.NamespaceSelector == nil

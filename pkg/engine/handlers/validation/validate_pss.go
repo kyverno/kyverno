@@ -207,7 +207,7 @@ func (h validatePssHandler) validateOldObject(
 		}
 	}()
 
-	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext(), policyContext.ClusterName()); !ok {
 		return
 	}
 

@@ -81,6 +81,10 @@ type Interface interface {
 	// AddNamespace merges resource json under request.namespace
 	AddNamespace(namespace string) error
 
+	// AddClusterInfo adds cluster information to the context under request.cluster
+	// This is used for multi-cluster policy support
+	AddClusterInfo(clusterName string) error
+
 	// AddElement adds element info to the context
 	AddElement(data interface{}, index, nesting int) error
 
@@ -313,6 +317,19 @@ func (ctx *context) AddServiceAccount(userName string) error {
 // AddNamespace merges resource json under request.namespace
 func (ctx *context) AddNamespace(namespace string) error {
 	return addToContext(ctx, namespace, false, "request", "namespace")
+}
+
+// AddClusterInfo adds cluster information to the context under request.cluster
+// This is used for multi-cluster policy support to enable policies to match
+// resources based on the cluster they originate from
+func (ctx *context) AddClusterInfo(clusterName string) error {
+	if clusterName == "" {
+		return nil
+	}
+	data := map[string]interface{}{
+		"name": clusterName,
+	}
+	return addToContext(ctx, data, false, "request", "cluster")
 }
 
 func (ctx *context) AddElement(data interface{}, index, nesting int) error {

@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, namespaceLabels map[string]string, policyNamespace string, operation kyvernov1.AdmissionOperation, jsonContext enginecontext.Interface) bool {
+func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, namespaceLabels map[string]string, policyNamespace string, operation kyvernov1.AdmissionOperation, jsonContext enginecontext.Interface, clusterName string) bool {
 	if rule.RawAnyAllConditions != nil {
 		preconditionsPassed, _, err := internal.CheckPreconditions(logger, jsonContext, rule.RawAnyAllConditions)
 		if !preconditionsPassed || err != nil {
@@ -39,6 +39,7 @@ func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule 
 		resource.GroupVersionKind(),
 		"",
 		operation,
+		clusterName,
 	)
 	return err == nil
 }

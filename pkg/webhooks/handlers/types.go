@@ -25,6 +25,10 @@ type AdmissionRequest struct {
 	GroupVersionKind schema.GroupVersionKind
 
 	URLParams string
+
+	// ClusterName is the name of the cluster where the request originated.
+	// This is used for multi-cluster policy support.
+	ClusterName string
 }
 
 type AdmissionResponse = admissionv1.AdmissionResponse

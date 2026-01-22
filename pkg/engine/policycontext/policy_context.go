@@ -54,6 +54,9 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
+
+	// clusterName is the name of the cluster for multi-cluster policy support
+	clusterName string
 }
 
 // engineapi.PolicyContext interface
@@ -122,6 +125,10 @@ func (c *PolicyContext) AdmissionOperation() bool {
 	return c.admissionOperation
 }
 
+func (c *PolicyContext) ClusterName() string {
+	return c.clusterName
+}
+
 func (c *PolicyContext) Element() unstructured.Unstructured {
 	return c.element
 }
@@ -182,6 +189,11 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 
 func (c PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	c.admissionOperation = admissionOperation
+	return &c
+}
+
+func (c PolicyContext) WithClusterName(clusterName string) *PolicyContext {
+	c.clusterName = clusterName
 	return &c
 }
 

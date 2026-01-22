@@ -10,7 +10,7 @@ import (
 )
 
 type PolicyContextBuilder interface {
-	Build(admissionv1.AdmissionRequest, []string, []string, schema.GroupVersionKind) (*engine.PolicyContext, error)
+	Build(admissionv1.AdmissionRequest, []string, []string, schema.GroupVersionKind, string) (*engine.PolicyContext, error)
 }
 
 type policyContextBuilder struct {
@@ -28,7 +28,7 @@ func NewPolicyContextBuilder(
 	}
 }
 
-func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
+func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind, clusterName string) (*engine.PolicyContext, error) {
 	userRequestInfo := kyvernov2.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
@@ -38,5 +38,16 @@ func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles
 	if request.DryRun != nil {
 		userRequestInfo.DryRun = *request.DryRun
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(b.jp, request, userRequestInfo, gvk, b.configuration)
+	policyContext, err := engine.NewPolicyContextFromAdmissionRequest(b.jp, request, userRequestInfo, gvk, b.configuration)
+	if err != nil {
+		return nil, err
+	}
+	// Add cluster name for multi-cluster support
+	if clusterName != "" {
+		policyContext = policyContext.WithClusterName(clusterName)
+		if err := policyContext.JSONContext().AddClusterInfo(clusterName); err != nil {
+			return nil, err
+		}
+	}
+	return policyContext, nil
 }

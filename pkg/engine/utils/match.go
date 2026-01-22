@@ -31,6 +31,17 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 	return false
 }
 
+// checkCluster checks if the given cluster name matches any of the cluster patterns
+// in the policy. Supports wildcard characters "*" and "?".
+func checkCluster(clusters []string, clusterName string) bool {
+	for _, cluster := range clusters {
+		if wildcard.Match(cluster, clusterName) {
+			return true
+		}
+	}
+	return false
+}
+
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
@@ -38,6 +49,7 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 //	Kinds      []string
 //	Name       string
 //	Namespaces []string
+//	Clusters   []string
 //	Selector
 //
 // UserInfo:
@@ -59,6 +71,7 @@ func doesResourceMatchConditionBlock(
 	gvk schema.GroupVersionKind,
 	subresource string,
 	operation kyvernov1.AdmissionOperation,
+	clusterName string,
 ) []error {
 	if len(conditionBlock.Operations) > 0 {
 		if !slices.Contains(conditionBlock.Operations, operation) {
@@ -103,6 +116,13 @@ func doesResourceMatchConditionBlock(
 	if len(conditionBlock.Namespaces) > 0 {
 		if !checkNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
+		}
+	}
+
+	// Check cluster matching for multi-cluster support
+	if len(conditionBlock.Clusters) > 0 {
+		if !checkCluster(conditionBlock.Clusters, clusterName) {
+			errs = append(errs, fmt.Errorf("cluster does not match %v", conditionBlock.Clusters))
 		}
 	}
 
@@ -175,6 +195,7 @@ func MatchesResourceDescription(
 	gvk schema.GroupVersionKind,
 	subresource string,
 	operation kyvernov1.AdmissionOperation,
+	clusterName string,
 ) error {
 	if resource.Object == nil {
 		return fmt.Errorf("resource is empty")
@@ -191,7 +212,7 @@ func MatchesResourceDescription(
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -202,11 +223,11 @@ func MatchesResourceDescription(
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)...)
 	}
 
 	// check exlude conditions only if match succeeds
@@ -214,7 +235,7 @@ func MatchesResourceDescription(
 		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
 			for _, rer := range rule.ExcludeResources.Any {
-				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)...)
 			}
 		} else if len(rule.ExcludeResources.All) > 0 {
 			// exclude the object if ALL the criteria match
@@ -222,7 +243,7 @@ func MatchesResourceDescription(
 			for _, rer := range rule.ExcludeResources.All {
 				// we got no errors inplying a resource did NOT exclude it
 				// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
-				if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)) == 0 {
+				if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)) == 0 {
 					excludedByAll = false
 					break
 				}
@@ -232,7 +253,7 @@ func MatchesResourceDescription(
 			}
 		} else {
 			rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)...)
 		}
 	}
 
@@ -259,6 +280,7 @@ func matchesResourceDescriptionMatchHelper(
 	gvk schema.GroupVersionKind,
 	subresource string,
 	operation kyvernov1.AdmissionOperation,
+	clusterName string,
 ) []error {
 	var errs []error
 	if datautils.DeepEqual(admissionInfo, kyvernov2.RequestInfo{}) {
@@ -268,7 +290,7 @@ func matchesResourceDescriptionMatchHelper(
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
+		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)
 		errs = append(errs, matchErrs...)
 	} else {
 		errs = append(errs, fmt.Errorf("match cannot be empty"))
@@ -284,12 +306,13 @@ func matchesResourceDescriptionExcludeHelper(
 	gvk schema.GroupVersionKind,
 	subresource string,
 	operation kyvernov1.AdmissionOperation,
+	clusterName string,
 ) []error {
 	var errs []error
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
+		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation, clusterName)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
 			errs = append(errs, fmt.Errorf("resource excluded since one of the criteria excluded it"))
