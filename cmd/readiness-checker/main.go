@@ -165,7 +165,8 @@ func runCheckHTTP() {
 		default:
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("Failed to fetch: %s", err.Error())
+				fmt.Printf("Failed to fetch: %s\n", err.Error())
+				time.Sleep(time.Second * 5)
 				continue
 			}
 
@@ -173,6 +174,7 @@ func runCheckHTTP() {
 			fmt.Printf("HTTP Status: %s\n", resp.Status)
 			if resp.StatusCode != http.StatusOK {
 				fmt.Printf("Endpoint returned non-OK status: %d\n", resp.StatusCode)
+				time.Sleep(time.Second * 5)
 				continue
 			}
 			return
