@@ -749,6 +749,8 @@ features:
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
+    # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
+    apiCallTimeout: 30s
   logging:
     # -- Logging format
     format: text
