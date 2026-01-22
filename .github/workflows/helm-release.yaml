@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Setup python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: 3.13.1
       - name: Set up chart-testing
@@ -31,6 +31,7 @@ jobs:
         run: |
           helm repo add openreports https://openreports.github.io/reports-api
           helm repo add reports-server https://kyverno.github.io/reports-server
+          helm repo add kyverno-api https://kyverno.github.io/api
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
