@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
       - name: Go cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: |
             ${{ env.GO_MOD_CACHE }}
@@ -116,7 +116,6 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
