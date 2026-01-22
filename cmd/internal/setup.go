@@ -64,6 +64,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	showWarnings(config, logger)
 	check(logger)
 	sdownMaxProcs := setupMaxProcs(logger)
+	setupMemLimit(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())

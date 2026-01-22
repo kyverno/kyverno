@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: basic-generate-with-name-matching
 spec:
+  concurrent: false
   steps:
   - name: create namespace
     try:

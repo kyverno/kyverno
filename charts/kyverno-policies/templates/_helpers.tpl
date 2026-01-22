@@ -98,3 +98,32 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- toYaml . -}}
 {{- end -}}
 {{- end -}}
+
+{{/* Check if ValidatingPolicy should be used */}}
+{{- define "kyverno-policies.useValidatingPolicy" -}}
+{{- if eq .Values.policyType "ValidatingPolicy" -}}
+{{- true -}}
+{{- else -}}
+{{- false -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
+{{/* Maps: Audit -> Audit, Enforce -> Deny */}}
+{{- define "kyverno-policies.validationActions" -}}
+{{- if eq . "Enforce" -}}
+{{- list "Deny" -}}
+{{- else -}}
+{{- list "Audit" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Get validationActions for a specific policy */}}
+{{- define "kyverno-policies.policyValidationActions" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaultAction := $values.validationFailureAction -}}
+{{- $policyAction := index $values.validationFailureActionByPolicy $policyName -}}
+{{- $action := default $defaultAction $policyAction -}}
+{{- include "kyverno-policies.validationActions" $action -}}
+{{- end -}}

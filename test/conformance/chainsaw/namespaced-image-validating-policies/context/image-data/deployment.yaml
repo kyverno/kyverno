@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: test-deploy
-  namespace: test-nivpol
   labels:
     prod: "true"
 spec:
@@ -19,5 +18,3 @@ spec:
       containers:
       - name: nginx
         image: ghcr.io/kyverno/test-verify-image:latest
-
-

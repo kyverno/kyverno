@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: clone-generate-on-trigger-deletion
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:
