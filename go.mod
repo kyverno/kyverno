@@ -29,7 +29,7 @@ require (
 	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20251124222020-e075f209120b
-	github.com/in-toto/in-toto-golang v0.9.1-0.20240317085821-8e2966059a09
+	github.com/in-toto/in-toto-golang v0.10.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
@@ -338,7 +338,7 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sassoftware/relic v7.2.1+incompatible // indirect
-	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
+	github.com/secure-systems-lab/go-securesystemslib v0.10.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/sergi/go-diff v1.4.0
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
