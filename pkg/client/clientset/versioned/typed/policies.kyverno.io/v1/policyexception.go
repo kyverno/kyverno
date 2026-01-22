@@ -39,6 +39,8 @@ type PolicyExceptionsGetter interface {
 type PolicyExceptionInterface interface {
 	Create(ctx context.Context, policyException *policieskyvernoiov1.PolicyException, opts metav1.CreateOptions) (*policieskyvernoiov1.PolicyException, error)
 	Update(ctx context.Context, policyException *policieskyvernoiov1.PolicyException, opts metav1.UpdateOptions) (*policieskyvernoiov1.PolicyException, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, policyException *policieskyvernoiov1.PolicyException, opts metav1.UpdateOptions) (*policieskyvernoiov1.PolicyException, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*policieskyvernoiov1.PolicyException, error)

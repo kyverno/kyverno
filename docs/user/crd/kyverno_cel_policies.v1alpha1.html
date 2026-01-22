@@ -2014,8 +2014,66 @@ as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &quot;2026-12-31T23:59:59Z&quot;)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-PolicyExceptionStatus">
+                <span style="font-family: monospace">PolicyExceptionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy exception runtime data.</p>
+
+
+          
+
           
         </td>
       </tr>
@@ -7505,6 +7563,126 @@ These values can be referenced in CEL expressions via <code>exceptions.allowedVa
 
           <p>ReportResult indicates whether the policy exception should be reported in the policy report
 as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies when this exception should stop being applied.
+The exception will be ignored after this time (not deleted).
+Format: RFC3339 timestamp (e.g., &quot;2026-12-31T23:59:59Z&quot;)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-PolicyExceptionStatus">PolicyExceptionStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>)
+    </p>
+  
+
+  <p><p>PolicyExceptionStatus contains runtime data for policy exceptions.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>expired</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expired indicates whether the exception has expired based on the expiresAt field.
+When true, the exception is not applied during policy evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1.Condition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions represent the latest observed conditions of the policy exception.</p>
 
 
           

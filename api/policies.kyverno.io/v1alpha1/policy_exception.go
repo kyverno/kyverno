@@ -8,6 +8,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
 // +kubebuilder:deprecatedversion
 
 // PolicyException declares resources to be excluded from specified policies.
@@ -17,6 +18,10 @@ type PolicyException struct {
 
 	// Spec declares policy exception behaviors.
 	Spec PolicyExceptionSpec `json:"spec"`
+
+	// Status contains policy exception runtime data.
+	// +optional
+	Status PolicyExceptionStatus `json:"status,omitempty"`
 }
 
 // PolicyExceptionSpec stores policy exception spec
@@ -44,6 +49,24 @@ type PolicyExceptionSpec struct {
 	// +kubebuilder:validation:Enum=skip;pass
 	// +kubebuilder:default=skip
 	ReportResult string `json:"reportResult,omitempty"`
+
+	// ExpiresAt specifies when this exception should stop being applied.
+	// The exception will be ignored after this time (not deleted).
+	// Format: RFC3339 timestamp (e.g., "2026-12-31T23:59:59Z")
+	// +optional
+	ExpiresAt *metav1.Time `json:"expiresAt,omitempty"`
+}
+
+// PolicyExceptionStatus contains runtime data for policy exceptions.
+type PolicyExceptionStatus struct {
+	// Expired indicates whether the exception has expired based on the expiresAt field.
+	// When true, the exception is not applied during policy evaluation.
+	// +optional
+	Expired bool `json:"expired,omitempty"`
+
+	// Conditions represent the latest observed conditions of the policy exception.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type PolicyRef struct {

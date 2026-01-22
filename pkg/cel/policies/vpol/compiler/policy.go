@@ -3,6 +3,7 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -95,6 +96,12 @@ func (p *Policy) evaluateWithData(
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
+			// Skip expired exceptions
+			if polex.Exception.Spec.ExpiresAt != nil {
+				if time.Now().After(polex.Exception.Spec.ExpiresAt.Time) {
+					continue
+				}
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {
 				return nil, err

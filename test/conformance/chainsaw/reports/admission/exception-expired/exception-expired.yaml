@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: expired-exception
+  annotations:
+    description: "This exception has expired and should not be applied"
+spec:
+  # Set expiration to a date in the past
+  expiresAt: "2020-01-01T00:00:00Z"
+  exceptions:
+    - policyName: require-labels
+      ruleNames:
+        - require-team
+  match:
+    any:
+      - resources:
+          kinds:
+            - ConfigMap
+          names:
+            - emergency

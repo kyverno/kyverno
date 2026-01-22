@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: valid-exception
+  annotations:
+    description: "This exception is valid and should be applied"
+spec:
+  # Set expiration to a date far in the future
+  expiresAt: "2099-12-31T23:59:59Z"
+  exceptions:
+    - policyName: require-labels
+      ruleNames:
+        - require-team
+  match:
+    any:
+      - resources:
+          kinds:
+            - ConfigMap
+          names:
+            - emergency

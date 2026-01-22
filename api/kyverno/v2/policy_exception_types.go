@@ -27,7 +27,10 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="EXPIRED",type=boolean,JSONPath=`.status.expired`
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
@@ -36,6 +39,10 @@ type PolicyException struct {
 
 	// Spec declares policy exception behaviors.
 	Spec PolicyExceptionSpec `json:"spec"`
+
+	// Status contains policy exception runtime data.
+	// +optional
+	Status PolicyExceptionStatus `json:"status,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -81,11 +88,6 @@ type PolicyExceptionSpec struct {
 	// +optional
 	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
 
-	// Description provides context for why this exception exists.
-	// Can be used to store references like ServiceNow ticket numbers.
-	// +optional
-	Description string `json:"description,omitempty"`
-
 	// ExpiresAt specifies when this exception should stop being applied.
 	// The exception will be ignored after this time (not deleted).
 	// Format: RFC3339 timestamp (e.g., "2026-12-31T23:59:59Z")
@@ -128,6 +130,18 @@ func (p *PolicyExceptionSpec) Contains(policy string, rule string) bool {
 		}
 	}
 	return false
+}
+
+// PolicyExceptionStatus contains runtime data for policy exceptions.
+type PolicyExceptionStatus struct {
+	// Expired indicates whether the exception has expired based on the expiresAt field.
+	// When true, the exception is not applied during policy evaluation.
+	// +optional
+	Expired bool `json:"expired,omitempty"`
+
+	// Conditions represent the latest observed conditions of the policy exception.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // Exception stores infos about a policy and rules
