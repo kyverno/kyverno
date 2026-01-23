@@ -24,12 +24,6 @@ jobs:
         uses: ./.github/actions/is-defined
         with:
           value: ${{ secrets.FOSSA_API_KEY }}
-      - name: Setup build env
-        if: steps.checksecret.outputs.result == 'true'
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
       - name: Run FOSSA analysis
         if: steps.checksecret.outputs.result == 'true'
         uses: fossas/fossa-action@3ebcea1862c6ffbd5cf1b4d0bd6b3fe7bd6f2cac # v1.7.0
