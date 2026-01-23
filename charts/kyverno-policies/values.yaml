@@ -10,7 +10,8 @@ policyType: ClusterPolicy
 
 # -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
 # For more info https://kyverno.io/policies/pod-security.
-podSecurityStandard: baseline
+# Setting to "restricted" includes both baseline AND restricted policies (restricted is cumulative)
+podSecurityStandard: restricted
 
 # -- Pod Security Standard (`low`, `medium`, `high`).
 podSecuritySeverity: medium
@@ -25,6 +26,28 @@ includeOtherPolicies: []
 # -- Additional policies to include from `restricted`.
 includeRestrictedPolicies: []
 # - require-run-as-non-root-user
+
+# -- Namespace matching configuration for all policies.
+# Either namespaceSelector (labels) OR namespaces (direct names) can be specified, not both.
+namespaceMatch:
+  # -- Namespace selector using labels (mutually exclusive with namespaces).
+  # If multiple labels are provided, they are combined with AND logic.
+  # Example:
+  #   labels:
+  #     foo: "true"
+  #     bar: "value"
+  labels: {}
+  #   foo: "true"
+  #   bar: "value"
+  
+  # -- Direct namespace names to match (mutually exclusive with labels).
+  # Example:
+  #   namespaces:
+  #     - prod
+  #     - staging
+  namespaces: []
+  # - prod
+  # - staging
 
 # -- Additional custom policies to include.
 customPolicies: []
