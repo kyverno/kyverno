@@ -28,7 +28,7 @@ jobs:
       with:
         go-version-file: go.mod
         cache: false
-    - name: Set Go cache variables
+    - name: Set cache variables
       shell: bash
       run: |
         set -e
@@ -36,7 +36,7 @@ jobs:
         echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
         echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
         echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-    - name: Restore Go cache
+    - name: Restore gomod cache
       uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
       with:
         path: ${{ env.GO_MOD_CACHE }}
@@ -66,7 +66,7 @@ jobs:
       with:
         go-version-file: go.mod
         cache: false
-    - name: Set Go cache variables
+    - name: Set cache variables
       shell: bash
       run: |
         set -e
@@ -74,7 +74,7 @@ jobs:
         echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
         echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
         echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-    - name: Restore Go cache
+    - name: Restore gomod cache
       uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
       with:
         path: ${{ env.GO_MOD_CACHE }}
