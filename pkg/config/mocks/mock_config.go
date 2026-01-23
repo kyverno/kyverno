@@ -93,6 +93,20 @@ func (mr *MockConfigurationMockRecorder) GetMatchConditions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMatchConditions", reflect.TypeOf((*MockConfiguration)(nil).GetMatchConditions))
 }
 
+// GetMaxContextSize mocks base method.
+func (m *MockConfiguration) GetMaxContextSize() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMaxContextSize")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// GetMaxContextSize indicates an expected call of GetMaxContextSize.
+func (mr *MockConfigurationMockRecorder) GetMaxContextSize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxContextSize", reflect.TypeOf((*MockConfiguration)(nil).GetMaxContextSize))
+}
+
 // GetUpdateRequestThreshold mocks base method.
 func (m *MockConfiguration) GetUpdateRequestThreshold() int64 {
 	m.ctrl.T.Helper()

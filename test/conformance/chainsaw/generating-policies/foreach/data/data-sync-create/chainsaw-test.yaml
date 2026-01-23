@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: foreach-data-sync-create
 spec:
+  concurrent: false
   steps:
   - name: create namespaces
     try:

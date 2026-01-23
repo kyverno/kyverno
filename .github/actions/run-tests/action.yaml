@@ -13,9 +13,6 @@ inputs:
   token:
     description: GH token
     required: true
-  chainsaw-config:
-    description: Chainsaw config
-    default: ../../../.chainsaw.yaml
   tests-path:
     description: Tests path
     default: '.'
@@ -37,6 +34,9 @@ inputs:
   install-kubectl-evict:
     description: Install kubectl-evict before running tests
     default: 'false'
+  install-openreports:
+    description: install openreports crds
+    default: 'false'
   explicit-install-settings:
     description: Additional helm install settings for Kyverno (e.g., --set admissionController.tlsKeyAlgorithm=Ed25519)
     default: ''
@@ -50,7 +50,7 @@ runs:
     - name: Install Cosign
       uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
     - name: Setup yq
-      uses: mikefarah/yq@796317b885ae219215caa36e9bdacc87c9962c15 # v4.46.1
+      uses: mikefarah/yq@065b200af9851db0d5132f50bc10b1406ea5c0a8 # v4.50.1
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:
@@ -60,7 +60,6 @@ runs:
     - name: Create kind cluster
       uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
       with:
-        version: v0.29.0
         node_image: kindest/node:${{ inputs.k8s-version }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}
@@ -74,6 +73,11 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
+    - name: Install OpenReports
+      if: inputs.install-openreports == 'true'
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
     - name: Install cert-manager
       if: inputs.install-cert-manager == 'true'
       shell: bash
@@ -103,7 +107,6 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
-
     - name: Add excluded tests
       shell: bash
       run: |
@@ -143,9 +146,9 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
-        cd ./test/conformance/chainsaw
-        chainsaw test ${{ inputs.tests-path }} \
-          --config ${{ inputs.chainsaw-config }} \
+        cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
+        chainsaw test \
+          --config .chainsaw.yaml \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}

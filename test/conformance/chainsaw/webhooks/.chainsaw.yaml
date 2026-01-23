@@ -10,7 +10,5 @@ spec:
     failFast: true
   namespace:
     fastDelete: true
-  report:
-    name: chainsaw-report
   timeouts:
     apply: 10s

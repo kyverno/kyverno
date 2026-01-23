@@ -55,8 +55,6 @@ type GenerateController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
-
-	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -73,7 +71,6 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
 ) *GenerateController {
 	c := GenerateController{
 		client:        client,
@@ -88,7 +85,6 @@ func NewGenerateController(
 		eventGen:      eventGen,
 		log:           log,
 		jp:            jp,
-		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -119,9 +115,14 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-			c.eventGen.Add(events...)
+			// Only create policy-referenced event if policy is non-nil to avoid nil pointer panic
+			if policy != nil {
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+				c.eventGen.Add(events...)
+			} else {
+				logger.Error(err, "failed to process rule for deleted policy", "rule", rule.Rule, "policy", ur.Spec.GetPolicyKey())
+			}
 		}
 	}
 
@@ -337,7 +338,7 @@ func (c *GenerateController) GetUnstrResources(genResourceSpecs []kyvernov1.Reso
 }
 
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.GenerateReportsEnabled()
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
