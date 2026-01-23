@@ -200,32 +200,26 @@ unused-package-check:
 	fi
 
 $(BACKGROUND_BIN): fmt
-$(BACKGROUND_BIN): vet
 	@echo Build background controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 $(CLEANUP_BIN): fmt
-$(CLEANUP_BIN): vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
 $(CLI_BIN): fmt
-# $(CLI_BIN): vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(KYVERNO_BIN): fmt
-$(KYVERNO_BIN): vet
 	@echo Build kyverno binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
 $(KYVERNOPRE_BIN): fmt
-$(KYVERNOPRE_BIN): vet
 	@echo Build kyvernopre binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(REPORTS_BIN): fmt
-$(REPORTS_BIN): vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
