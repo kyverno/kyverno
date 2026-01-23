@@ -26,7 +26,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - name: Set Go cache variables
+      - name: Set cache variables
         shell: bash
         run: |
           set -e
