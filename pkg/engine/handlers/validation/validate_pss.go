@@ -94,7 +94,7 @@ func (h validatePssHandler) validate(
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
-	podSpec, metadata, err := getSpec(resource)
+	podSpec, metadata, err := GetSpec(resource)
 	if err != nil {
 		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "Error while getting new resource", err, rule.ReportProperties)
 	}
@@ -207,9 +207,7 @@ func (h validatePssHandler) validateOldObject(
 		}
 	}()
 
-	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
-		return
-	}
+
 
 	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
@@ -302,7 +300,7 @@ func getImageReference(name string, imageInfos map[string]map[string]api.ImageIn
 	return name
 }
 
-func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
+func GetSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := resource.GetKind()
 
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
