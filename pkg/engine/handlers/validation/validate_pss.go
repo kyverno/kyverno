@@ -207,8 +207,6 @@ func (h validatePssHandler) validateOldObject(
 		}
 	}()
 
-
-
 	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
 	return

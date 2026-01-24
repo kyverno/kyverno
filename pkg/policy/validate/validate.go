@@ -245,26 +245,26 @@ func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 }
 
 func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
-  count := 0
-  if foreach.GetPattern() != nil {
-    count++
-  }
+	count := 0
+	if foreach.GetPattern() != nil {
+		count++
+	}
 
-  if foreach.GetAnyPattern() != nil {
-    count++
-  }
+	if foreach.GetAnyPattern() != nil {
+		count++
+	}
 
-  if foreach.Deny != nil {
-    count++
-  }
+	if foreach.Deny != nil {
+		count++
+	}
 
-  if foreach.PodSecurity != nil {
-    count++
-  }
+	if foreach.PodSecurity != nil {
+		count++
+	}
 
-  if foreach.GetForEachValidation() != nil && len(foreach.GetForEachValidation()) > 0 {
-    count++
-  }
+	if foreach.GetForEachValidation() != nil && len(foreach.GetForEachValidation()) > 0 {
+		count++
+	}
 
-  return count
+	return count
 }
