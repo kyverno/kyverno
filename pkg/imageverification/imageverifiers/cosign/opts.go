@@ -23,11 +23,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
-var (
-	tufInitMu          sync.Mutex
-	defaultTufInitOnce sync.Once
-	defaultTufInitErr  error
-)
+var tufInitMu sync.Mutex
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	if err := initializeTuf(ctx, att.TUF); err != nil {
@@ -171,6 +167,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 }
 
 func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
+	tufInitMu.Lock()
+	defer tufInitMu.Unlock()
+
 	if t != nil {
 		tufInitMu.Lock()
 		defer tufInitMu.Unlock()
@@ -193,11 +192,8 @@ func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
 		}
 	} else {
-		defaultTufInitOnce.Do(func() {
-			defaultTufInitErr = tuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil)
-		})
-		if defaultTufInitErr != nil {
-			return fmt.Errorf("Failed to initialize TUF client: %w", defaultTufInitErr)
+		if err := tuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil); err != nil {
+			return fmt.Errorf("Failed to initialize TUF client: %w", err)
 		}
 	}
 	return nil
