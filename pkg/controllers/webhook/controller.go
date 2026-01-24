@@ -1097,7 +1097,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			AdmissionReviewVersions: w.AdmissionReviewVersions,
 			NamespaceSelector:       w.NamespaceSelector,
 			ObjectSelector:          w.ObjectSelector,
-			Rules:                   w.Rules,
+			Rules:                   deDuplicatedRules(w.Rules),
 			MatchConditions:         w.MatchConditions,
 			TimeoutSeconds:          w.TimeoutSeconds,
 		})
@@ -1179,7 +1179,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(),
+				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1276,53 +1276,73 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	vpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		c.servicePort,
 		caBundle,
 		pols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range vpolWebhooks {
+		vpolWebhooks[i].Rules = deDuplicatedRules(vpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, vpolWebhooks...)
 
 	nvpols, err := c.getNamespacedValidatingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	nvpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.NamespacedValidatingPolicyWebhookName,
 		"/nvpol",
 		c.servicePort,
 		caBundle,
 		nvpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range nvpolWebhooks {
+		nvpolWebhooks[i].Rules = deDuplicatedRules(nvpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, nvpolWebhooks...)
 
 	gpols, err := c.getGeneratingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	gpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.GeneratingPolicyWebhookName,
 		"/gpol",
 		c.servicePort,
 		caBundle,
 		gpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range gpolWebhooks {
+		gpolWebhooks[i].Rules = deDuplicatedRules(gpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, gpolWebhooks...)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	ivpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
 		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
 		ivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range ivpolWebhooks {
+		ivpolWebhooks[i].Rules = deDuplicatedRules(ivpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, ivpolWebhooks...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
 	if err != nil {
@@ -1422,7 +1442,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(),
+				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
