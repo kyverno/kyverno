@@ -533,8 +533,6 @@ func TestNegative_WrongKeylessIdentity(t *testing.T) {
 }
 
 func TestConcurrentVerification(t *testing.T) {
-	t.Skip("Broken test, code needs a fix")
-
 	if testing.Short() {
 		t.Skip("skipping concurrent test in short mode")
 	}
