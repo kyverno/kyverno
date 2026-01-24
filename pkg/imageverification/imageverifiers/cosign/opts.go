@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -20,6 +21,12 @@ import (
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
+)
+
+var (
+	tufInitMu          sync.Mutex
+	defaultTufInitOnce sync.Once
+	defaultTufInitErr  error
 )
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
@@ -165,6 +172,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 	if t != nil {
+		tufInitMu.Lock()
+		defer tufInitMu.Unlock()
+
 		var root []byte
 		var err error
 		if t.Root.Path != "" {
@@ -183,8 +193,11 @@ func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
 		}
 	} else {
-		if err := tuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil); err != nil {
-			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
+		defaultTufInitOnce.Do(func() {
+			defaultTufInitErr = tuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil)
+		})
+		if defaultTufInitErr != nil {
+			return fmt.Errorf("Failed to initialize TUF client: %w", defaultTufInitErr)
 		}
 	}
 	return nil
