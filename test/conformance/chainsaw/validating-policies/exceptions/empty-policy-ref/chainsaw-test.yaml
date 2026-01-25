@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: empty-policy-ref
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

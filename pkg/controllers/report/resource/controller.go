@@ -229,7 +229,11 @@ func (c *controller) GetAllResourceKeys() []string {
 func (c *controller) UpdateResourceHash(gvr schema.GroupVersionResource, uid types.UID, hash Resource) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	w := c.dynamicWatchers[gvr] // we must have a dynamic watcher for the resource, otherwise wouldn't end up here from the beginning
+	w := c.dynamicWatchers[gvr]
+	if w == nil {
+		// watcher may have been removed by updateDynamicWatchers during concurrent policy changes
+		return
+	}
 	w.hashes[uid] = hash
 }
 

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: should-not-autogen
 spec:
+  concurrent: false
   steps:
   - name: create policy
     try:

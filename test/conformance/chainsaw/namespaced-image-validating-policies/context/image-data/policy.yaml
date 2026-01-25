@@ -2,7 +2,6 @@ apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedImageValidatingPolicy
 metadata:
   name: nivpol-image-data
-  namespace: test-nivpol
 spec:
   webhookConfiguration:
     timeoutSeconds: 20
@@ -50,5 +49,4 @@ spec:
     - expression: >-
         size(images.containers) > 0
       message: deployment must reference at least one image
-
 
