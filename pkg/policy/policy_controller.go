@@ -322,23 +322,32 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, pc.worker, time.Second)
