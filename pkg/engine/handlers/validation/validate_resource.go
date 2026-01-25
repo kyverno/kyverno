@@ -271,7 +271,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.policyContext.NamespaceLabels(),
 			v.policyContext.Policy().GetNamespace(),
 			oldResource.GroupVersionKind(),
-			"", // subresource
+			v.policyContext.Subresource(), 
 			v.policyContext.Operation(),
 		)
 		if matchErr != nil {
@@ -288,7 +288,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.policyContext.NamespaceLabels(),
 			v.policyContext.Policy().GetNamespace(),
 			oldResource.GroupVersionKind(),
-			"", // subresource
+			v.policyContext.Subresource(),
 			v.policyContext.Operation(),
 		)
 		if excludeErr == nil { // if error is nil, it means it matched the exclude
