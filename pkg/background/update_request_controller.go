@@ -268,8 +268,12 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
-		logger.V(3).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
-		new = ur
+		if apierrors.IsNotFound(err) {
+			// UR was deleted externally, nothing to reconcile
+			return "", nil
+		}
+		// Transient error - return it so handleErr can requeue
+		return "", fmt.Errorf("failed to get latest UR status: %w", err)
 	}
 
 	var errUpdate error
