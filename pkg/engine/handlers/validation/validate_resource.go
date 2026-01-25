@@ -249,7 +249,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 		}
 	}()
 
-	if errs := v.rule.MatchResources.Validate(field.NewPath("match"), true, nil); len(errs) > 0 {
+	if errs := v.rule.MatchResources.Validate(field.NewPath("match"), v.policyContext.Policy().IsNamespaced(), nil); len(errs) > 0 {
 		v.log.Error(fmt.Errorf("%v", errs), "failed to validate match resource")
 		err = errors.New("failed to validate match resource")
 		return
