@@ -83,10 +83,15 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 				}
 				policy = pol
 			}
-			resource := policyContext.NewResource()
-			events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
-			h.eventGen.Add(events...)
+			// Only generate error events if the policy was found.
+			// When policy is nil, we skip event generation to avoid panic
+			// from calling methods on nil embedded metav1.Object interface.
+			if policy != nil {
+				resource := policyContext.NewResource()
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
+				h.eventGen.Add(events...)
+			}
 		}
 	}
 }
