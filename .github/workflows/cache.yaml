@@ -72,11 +72,13 @@ jobs:
           restore-keys: |
             gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
             gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
       - name: Build all
         shell: bash
         run: |
           set -e
-          make build-all
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make image-build-all build-all
       - name: Save gobuild cache
         uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
