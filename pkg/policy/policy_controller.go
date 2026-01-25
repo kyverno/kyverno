@@ -397,7 +397,8 @@ func (pc *policyController) syncPolicy(key string) error {
 	parts := strings.SplitN(key, "/", 2)
 	polType := parts[0]
 	polName := parts[1]
-	if polType == "kpol" {
+	switch polType {
+	case "kpol":
 		policy, err := pc.getPolicy(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -415,7 +416,7 @@ func (pc *policyController) syncPolicy(key string) error {
 				logger.Error(err, "failed to updateUR on generate policy update")
 			}
 		}
-	} else if polType == "gpol" {
+	case "gpol":
 		gpol, err := pc.gpolLister.Get(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
