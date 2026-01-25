@@ -102,7 +102,6 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
-	reportsConfig reportutils.ReportingConfiguration
 	gctxStore     gctxstore.Store
 
 	mapper        meta.RESTMapper
@@ -136,7 +135,6 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
-	reportsConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
@@ -164,7 +162,6 @@ func NewController(
 		jp:             jp,
 		eventGen:       eventGen,
 		policyReports:  policyReports,
-		reportsConfig:  reportsConfig,
 		gctxStore:      gctxStore,
 		mapper:         mapper,
 		typeConverter:  typeConverter,
@@ -703,7 +700,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore, c.mapper, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
@@ -916,7 +913,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if needsReconcile {
 			// update the hash if we got a new one
 			if observedHash != r.Hash {
-				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
+				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
 			}
 			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 		}

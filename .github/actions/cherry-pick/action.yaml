@@ -42,7 +42,6 @@ runs:
       run: gh auth setup-git
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-
     - name: Create cherry-pick PRs
       id: cherry-pick
       shell: bash
