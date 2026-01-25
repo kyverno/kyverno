@@ -8,7 +8,16 @@ This guide is designed to help you find your footing. It focuses on the "why" an
 
 ## Kyverno Policy Approaches (Conceptual)
 
-Kyverno offers two main ways to think about and write policies. They are not competing standards; instead, they coexist to give you the right tool for the right task.
+## Kyverno Policy Approaches (Conceptual)
+
+Kyverno offers two main ways to think about and write policies. While both
+approaches may still be encountered depending on the Kyverno version,
+the project is actively transitioning toward CEL-based policies.
+JMESPath-based policy logic is being deprecated starting with Kyverno v1.17.
+
+Traditional policies remain useful for common guardrails, while CEL-based
+policies are recommended for more complex and future-facing use cases.
+
 
 *   **Traditional Kyverno Policies:** These use a declarative YAML-based pattern. They are designed to be easy to read and write for anyone familiar with Kubernetes manifests. They excel at standard validation, mutation, and resource generation using simple match/exclude logic.
 *   **CEL-Based Policies:** These leverage Common Expression Language (CEL), a fast and portable expression language. CEL allows for more complex logic and dynamic conditions within your policies.
@@ -16,6 +25,11 @@ Kyverno offers two main ways to think about and write policies. They are not com
 You do not need to choose one over the other. Most environments use both: traditional policies for common guardrails and CEL-based policies for more nuanced or logic-heavy requirements.
 
 ## How to Choose Where to Start
+
+If you are already comfortable with Kubernetes validation logic, or are migrating
+existing admission rules, CEL-based policies may feel familiar and expressive.
+They are particularly useful when conditions depend on multiple fields or more
+dynamic checks.
 
 If you are feeling unsure, a common and gentle way to begin is with **Validation**.
 
