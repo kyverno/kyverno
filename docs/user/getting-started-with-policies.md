@@ -8,8 +8,6 @@ This guide is designed to help you find your footing. It focuses on the "why" an
 
 ## Kyverno Policy Approaches (Conceptual)
 
-## Kyverno Policy Approaches (Conceptual)
-
 Kyverno offers two main ways to think about and write policies. While both
 approaches may still be encountered depending on the Kyverno version,
 the project is actively transitioning toward CEL-based policies.
