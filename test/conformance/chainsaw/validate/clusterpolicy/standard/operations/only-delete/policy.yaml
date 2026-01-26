@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-delete-protected-pods
+spec:
+  background: false
+  rules:
+  - name: deny-delete-protected
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - DELETE
+          selector:
+            matchLabels:
+              protected: "true"
+    validate:
+      failureAction: Enforce
+      message: "Deleting protected pods is not allowed"
+      deny: {}
