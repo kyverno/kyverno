@@ -14,9 +14,10 @@ func (pr *PolicyResponse) Add(stats ExecutionStats, responses ...RuleResponse) {
 	for _, response := range responses {
 		pr.Rules = append(pr.Rules, response.WithStats(stats))
 		status := response.Status()
-		if status == RuleStatusPass || status == RuleStatusFail {
+		switch status {
+		case RuleStatusPass, RuleStatusFail:
 			pr.stats.rulesAppliedCount++
-		} else if status == RuleStatusError {
+		case RuleStatusError:
 			pr.stats.rulesErrorCount++
 		}
 	}
