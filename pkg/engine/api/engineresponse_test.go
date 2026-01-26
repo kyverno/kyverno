@@ -1168,6 +1168,48 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 			}),
 		},
 		want: kyvernov1.Audit,
+	}, {
+		name: "verifyImages single Enforce",
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{{
+						VerifyImages: []kyvernov1.ImageVerification{{FailureAction: &enforce}},
+					}},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		name: "verifyImages multiple entries - Audit then Enforce returns Enforce",
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{{
+						VerifyImages: []kyvernov1.ImageVerification{
+							{FailureAction: &audit},
+							{FailureAction: &enforce},
+						},
+					}},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		name: "verifyImages multiple entries - nil then Enforce returns Enforce",
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{{
+						VerifyImages: []kyvernov1.ImageVerification{
+							{},
+							{FailureAction: &enforce},
+						},
+					}},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
