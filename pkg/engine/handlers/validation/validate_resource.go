@@ -263,6 +263,13 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 		}
 	}
 
+	var subresource string
+	if val, err := v.policyContext.JSONContext().Query("request.subResource"); err == nil && val != nil {
+		if s, ok := val.(string); ok {
+			subresource = s
+		}
+	}
+
 	if !v.rule.MatchResources.ResourceDescription.IsEmpty() {
 		matchErr := engineutils.MatchesResourceDescription(
 			oldResource,
@@ -271,7 +278,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.policyContext.NamespaceLabels(),
 			v.policyContext.Policy().GetNamespace(),
 			oldResource.GroupVersionKind(),
-			v.policyContext.Subresource(), 
+			subresource,
 			v.policyContext.Operation(),
 		)
 		if matchErr != nil {
@@ -288,10 +295,10 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.policyContext.NamespaceLabels(),
 			v.policyContext.Policy().GetNamespace(),
 			oldResource.GroupVersionKind(),
-			v.policyContext.Subresource(),
+			subresource, 
 			v.policyContext.Operation(),
 		)
-		if excludeErr == nil { // if error is nil, it means it matched the exclude
+		if excludeErr == nil { 
 			resp = engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource matched by exclude", nil)
 			return
 		}
