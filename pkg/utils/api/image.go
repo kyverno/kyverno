@@ -16,7 +16,8 @@ import (
 type ImageInfo struct {
 	imageutils.ImageInfo
 	// Pointer is the path to the image object in the resource
-	Pointer string `json:"jsonPointer"`
+	Pointer          string   `json:"jsonPointer"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
 }
 
 var (
@@ -45,7 +46,7 @@ type imageExtractor struct {
 
 func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Configuration) (map[string]ImageInfo, error) {
 	imageInfo := map[string]ImageInfo{}
-	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg); err != nil {
+	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg, []string{}); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
@@ -60,6 +61,7 @@ func extract(
 	jmesPath string,
 	imageInfos *map[string]ImageInfo,
 	cfg config.Configuration,
+	pullSecrets []string,
 ) error {
 	if obj == nil {
 		return nil
@@ -68,13 +70,13 @@ func extract(
 		switch typedObj := obj.(type) {
 		case []interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg); err != nil {
+				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
 		case map[string]interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg); err != nil {
+				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
@@ -86,6 +88,15 @@ func extract(
 	output, ok := obj.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("invalid image config")
+	}
+	if secrets, ok := output["imagePullSecrets"].([]interface{}); ok {
+		for _, secret := range secrets {
+			if secretMap, ok := secret.(map[string]interface{}); ok {
+				if secretName, ok := secretMap["name"].(string); ok {
+					pullSecrets = append(pullSecrets, secretName)
+				}
+			}
+		}
 	}
 	if len(fields) == 0 {
 		pointer := fmt.Sprintf("/%s/%s", strings.Join(path, "/"), valuePath)
@@ -122,12 +133,13 @@ func extract(
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
 			return fmt.Errorf("invalid image '%s' (%s)", value, err.Error())
 		} else {
-			(*imageInfos)[key] = ImageInfo{*imageInfo, pointer}
+			logging.V(4).Info("image information present", "pointer", pointer, "keyPath", keyPath, "output", output, "secrets", pullSecrets)
+			(*imageInfos)[key] = ImageInfo{*imageInfo, pointer, pullSecrets}
 		}
 		return nil
 	}
 	currentPath := fields[0]
-	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg)
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets)
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
@@ -140,6 +152,64 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 		extractors = append(extractors, imageExtractor{Fields: t, Key: "name", Value: "image", Name: tag})
 	}
 	return extractors
+}
+
+// getPodSpecPath returns the path to the pod spec for a given resource kind
+func getPodSpecPath(kind string) []string {
+	switch kind {
+	case "Pod":
+		return []string{"spec"}
+	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet", "ReplicationController":
+		return []string{"spec", "template", "spec"}
+	case "CronJob":
+		return []string{"spec", "jobTemplate", "spec", "template", "spec"}
+	default:
+		return nil
+	}
+}
+
+// extractImagePullSecrets extracts imagePullSecrets from a resource's pod spec
+func extractImagePullSecrets(resource map[string]interface{}, podSpecPath []string) []string {
+	if resource == nil || len(podSpecPath) == 0 {
+		return nil
+	}
+
+	// Navigate to pod spec
+	current := resource
+	for _, field := range podSpecPath {
+		if field == "" {
+			continue
+		}
+		next, ok := current[field].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		current = next
+	}
+
+	// Extract imagePullSecrets array
+	pullSecretsRaw, ok := current["imagePullSecrets"]
+	if !ok {
+		return nil
+	}
+
+	pullSecretsArray, ok := pullSecretsRaw.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	var result []string
+	for _, item := range pullSecretsArray {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, ok := itemMap["name"].(string); ok && name != "" {
+			result = append(result, name)
+		}
+	}
+
+	return result
 }
 
 func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
@@ -182,6 +252,8 @@ func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) 
 
 func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
+
+	// Extract images using existing logic (imagePullSecrets are now part of ImageInfo struct)
 	extractors := lookupImageExtractor(resource.GetKind(), configs)
 	if extractors != nil && len(extractors) == 0 {
 		return nil, fmt.Errorf("no extractors found for %s", resource.GetKind())
