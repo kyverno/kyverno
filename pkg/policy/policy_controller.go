@@ -399,7 +399,11 @@ func (pc *policyController) requeuePolicies() {
 }
 
 func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
+	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policy}, pc.log)
+	if err != nil {
+		return false, fmt.Errorf("failed to get namespace labels for rule %s: %w", ruleName, err)
+	}
+
 	policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, triggerResource, pc.configuration, pc.jp, namespaceLabels)
 	if err != nil {
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", ruleName, err)

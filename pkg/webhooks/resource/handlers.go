@@ -305,14 +305,17 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies, nil
 }
 
-func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface) (*policycontext.PolicyContext, error) {
 	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+		namespaceLabels, err = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, policies, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil

@@ -214,7 +214,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, nil
 	}
 
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, []kyvernov1.PolicyInterface{p}, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
