@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: only-delete
+spec:
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: deny-delete-protected-pods
+  - name: create-protected-pod
+    try:
+    # CREATE should succeed - policy only applies to DELETE
+    - apply:
+        file: protected-pod.yaml
+    - assert:
+        file: protected-pod.yaml
+  - name: update-protected-pod
+    try:
+    # UPDATE should succeed - policy only applies to DELETE
+    - apply:
+        file: protected-pod-update.yaml
+  - name: delete-protected-pod-denied
+    try:
+    # DELETE should be denied - policy applies to DELETE on protected pods
+    - delete:
+        expect:
+        - check:
+            ($error != null): true
+        file: protected-pod-update.yaml
+  - name: create-unprotected-pod
+    try:
+    # CREATE unprotected pod
+    - apply:
+        file: unprotected-pod.yaml
+    - assert:
+        file: unprotected-pod.yaml
+  - name: delete-unprotected-pod-allowed
+    try:
+    # DELETE should succeed - label selector doesn't match
+    - delete:
+        file: unprotected-pod.yaml

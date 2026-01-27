@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: protected-pod
+  labels:
+    protected: "true"
+    updated: "true"
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
