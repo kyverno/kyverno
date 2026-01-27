@@ -56,7 +56,17 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 	}
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
 	if err != nil {
+<<<<<<< HEAD
 		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+=======
+		if statusErr, ok := err.(*apierrors.StatusError); ok {
+			if apierrors.IsForbidden(err) {
+				return nil, fmt.Errorf("failed to %v resource with raw url: %s: insufficient permissions: %s", method, path, statusErr.ErrStatus.Message)
+			}
+			return nil, fmt.Errorf("failed to %v resource with raw url: %s: %s", method, path, statusErr.ErrStatus.Message)
+		}
+		return nil, fmt.Errorf("failed to %v resource with raw url: %s: %v", method, path, err)
+>>>>>>> 6ebd1c7f3 (fix: improve  error messages for APICall permission failure)
 	}
 	a.logger.V(4).Info("executed APICall", "name", a.name, "path", path, "method", method, "len", len(jsonData))
 	return jsonData, nil
@@ -89,12 +99,15 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var suffix string
+		if resp.StatusCode == http.StatusForbidden {
+			suffix = " (insufficient permissions)"
+		}
 		b, err := io.ReadAll(resp.Body)
 		if err == nil {
-			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
+			return nil, fmt.Errorf("HTTP %s%s: %s", resp.Status, suffix, string(b))
 		}
-
-		return nil, fmt.Errorf("HTTP %s", resp.Status)
+		return nil, fmt.Errorf("HTTP %s%s", resp.Status, suffix)
 	}
 
 	body, err := io.ReadAll(resp.Body)
