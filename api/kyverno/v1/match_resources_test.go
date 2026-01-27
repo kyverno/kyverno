@@ -114,6 +114,15 @@ func TestMatchResources_IsEmpty(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "not empty - has user info",
+			mr: MatchResources{
+				UserInfo: UserInfo{
+					Roles: []string{"admin"},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
