@@ -595,7 +595,7 @@ webhooksCleanup:
     repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v1.32.7'
+    tag: 'v1.34.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
