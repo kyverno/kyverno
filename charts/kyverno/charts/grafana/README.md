@@ -1,6 +1,6 @@
 # grafana
 
-![Version: 3.6.3-rc.1](https://img.shields.io/badge/Version-3.6.3--rc.1-informational?style=flat-square)
+![Version: 3.6.3](https://img.shields.io/badge/Version-3.6.3-informational?style=flat-square)
 
 ## Values
 
