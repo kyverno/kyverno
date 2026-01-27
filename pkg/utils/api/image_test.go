@@ -32,6 +32,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "index.docker.io/busybox:v1.2.3",
 						},
 						"/spec/initContainers/0/image",
+						[]string{},
 					},
 				},
 				"containers": {
@@ -45,6 +46,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/nginx:latest",
 						},
 						"/spec/containers/0/image",
+						[]string{},
 					},
 				},
 				"ephemeralContainers": {
@@ -58,6 +60,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/test/nginx:latest",
 						},
 						"/spec/ephemeralContainers/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -76,6 +79,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/test/nginx:latest",
 						},
 						"/spec/containers/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -95,6 +99,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "fictional.registry.example:10443/imagename:tag",
 						},
 						"/spec/template/spec/initContainers/0/image",
+						[]string{},
 					},
 				},
 				"containers": {
@@ -108,6 +113,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "fictional.registry.example:10443/imagename:latest",
 						},
 						"/spec/template/spec/containers/0/image",
+						[]string{},
 					},
 				},
 				"ephemeralContainers": {
@@ -122,6 +128,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "fictional.registry.example:10443/imagename:tag",
 						},
 						"/spec/template/spec/ephemeralContainers/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -140,6 +147,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "test.example.com/test/my-app:v2",
 						},
 						"/spec/jobTemplate/spec/template/spec/containers/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -163,6 +171,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/ubuntu:latest",
 						},
 						"/spec/steps/0/image",
+						[]string{},
 					},
 					"/spec/steps/1/image": {
 						imageutils.ImageInfo{
@@ -174,6 +183,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "gcr.io/example-builders/build-example:latest",
 						},
 						"/spec/steps/1/image",
+						[]string{},
 					},
 					"/spec/steps/2/image": {
 						imageutils.ImageInfo{
@@ -185,6 +195,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "gcr.io/example-builders/push-example:latest",
 						},
 						"/spec/steps/2/image",
+						[]string{},
 					},
 				},
 			},
@@ -207,6 +218,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "gcr.io/example-builders/push-example:latest",
 						},
 						"/spec/steps/1/image",
+						[]string{},
 					},
 					"ubuntu-example": {
 						imageutils.ImageInfo{
@@ -218,6 +230,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/ubuntu:latest",
 						},
 						"/spec/steps/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -241,6 +254,7 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/alpine:latest",
 						},
 						"/spec/steps/0/image",
+						[]string{},
 					},
 				},
 			},
@@ -264,12 +278,12 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/kubevirt/fedora-cloud-registry-disk-demo:latest",
 						},
 						"/spec/source/registry/url",
-					},
+						[]string{},
 				},
 			},
 		},
+	},
 	}
-
 	for _, test := range tests {
 		resource, err := kubeutils.BytesToUnstructured(test.raw)
 		assert.NilError(t, err)
