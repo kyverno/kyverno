@@ -51,6 +51,24 @@ func Test_validateOldObjectForeach(t *testing.T) {
 	assert.Equal(t, api.RuleStatusSkip, resp.Status())
 }
 
+func Test_validateForEach_ListEvalError_ReturnsError(t *testing.T) {
+	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return nil
+	}
+
+	// Use a policy with an invalid list expression that will fail evaluation
+	policyContext := buildTestNamespaceLabelsContext(t, validateForeachInvalidListPolicy, resource, oldResource)
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+
+	ctx := context.TODO()
+	resp := v.validateForEach(ctx)
+
+	// Should return error response instead of nil when list evaluation fails
+	assert.NotNil(t, resp, "validateForEach should return error response when list evaluation fails")
+	assert.Equal(t, api.RuleStatusError, resp.Status(), "status should be Error when list evaluation fails")
+}
+
 var (
 	validateDenyPolicy = `{
 		"apiVersion": "kyverno.io/v1",
@@ -274,6 +292,26 @@ var (
 					"gcePersistentDisk": {}
 				}
 			]
+		}
+	}`
+
+	// Policy with invalid JMESPath list expression to test error handling
+	validateForeachInvalidListPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-invalid-list"},
+		"spec": {
+			"rules": [{
+				"name": "invalid-list-rule",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"foreach": [{
+						"list": "invalid_jmespath_expression[",
+						"deny": {"conditions": {"all": [{"key": "{{ element }}", "operator": "Equals", "value": "test"}]}}
+					}]
+				}
+			}]
 		}
 	}`
 )
