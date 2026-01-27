@@ -1380,3 +1380,56 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 		})
 	}
 }
+
+// newOverlappingNSSelectorPolicy creates a policy with overlapping namespace selectors.
+func newOverlappingNSSelectorPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {"name": "overlapping-ns-selectors"},
+		"spec": {
+		  "background": false,
+		  "rules": [{
+			"match": {"resources": {"kinds": ["Pod"]}},
+			"name": "check-label",
+			"validate": {
+			  "failureAction": "Enforce",
+			  "failureActionOverrides": [
+				{"action": "Audit", "namespaceSelector": {"matchLabels": {"env": "production"}}},
+				{"action": "Enforce", "namespaceSelector": {"matchLabels": {"team": "security"}}}
+			  ],
+			  "message": "label required",
+			  "pattern": {"metadata": {"labels": {"app": "?*"}}}
+			}
+		  }]
+		}
+	}`)
+	var policy *kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+	return policy
+}
+
+// Test_Get_Policies_Overlapping_NamespaceSelector_Overrides verifies that when a namespace
+// matches multiple namespaceSelector overrides, only the first match takes effect.
+func Test_Get_Policies_Overlapping_NamespaceSelector_Overrides(t *testing.T) {
+	cache := NewCache()
+	policy := newOverlappingNSSelectorPolicy(t)
+	finder := TestResourceFinder{}
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	cache.Set(key, policy, finder)
+
+	// Namespace with BOTH labels matches both selectors - first override (Audit) should win
+	overlappingNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "overlapping-ns",
+			Labels: map[string]string{"env": "production", "team": "security"},
+		},
+	}
+
+	t.Run("Overlapping selectors should use first match only", func(t *testing.T) {
+		enforcePolicies := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", overlappingNS)
+		auditPolicies := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", overlappingNS)
+
+		require.Equal(t, 0, len(enforcePolicies), "rule should NOT be in Enforce (first match is Audit)")
+		require.Equal(t, 1, len(auditPolicies), "rule should be in Audit (first match)")
+	})
+}
