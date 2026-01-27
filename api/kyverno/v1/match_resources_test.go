@@ -68,3 +68,58 @@ func Test_MatchResources(t *testing.T) {
 		}
 	}
 }
+func TestMatchResources_IsEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		mr   MatchResources
+		want bool
+	}{
+		{
+			name: "empty match resources",
+			mr:   MatchResources{},
+			want: true,
+		},
+		{
+			name: "not empty - has any filter",
+			mr: MatchResources{
+				Any: ResourceFilters{
+					{
+						UserInfo: UserInfo{
+							Roles: []string{"admin"},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not empty - has all filter",
+			mr: MatchResources{
+				All: ResourceFilters{
+					{
+						ResourceDescription: ResourceDescription{
+							Kinds: []string{"Pod"},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "not empty - has resource description",
+			mr: MatchResources{
+				ResourceDescription: ResourceDescription{
+					Kinds: []string{"Deployment"},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.mr.IsEmpty(); got != tc.want {
+				t.Errorf("MatchResources.IsEmpty() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
