@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: deployment-with-spot-computeclass
-  namespace: test-namespace
 spec:
   replicas: 1
   selector:
@@ -13,9 +12,6 @@ spec:
       labels:
         app: test-app
     spec:
-      nodeSelector:
-        cloud.google.com/compute-class: spot-compute-class
       containers:
       - name: test-container
         image: nginx:latest
-

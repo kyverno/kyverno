@@ -1,20 +1,19 @@
 apiVersion: policies.kyverno.io/v1beta1
 kind: DeletingPolicy
 metadata:
-  name: deleting-pod
+  # turn to policy exceptions
+  name: delete-exceptions
 spec:
   conditions:
-  - expression: object.metadata.namespace == "default"
+  - expression: now() - timestamp(object.metadata.creationTimestamp) > duration("24h")
     name: check-pod-ns
-  - expression: object.metadata.name == "example"
-    name: pod-name
   matchConstraints:
     resourceRules:
     - apiGroups:
-      - ""
+      - "policies.kyverno.io"
       apiVersions:
       - v1
       resources:
-      - pods
+      - policyexceptions
   # example schedule: every minute
   schedule: '*/1 * * * *'
