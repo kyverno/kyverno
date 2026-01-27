@@ -461,6 +461,8 @@ The chart values are organised per component.
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
+| admissionController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| admissionController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | admissionController.service.port | int | `443` | Service port. |
 | admissionController.service.type | string | `"ClusterIP"` | Service type. |
 | admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
@@ -548,6 +550,8 @@ The chart values are organised per component.
 | backgroundController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | backgroundController.caCertificates.data | string | `nil` | CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates |
 | backgroundController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.backgroundController.caCertificates.data` is defined |
+| backgroundController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| backgroundController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | backgroundController.metricsService.create | bool | `true` | Create service. |
 | backgroundController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
@@ -647,6 +651,8 @@ The chart values are organised per component.
 | cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | cleanupController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | cleanupController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| cleanupController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| cleanupController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | cleanupController.service.port | int | `443` | Service port. |
 | cleanupController.service.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
@@ -738,6 +744,8 @@ The chart values are organised per component.
 | reportsController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | reportsController.caCertificates.data | string | `nil` | CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates |
 | reportsController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.reportsController.caCertificates.data` is defined |
+| reportsController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| reportsController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | reportsController.metricsService.create | bool | `true` | Create service. |
 | reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
@@ -919,6 +927,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.1 |
 | https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
