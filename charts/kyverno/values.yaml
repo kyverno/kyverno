@@ -1200,6 +1200,16 @@ admissionController:
     #   image: busybox
     #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -1543,6 +1553,16 @@ backgroundController:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
 
   metricsService:
     # -- Create service.
@@ -1909,6 +1929,16 @@ cleanupController:
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -2233,6 +2263,15 @@ reportsController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
 
   metricsService:
     # -- Create service.
