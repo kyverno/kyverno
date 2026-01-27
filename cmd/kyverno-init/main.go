@@ -167,6 +167,7 @@ Generate Requests	-> Process Requests		-> Merge Results
 */
 // Generates requests to be processed
 func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-chan request {
+	logger := logging.WithName("gen")
 	out := make(chan request)
 	go func() {
 		defer close(out)
@@ -174,10 +175,10 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 			select {
 			case out <- req:
 			case <-done:
-				println("done generate")
+				logger.V(3).Info("request generation completed")
 				return
 			case <-stopCh:
-				println("shutting down generate")
+				logger.V(3).Info("shutting down request generation")
 				return
 			}
 		}

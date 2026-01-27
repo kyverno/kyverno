@@ -16,8 +16,12 @@ type ForEachValidationWrapper struct {
 }
 
 func (in *ForEachValidationWrapper) DeepCopyInto(out *ForEachValidationWrapper) {
+	// Note: Using panic here is intentional. DeepCopy operations are generated code
+	// that should never fail under normal circumstances. If copier.Copy fails, it indicates
+	// a critical programming error (e.g., incompatible types, circular references) that
+	// should be caught during development/testing, not in production.
 	if err := copier.Copy(out, in); err != nil {
-		panic("deep copy failed")
+		panic(fmt.Sprintf("deep copy failed for ForEachValidationWrapper: %v", err))
 	}
 }
 
@@ -52,8 +56,12 @@ type ForEachMutationWrapper struct {
 }
 
 func (in *ForEachMutationWrapper) DeepCopyInto(out *ForEachMutationWrapper) {
+	// Note: Using panic here is intentional. DeepCopy operations are generated code
+	// that should never fail under normal circumstances. If copier.Copy fails, it indicates
+	// a critical programming error (e.g., incompatible types, circular references) that
+	// should be caught during development/testing, not in production.
 	if err := copier.Copy(out, in); err != nil {
-		panic("deep copy failed")
+		panic(fmt.Sprintf("deep copy failed for ForEachMutationWrapper: %v", err))
 	}
 }
 
@@ -88,8 +96,12 @@ type ConditionsWrapper struct {
 }
 
 func (in *ConditionsWrapper) DeepCopyInto(out *ConditionsWrapper) {
+	// Note: Using panic here is intentional. DeepCopy operations are generated code
+	// that should never fail under normal circumstances. If copier.Copy fails, it indicates
+	// a critical programming error (e.g., incompatible types, circular references) that
+	// should be caught during development/testing, not in production.
 	if err := copier.Copy(out, in); err != nil {
-		panic("deep copy failed")
+		panic(fmt.Sprintf("deep copy failed for ConditionsWrapper: %v", err))
 	}
 }
 

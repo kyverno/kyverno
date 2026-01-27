@@ -96,7 +96,12 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 		if iss.Err() != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, iss.Err().Error()))
 		}
-		// TODO: check output type
+		// Validate that the output type is a list of strings (list(string))
+		// Image extractors must return a list of image strings
+		outputType := ast.OutputType()
+		if outputType.TypeName() != "list" {
+			return nil, append(allErrs, field.Invalid(path, m.Expression, "image extractor expression must return a list type, got: "+outputType.TypeName()))
+		}
 		prog, err := env.Program(ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))

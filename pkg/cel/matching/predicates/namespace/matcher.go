@@ -107,8 +107,18 @@ func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admis
 	if len(namespaceName) == 0 && attr.GetResource().Resource != "namespaces" {
 		// If the request is about a cluster scoped resource, and it is not a
 		// namespace, it is never exempted.
-		// TODO: figure out a way selective exempt cluster scoped resources.
-		// Also update the comment in types.go
+		//
+		// TODO: Implement selective exemption for cluster-scoped resources.
+		// Current limitation: All cluster-scoped resources (except namespaces) match
+		// any namespace selector, which may not be desirable in all cases.
+		//
+		// Potential approaches:
+		// 1. Add a separate clusterScopeMatchPolicy field to control matching behavior
+		// 2. Allow label-based matching on cluster-scoped resources themselves
+		// 3. Introduce an objectSelector in addition to namespaceSelector
+		// 4. Add explicit exemption lists for specific cluster-scoped resource types
+		//
+		// Related: Update the comment in types.go when implementing this feature.
 		return true, nil
 	}
 	selector, err := p.GetParsedNamespaceSelector()
