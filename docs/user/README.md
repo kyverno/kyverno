@@ -1,6 +1,8 @@
 # docs
 
-This folder containers the generated CRD documentation in HTML format. It is referenced from the Kyverno website (https://kyverno.io/docs/crds/).
+This folder contains the generated CRD documentation in HTML format. It is referenced from the Kyverno website (https://kyverno.io/docs/crds/).
+
+> **Note for contributors:** Generated HTML files in subdirectories (such as `crd/`) should not be edited manually. For documentation changes, edit the source files in `docs/user/`.
 
 ## Building
 
