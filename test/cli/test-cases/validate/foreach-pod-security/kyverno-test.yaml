@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pod-security-foreach
+policies:
+- test-foreach-pss.yaml
+resources:
+- resource-pass.yaml
+- resource-fail.yaml
+results:
+- kind: Pod
+  policy: test-foreach-pss
+  resources:
+  - unsafe-main
+  result: fail
+  rule: restrict-containers
+- kind: Pod
+  policy: test-foreach-pss
+  resources:
+  - safe-main-privileged-init
+  result: pass
+  rule: restrict-containers

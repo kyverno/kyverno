@@ -745,6 +745,10 @@ type ForEachValidation struct {
 	// +optional
 	Deny *Deny `json:"deny,omitempty"`
 
+	// PodSecurity applies Pod Security Standards checks.
+	// +optional
+	PodSecurity *PodSecurity `json:"podSecurity,omitempty"`
+
 	// Foreach declares a nested foreach iterator
 	// +optional
 	// +kubebuilder:validation:Schemaless

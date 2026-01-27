@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-foreach-pss
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: restrict-containers
+    match:
+      any:
+      - resources:
+          kinds:
+            - Pod
+    validate:
+      foreach:
+      - list: "request.object.spec.containers"
+        podSecurity:
+          level: restricted
+          version: latest
