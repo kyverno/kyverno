@@ -1,12 +1,12 @@
 dependencies:
 - name: grafana
   repository: ""
-  version: 3.5.3-rc.1
+  version: 3.5.3
 - name: crds
   repository: ""
-  version: 3.5.3-rc.1
+  version: 3.5.3
 - name: openreports
   repository: https://openreports.github.io/reports-api
   version: 0.1.0
-digest: sha256:abcdab7655f33e4e9e0898a102b0c8c54283b3819f719bf32b45e61cda4ecb39
-generated: "2026-01-27T12:11:45.630749+08:00"
+digest: sha256:ddcdf95602a72aaa862264d165d2c5ecdaddadafd412823fd24bb406efe6e838
+generated: "2026-01-27T16:37:43.163138+08:00"
