@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: validate-with-globalcontext-file
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: corpData
+      expression: >-
+        globalContext.Get("corpData", "production")
+  validations:
+    - expression: >-
+        has(variables.corpData) && 
+        has(variables.corpData.allowedRegions) && 
+        object.metadata.labels.region in variables.corpData.allowedRegions
+      messageExpression: >-
+        'Pod region ' + string(object.metadata.labels.region) + 
+        ' is not in allowed regions: ' + string(variables.corpData.allowedRegions)

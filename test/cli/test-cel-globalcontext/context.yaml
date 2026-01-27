@@ -1,0 +1,14 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: cel-globalcontext-test
+spec:
+  globalContext:
+  - name: corpData
+    value:
+      allowedRegions:
+        - us-east-1
+        - us-west-2
+        - eu-west-1
+      maxReplicas: 10
+      environment: production

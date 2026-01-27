@@ -42,11 +42,15 @@ func (p *Policy) Evaluate(
 	if err != nil {
 		return nil, nil, err
 	}
+	httpClient := http.ClientInterface(nil)
+	if p, ok := data.Context.(interface{ HTTPClient() http.ClientInterface }); ok {
+		httpClient = p.HTTPClient()
+	}
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
 		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(httpClient)},
 		compiler.NamespaceObjectKey: data.Namespace,
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,

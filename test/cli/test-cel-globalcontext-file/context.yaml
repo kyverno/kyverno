@@ -1,0 +1,8 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: cel-globalcontext-file-test
+spec:
+  globalContext:
+  - name: corpData
+    valueFile: corp-data.yaml

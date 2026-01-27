@@ -35,10 +35,14 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 	if err != nil {
 		return nil, err
 	}
+	httpClient := http.ClientInterface(nil)
+	if p, ok := context.(interface{ HTTPClient() http.ClientInterface }); ok {
+		httpClient = p.HTTPClient()
+	}
 	dataNew := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(httpClient)},
 		compiler.ImageDataKey:       imagedata.Context{ContextInterface: context},
 		compiler.ObjectKey:          object.UnstructuredContent(),
 		compiler.ResourceKey:        resource.Context{ContextInterface: context},

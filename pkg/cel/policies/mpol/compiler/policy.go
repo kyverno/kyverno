@@ -60,9 +60,13 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 	}
 
 	// Set up context data for variable evaluation
+	httpClient := http.ClientInterface(nil)
+	if p, ok := c.contextProvider.(interface{ HTTPClient() http.ClientInterface }); ok {
+		httpClient = p.HTTPClient()
+	}
 	ctxData := map[string]interface{}{
 		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: c.contextProvider},
-		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(httpClient)},
 		compiler.ImageDataKey:     imagedata.Context{ContextInterface: c.contextProvider},
 		compiler.ResourceKey:      resource.Context{ContextInterface: c.contextProvider},
 		compiler.VariablesKey:     lazyMap,

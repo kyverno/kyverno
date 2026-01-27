@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: cel-http-test
+spec:
+  http:
+  - method: GET
+    url: http://external-api.example.com/v1/validate
+    status: 200
+    headers:
+      Content-Type: application/json
+    body:
+      status: approved
+      allowedApps:
+        - approved-app
+        - another-approved-app
+      timestamp: "2024-01-15T10:00:00Z"

@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: validate-combined
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: corpData
+      expression: >-
+        globalContext.Get("corpData", "")
+    - name: apiResponse
+      expression: >-
+        http.Post(
+          "http://external-api.example.com/v1/validate",
+          {
+            "app": object.metadata.labels.app,
+            "region": object.metadata.labels.region
+          },
+          {"Content-Type": "application/json"}
+        )
+  validations:
+    - expression: >-
+        has(variables.corpData) && 
+        object.metadata.labels.region in variables.corpData.allowedRegions &&
+        has(variables.apiResponse) &&
+        variables.apiResponse.approved == true
+      messageExpression: >-
+        'Validation failed. Region check: ' + 
+        string(object.metadata.labels.region in variables.corpData.allowedRegions) +
+        ', API approval: ' + string(variables.apiResponse.approved)

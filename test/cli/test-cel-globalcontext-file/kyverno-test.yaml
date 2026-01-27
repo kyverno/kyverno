@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-globalcontext-file-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+context: context.yaml
+results:
+- kind: Pod
+  policy: validate-with-globalcontext-file
+  resources:
+  - test-pod
+  result: pass
+  rule: check-global-context-from-file

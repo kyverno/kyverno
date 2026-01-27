@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: validate-with-http-file
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: apiResponse
+      expression: >-
+        http.Get("http://external-api.example.com/v1/validate")
+  validations:
+    - expression: >-
+        has(variables.apiResponse) && 
+        variables.apiResponse.status == "approved"
+      messageExpression: >-
+        'External API validation failed. Status: ' + 
+        string(variables.apiResponse.status)

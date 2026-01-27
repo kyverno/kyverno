@@ -1,0 +1,7 @@
+allowedRegions:
+  - us-east-1
+  - us-west-2
+  - eu-west-1
+maxReplicas: 10
+environment: production
+securityLevel: high

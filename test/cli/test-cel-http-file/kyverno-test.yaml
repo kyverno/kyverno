@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-http-file-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+context: context.yaml
+results:
+- kind: Pod
+  policy: validate-with-http-file
+  resources:
+  - test-pod
+  result: pass
+  rule: check-http-response-from-file

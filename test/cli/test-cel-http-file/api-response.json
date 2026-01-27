@@ -1,0 +1,9 @@
+{
+  "status": "approved",
+  "message": "Resource validated successfully",
+  "timestamp": "2024-01-15T10:00:00Z",
+  "details": {
+    "validationId": "12345",
+    "validatedBy": "external-api"
+  }
+}

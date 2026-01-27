@@ -38,6 +38,47 @@ spec:
             type: object
           spec:
             properties:
+              globalContext:
+                description: Fixture data for the kyverno.globalcontext CEL library.
+                items:
+                  properties:
+                    name:
+                      type: string
+                    projection:
+                      type: string
+                    value:
+                      description: Any can be any type.
+                      type: object
+                    valueFile:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              http:
+                description: Fixture data for the kyverno.http CEL library.
+                items:
+                  properties:
+                    body:
+                      description: Any can be any type.
+                      type: object
+                    bodyFile:
+                      type: string
+                    headers:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    method:
+                      type: string
+                    status:
+                      type: integer
+                    url:
+                      type: string
+                  required:
+                  - method
+                  - url
+                  type: object
+                type: array
               images:
                 items:
                   properties:

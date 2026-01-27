@@ -1,6 +1,8 @@
 package libs
 
 import (
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,18 +15,37 @@ import (
 
 func TestNewFakeContextProvider(t *testing.T) {
 	cp := NewFakeContextProvider()
-	assert.Equal(
-		t, &FakeContextProvider{
-			resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-			images:    map[string]map[string]any{},
-		},
-		cp,
-	)
+	assert.NotNil(t, cp)
+	assert.NotNil(t, cp.resources)
+	assert.NotNil(t, cp.images)
+	assert.NotNil(t, cp.globalContext)
+	assert.NotNil(t, cp.HTTPClient())
 }
 
 func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
-	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
+	cp := NewFakeContextProvider()
+	got, err := cp.GetGlobalReference("missing", "")
+	assert.NoError(t, err)
+	assert.Nil(t, got)
+
+	cp.AddGlobalReference("foo", "", map[string]any{"hello": "world"})
+	got, err = cp.GetGlobalReference("foo", "")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"hello": "world"}, got)
+
+	// projection fallback to default
+	got, err = cp.GetGlobalReference("foo", "projection")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"hello": "world"}, got)
+
+	// missing projection (no default) returns error with available projections
+	cp.AddGlobalReference("bar", "proj1", map[string]any{"a": 1})
+	got, err = cp.GetGlobalReference("bar", "proj2")
+	assert.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "projection \"proj2\" not found")
+	assert.Contains(t, err.Error(), "available projections")
+	assert.Contains(t, err.Error(), "context file")
 }
 
 func TestFakeContextProvider_AddImageData(t *testing.T) {
@@ -51,8 +72,23 @@ func TestFakeContextProvider_AddImageData(t *testing.T) {
 }
 
 func TestFakeContextProvider_PostResource(t *testing.T) {
-	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.PostResource("v1", "configmaps", "default", nil) })
+	cp := NewFakeContextProvider()
+	created, err := cp.PostResource("v1", "configmaps", "default", map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name": "cm-1",
+		},
+		"data": map[string]any{
+			"key": "value",
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, created)
+
+	got, err := cp.GetResource("v1", "configmaps", "default", "cm-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "cm-1", got.GetName())
 }
 
 func TestFakeContextProvider_AddResource(t *testing.T) {
@@ -64,6 +100,9 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-ns",
 			Name:      "test-name",
+			Labels: map[string]string{
+				"app": "test",
+			},
 		},
 	}
 	want, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
@@ -112,6 +151,16 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		assert.Equal(t, 1, len(got.Items))
 	}
 	{
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", map[string]string{"app": "test"})
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(got.Items))
+	}
+	{
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", map[string]string{"app": "nope"})
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(got.Items))
+	}
+	{
 		got, err := cp.ListResources("v1", "configmaps", "wrong-ns", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, len(got.Items))
@@ -126,4 +175,47 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, got)
 	}
+}
+
+func TestFakeContextProvider_ToGVR_Fallback(t *testing.T) {
+	cp := NewFakeContextProvider()
+	gvr, err := cp.ToGVR("v1", "ConfigMap")
+	assert.NoError(t, err)
+	assert.Equal(t, "configmaps", gvr.Resource)
+}
+
+func TestFakeContextProvider_HTTPStub(t *testing.T) {
+	cp := NewFakeContextProvider()
+	cp.AddHTTPStub("GET", "http://example.test", 200, nil, []byte(`{"body":"ok"}`))
+
+	req, err := http.NewRequest("GET", "http://example.test", nil)
+	assert.NoError(t, err)
+	resp, err := cp.HTTPClient().Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"body":"ok"}`, string(b))
+}
+
+func TestFakeContextProvider_HTTPStub_MissingStubError(t *testing.T) {
+	cp := NewFakeContextProvider()
+	cp.AddHTTPStub("GET", "http://example.test", 200, nil, []byte("{}"))
+	req, err := http.NewRequest("GET", "http://other.test", nil)
+	assert.NoError(t, err)
+	_, err = cp.HTTPClient().Do(req)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no HTTP stub found for GET http://other.test")
+	assert.Contains(t, err.Error(), "available stubs")
+	assert.Contains(t, err.Error(), "context file")
+}
+
+func TestFakeContextProvider_GetImageData_MissingError(t *testing.T) {
+	cp := NewFakeContextProvider()
+	cp.AddImageData("nginx:1.21", map[string]any{"image": "nginx:1.21"})
+	_, err := cp.GetImageData("missing:latest")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "image data for missing:latest not found")
+	assert.Contains(t, err.Error(), "available images")
+	assert.Contains(t, err.Error(), "context file")
 }
