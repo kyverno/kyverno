@@ -2,26 +2,445 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-<title>Kyverno API</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Kyverno API v1 Reference Documentation - Complete API documentation for Kyverno policies, including ClusterPolicy and Policy resource types.">
+<meta name="keywords" content="Kyverno, Kubernetes, API, Policy, ClusterPolicy, CRD, Custom Resource Definition">
+<meta name="author" content="Kyverno Authors">
+<meta name="theme-color" content="#1589dd">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<title>Kyverno API v1 Reference Documentation</title>
 <style>
+:root {
+  --kyverno-blue: #3784c5;
+  --kyverno-orange: #e87e5b;
+  --bg-light: #0f172a;
+  --bg-dark: #070c16;
+  --text-light: #e2e8f0;
+  --text-dark: #94a3b8;
+  --table-bg-light: rgba(30, 41, 59, 0.75);
+  --table-bg-dark: rgba(15, 23, 42, 0.85);
+  --card-shadow: 0 25px 50px rgba(8, 22, 47, 0.35);
+  --kyverno-gradient: linear-gradient(135deg, rgba(8, 31, 50, 0.95) 0%, rgba(55, 132, 197, 0.95) 55%, rgba(232, 126, 91, 0.9) 100%);
+}
+
+body {
+  background-color: var(--bg-light);
+  color: var(--text-light);
+  font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+}
+
+main {
+  margin-bottom: 4rem;
+}
+
+a {
+  color: var(--kyverno-blue);
+}
+
+a:hover,
+a:focus {
+  color: var(--kyverno-orange);
+}
+
+.hero {
+  background: var(--kyverno-gradient);
+  color: #ffffff;
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  margin: 2rem 0 3rem;
+  box-shadow: 0 1.5rem 3.5rem rgba(14, 42, 71, 0.45);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.3), transparent 55%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.hero h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.hero p {
+  max-width: 540px;
+  font-size: 1.05rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero-logo {
+  max-width: 160px;
+  filter: drop-shadow(0 18px 35px rgba(7, 11, 23, 0.55));
+}
+
+.quick-links .btn {
+  color: #f8fafc;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background-color: rgba(15, 23, 42, 0.4);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.quick-links .btn:hover,
+.quick-links .btn:focus {
+  background-color: var(--kyverno-orange);
+  border-color: var(--kyverno-orange);
+  color: #0f172a;
+  transform: translateY(-2px);
+}
+
+.intro-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+  height: 100%;
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-light);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.intro-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 25px 55px rgba(8, 22, 47, 0.55);
+}
+
+.intro-card .card-title {
+  font-weight: 600;
+}
+
+.intro-card a {
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.intro-card a:hover {
+  color: var(--kyverno-orange) !important;
+}
+
+hr {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.table {
+  color: var(--text-light);
+  background-color: rgba(8, 22, 47, 0.6);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: var(--table-bg-light);
+}
+
+.table thead th {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: rgba(226, 232, 240, 0.85);
+}
+
 .bg-blue {
-color: #ffffff;
-background-color: #1589dd;
+  color: #ffffff;
+  background-color: var(--kyverno-blue);
+}
+
+mark {
+  background-color: var(--kyverno-orange);
+  color: #0f172a;
+  padding: 0.1em 0.3em;
+  border-radius: 0.2em;
+  font-weight: 500;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+#back-to-top,
+.navbar,
+.offcanvas,
+.alert-tip {
+  background-color: rgba(8, 22, 47, 0.9);
+  color: var(--text-light);
+}
+
+#back-to-top {
+  border: 1px solid rgba(55, 132, 197, 0.3);
+  box-shadow: 0 12px 25px rgba(8, 22, 47, 0.55);
+}
+
+#back-to-top {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: none;
+  z-index: 99;
+}
+
+.navbar.bg-dark {
+  background-color: rgba(8, 22, 47, 0.92) !important;
+  border: 1px solid rgba(55, 132, 197, 0.28);
+  box-shadow: 0 18px 30px rgba(8, 22, 47, 0.45);
+}
+
+.navbar .nav-link {
+  color: var(--text-light) !important;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus {
+  color: var(--kyverno-orange) !important;
+}
+
+.btn-outline-light {
+  color: var(--text-light);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+  background-color: var(--kyverno-orange);
+  border-color: var(--kyverno-orange);
+  color: #0f172a;
+}
+
+.btn-outline-secondary {
+  color: var(--text-light);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  background-color: rgba(55, 132, 197, 0.85);
+  border-color: rgba(55, 132, 197, 0.85);
+  color: #0b1222;
+}
+
+.form-control {
+  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(55, 132, 197, 0.35);
+  color: var(--text-light);
+}
+
+.form-control::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.form-control:focus {
+  border-color: rgba(232, 126, 91, 0.55);
+  box-shadow: 0 0 0 0.2rem rgba(232, 126, 91, 0.2);
+  color: var(--text-light);
+  background-color: rgba(15, 23, 42, 0.95);
+}
+
+.offcanvas .btn-close {
+  filter: invert(1);
+}
+
+.offcanvas-body {
+  padding-bottom: 3rem;
+}
+
+.toc-list .list-group-item {
+  border: none;
+  padding: 0.6rem 0;
+  color: rgba(226, 232, 240, 0.75);
+  background: transparent;
+}
+
+.toc-list .list-group-item:hover {
+  color: var(--kyverno-orange);
+}
+
+.toc-list .list-group-item.active {
+  color: var(--kyverno-blue);
+  font-weight: 600;
+  background: transparent;
+}
+
+.badge-kyverno {
+  background: rgba(15, 23, 42, 0.35);
+  color: #f1f5f9;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.alert-tip {
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(232, 126, 91, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
+  }
+  .table {
+    color: var(--text-dark);
+  }
+  .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: var(--table-bg-dark);
+  }
+  .intro-card {
+    background-color: #1f2937;
+    color: var(--text-dark);
+  }
+  .toc-list .list-group-item:hover {
+    color: #93c5fd;
+  }
+  .toc-list .list-group-item.active {
+    color: #bfdbfe;
+  }
+}
+
+@media (max-width: 992px) {
+  .hero {
+    padding: 2rem;
+    text-align: center;
+  }
+  .hero p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero-logo {
+    margin-top: 1.5rem;
+  }
+}
+
+.visually-hidden-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.visually-hidden-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  background-color: #111;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
 }
 </style>
 </head>
 <body>
-<div class="container">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-<a class="navbar-brand" href="#"><p><b>Packages : </b></p></a>
-<ul style="list-style:none">
-<li>
-<a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
+<a class="visually-hidden-focusable" href="#api-content">Skip to API content</a>
+<div class="container py-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark rounded-3" aria-label="Main navigation">
+<div class="container-fluid">
+<span class="navbar-brand"><b>Packages:</b></span>
+<ul class="navbar-nav me-auto">
+<li class="nav-item">
+<a class="nav-link text-white fw-bold" href="#kyverno.io/v1">kyverno.io/v1</a>
 </li>
 </ul>
+<div class="d-flex align-items-center gap-2 flex-wrap">
+<button class="btn btn-outline-light" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas">
+API Index
+</button>
+<form class="d-flex" role="search" id="search-form">
+<input class="form-control me-2" type="search" placeholder="Search API..." aria-label="Search" id="search-input">
+<button class="btn btn-outline-light" type="button" id="search-btn">Search</button>
+<button class="btn btn-outline-secondary ms-1 d-none" type="button" id="clear-search">Clear</button>
+</form>
+<div id="search-feedback" class="text-warning small d-none" role="status" aria-live="polite"></div>
+</div>
+</div>
 </nav>
+
+<header class="hero">
+<div class="row align-items-center g-4">
+<div class="col-lg-8 text-lg-start text-center">
+<span class="badge badge-kyverno mb-3">Kyverno API v1</span>
+<h1 class="display-5 fw-bold mb-3">Declarative policy automation for Kubernetes</h1>
+<p>Reference documentation for Kyverno Custom Resource Definitions (CRDs). Explore every field and outcome for policies, clusters, and reports with actionable links back to the main documentation.</p>
+<div class="d-flex flex-wrap gap-2 quick-links justify-content-center justify-content-lg-start">
+<a class="btn btn-outline-light btn-sm" href="https://kyverno.io/docs/introduction/" target="_blank" rel="noopener noreferrer">Kyverno docs</a>
+<a class="btn btn-outline-light btn-sm" href="https://kyverno.io/docs/policy-types/" target="_blank" rel="noopener noreferrer">Policy types</a>
+<a class="btn btn-outline-light btn-sm" href="https://kyverno.io/policies/" target="_blank" rel="noopener noreferrer">Sample policies</a>
+<a class="btn btn-outline-light btn-sm" href="https://kyverno.io/docs/kyverno-cli/" target="_blank" rel="noopener noreferrer">CLI guidance</a>
+</div>
+</div>
+<div class="col-lg-4 text-center">
+<img src="https://raw.githubusercontent.com/kyverno/website/main/public/assets/images/kyverno.svg" alt="Kyverno logo" class="hero-logo img-fluid" loading="lazy">
+</div>
+</div>
+</header>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+<div class="offcanvas-header">
+<h5 class="offcanvas-title" id="tocOffcanvasLabel">API Index</h5>
+<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+</div>
+<div class="offcanvas-body">
+<p class="text-muted small">Browse all resource types, schemas, and fields available in the Kyverno v1 API.</p>
+<ul id="toc-list" class="list-group list-group-flush toc-list"></ul>
+</div>
+</div>
+
+<section class="mb-5" aria-label="Kyverno quick start resources">
+<div class="row g-4">
+<div class="col-md-6 col-xl-3">
+<div class="card intro-card h-100">
+<div class="card-body">
+<h5 class="card-title">New to Kyverno?</h5>
+<p class="card-text text-muted">Understand how Kyverno manages Kubernetes policy-as-code and what problems it solves.</p>
+<a class="stretched-link fw-semibold" style="color: var(--kyverno-blue);" href="https://kyverno.io/docs/introduction/" target="_blank" rel="noopener noreferrer">Read the introduction</a>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-xl-3">
+<div class="card intro-card h-100">
+<div class="card-body">
+<h5 class="card-title">Select the right policy</h5>
+<p class="card-text text-muted">Compare validating, mutating, generating, cleanup, and verify image policies with practical examples.</p>
+<a class="stretched-link fw-semibold" style="color: var(--kyverno-blue);" href="https://kyverno.io/docs/policy-types/" target="_blank" rel="noopener noreferrer">Review policy types</a>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-xl-3">
+<div class="card intro-card h-100">
+<div class="card-body">
+<h5 class="card-title">See production-ready samples</h5>
+<p class="card-text text-muted">Explore curated policy packs for security, multi-tenancy, and best practices.</p>
+<a class="stretched-link fw-semibold" style="color: var(--kyverno-blue);" href="https://kyverno.io/policies/" target="_blank" rel="noopener noreferrer">Browse sample policies</a>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-xl-3">
+<div class="card intro-card h-100">
+<div class="card-body">
+<h5 class="card-title">Automate in CI/CD</h5>
+<p class="card-text text-muted">Leverage the Kyverno CLI for shift-left validation in pipelines and infrastructure as code workflows.</p>
+<a class="stretched-link fw-semibold" style="color: var(--kyverno-blue);" href="https://kyverno.io/docs/kyverno-cli/" target="_blank" rel="noopener noreferrer">Use the CLI</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<div class="alert alert-info alert-tip mb-5" role="note">
+<div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+<span class="badge fw-semibold px-3 py-2 align-self-start align-self-md-center" style="background-color: var(--kyverno-orange); color: #0f172a;">Tip</span>
+<p class="mb-0" style="color: var(--text-light);">Kyverno generates this API reference directly from CustomResourceDefinitions. Use the search box or API Index button to jump to specific resources and fields instantly.</p>
+</div>
+</div>
+
+<main id="api-content">
 <h2 id="kyverno.io/v1">kyverno.io/v1</h2>
 Resource Types:
 <ul><li>
@@ -38,8 +457,8 @@ Resource Types:
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -64,7 +483,7 @@ string
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -149,7 +568,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is "audit".</p>
 </td>
 </tr>
 <tr>
@@ -177,7 +596,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+Optional. Default value is "true". The value must be set to "false" if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
@@ -191,7 +610,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>SchemaValidation skips policy validation checks.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -217,7 +636,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+Default value is "false".</p>
 </td>
 </tr>
 <tr>
@@ -230,8 +649,8 @@ bool
 <td>
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+If is set to "true" generate rule will be triggered and applied to existing matched resources.
+Defaults to "false" if not specified.</p>
 </td>
 </tr>
 </table>
@@ -263,8 +682,8 @@ See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/">https://kyve
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -289,7 +708,7 @@ string
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -374,7 +793,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is "audit".</p>
 </td>
 </tr>
 <tr>
@@ -402,7 +821,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+Optional. Default value is "true". The value must be set to "false" if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
@@ -416,7 +835,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>SchemaValidation skips policy validation checks.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -442,7 +861,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+Default value is "false".</p>
 </td>
 </tr>
 <tr>
@@ -455,8 +874,8 @@ bool
 <td>
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+If is set to "true" generate rule will be triggered and applied to existing matched resources.
+Defaults to "false" if not specified.</p>
 </td>
 </tr>
 </table>
@@ -495,8 +914,8 @@ transform the retrieved JSON data.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -509,7 +928,7 @@ string
 </td>
 <td>
 <p>URLPath is the URL path to be used in the HTTP GET request to the
-Kubernetes API server (e.g. &ldquo;/api/v1/namespaces&rdquo; or  &ldquo;/apis/apps/v1/deployments&rdquo;).
+Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 The format required is the same format used by the <code>kubectl get --raw</code> command.</p>
 </td>
 </tr>
@@ -524,8 +943,8 @@ string
 <em>(Optional)</em>
 <p>JMESPath is an optional JSON Match Expression that can be used to
 transform the JSON response returned from the API server. For example
-a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
-to the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+a JMESPath of "items | length(@)" applied to the API server response
+to the URLPath "/apis/apps/v1/deployments" will return the total count
 of deployments across all namespaces.</p>
 </td>
 </tr>
@@ -544,8 +963,8 @@ of deployments across all namespaces.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -564,7 +983,7 @@ string
 <td>
 <code>operation</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#operation-v1-admission">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#operation-v1-admission">
 Kubernetes admission/v1.Operation
 </a>
 </em>
@@ -592,8 +1011,8 @@ AllConditions get fulfilled only when all of its sub-conditions pass.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -657,8 +1076,8 @@ OCI registry and decodes them into a list of Statements.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -702,8 +1121,8 @@ the attestation check is satisfied as long there are predicates that match the p
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -751,7 +1170,7 @@ See <a href="https://docs.sigstore.dev/cosign/signing/signing_with_containers/">
 <td>
 <code>attestor</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -800,8 +1219,8 @@ If specified Repository will override other OCI image repository locations for t
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -847,8 +1266,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -881,8 +1300,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -911,8 +1330,8 @@ string
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -969,8 +1388,8 @@ The resource kind is derived from the match criteria.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1012,8 +1431,8 @@ string
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1021,7 +1440,7 @@ string
 <td>
 <code>key</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1050,7 +1469,7 @@ DurationLessThanOrEquals, DurationLessThan</p>
 <td>
 <code>value</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1085,8 +1504,8 @@ or can be variables declared using JMESPath.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1130,8 +1549,8 @@ ConfigMap reference or a APILookup must be provided.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1216,8 +1635,8 @@ Variable
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1225,7 +1644,7 @@ Variable
 <td>
 <code>conditions</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1248,15 +1667,15 @@ See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/validate/">htt
 </p>
 <p>
 <p>DryRunOption is a configuration for dryrun.
-If enable is set to &ldquo;true&rdquo;, manifest verification performs &ldquo;dryrun &amp; compare&rdquo;
+If enable is set to "true", manifest verification performs "dryrun &amp; compare"
 which provides robust matching against changes by defaults and other admission controllers.
 Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1304,8 +1723,8 @@ string
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1355,7 +1774,7 @@ See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
 <td>
 <code>patchStrategicMerge</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1395,8 +1814,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1421,8 +1840,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>ElementScope specifies whether to use the current list element as the scope for validation. Defaults to &ldquo;true&rdquo; if not specified.
-When set to &ldquo;false&rdquo;, &ldquo;request.object&rdquo; is used as the validation scope within the foreach
+<p>ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified.
+When set to "false", "request.object" is used as the validation scope within the foreach
 block to allow referencing other elements in the subtree.</p>
 </td>
 </tr>
@@ -1460,7 +1879,7 @@ See: <a href="https://kyverno.io/docs/policy-types/cluster-policy/preconditions/
 <td>
 <code>pattern</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1474,7 +1893,7 @@ Kubernetes apiextensions/v1.JSON
 <td>
 <code>anyPattern</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1510,8 +1929,8 @@ Deny
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1519,7 +1938,7 @@ Deny
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1612,8 +2031,8 @@ GenerateRequestStatus
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1658,8 +2077,8 @@ AdmissionRequestInfoObject
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1724,8 +2143,8 @@ GenerateRequestContext
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1783,8 +2202,8 @@ Will be used during clean up resources.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1811,16 +2230,16 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Synchronize controls if generated resources should be kept in-sync with their source resource.
-If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 data from Data or the resource specified in the Clone declaration.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+Optional. Defaults to "false" if not specified.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>data</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -1858,8 +2277,8 @@ resource will be created with default data only.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1939,8 +2358,8 @@ details.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -1987,8 +2406,8 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2182,8 +2601,8 @@ bool
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2261,8 +2680,8 @@ map[string]string
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2288,7 +2707,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>AnnotationDomain is custom domain of annotation for message nad signature. Default is &ldquo;cosign.sigstore.dev&rdquo;.</p>
+<p>AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".</p>
 </td>
 </tr>
 <tr>
@@ -2347,8 +2766,8 @@ which a policy rule is applicable.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2393,7 +2812,7 @@ UserInfo
 <em>(Optional)</em>
 <p>UserInfo contains information about the user performing the operation.
 Specifying UserInfo directly under match is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
+Please specify under "any" or "all" instead.</p>
 </td>
 </tr>
 <tr>
@@ -2410,7 +2829,7 @@ ResourceDescription
 <p>ResourceDescription contains information about the resource being created or modified.
 Requires at least one tag to be specified when under MatchResources.
 Specifying ResourceDescription directly under match is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
+Please specify under "any" or "all" instead.</p>
 </td>
 </tr>
 </tbody>
@@ -2428,8 +2847,8 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2451,7 +2870,7 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <td>
 <code>patchStrategicMerge</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -2500,8 +2919,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2541,8 +2960,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2599,8 +3018,8 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2671,14 +3090,14 @@ When not set, all restricted fields for the control are selected.</p>
 </p>
 <p>
 <p>PolicyStatus mostly contains runtime information related to policy execution.
-Deprecated. Policy metrics are now available via the &ldquo;/metrics&rdquo; endpoint.
+Deprecated. Policy metrics are now available via the "/metrics" endpoint.
 See: <a href="https://kyverno.io/docs/monitoring/">https://kyverno.io/docs/monitoring/</a></p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2698,7 +3117,7 @@ Deprecated in favor of Conditions</p>
 <td>
 <code>conditions</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta">
 []Kubernetes meta/v1.Condition
 </a>
 </em>
@@ -2737,8 +3156,8 @@ AutogenStatus
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2770,7 +3189,7 @@ AutogenStatus
 <td>
 <code>userInfo</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#userinfo-v1-authentication">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#userinfo-v1-authentication">
 Kubernetes authentication/v1.UserInfo
 </a>
 </em>
@@ -2796,8 +3215,8 @@ Kubernetes authentication/v1.UserInfo
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2823,8 +3242,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Name is the name of the resource. The name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
-NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
+"*" (matches zero or many characters) and "?" (at least one character).
+NOTE: "Name" is being deprecated in favor of "Names".</p>
 </td>
 </tr>
 <tr>
@@ -2837,7 +3256,7 @@ NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p
 <td>
 <em>(Optional)</em>
 <p>Names are the names of the resources. Each name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+"*" (matches zero or many characters) and "?" (at least one character).</p>
 </td>
 </tr>
 <tr>
@@ -2850,7 +3269,7 @@ NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p
 <td>
 <em>(Optional)</em>
 <p>Namespaces is a list of namespaces names. Each name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+"*" (matches zero or many characters) and "?" (at least one character).</p>
 </td>
 </tr>
 <tr>
@@ -2863,15 +3282,15 @@ map[string]string
 <td>
 <em>(Optional)</em>
 <p>Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
-and values support the wildcard characters &ldquo;*&rdquo; (matches zero or many characters) and
-&ldquo;?&rdquo; (matches at least one character).</p>
+and values support the wildcard characters "*" (matches zero or many characters) and
+"?" (matches at least one character).</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>selector</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -2880,15 +3299,15 @@ Kubernetes meta/v1.LabelSelector
 <em>(Optional)</em>
 <p>Selector is a label selector. Label keys and values in <code>matchLabels</code> support the wildcard
 characters <code>*</code> (matches zero or many characters) and <code>?</code> (matches one character).
-Wildcards allows writing label selectors like [&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that
-using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but does not match an empty label set.</p>
+Wildcards allows writing label selectors like ["storage.k8s.io/<em>": "</em>"]. Note that
+using ["<em>" : "</em>"] matches any key and value but does not match an empty label set.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>namespaceSelector</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -2898,7 +3317,7 @@ Kubernetes meta/v1.LabelSelector
 <p>NamespaceSelector is a label selector for the resource namespace. Label keys and values
 in <code>matchLabels</code> support the wildcard characters <code>*</code> (matches zero or many characters)
 and <code>?</code> (matches one character).Wildcards allows writing label selectors like
-[&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but
+["storage.k8s.io/<em>": "</em>"]. Note that using ["<em>" : "</em>"] matches any key and value but
 does not match an empty label set.</p>
 </td>
 </tr>
@@ -2908,13 +3327,13 @@ does not match an empty label set.</p>
 <h3 id="kyverno.io/v1.ResourceFilter">ResourceFilter
 </h3>
 <p>
-<p>ResourceFilter allow users to &ldquo;AND&rdquo; or &ldquo;OR&rdquo; between resources</p>
+<p>ResourceFilter allow users to "AND" or "OR" between resources</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -2971,8 +3390,8 @@ ResourceDescription
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3041,8 +3460,8 @@ declaration to specify which resources to exclude.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3122,7 +3541,7 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -3208,8 +3627,8 @@ Generation
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3274,7 +3693,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is "audit".</p>
 </td>
 </tr>
 <tr>
@@ -3302,7 +3721,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Background controls if rules are applied to existing resources during a background scan.
-Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+Optional. Default value is "true". The value must be set to "false" if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
 </td>
 </tr>
@@ -3316,7 +3735,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>SchemaValidation skips policy validation checks.
-Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
+Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.</p>
 </td>
 </tr>
 <tr>
@@ -3342,7 +3761,7 @@ bool
 <td>
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+Default value is "false".</p>
 </td>
 </tr>
 <tr>
@@ -3355,8 +3774,8 @@ bool
 <td>
 <em>(Optional)</em>
 <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+If is set to "true" generate rule will be triggered and applied to existing matched resources.
+Defaults to "false" if not specified.</p>
 </td>
 </tr>
 </tbody>
@@ -3373,8 +3792,8 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3424,8 +3843,8 @@ Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is u
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3457,7 +3876,7 @@ Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is u
 <td>
 <code>subjects</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#subject-v1-rbac">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#subject-v1-rbac">
 []Kubernetes rbac/v1.Subject
 </a>
 </em>
@@ -3482,8 +3901,8 @@ Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is u
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3531,7 +3950,7 @@ Manifests
 <td>
 <code>pattern</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -3545,7 +3964,7 @@ Kubernetes apiextensions/v1.JSON
 <td>
 <code>anyPattern</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -3609,8 +4028,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3640,7 +4059,7 @@ ValidationFailureAction
 <td>
 <code>namespaceSelector</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -3663,8 +4082,8 @@ Kubernetes meta/v1.LabelSelector
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3672,7 +4091,7 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>value</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -3699,7 +4118,7 @@ transform the variable.</p>
 <td>
 <code>default</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
 </a>
 </em>
@@ -3721,8 +4140,8 @@ expression evaluates to nil</p>
 <table class="table table-striped">
 <thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th scope="col">Field</th>
+<th scope="col">Description</th>
 </tr>
 </thead>
 <tbody>
@@ -3774,9 +4193,197 @@ string
 </tbody>
 </table>
 <hr />
+</main>
+<button id="back-to-top" class="btn btn-primary" title="Back to top" aria-label="Back to top">
+  ↑ Top
+</button>
 </div>
-<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+// Back to top button
+const backToTopButton = document.getElementById('back-to-top');
+
+window.addEventListener('scroll', () => {
+  if (window.pageYOffset > 300) {
+    backToTopButton.style.display = 'block';
+  } else {
+    backToTopButton.style.display = 'none';
+  }
+});
+
+backToTopButton.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Search functionality
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const clearBtn = document.getElementById('clear-search');
+const searchFeedback = document.getElementById('search-feedback');
+const mainContent = document.getElementById('api-content');
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightText(query) {
+  if (!mainContent || !query) {
+    return 0;
+  }
+  const safeQuery = escapeRegExp(query);
+  let matchCount = 0;
+  const elements = mainContent.querySelectorAll('p, td, li, h3, h4');
+
+  elements.forEach(element => {
+    const regex = new RegExp(`(${safeQuery})`, 'gi');
+    const matches = element.textContent.match(regex);
+    if (matches) {
+      element.innerHTML = element.innerHTML.replace(regex, '<mark>$1</mark>');
+      matchCount += matches.length;
+    }
+  });
+
+  return matchCount;
+}
+
+function clearHighlights() {
+  if (!mainContent) {
+    return;
+  }
+  const marks = mainContent.querySelectorAll('mark');
+  marks.forEach(mark => {
+    const parent = mark.parentNode;
+    parent.replaceChild(document.createTextNode(mark.textContent), mark);
+    parent.normalize();
+  });
+}
+
+function updateSearchFeedback(message, isError = false) {
+  if (!searchFeedback) {
+    return;
+  }
+  if (!message) {
+    searchFeedback.textContent = '';
+    searchFeedback.classList.add('d-none');
+    searchFeedback.classList.remove('text-danger', 'text-warning');
+    return;
+  }
+  searchFeedback.textContent = message;
+  searchFeedback.classList.remove('d-none', 'text-danger', 'text-warning');
+  searchFeedback.classList.add(isError ? 'text-danger' : 'text-warning');
+}
+
+function performSearch() {
+  if (!searchInput || !mainContent) {
+    return;
+  }
+
+  const query = searchInput.value.trim();
+  clearHighlights();
+
+  if (!query) {
+    if (clearBtn) {
+      clearBtn.classList.add('d-none');
+    }
+    updateSearchFeedback('');
+    return;
+  }
+
+  const matchCount = highlightText(query);
+
+  if (matchCount > 0) {
+    const firstMatch = mainContent.querySelector('mark');
+    if (firstMatch) {
+      firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (clearBtn) {
+      clearBtn.classList.remove('d-none');
+    }
+    updateSearchFeedback(`${matchCount} matching result${matchCount === 1 ? '' : 's'} highlighted.`);
+  } else {
+    if (clearBtn) {
+      clearBtn.classList.add('d-none');
+    }
+    updateSearchFeedback(`No results found for "${query}".`, true);
+  }
+}
+
+if (searchBtn) {
+  searchBtn.addEventListener('click', performSearch);
+}
+
+if (searchInput) {
+  searchInput.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      performSearch();
+    }
+  });
+
+  searchInput.addEventListener('input', () => {
+    if (!searchInput.value.trim()) {
+      clearHighlights();
+      if (clearBtn) {
+        clearBtn.classList.add('d-none');
+      }
+      updateSearchFeedback('');
+    }
+  });
+}
+
+if (clearBtn) {
+  clearBtn.addEventListener('click', () => {
+    clearHighlights();
+    if (searchInput) {
+      searchInput.value = '';
+    }
+    clearBtn.classList.add('d-none');
+    updateSearchFeedback('');
+  });
+}
+
+// Dynamic table of contents generation
+const tocList = document.getElementById('toc-list');
+const tocOffcanvas = document.getElementById('tocOffcanvas');
+
+if (tocList && mainContent) {
+  const headings = mainContent.querySelectorAll('h2[id], h3[id], h4[id]');
+  const tocLinks = [];
+
+  headings.forEach(heading => {
+    const depthClass = heading.tagName === 'H2' ? 'fw-bold' : heading.tagName === 'H3' ? 'ms-2' : 'ms-4';
+    const item = document.createElement('a');
+    item.href = `#${heading.id}`;
+    item.className = `list-group-item list-group-item-action ${depthClass}`.trim();
+    item.textContent = heading.textContent.trim();
+    item.addEventListener('click', () => {
+      if (tocOffcanvas && window.bootstrap) {
+        const instance = window.bootstrap.Offcanvas.getOrCreateInstance(tocOffcanvas);
+        instance.hide();
+      }
+    });
+    tocList.appendChild(item);
+    tocLinks.push(item);
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        tocLinks.forEach(link => {
+          link.classList.remove('active');
+          link.removeAttribute('aria-current');
+        });
+        const activeLink = tocList.querySelector(`a[href="#${entry.target.id}"]`);
+        if (activeLink) {
+          activeLink.classList.add('active');
+          activeLink.setAttribute('aria-current', 'true');
+        }
+      }
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0.2 });
+
+  headings.forEach(heading => observer.observe(heading));
+}
+</script>
 </body>
 </html>
