@@ -14,6 +14,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"gotest.tools/assert"
 )
 
@@ -474,4 +475,48 @@ func TestCosignMatchSignatures(t *testing.T) {
 
 	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", extensions)
 	assert.ErrorContains(t, matchErr, "extension mismatch")
+}
+
+func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
+	payload1 := payload.SimpleContainerImage{
+		Optional: map[string]interface{}{"pipeline": "ci"},
+	}
+	payload2 := payload.SimpleContainerImage{
+		Optional: map[string]interface{}{"pipeline": "cd"},
+	}
+
+	err := checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
+		map[string]string{"pipeline": "ci"})
+	assert.NilError(t, err)
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
+		map[string]string{"pipeline": "cd"})
+	assert.NilError(t, err)
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
+		map[string]string{"pipeline": "staging"})
+	assert.ErrorContains(t, err, "no signature matched the required annotations")
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
+		map[string]string{})
+	assert.NilError(t, err)
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
+		map[string]string{"pipeline": "ci"})
+	assert.NilError(t, err)
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
+		map[string]string{"pipeline": "cd"})
+	assert.ErrorContains(t, err, "no signature matched the required annotations")
+
+	payloadMulti := payload.SimpleContainerImage{
+		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
+	}
+	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
+		map[string]string{"pipeline": "ci", "env": "prod"})
+	assert.NilError(t, err)
+
+	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
+		map[string]string{"pipeline": "ci", "env": "staging"})
+	assert.ErrorContains(t, err, "no signature matched the required annotations")
 }
