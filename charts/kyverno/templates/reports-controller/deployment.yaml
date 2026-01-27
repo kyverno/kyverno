@@ -206,6 +206,9 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
             {{- end }}
+            {{- with .Values.reportsController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
@@ -241,6 +244,9 @@ spec:
                     fieldRef:
                       apiVersion: v1
                       fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.reportsController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}
 {{- end -}}
