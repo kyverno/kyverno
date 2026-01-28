@@ -56,8 +56,11 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 	}
 
 	if target := rule.Generation.GetData(); target != nil {
-		// TODO: is this required ?? as anchors can only be on pattern and not resource
-		// we can add this check by not sure if its needed here
+		// Validate that anchors are not used in the data field of generate rules.
+		// While anchors are primarily used in validation patterns, we enforce this check
+		// to prevent confusion and ensure generate rules remain declarative.
+		// Generate rules specify the exact resource to create/update, and anchors
+		// (which are conditional matching constructs) are not meaningful in this context.
 		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
 			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}

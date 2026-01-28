@@ -5,6 +5,11 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
+// deprecatedOperators maps deprecated operator names to their recommended alternatives.
+// These operators are maintained for backward compatibility but should not be used in new policies.
+// - "In" is deprecated in favor of "AllIn" (all values must match) or "AnyIn" (any value matches)
+// - "NotIn" is deprecated in favor of "AllNotIn" (all values must not match) or "AnyNotIn" (any value must not match)
+// The validation system will emit warnings when these operators are detected in policies.
 var deprecatedOperators = map[string][]string{
 	"In":    {"AllIn", "AnyIn"},
 	"NotIn": {"AllNotIn", "AnyNotIn"},

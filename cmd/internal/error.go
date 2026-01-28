@@ -9,7 +9,7 @@ import (
 
 func checkErr(err error, msg string) {
 	if err != nil {
-		fmt.Println(msg, err)
+		fmt.Fprintf(os.Stderr, "%s: %v\n", msg, err)
 		os.Exit(1)
 	}
 }
