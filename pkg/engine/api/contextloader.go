@@ -9,7 +9,7 @@ import (
 )
 
 type RegistryClientFactory interface {
-	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials) (RegistryClient, error)
+	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (RegistryClient, error)
 }
 
 type Initializer = func(jsonContext enginecontext.Interface) error
