@@ -33,7 +33,7 @@ require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/kyverno/api v0.0.1-alpha.1.0.20260128115245-f77d0eb21d6d
+	github.com/kyverno/api v0.0.1-alpha.2
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
@@ -416,5 +416,3 @@ require (
 )
 
 replace k8s.io/pod-security-admission v0.34.1 => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
-
-replace github.com/kyverno/api v0.0.1-alpha.1.0.20260128115245-f77d0eb21d6d => github.com/kyverno/api v0.0.1-alpha.1.0.20260128123506-540432b1d07a
