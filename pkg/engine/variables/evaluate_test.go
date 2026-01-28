@@ -516,3 +516,183 @@ func Test_Condition_Messages(t *testing.T) {
 	assert.Equal(t, false, val)
 	assert.Contains(t, msg, "invalid name; invalid foo; invalid foo2")
 }
+
+func TestEvaluateConditionsWithContext(t *testing.T) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	ctx := context.NewContext(jp)
+
+	resourceRaw := []byte(`{
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "test-namespace"
+		},
+		"spec": {
+			"containers": [{
+				"name": "test-container",
+				"image": "nginx:latest"
+			}]
+		}
+	}`)
+
+	err := context.AddResource(ctx, resourceRaw)
+	assert.NoError(t, err)
+
+	// test case 1: any block where all conditions fail
+	anyConditions := kyverno.AnyAllConditions{
+		AnyConditions: []kyverno.Condition{
+			{
+				RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+				Operator: kyverno.ConditionOperators["Equals"],
+				RawValue: kyverno.ToJSON("wrong-name"),
+			},
+			{
+				RawKey:   kyverno.ToJSON("{{request.object.metadata.namespace}}"),
+				Operator: kyverno.ConditionOperators["Equals"],
+				RawValue: kyverno.ToJSON("wrong-namespace"),
+			},
+		},
+	}
+
+	// test with the new context-aware function
+	result, _, err := EvaluateConditionsWithContext(logr.Discard(), ctx, anyConditions, "preconditions")
+	assert.NoError(t, err)
+	assert.False(t, result, "Expected any block to fail when all conditions fail")
+
+	// test with the original function (backward compatibility)
+	result2, _, err := EvaluateConditions(logr.Discard(), ctx, anyConditions)
+	assert.NoError(t, err)
+	assert.False(t, result2, "Expected any block to fail when all conditions fail")
+
+	// results should be the same
+	assert.Equal(t, result, result2, "Context-aware and original functions should return same result")
+
+	// test case 2: any block where one condition passes
+	anyConditions.AnyConditions[0].RawValue = kyverno.ToJSON("test-pod")
+
+	result, _, err = EvaluateConditionsWithContext(logr.Discard(), ctx, anyConditions, "preconditions")
+	assert.NoError(t, err)
+	assert.True(t, result, "Expected any block to pass when at least one condition passes")
+
+	result2, _, err = EvaluateConditions(logr.Discard(), ctx, anyConditions)
+	assert.NoError(t, err)
+	assert.True(t, result2, "Expected any block to pass when at least one condition passes")
+	assert.Equal(t, result, result2)
+
+	// test case 3: all block where one condition fails
+	allConditions := kyverno.AnyAllConditions{
+		AllConditions: []kyverno.Condition{
+			{
+				RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+				Operator: kyverno.ConditionOperators["Equals"],
+				RawValue: kyverno.ToJSON("test-pod"),
+			},
+			{
+				RawKey:   kyverno.ToJSON("{{request.object.metadata.namespace}}"),
+				Operator: kyverno.ConditionOperators["Equals"],
+				RawValue: kyverno.ToJSON("wrong-namespace"),
+			},
+		},
+	}
+
+	result, _, err = EvaluateConditionsWithContext(logr.Discard(), ctx, allConditions, "deny.conditions")
+	assert.NoError(t, err)
+	assert.False(t, result, "Expected all block to fail when any condition fails")
+
+	result2, _, err = EvaluateConditions(logr.Discard(), ctx, allConditions)
+	assert.NoError(t, err)
+	assert.False(t, result2, "Expected all block to fail when any condition fails")
+	assert.Equal(t, result, result2)
+
+	// test case 4: all conditions pass
+	allConditions.AllConditions[1].RawValue = kyverno.ToJSON("test-namespace")
+
+	result, _, err = EvaluateConditionsWithContext(logr.Discard(), ctx, allConditions, "deny.conditions")
+	assert.NoError(t, err)
+	assert.True(t, result, "Expected all block to pass when all conditions pass")
+
+	result2, _, err = EvaluateConditions(logr.Discard(), ctx, allConditions)
+	assert.NoError(t, err)
+	assert.True(t, result2, "Expected all block to pass when all conditions pass")
+	assert.Equal(t, result, result2)
+
+	// test case 5: test with multiple condition blocks
+	conditionsList := []kyverno.AnyAllConditions{
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equals"],
+					RawValue: kyverno.ToJSON("test-pod"),
+				},
+			},
+		},
+		{
+			AllConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.namespace}}"),
+					Operator: kyverno.ConditionOperators["Equals"],
+					RawValue: kyverno.ToJSON("test-namespace"),
+				},
+			},
+		},
+	}
+
+	result, _, err = EvaluateAnyAllConditionsWithContext(logr.Discard(), ctx, conditionsList, "attestation.conditions")
+	assert.NoError(t, err)
+	assert.True(t, result, "Expected multiple condition blocks to all pass")
+
+	result2, _, err = EvaluateAnyAllConditions(logr.Discard(), ctx, conditionsList)
+	assert.NoError(t, err)
+	assert.True(t, result2, "Expected multiple condition blocks to all pass")
+	assert.Equal(t, result, result2)
+
+	// test case 6: multiple condition blocks where one fails
+	conditionsList[1].AllConditions[0].RawValue = kyverno.ToJSON("wrong-namespace")
+
+	result, _, err = EvaluateAnyAllConditionsWithContext(logr.Discard(), ctx, conditionsList, "attestation.conditions")
+	assert.NoError(t, err)
+	assert.False(t, result, "Expected evaluation to fail when one condition block fails")
+
+	result2, _, err = EvaluateAnyAllConditions(logr.Discard(), ctx, conditionsList)
+	assert.NoError(t, err)
+	assert.False(t, result2, "Expected evaluation to fail when one condition block fails")
+	assert.Equal(t, result, result2)
+}
+
+func TestEvaluateAnyAllConditionsNestedContext(t *testing.T) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	ctx := context.NewContext(jp)
+
+	resourceRaw := []byte(`{"metadata": {"name": "test"}}`)
+	err := context.AddResource(ctx, resourceRaw)
+	assert.NoError(t, err)
+
+	conditionsList := []kyverno.AnyAllConditions{
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equals"],
+					RawValue: kyverno.ToJSON("test"),
+				},
+			},
+		},
+		{
+			AnyConditions: []kyverno.Condition{
+				{
+					RawKey:   kyverno.ToJSON("{{request.object.metadata.name}}"),
+					Operator: kyverno.ConditionOperators["Equals"],
+					RawValue: kyverno.ToJSON("test"),
+				},
+			},
+		},
+	}
+
+	result, _, err := EvaluateAnyAllConditionsWithContext(logr.Discard(), ctx, conditionsList, "mycontext")
+	assert.NoError(t, err)
+	assert.True(t, result)
+
+	result, _, err = EvaluateAnyAllConditionsWithContext(logr.Discard(), ctx, conditionsList, "")
+	assert.NoError(t, err)
+	assert.True(t, result)
+}
