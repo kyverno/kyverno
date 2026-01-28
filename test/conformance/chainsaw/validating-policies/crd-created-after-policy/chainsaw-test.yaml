@@ -9,6 +9,10 @@ spec:
     after the policy. The policy should deny deletion of resources with the label
     kyverno.io/critical: "true".
   steps:
+    - name: setup-rbac
+      try:
+        - apply:
+            file: rbac.yaml
     - name: create-policy
       use:
         template: ../../_step-templates/create-policy.yaml
