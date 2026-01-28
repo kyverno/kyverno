@@ -80,6 +80,12 @@ type PolicyExceptionSpec struct {
 	// Applicable only to policies that have validate.podSecurity subrule.
 	// +optional
 	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
+
+	// FailureAction overrides the policy's failureAction for resources that match this exception.
+	// Allowed values are Audit or Enforce. This allows policy exceptions to change a Deny policy to Audit for specific namespaces or workloads.
+	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	FailureAction *kyvernov1.ValidationFailureAction `json:"failureAction,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
