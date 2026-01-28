@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: require-label-a
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+    namespaceSelector:
+      matchLabels:
+        env: a
+  validations:
+    - expression: object.metadata.labels['test'] == 'a'
+      message: "This resource belongs in ns-a and must have label test=a"
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: require-label-b
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+    namespaceSelector:
+      matchLabels:
+        env: b
+  validations:
+    - expression: object.metadata.labels['test'] == 'b'
+      message: "This resource belongs in ns-b and must have label test=b"
