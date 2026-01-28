@@ -4,18 +4,28 @@ metadata:
   name: disallow-latest-tag
 spec:
   steps:
-    - name: step-01
+    - name: step-01-apply
       try:
       - apply:
           file: policy.yaml
-      - assert:
-          file: policy.yaml
+
+    - name: step-01-wait
+      use:
+        template: ../../../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: disallow-latest-tag
+
     - name: step-02
       try:
       - apply:
           file: pod-good.yaml
     - name: step-03
       try:
-      - script:
-          content: |
-            kubectl apply -f pod-bad.yaml 2>&1 | grep "Using a mutable image tag"
+      - apply:
+          file: pod-bad.yaml
+          expect:
+          - check:
+              ($error != null): true
+              (contains($error, 'Using a mutable image tag')): true
