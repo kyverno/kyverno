@@ -51,14 +51,13 @@ func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 func EvaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions []kyvernov1.AnyAllConditions, conditionContext string) (bool, string, error) {
 	var conditionTrueMessages []string
 	for i, c := range conditions {
-		nestedContext := conditionContext
-		if nestedContext != "" {
-			nestedContext = fmt.Sprintf("%s[%d]", conditionContext, i)
+		if conditionContext != "" {
+			conditionContext = fmt.Sprintf("%s[%d]", conditionContext, i)
 		} else {
-			nestedContext = fmt.Sprintf("condition[%d]", i)
+			conditionContext = fmt.Sprintf("condition[%d]", i)
 		}
 
-		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, nestedContext); err != nil {
+		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, conditionContext); err != nil {
 			return false, "", err
 		} else if !val {
 			return false, msg, nil
@@ -68,11 +67,6 @@ func EvaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterf
 	}
 
 	return true, stringutils.JoinNonEmpty(conditionTrueMessages, ";"), nil
-}
-
-// evaluateAnyAllConditions evaluates multiple conditions as a logical AND (all) or OR (any) operation depending on the conditions
-func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions kyvernov1.AnyAllConditions) (bool, string, error) {
-	return evaluateAnyAllConditionsWithContext(log, ctx, conditions, "")
 }
 
 func evaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions kyvernov1.AnyAllConditions, conditionContext string) (bool, string, error) {
@@ -97,11 +91,7 @@ func evaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterf
 		}
 
 		if !anyConditionsResult {
-			logFields := []interface{}{"any", anyConditions}
-			if conditionContext != "" {
-				logFields = append(logFields, "context", conditionContext)
-			}
-			log.V(3).Info("no condition passed for 'any' block", logFields...)
+			log.V(3).Info("no condition passed for 'any' block", "any", anyConditions, "context", conditionContext)
 		}
 	}
 
@@ -112,11 +102,7 @@ func evaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterf
 		} else if !val {
 			allConditionsResult = false
 			conditionFalseMessages = append(conditionFalseMessages, msg)
-			logFields := []interface{}{"condition", condition, "message", msg, "index", idx}
-			if conditionContext != "" {
-				logFields = append(logFields, "context", conditionContext)
-			}
-			log.V(3).Info("a condition failed in 'all' block", logFields...)
+			log.V(3).Info("a condition failed in 'all' block", "condition", condition, "message", msg, "index", idx, "context", conditionContext)
 			break
 		} else {
 			conditionTrueMessages = append(conditionTrueMessages, msg)
