@@ -52,7 +52,6 @@ func EvaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterf
 	if conditionContext == "" {
 		conditionContext = "condition"
 	}
-	
 	var conditionTrueMessages []string
 	for i, c := range conditions {
 		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, fmt.Sprintf("%s[%d]", conditionContext, i)); err != nil {
