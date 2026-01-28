@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/cel-go/cel"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -174,7 +175,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 		cel.Variable(engine.ObjectKey, cel.DynType),
 	)
 
-	if ivpol.GetSpec().EvaluationMode() == policiesv1beta1.EvaluationModeKubernetes {
+	if ivpol.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeKubernetes {
 		baseOpts = append(baseOpts,
 			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
 			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
