@@ -140,8 +140,8 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 				Name: "mypol",
 			},
 			Spec: policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
 							Rule: admissionregistrationv1alpha1.Rule{
 								APIGroups:   []string{""},
