@@ -49,15 +49,13 @@ func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 }
 
 func EvaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions []kyvernov1.AnyAllConditions, conditionContext string) (bool, string, error) {
+	if conditionContext == "" {
+		conditionContext = "condition"
+	}
+	
 	var conditionTrueMessages []string
 	for i, c := range conditions {
-		if conditionContext != "" {
-			conditionContext = fmt.Sprintf("%s[%d]", conditionContext, i)
-		} else {
-			conditionContext = fmt.Sprintf("condition[%d]", i)
-		}
-
-		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, conditionContext); err != nil {
+		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, fmt.Sprintf("%s[%d]", conditionContext, i)); err != nil {
 			return false, "", err
 		} else if !val {
 			return false, msg, nil
