@@ -124,6 +124,7 @@ func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Names
 					if action.Action.Enforce() == enforce {
 						filteredRules = append(filteredRules, *rule)
 					}
+					break // Stop once we find a matching override
 				}
 			}
 		}

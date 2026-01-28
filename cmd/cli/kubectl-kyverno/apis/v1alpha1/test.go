@@ -53,6 +53,9 @@ type Test struct {
 
 	// Context file containing context data for CEL policies
 	Context string `json:"context,omitempty"`
+
+	// ClusterResources are the cluster resources to be used in the test
+	ClusterResources []string `json:"clusterResources,omitempty"`
 }
 
 type CheckResult struct {
