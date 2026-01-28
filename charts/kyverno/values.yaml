@@ -277,6 +277,14 @@ config:
   # -- Generate success events.
   generateSuccessEvents: false
 
+  # -- Maximum cumulative size of context data during policy evaluation.
+  # Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152).
+  # Limits memory used by context variables to prevent unbounded growth.
+  # Increase if policies legitimately need large context data (e.g., processing large ConfigMaps).
+  # Set to 0 to disable the limit (not recommended for production).
+  # @default -- 2Mi
+  maxContextSize: ~
+
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
   # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
@@ -587,7 +595,7 @@ webhooksCleanup:
     repository: kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v1.32.7'
+    tag: 'v1.34.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -1192,6 +1200,16 @@ admissionController:
     #   image: busybox
     #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -1535,6 +1553,16 @@ backgroundController:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
 
   metricsService:
     # -- Create service.
@@ -1901,6 +1929,16 @@ cleanupController:
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -2225,6 +2263,15 @@ reportsController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
 
   metricsService:
     # -- Create service.

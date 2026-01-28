@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-mixed-computeclass
+  namespace: test-namespace
+spec:
+  nodeSelector:
+    cloud.google.com/compute-class: mixed-compute-class
+  containers:
+  - name: test-container
+    image: nginx:latest
+

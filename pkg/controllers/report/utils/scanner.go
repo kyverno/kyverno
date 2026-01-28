@@ -38,15 +38,14 @@ import (
 )
 
 type scanner struct {
-	logger          logr.Logger
-	engine          engineapi.Engine
-	config          config.Configuration
-	jp              jmespath.Interface
-	client          dclient.Interface
-	reportingConfig reportutils.ReportingConfiguration
-	gctxStore       gctxstore.Store
-	mapper          meta.RESTMapper
-	typeConverter   patch.TypeConverterManager
+	logger        logr.Logger
+	engine        engineapi.Engine
+	config        config.Configuration
+	jp            jmespath.Interface
+	client        dclient.Interface
+	gctxStore     gctxstore.Store
+	mapper        meta.RESTMapper
+	typeConverter patch.TypeConverterManager
 }
 
 type ScanResult struct {
@@ -74,21 +73,19 @@ func NewScanner(
 	config config.Configuration,
 	jp jmespath.Interface,
 	client dclient.Interface,
-	reportingConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
-		logger:          logger,
-		engine:          engine,
-		config:          config,
-		jp:              jp,
-		client:          client,
-		reportingConfig: reportingConfig,
-		gctxStore:       gctxStore,
-		mapper:          mapper,
-		typeConverter:   typeConverter,
+		logger:        logger,
+		engine:        engine,
+		config:        config,
+		jp:            jp,
+		client:        client,
+		gctxStore:     gctxStore,
+		mapper:        mapper,
+		typeConverter: typeConverter,
 	}
 }
 
@@ -126,7 +123,7 @@ func (s *scanner) ScanResource(
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
 		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			ivpols = append(vpols, policy)
+			ivpols = append(ivpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		} else if pol := policy.AsMutatingAdmissionPolicy(); pol != nil {
@@ -141,7 +138,7 @@ func (s *scanner) ScanResource(
 			var errors []error
 			var response *engineapi.EngineResponse
 			var err error
-			if s.reportingConfig.ValidateReportsEnabled() {
+			if reportutils.ReportingCfg.ValidateReportsEnabled() {
 				response, err = s.validateResource(ctx, resource, nsLabels, pol)
 				if err != nil {
 					logger.Error(err, "failed to scan resource")
@@ -149,7 +146,7 @@ func (s *scanner) ScanResource(
 				}
 			}
 			spec := pol.GetSpec()
-			if spec.HasVerifyImages() && len(errors) == 0 && s.reportingConfig.ImageVerificationReportsEnabled() {
+			if spec.HasVerifyImages() && len(errors) == 0 && reportutils.ReportingCfg.ImageVerificationReportsEnabled() {
 				if response != nil {
 					// remove responses of verify image rules
 					ruleResponses := make([]engineapi.RuleResponse, 0, len(response.PolicyResponse.Rules))
