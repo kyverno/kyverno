@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-context-logging
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+  - name: test-any-conditions-fail
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    preconditions:
+      any:
+      - key: "{{ request.object.metadata.name }}"
+        operator: Equals
+        value: "this-will-never-match"
+      - key: "{{ request.object.metadata.name }}"
+        operator: Equals
+        value: "also-will-not-match"
+    validate:
+      message: "This rule should never trigger because preconditions will fail"
+      pattern:
+        metadata:
+          labels:
+            test: "true"
