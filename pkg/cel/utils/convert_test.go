@@ -168,9 +168,9 @@ func TestGetValue(t *testing.T) {
 			"key2": float64(42),
 		},
 	}, {
-		name: "array at top level",
-		data: []string{"a", "b", "c"},
-		want: nil,
+		name:    "array at top level",
+		data:    []string{"a", "b", "c"},
+		want:    nil,
 		wantErr: true,
 	}, {
 		name: "struct with nested fields",
