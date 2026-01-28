@@ -13,6 +13,7 @@ import (
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -137,6 +138,19 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 		for _, polex := range polexs {
 			if polex.Spec.BackgroundProcessingEnabled() {
 				exceptions = append(exceptions, *polex)
+			}
+		}
+	}
+	// Also fetch exceptions from Kyverno namespace (global exceptions)
+	kyvernoNs := config.KyvernoNamespace()
+	if kyvernoNs != namespace {
+		if polexs, err := polexLister.PolicyExceptions(kyvernoNs).List(labels.Everything()); err != nil {
+			return nil, err
+		} else {
+			for _, polex := range polexs {
+				if polex.Spec.BackgroundProcessingEnabled() {
+					exceptions = append(exceptions, *polex)
+				}
 			}
 		}
 	}
@@ -342,7 +356,15 @@ func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyException
 	if err != nil {
 		return nil, err
 	}
-
+	// Also fetch exceptions from Kyverno namespace (global exceptions)
+	kyvernoNs := config.KyvernoNamespace()
+	if kyvernoNs != namespace {
+		globalExceptions, err := celexLister.PolicyExceptions(kyvernoNs).List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		exceptions = append(exceptions, globalExceptions...)
+	}
 	return exceptions, nil
 }
 
