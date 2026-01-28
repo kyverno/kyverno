@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: deny-delete-test-resources
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: [DELETE]
+        resources: ["*"]
+  matchConditions:
+    - name: has-critical-label
+      expression: >-
+        has(oldObject.metadata.labels) && 
+        'kyverno.io/critical' in oldObject.metadata.labels && 
+        oldObject.metadata.labels['kyverno.io/critical'] == 'true'
+  validations:
+    - expression: "false"
+      message: "Deleting resources with critical label is not allowed."
