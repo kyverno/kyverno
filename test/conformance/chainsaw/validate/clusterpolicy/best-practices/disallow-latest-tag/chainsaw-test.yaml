@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: disallow-latest-tag
+spec:
+  steps:
+    - name: step-01
+      try:
+      - apply:
+          file: policy.yaml
+      - assert:
+          file: policy.yaml
+    - name: step-02
+      try:
+      - apply:
+          file: pod-good.yaml
+    - name: step-03
+      try:
+      - script:
+          content: |
+            kubectl apply -f pod-bad.yaml 2>&1 | grep "Using a mutable image tag"
