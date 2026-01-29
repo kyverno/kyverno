@@ -2,7 +2,7 @@ package git
 
 import (
 	"io/fs"
-	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -204,8 +204,8 @@ func TestListYamls_FiltersYamlFiles(t *testing.T) {
 
 	// Check that only yaml/yml files are returned
 	for _, file := range yamls {
-		assert.True(t, 
-			Contains(file, ".yaml") || Contains(file, ".yml"),
+		assert.True(t,
+			strings.Contains(file, ".yaml") || strings.Contains(file, ".yml"),
 			"expected yaml or yml file, got: %s", file)
 	}
 }
@@ -257,33 +257,4 @@ func TestListYamls_NonexistentPath(t *testing.T) {
 	assert.Nil(t, yamls)
 }
 
-func TestClone_OptionStructure(t *testing.T) {
-	// Note: Testing actual Clone would require network and git server.
-	// This test ensures the function exists and has correct signature.
-	// Actual integration testing should be done separately.
-	
-	// We can't easily test Clone without a real git repo,
-	// but we can at least verify the function signature compiles
-	// and would fail gracefully with invalid inputs.
-	
-	// This is a placeholder - in a real scenario you'd either:
-	// 1. Mock the git.Clone function
-	// 2. Set up a test git server
-	// 3. Skip this test and mark it as an integration test
-	
-	t.Skip("Clone requires network access and git server - skipping unit test")
-}
 
-// Helper function for string contains check
-func Contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
