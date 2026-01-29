@@ -7,82 +7,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewAuth(t *testing.T) {
-	auth := NewAuth(nil, "test-user", logr.Discard())
+func TestNewAuth_DifferentUsers(t *testing.T) {
+	tests := []struct {
+		name string
+		user string
+	}{
+		{
+			name: "non-empty user",
+			user: "test-user",
+		},
+		{
+			name: "empty user",
+			user: "",
+		},
+		{
+			name: "admin user",
+			user: "admin",
+		},
+		{
+			name: "service account",
+			user: "system:serviceaccount:default:test",
+		},
+		{
+			name: "anonymous user",
+			user: "system:anonymous",
+		},
+		{
+			name: "email user",
+			user: "developer@example.com",
+		},
+	}
 
-	assert.NotNil(t, auth)
-	assert.Equal(t, "test-user", auth.user)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			auth := NewAuth(nil, tt.user, logr.Discard())
 
-func TestNewAuth_EmptyUser(t *testing.T) {
-	auth := NewAuth(nil, "", logr.Discard())
-
-	assert.NotNil(t, auth)
-	assert.Empty(t, auth.user)
-}
-
-func TestUser(t *testing.T) {
-	auth := NewAuth(nil, "test-user", logr.Discard())
-
-	user := auth.User()
-
-	assert.Equal(t, "test-user", user)
-}
-
-func TestUser_EmptyUser(t *testing.T) {
-	auth := NewAuth(nil, "", logr.Discard())
-
-	user := auth.User()
-
-	assert.Empty(t, user)
-}
-
-func TestBuildMessage_BasicCase(t *testing.T) {
-	msg := buildMessage("pods", "", []string{"create"}, "test-user", "")
-
-	assert.Contains(t, msg, "test-user")
-	assert.Contains(t, msg, "create")
-	assert.Contains(t, msg, "pods")
-}
-
-func TestBuildMessage_WithSubresource(t *testing.T) {
-	msg := buildMessage("pods", "status", []string{"update"}, "test-user", "")
-
-	assert.Contains(t, msg, "pods/status")
-	assert.Contains(t, msg, "update")
-}
-
-func TestBuildMessage_WithNamespace(t *testing.T) {
-	msg := buildMessage("pods", "", []string{"get"}, "test-user", "default")
-
-	assert.Contains(t, msg, "default")
-	assert.Contains(t, msg, "test-user")
-}
-
-func TestBuildMessage_MultipleVerbs(t *testing.T) {
-	msg := buildMessage("pods", "", []string{"create", "delete", "update"}, "test-user", "")
-
-	assert.Contains(t, msg, "create")
-	assert.Contains(t, msg, "delete")
-	assert.Contains(t, msg, "update")
-}
-
-func TestBuildMessage_FullCase(t *testing.T) {
-	msg := buildMessage("deployments", "scale", []string{"get", "update"}, "system:serviceaccount:kyverno:kyverno", "production")
-
-	assert.Contains(t, msg, "deployments/scale")
-	assert.Contains(t, msg, "get")
-	assert.Contains(t, msg, "update")
-	assert.Contains(t, msg, "system:serviceaccount:kyverno:kyverno")
-	assert.Contains(t, msg, "production")
-}
-
-func TestBuildMessage_EmptyVerbs(t *testing.T) {
-	msg := buildMessage("pods", "", []string{}, "test-user", "")
-
-	// Should still produce a message even with empty verbs
-	assert.Contains(t, msg, "test-user")
-	assert.Contains(t, msg, "pods")
+			assert.NotNil(t, auth)
+			assert.Equal(t, tt.user, auth.user)
+			assert.Equal(t, tt.user, auth.User())
+			assert.Nil(t, auth.client)
+		})
+	}
 }
 
 func TestBuildMessage_Scenarios(t *testing.T) {
@@ -95,6 +60,60 @@ func TestBuildMessage_Scenarios(t *testing.T) {
 		namespace   string
 		wantParts   []string
 	}{
+		{
+			name:        "basic case",
+			gvk:         "pods",
+			subresource: "",
+			verbs:       []string{"create"},
+			user:        "test-user",
+			namespace:   "",
+			wantParts:   []string{"test-user", "create", "pods"},
+		},
+		{
+			name:        "with subresource",
+			gvk:         "pods",
+			subresource: "status",
+			verbs:       []string{"update"},
+			user:        "test-user",
+			namespace:   "",
+			wantParts:   []string{"pods/status", "update"},
+		},
+		{
+			name:        "with namespace",
+			gvk:         "pods",
+			subresource: "",
+			verbs:       []string{"get"},
+			user:        "test-user",
+			namespace:   "default",
+			wantParts:   []string{"default", "test-user"},
+		},
+		{
+			name:        "multiple verbs",
+			gvk:         "pods",
+			subresource: "",
+			verbs:       []string{"create", "delete", "update"},
+			user:        "test-user",
+			namespace:   "",
+			wantParts:   []string{"create", "delete", "update"},
+		},
+		{
+			name:        "full case",
+			gvk:         "deployments",
+			subresource: "scale",
+			verbs:       []string{"get", "update"},
+			user:        "system:serviceaccount:kyverno:kyverno",
+			namespace:   "production",
+			wantParts:   []string{"deployments/scale", "get", "update", "system:serviceaccount:kyverno:kyverno", "production"},
+		},
+		{
+			name:        "empty verbs",
+			gvk:         "pods",
+			subresource: "",
+			verbs:       []string{},
+			user:        "test-user",
+			namespace:   "",
+			wantParts:   []string{"test-user", "pods"},
+		},
 		{
 			name:        "cluster-scoped resource",
 			gvk:         "namespaces",
@@ -140,36 +159,6 @@ func TestBuildMessage_Scenarios(t *testing.T) {
 			for _, part := range tt.wantParts {
 				assert.Contains(t, msg, part)
 			}
-		})
-	}
-}
-
-func TestAuthChecksInterface(t *testing.T) {
-	// Verify Auth implements AuthChecks interface
-	var _ AuthChecks = &Auth{}
-}
-
-func TestNewAuth_NilClient(t *testing.T) {
-	auth := NewAuth(nil, "test-user", logr.Discard())
-
-	assert.NotNil(t, auth)
-	assert.Nil(t, auth.client)
-}
-
-func TestNewAuth_DifferentUsers(t *testing.T) {
-	users := []string{
-		"admin",
-		"system:serviceaccount:default:test",
-		"system:anonymous",
-		"developer@example.com",
-	}
-
-	for _, user := range users {
-		t.Run(user, func(t *testing.T) {
-			auth := NewAuth(nil, user, logr.Discard())
-
-			assert.NotNil(t, auth)
-			assert.Equal(t, user, auth.User())
 		})
 	}
 }
