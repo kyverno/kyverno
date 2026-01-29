@@ -1419,7 +1419,7 @@ image verification functions</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -1448,7 +1448,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -1480,7 +1480,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -1521,7 +1521,7 @@ There are a maximum of 64 match conditions allowed.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -1703,7 +1703,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
@@ -2816,7 +2816,8 @@ Optional. Default value is &quot;true&quot;.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -4076,12 +4077,13 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
   
 
   <H3 id="policies-kyverno-io-v1alpha1-EvaluationMode">EvaluationMode
-    (<code>string</code> alias)</p></H3>
+    </H3>
 
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -6582,6 +6584,37 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
     
     
       <tr>
+        <td><code>mode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mode is the mode of policy evaluation.
+Allowed values are &quot;Kubernetes&quot; or &quot;JSON&quot;.
+Optional. Default value is &quot;Kubernetes&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>admission</code>
           
           </br>
@@ -6599,6 +6632,35 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
 
           <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-BackgroundConfiguration">
+                <span style="font-family: monospace">BackgroundConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls policy evaluation during background scan.</p>
 
 
           
@@ -6686,7 +6748,7 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -6715,7 +6777,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -6747,7 +6809,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -6788,7 +6850,7 @@ There are a maximum of 64 match conditions allowed.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -6970,7 +7032,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
