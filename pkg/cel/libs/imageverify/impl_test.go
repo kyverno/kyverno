@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +37,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 				{
 					Name: "notary",
 					Notary: &v1beta1.Notary{
-						Certs: &v1alpha1.StringOrExpression{
+						Certs: &v1beta1.StringOrExpression{
 							Value: cert,
 						},
 					},
@@ -79,7 +78,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 		"notary": {
 			Name: "notary",
 			Notary: &v1beta1.Notary{
-				Certs: &v1alpha1.StringOrExpression{
+				Certs: &v1beta1.StringOrExpression{
 					Value: cert,
 				},
 			},
@@ -118,7 +117,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 		"notary": {
 			Name: "notary",
 			Notary: &v1beta1.Notary{
-				Certs: &v1alpha1.StringOrExpression{
+				Certs: &v1beta1.StringOrExpression{
 					Value: cert,
 				},
 			},
