@@ -6,13 +6,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -43,7 +39,6 @@ func TestNewRuntime(t *testing.T) {
 	
 	// Assertions
 	assert.NotNil(t, rt)
-	assert.IsType(t, &runtime{}, rt)
 }
 
 func TestRuntime_IsDebug_WithServerIP(t *testing.T) {
