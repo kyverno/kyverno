@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
@@ -399,24 +400,24 @@ func TestCompileVariables(t *testing.T) {
 func TestCompileMatchImageReference(t *testing.T) {
 	tests := []struct {
 		name      string
-		match     policiesv1beta1.MatchImageReference
+		match     v1alpha1.MatchImageReference
 		wantMatch bool
 		wantErrs  field.ErrorList
 	}{{
 		name: "glob",
-		match: policiesv1beta1.MatchImageReference{
+		match: v1alpha1.MatchImageReference{
 			Glob: "ghcr.io/*",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel",
-		match: policiesv1beta1.MatchImageReference{
+		match: v1alpha1.MatchImageReference{
 			Expression: "true",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel error",
-		match: policiesv1beta1.MatchImageReference{
+		match: v1alpha1.MatchImageReference{
 			Expression: "bar()",
 		},
 		wantMatch: false,
@@ -428,7 +429,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name: "cel not bool",
-		match: policiesv1beta1.MatchImageReference{
+		match: v1alpha1.MatchImageReference{
 			Expression: `"bar"`,
 		},
 		wantMatch: false,
@@ -440,12 +441,12 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name:      "unknown",
-		match:     policiesv1beta1.MatchImageReference{},
+		match:     v1alpha1.MatchImageReference{},
 		wantMatch: false,
 		wantErrs: field.ErrorList{{
 			Type:     field.ErrorTypeInvalid,
 			Field:    "test",
-			BadValue: policiesv1beta1.MatchImageReference{},
+			BadValue: v1alpha1.MatchImageReference{},
 			Detail:   "either glob or expression must be set",
 		}},
 	}}
@@ -463,7 +464,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 func TestCompileMatchImageReferences(t *testing.T) {
 	tests := []struct {
 		name        string
-		matches     []policiesv1beta1.MatchImageReference
+		matches     []v1alpha1.MatchImageReference
 		wantResults int
 		wantAllErrs field.ErrorList
 	}{{
@@ -472,17 +473,17 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 0,
 	}, {
 		name:        "empty",
-		matches:     []policiesv1beta1.MatchImageReference{},
+		matches:     []v1alpha1.MatchImageReference{},
 		wantResults: 0,
 	}, {
 		name: "single",
-		matches: []policiesv1beta1.MatchImageReference{{
+		matches: []v1alpha1.MatchImageReference{{
 			Expression: `true`,
 		}},
 		wantResults: 1,
 	}, {
 		name: "multiple",
-		matches: []policiesv1beta1.MatchImageReference{{
+		matches: []v1alpha1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `false`,
@@ -490,7 +491,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 2,
 	}, {
 		name: "with error",
-		matches: []policiesv1beta1.MatchImageReference{{
+		matches: []v1alpha1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `bar()`,
@@ -504,7 +505,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		}},
 	}, {
 		name: "not bool",
-		matches: []policiesv1beta1.MatchImageReference{{
+		matches: []v1alpha1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `"bar"`,

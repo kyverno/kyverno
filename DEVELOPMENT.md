@@ -41,7 +41,9 @@ It contains instructions to build, run, and test Kyverno.
 - Clone the project to your local machine.
 - Make sure that you have the Visual Studio Code editor installed on your system.
 
-- Make sure that you have WSL (Ubuntu preferred) and Docker installed on your system and on WSL too (docker.sock (UNIX socket) file is necessary to enable the devcontainer to communicate with docker running in host machine).
+- **For windows:** Make sure that you have WSL (Ubuntu preferred) and Docker installed on your system and on WSL too (docker.sock (UNIX socket) file is necessary to enable the devcontainer to communicate with docker running in host machine).
+
+- **For linux/mac os :** only docker is required
 
 - Open the project in Visual Studio Code, once the project is opened, hit F1 and type WSL, now click on "Reopen in WSL".
 
