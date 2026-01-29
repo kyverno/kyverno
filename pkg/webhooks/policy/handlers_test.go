@@ -11,6 +11,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestNewHandlers(t *testing.T) {
@@ -63,7 +64,7 @@ func TestMutate_DifferentUIDs(t *testing.T) {
 		t.Run(uid, func(t *testing.T) {
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID(uid),
+					UID:       types.UID(uid),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
 					Operation: admissionv1.Create,
 					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
@@ -163,7 +164,7 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID(tt.expectedUID),
+					UID:       types.UID(tt.expectedUID),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
 					Operation: admissionv1.Create,
 					Object:    runtime.RawExtension{Raw: []byte(tt.objectJSON)},
@@ -211,7 +212,7 @@ func TestValidate_DifferentOperations(t *testing.T) {
 		t.Run(string(op), func(t *testing.T) {
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID("uid-" + string(op)),
+					UID:       types.UID("uid-" + string(op)),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
 					Operation: op,
 					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
@@ -242,7 +243,7 @@ func TestValidate_DifferentPolicyKinds(t *testing.T) {
 		t.Run(k.kind, func(t *testing.T) {
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID("uid-" + k.kind),
+					UID:       types.UID("uid-" + k.kind),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: k.version, Kind: k.kind},
 					Operation: admissionv1.Create,
 					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
@@ -269,7 +270,7 @@ func TestMutate_DifferentOperations(t *testing.T) {
 		t.Run(string(op), func(t *testing.T) {
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID("uid-mutate-" + string(op)),
+					UID:       types.UID("uid-mutate-" + string(op)),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
 					Operation: op,
 					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
