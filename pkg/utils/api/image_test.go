@@ -153,6 +153,55 @@ func Test_extractImageInfo(t *testing.T) {
 			},
 		},
 		{
+			raw: []byte(`{"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"name":"myapp"},"spec":{"selector":{"matchLabels":{"app":"myapp"}},"template":{"metadata":{"labels":{"app":"myapp"}},"spec":{"imagePullSecrets":[{"name":"first-secret"},{"name":"second-secret"}],"initContainers":[{"name":"init","image":"fictional.registry.example:10443/imagename:tag@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"containers":[{"name":"myapp","image":"fictional.registry.example:10443/imagename"}],"ephemeralContainers":[{"name":"ephemeral","image":"fictional.registry.example:10443/imagename:tag@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}]}}}}`),
+			images: map[string]map[string]ImageInfo{
+				"initContainers": {
+					"init": {
+						imageutils.ImageInfo{
+							Registry:         "fictional.registry.example:10443",
+							Name:             "imagename",
+							Path:             "imagename",
+							Tag:              "tag",
+							Digest:           "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+							Reference:        "fictional.registry.example:10443/imagename@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+							ReferenceWithTag: "fictional.registry.example:10443/imagename:tag",
+						},
+						"/spec/template/spec/initContainers/0/image",
+						[]string{"first-secret", "second-secret"},
+					},
+				},
+				"containers": {
+					"myapp": {
+						imageutils.ImageInfo{
+							Registry:         "fictional.registry.example:10443",
+							Name:             "imagename",
+							Path:             "imagename",
+							Tag:              "latest",
+							Reference:        "fictional.registry.example:10443/imagename:latest",
+							ReferenceWithTag: "fictional.registry.example:10443/imagename:latest",
+						},
+						"/spec/template/spec/containers/0/image",
+						[]string{"first-secret", "second-secret"},
+					},
+				},
+				"ephemeralContainers": {
+					"ephemeral": {
+						imageutils.ImageInfo{
+							Registry:         "fictional.registry.example:10443",
+							Name:             "imagename",
+							Path:             "imagename",
+							Tag:              "tag",
+							Digest:           "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+							Reference:        "fictional.registry.example:10443/imagename@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+							ReferenceWithTag: "fictional.registry.example:10443/imagename:tag",
+						},
+						"/spec/template/spec/ephemeralContainers/0/image",
+						[]string{"first-secret", "second-secret"},
+					},
+				},
+			},
+		},
+		{
 			extractionConfig: kyvernov1.ImageExtractorConfigs{
 				"Task": []kyvernov1.ImageExtractorConfig{
 					{Path: "/spec/steps/*/image"},
@@ -279,10 +328,10 @@ func Test_extractImageInfo(t *testing.T) {
 						},
 						"/spec/source/registry/url",
 						[]string{},
+					},
 				},
 			},
 		},
-	},
 	}
 	for _, test := range tests {
 		resource, err := kubeutils.BytesToUnstructured(test.raw)
