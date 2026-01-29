@@ -160,13 +160,15 @@ crds:
       - policies.kyverno.io
       - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
+      # policies.kyverno.io
       - deletingpolicies.policies.kyverno.io
       - generatingpolicies.policies.kyverno.io
       - imagevalidatingpolicies.policies.kyverno.io
-      - namespacedimagevalidatingpolicies.policies.kyverno.io
       - mutatingpolicies.policies.kyverno.io
-      - namespacedmutatingpolicies.policies.kyverno.io
       - namespaceddeletingpolicies.policies.kyverno.io
+      - namespacedgeneratingpolicies.policies.kyverno.io
+      - namespacedimagevalidatingpolicies.policies.kyverno.io
+      - namespacedmutatingpolicies.policies.kyverno.io
       - namespacedvalidatingpolicies.policies.kyverno.io
       - policyexceptions.policies.kyverno.io
       - validatingpolicies.policies.kyverno.io
