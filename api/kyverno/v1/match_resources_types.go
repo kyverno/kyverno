@@ -66,3 +66,10 @@ func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterReso
 	errs = append(errs, m.ResourceDescription.Validate(path, namespaced, clusterResources)...)
 	return errs
 }
+
+func (m *MatchResources) IsEmpty() bool {
+	if m == nil {
+		return true
+	}
+	return len(m.Any) == 0 && len(m.All) == 0 && m.ResourceDescription.IsEmpty() && m.UserInfo.IsEmpty()
+}
