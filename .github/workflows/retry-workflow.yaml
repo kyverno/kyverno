@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Retry workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        required: true
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rerun ${{ inputs.run_id }}
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run watch ${{ inputs.run_id }}
+          gh run rerun ${{ inputs.run_id }} --failed
