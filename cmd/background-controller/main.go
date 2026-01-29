@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
@@ -326,10 +325,6 @@ func main() {
 				gpolEngine := gpolengine.NewMetricsEngine(gpolengine.NewEngine(namespaceGetter, matching.NewMatcher()))
 
 				scheme := kruntime.NewScheme()
-				if err := policiesv1alpha1.Install(scheme); err != nil {
-					setup.Logger.Error(err, "failed to initialize scheme")
-					os.Exit(1)
-				}
 				if err := policiesv1beta1.Install(scheme); err != nil {
 					setup.Logger.Error(err, "failed to initialize scheme")
 					os.Exit(1)
