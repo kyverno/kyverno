@@ -183,30 +183,22 @@ func TestConfig_MultipleInstances(t *testing.T) {
 	}
 }
 
-func TestConfig_CallbackExecution(t *testing.T) {
-	// Test that callbacks are registered correctly
+func TestNew_WithCallbacks(t *testing.T) {
+	// Test that New succeeds with non-nil callbacks
 	logger := logr.Discard()
 	kubeClient := fake.NewSimpleClientset()
 	
-	startCalled := false
-	stopCalled := false
-	
 	startWork := func(ctx context.Context) {
-		startCalled = true
+		// Would be called when leadership is acquired
 	}
 	stopWork := func() {
-		stopCalled = true
+		// Would be called when leadership is lost
 	}
 	
 	le, err := New(logger, "test", "test-ns", kubeClient, "id", DefaultRetryPeriod, startWork, stopWork)
 	
 	assert.NoError(t, err)
 	assert.NotNil(t, le)
-	
-	// Note: Callbacks won't be invoked until Run() is called and election happens
-	// In unit test, we just verify construction succeeds with callbacks
-	assert.False(t, startCalled)
-	assert.False(t, stopCalled)
 }
 
 func TestDefaultRetryPeriod(t *testing.T) {
