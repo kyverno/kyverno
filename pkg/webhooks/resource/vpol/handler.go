@@ -13,6 +13,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -22,6 +24,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -31,6 +34,8 @@ type handler struct {
 	kyvernoClient    versioned.Interface
 	admissionReports bool
 	eventGen         event.Interface
+	polexLister      kyvernov2listers.PolicyExceptionLister
+	polexListerBeta1 kyvernov2beta1listers.PolicyExceptionLister
 }
 
 func New(
@@ -39,6 +44,8 @@ func New(
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
 	eventGen event.Interface,
+	polexLister kyvernov2listers.PolicyExceptionLister,
+	polexListerBeta1 kyvernov2beta1listers.PolicyExceptionLister,
 ) *handler {
 	return &handler{
 		context:          context,
@@ -46,6 +53,8 @@ func New(
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
 		eventGen:         eventGen,
+		polexLister:      polexLister,
+		polexListerBeta1: polexListerBeta1,
 	}
 }
 
@@ -77,6 +86,9 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+
+	response = h.applyValidationActionsFromExceptions(ctx, logger, admissionRequest, request, response)
+
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
@@ -167,4 +179,95 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 		}
 	}
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
+}
+
+func (h *handler) applyValidationActionsFromExceptions(
+	ctx context.Context,
+	logger logr.Logger,
+	admissionRequest handlers.AdmissionRequest,
+	request celengine.EngineRequest,
+	response vpolengine.EngineResponse,
+) vpolengine.EngineResponse {
+	if h.polexLister == nil && h.polexListerBeta1 == nil {
+		return response
+	}
+
+	resource := response.Resource
+	if resource == nil {
+		return response
+	}
+
+	for i, policyResp := range response.Policies {
+		policyName := policyResp.Policy.GetName()
+		policyNamespace := policyResp.Policy.GetNamespace()
+
+		fullPolicyName := policyName
+		if policyNamespace != "" {
+			fullPolicyName = policyNamespace + "/" + policyName
+		}
+
+		if h.polexLister != nil {
+			v2Exceptions, err := h.polexLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list v2 policy exceptions")
+			} else {
+				for _, polex := range v2Exceptions {
+					applies := false
+					for _, exc := range polex.Spec.Exceptions {
+						if exc.PolicyName == fullPolicyName || exc.PolicyName == policyName {
+							applies = true
+							break
+						}
+					}
+
+					if !applies {
+						continue
+					}
+
+					if len(polex.Spec.ValidationActions) > 0 {
+						response.Policies[i].Actions = engineapi.GetValidationActionsFromStrings(polex.Spec.ValidationActions)
+						logger.V(4).Info("applied validationActions override from v2 PolicyException",
+							"policy", policyName,
+							"exception", polex.GetName(),
+							"actions", polex.Spec.ValidationActions)
+						goto nextPolicy
+					}
+				}
+			}
+		}
+
+		if h.polexListerBeta1 != nil {
+			v2beta1Exceptions, err := h.polexListerBeta1.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list v2beta1 policy exceptions")
+			} else {
+				for _, polex := range v2beta1Exceptions {
+					applies := false
+					for _, exc := range polex.Spec.Exceptions {
+						if exc.PolicyName == fullPolicyName || exc.PolicyName == policyName {
+							applies = true
+							break
+						}
+					}
+
+					if !applies {
+						continue
+					}
+
+					if len(polex.Spec.ValidationActions) > 0 {
+						response.Policies[i].Actions = engineapi.GetValidationActionsFromStrings(polex.Spec.ValidationActions)
+						logger.V(4).Info("applied validationActions override from v2beta1 PolicyException",
+							"policy", policyName,
+							"exception", polex.GetName(),
+							"actions", polex.Spec.ValidationActions)
+						goto nextPolicy
+					}
+				}
+			}
+		}
+
+	nextPolicy:
+	}
+
+	return response
 }

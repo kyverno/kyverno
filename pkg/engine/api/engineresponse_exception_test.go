@@ -11,7 +11,7 @@ import (
 func TestEngineResponse_GetValidationFailureAction_WithExceptionOverride(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	resource.SetNamespace("dev")
-	
+
 	audit := kyvernov1.Audit
 	enforce := kyvernov1.Enforce
 
@@ -21,7 +21,7 @@ func TestEngineResponse_GetValidationFailureAction_WithExceptionOverride(t *test
 		PolicyResponse  PolicyResponse
 		namespaceLabels map[string]string
 	}
-	
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -143,7 +143,7 @@ func TestEngineResponse_GetValidationFailureAction_WithExceptionOverride(t *test
 			want: kyvernov1.Enforce,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			er := EngineResponse{
@@ -151,7 +151,7 @@ func TestEngineResponse_GetValidationFailureAction_WithExceptionOverride(t *test
 				PolicyResponse:  tt.fields.PolicyResponse,
 				namespaceLabels: tt.fields.namespaceLabels,
 			}.WithPolicy(tt.fields.GenericPolicy)
-			
+
 			got := er.GetValidationFailureAction()
 			if got != tt.want {
 				t.Errorf("EngineResponse.GetValidationFailureAction() = %v, want %v", got, tt.want)

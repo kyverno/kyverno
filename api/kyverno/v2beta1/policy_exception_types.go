@@ -85,6 +85,12 @@ type PolicyExceptionSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	FailureAction *kyvernov1.ValidationFailureAction `json:"failureAction,omitempty"`
+
+	// ValidationActions overrides the policy's spec.validationActions for resources that match this exception.
+	// Applicable to ValidatingPolicy (CEL-based policies). Allowed values are Warn, Audit, Deny.
+	// This allows changing validation actions for specific namespaces or workloads.
+	// +optional
+	ValidationActions []string `json:"validationActions,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {

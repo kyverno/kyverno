@@ -573,6 +573,11 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 		*out = new(kyvernov1.ValidationFailureAction)
 		**out = **in
 	}
+	if in.ValidationActions != nil {
+		in, out := &in.ValidationActions, &out.ValidationActions
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
