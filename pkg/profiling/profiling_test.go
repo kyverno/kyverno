@@ -39,17 +39,19 @@ func TestStart_ValidAddress(t *testing.T) {
 		Start(logger, address)
 	})
 	
-	// Give the server a moment to start
-	time.Sleep(100 * time.Millisecond)
-	
-	// Verify server is listening by attempting to connect
-	conn, err := net.DialTimeout("tcp", address, time.Second)
-	if err == nil {
-		conn.Close()
-		// Server is running
-	} else {
-		t.Logf("Server may not have started yet: %v", err)
+	// Verify server is listening by attempting to connect with retries
+	deadline := time.Now().Add(2 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", address, 200*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return // Success
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
 	}
+	t.Logf("Server may not have started: %v", lastErr)
 }
 
 func TestStart_DoesNotBlock(t *testing.T) {
@@ -106,9 +108,8 @@ func TestStart_MultipleAddresses(t *testing.T) {
 	}
 }
 
-func TestStart_WithNilLogger(t *testing.T) {
-	// Test that Start handles the logger parameter
-	// Note: logr.Discard() is the safe way to get a no-op logger
+func TestStart_WithDiscardedLogger(t *testing.T) {
+	// Test that Start works with a discarded logger
 	
 	port, err := findFreePort()
 	assert.NoError(t, err)
@@ -125,8 +126,6 @@ func TestStart_WithNilLogger(t *testing.T) {
 
 func TestStart_ServerConfiguration(t *testing.T) {
 	// This test verifies that Start configures the server correctly
-	// We can't easily inspect the server configuration without modifying
-	// the source code, but we can verify it starts successfully
 	
 	port, err := findFreePort()
 	assert.NoError(t, err)
@@ -137,17 +136,17 @@ func TestStart_ServerConfiguration(t *testing.T) {
 	// Start the server
 	Start(logger, address)
 	
-	// Wait for server to start
-	time.Sleep(200 * time.Millisecond)
-	
-	// Verify we can connect to it
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
-	if err != nil {
-		t.Logf("Could not connect to server: %v (may be timing issue)", err)
-	} else {
-		conn.Close()
-		// Server is running and accepting connections
+	// Verify server starts by attempting to connect with retries
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", address, 200*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return // Success
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
+	t.Log("Could not verify server started (may be timing issue)")
 }
 
 func TestStart_ConcurrentCalls(t *testing.T) {
