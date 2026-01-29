@@ -1,0 +1,203 @@
+package handlers
+
+import (
+	"errors"
+	"testing"
+
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestWithError(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+	err := errors.New("test error")
+
+	responses := WithError(rule, engineapi.Validation, "test message", err)
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+}
+
+func TestWithSkip(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+
+	responses := WithSkip(rule, engineapi.Validation, "test skip message")
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+	assert.Equal(t, engineapi.RuleStatusSkip, responses[0].Status())
+}
+
+func TestWithPass(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+
+	responses := WithPass(rule, engineapi.Validation, "test pass message")
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+	assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+}
+
+func TestWithFail(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+
+	responses := WithFail(rule, engineapi.Validation, "test fail message")
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+}
+
+func TestWithResponses_NilInput(t *testing.T) {
+	responses := WithResponses(nil, nil, nil)
+
+	assert.Nil(t, responses)
+}
+
+func TestWithResponses_EmptyInput(t *testing.T) {
+	responses := WithResponses()
+
+	assert.Nil(t, responses)
+}
+
+func TestWithResponses_MixedInput(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+
+	ruleResponse := engineapi.RulePass(rule.Name, engineapi.Validation, "test", rule.ReportProperties)
+
+	responses := WithResponses(nil, ruleResponse, nil)
+
+	assert.Len(t, responses, 1)
+}
+
+func TestWithResponses_MultipleResponses(t *testing.T) {
+	rule1 := kyvernov1.Rule{Name: "rule-1"}
+	rule2 := kyvernov1.Rule{Name: "rule-2"}
+
+	resp1 := engineapi.RulePass(rule1.Name, engineapi.Validation, "pass", rule1.ReportProperties)
+	resp2 := engineapi.RuleFail(rule2.Name, engineapi.Validation, "fail", rule2.ReportProperties)
+
+	responses := WithResponses(resp1, resp2)
+
+	assert.Len(t, responses, 2)
+	assert.Equal(t, "rule-1", responses[0].Name())
+	assert.Equal(t, "rule-2", responses[1].Name())
+}
+
+func TestWithError_DifferentRuleTypes(t *testing.T) {
+	ruleTypes := []engineapi.RuleType{
+		engineapi.Validation,
+		engineapi.Mutation,
+		engineapi.Generation,
+		engineapi.ImageVerify,
+	}
+
+	for _, ruleType := range ruleTypes {
+		t.Run(string(ruleType), func(t *testing.T) {
+			rule := kyvernov1.Rule{Name: "test-rule"}
+			err := errors.New("test error")
+
+			responses := WithError(rule, ruleType, "error message", err)
+
+			assert.Len(t, responses, 1)
+			assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+		})
+	}
+}
+
+func TestWithSkip_DifferentRuleTypes(t *testing.T) {
+	ruleTypes := []engineapi.RuleType{
+		engineapi.Validation,
+		engineapi.Mutation,
+		engineapi.Generation,
+		engineapi.ImageVerify,
+	}
+
+	for _, ruleType := range ruleTypes {
+		t.Run(string(ruleType), func(t *testing.T) {
+			rule := kyvernov1.Rule{Name: "test-rule"}
+
+			responses := WithSkip(rule, ruleType, "skip message")
+
+			assert.Len(t, responses, 1)
+			assert.Equal(t, engineapi.RuleStatusSkip, responses[0].Status())
+		})
+	}
+}
+
+func TestWithPass_DifferentRuleTypes(t *testing.T) {
+	ruleTypes := []engineapi.RuleType{
+		engineapi.Validation,
+		engineapi.Mutation,
+		engineapi.Generation,
+		engineapi.ImageVerify,
+	}
+
+	for _, ruleType := range ruleTypes {
+		t.Run(string(ruleType), func(t *testing.T) {
+			rule := kyvernov1.Rule{Name: "test-rule"}
+
+			responses := WithPass(rule, ruleType, "pass message")
+
+			assert.Len(t, responses, 1)
+			assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+		})
+	}
+}
+
+func TestWithFail_DifferentRuleTypes(t *testing.T) {
+	ruleTypes := []engineapi.RuleType{
+		engineapi.Validation,
+		engineapi.Mutation,
+		engineapi.Generation,
+		engineapi.ImageVerify,
+	}
+
+	for _, ruleType := range ruleTypes {
+		t.Run(string(ruleType), func(t *testing.T) {
+			rule := kyvernov1.Rule{Name: "test-rule"}
+
+			responses := WithFail(rule, ruleType, "fail message")
+
+			assert.Len(t, responses, 1)
+			assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+		})
+	}
+}
+
+func TestWithError_EmptyRuleName(t *testing.T) {
+	rule := kyvernov1.Rule{Name: ""}
+	err := errors.New("error")
+
+	responses := WithError(rule, engineapi.Validation, "message", err)
+
+	assert.Len(t, responses, 1)
+	assert.Empty(t, responses[0].Name())
+}
+
+func TestWithError_WithReportProperties(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+		ReportProperties: map[string]string{
+			"key": "value",
+		},
+	}
+	err := errors.New("error")
+
+	responses := WithError(rule, engineapi.Validation, "message", err)
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+}
