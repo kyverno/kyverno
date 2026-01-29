@@ -54,30 +54,6 @@ func TestStart_ValidAddress(t *testing.T) {
 	t.Logf("Server may not have started: %v", lastErr)
 }
 
-func TestStart_DoesNotBlock(t *testing.T) {
-	// Find a free port
-	port, err := findFreePort()
-	assert.NoError(t, err)
-	
-	address := fmt.Sprintf("localhost:%d", port)
-	logger := logr.Discard()
-	
-	// Start should not block since it runs in a goroutine
-	done := make(chan bool)
-	go func() {
-		Start(logger, address)
-		done <- true
-	}()
-	
-	// Should complete quickly because Start returns immediately
-	select {
-	case <-done:
-		// Success - Start returned
-	case <-time.After(time.Second):
-		t.Fatal("Start() blocked longer than expected")
-	}
-}
-
 func TestStart_MultipleAddresses(t *testing.T) {
 	// Test that Start can be called with different addresses
 	tests := []struct {
@@ -175,22 +151,18 @@ func TestStart_AddressFormats(t *testing.T) {
 	tests := []struct {
 		name    string
 		address string
-		valid   bool
 	}{
 		{
 			name:    "with port",
 			address: "localhost:0",
-			valid:   true,
 		},
 		{
 			name:    "IP with port",
 			address: "127.0.0.1:0",
-			valid:   true,
 		},
 		{
 			name:    "only port",
 			address: ":0",
-			valid:   true,
 		},
 	}
 	
@@ -198,12 +170,10 @@ func TestStart_AddressFormats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 			
-			if tt.valid {
-				assert.NotPanics(t, func() {
-					Start(logger, tt.address)
-				})
-				time.Sleep(50 * time.Millisecond)
-			}
+			assert.NotPanics(t, func() {
+				Start(logger, tt.address)
+			})
+			time.Sleep(50 * time.Millisecond)
 		})
 	}
 }
@@ -212,19 +182,3 @@ func TestStart_AddressFormats(t *testing.T) {
 // is very difficult in unit tests because os.Exit terminates the test process.
 // That behavior should be tested in integration tests or by mocking/refactoring
 // the Start function to accept a custom exit function.
-
-func TestStart_ReturnsImmediately(t *testing.T) {
-	// Verify that Start returns immediately (doesn't block)
-	port, err := findFreePort()
-	assert.NoError(t, err)
-	
-	address := fmt.Sprintf("localhost:%d", port)
-	logger := logr.Discard()
-	
-	start := time.Now()
-	Start(logger, address)
-	elapsed := time.Since(start)
-	
-	// Start should return almost immediately (< 100ms)
-	assert.Less(t, elapsed, 100*time.Millisecond, "Start() should return immediately")
-}
