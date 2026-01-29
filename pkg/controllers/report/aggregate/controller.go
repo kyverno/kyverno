@@ -322,7 +322,7 @@ func NewController(
 	if nivpolInformer != nil {
 		c.nivpolLister = nivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
-			ivpolInformer.Informer(),
+			nivpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
