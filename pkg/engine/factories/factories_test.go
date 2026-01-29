@@ -32,9 +32,7 @@ func TestDefaultContextLoaderFactory_WithOptions(t *testing.T) {
 }
 
 func TestWithInitializer(t *testing.T) {
-	initCalled := false
 	initializer := func(ctx interface{}) error {
-		initCalled = true
 		return nil
 	}
 
@@ -114,9 +112,7 @@ func TestRegistryClientFactory_GetClient_WithProviders(t *testing.T) {
 }
 
 func TestContextLoaderFactoryOptions_MultipleOptions(t *testing.T) {
-	initCalled := false
 	initializer := func(ctx interface{}) error {
-		initCalled = true
 		return nil
 	}
 
