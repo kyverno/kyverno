@@ -9,7 +9,6 @@ on:
     workflows:
       - Build devcontainer
       - Conformance tests
-      - Dummy
     types: 
       - completed
 
