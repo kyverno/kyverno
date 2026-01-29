@@ -41,34 +41,29 @@ func TestEntry_Get_WithNilError(t *testing.T) {
 	result, err := e.Get()
 	
 	assert.Nil(t, result)
-	// Even with nil error, the wrapper still creates an error message
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create cached context entry")
+	// When the stored error is nil, errors.Wrapf returns nil
+	assert.NoError(t, err)
 }
 
 func TestEntry_Get_MultipleScenarios(t *testing.T) {
 	tests := []struct {
 		name        string
 		inputErr    error
-		expectNil   bool
 		containsMsg string
 	}{
 		{
 			name:        "with simple error",
 			inputErr:    errors.New("simple error"),
-			expectNil:   false,
 			containsMsg: "simple error",
 		},
 		{
 			name:        "with wrapped error",
 			inputErr:    errors.New("wrapped: inner error"),
-			expectNil:   false,
 			containsMsg: "inner error",
 		},
 		{
 			name:        "with empty error message",
 			inputErr:    errors.New(""),
-			expectNil:   false,
 			containsMsg: "failed to create cached context entry",
 		},
 	}
@@ -141,7 +136,7 @@ func TestEntry_Get_AlwaysReturnsError(t *testing.T) {
 		inputErr error
 	}{
 		{"with error", errors.New("error")},
-		{"with nil error", nil},
+		{"with empty error", errors.New("")},
 	}
 	
 	for _, tt := range tests {
@@ -150,7 +145,7 @@ func TestEntry_Get_AlwaysReturnsError(t *testing.T) {
 			
 			_, err := e.Get()
 			
-			assert.Error(t, err, "Get should always return an error")
+			assert.Error(t, err, "Get should return an error when underlying error is non-nil")
 		})
 	}
 }
