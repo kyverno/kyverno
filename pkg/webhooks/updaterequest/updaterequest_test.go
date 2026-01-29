@@ -86,9 +86,8 @@ func TestFakeGenerator_Apply_CancelledContext(t *testing.T) {
 
 func TestFakeGenerator_Apply_MultipleScenarios(t *testing.T) {
 	tests := []struct {
-		name   string
-		spec   kyvernov2.UpdateRequestSpec
-		errMsg string
+		name string
+		spec kyvernov2.UpdateRequestSpec
 	}{
 		{
 			name: "mutate type",
@@ -140,7 +139,6 @@ func TestFakeGenerator_ImplementsGeneratorInterface(t *testing.T) {
 	var _ Generator = NewFake()
 
 	// If this compiles, the interface is satisfied
-	assert.True(t, true)
 }
 
 func TestFakeGenerator_Apply_WithResource(t *testing.T) {
@@ -195,7 +193,7 @@ func TestFakeGenerator_Apply_Concurrent(t *testing.T) {
 	gen := NewFake()
 
 	// Run multiple applies concurrently
-	done := make(chan bool, 10)
+	errChan := make(chan error, 10)
 
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
@@ -204,13 +202,13 @@ func TestFakeGenerator_Apply_Concurrent(t *testing.T) {
 				Policy: "test-policy",
 			}
 			err := gen.Apply(context.Background(), spec)
-			assert.NoError(t, err)
-			done <- true
+			errChan <- err
 		}(i)
 	}
 
-	// Wait for all goroutines to complete
+	// Wait for all goroutines and check errors
 	for i := 0; i < 10; i++ {
-		<-done
+		err := <-errChan
+		assert.NoError(t, err)
 	}
 }
