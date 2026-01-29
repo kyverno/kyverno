@@ -111,11 +111,8 @@ func TestConfig_ID(t *testing.T) {
 	le, err := New(logger, "test", "test-ns", kubeClient, expectedID, DefaultRetryPeriod, nil, nil)
 	
 	assert.NoError(t, err)
-	// ID should match the identity we provided
-	id := le.ID()
-	assert.NotEmpty(t, id)
-	// The actual ID returned by the lock might have the expected ID as part of it
-	assert.Contains(t, id, expectedID)
+	// ID should exactly match the identity we provided
+	assert.Equal(t, expectedID, le.ID())
 }
 
 func TestConfig_IsLeader_InitiallyFalse(t *testing.T) {
@@ -154,9 +151,9 @@ func TestConfig_GetLeader_BeforeElection(t *testing.T) {
 	le, err := New(logger, "test", "test-ns", kubeClient, "id", DefaultRetryPeriod, nil, nil)
 	
 	assert.NoError(t, err)
-	// Before election starts, GetLeader returns empty
+	// Before election starts, GetLeader returns empty string
 	leader := le.GetLeader()
-	assert.NotNil(t, leader) // May be empty string but not nil
+	assert.Empty(t, leader)
 }
 
 func TestConfig_MultipleInstances(t *testing.T) {
