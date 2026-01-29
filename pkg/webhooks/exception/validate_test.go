@@ -12,6 +12,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestNewHandlers(t *testing.T) {
@@ -134,7 +135,7 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID(tt.expectedUID),
+					UID:       types.UID(tt.expectedUID),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
 					Operation: admissionv1.Create,
 					Object:    runtime.RawExtension{Raw: []byte(tt.objectJSON)},
@@ -182,7 +183,7 @@ func TestValidate_DifferentOperations(t *testing.T) {
 		t.Run(string(op), func(t *testing.T) {
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID("uid-" + string(op)),
+					UID:       types.UID("uid-" + string(op)),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
 					Operation: op,
 					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
@@ -225,7 +226,7 @@ func TestValidate_WithNamespace(t *testing.T) {
 
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       admissionv1.UID("uid-ns-" + tt.namespace),
+					UID:       types.UID("uid-ns-" + tt.namespace),
 					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
 					Namespace: tt.namespace,
 					Operation: admissionv1.Create,
