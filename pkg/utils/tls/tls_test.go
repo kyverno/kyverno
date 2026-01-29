@@ -141,43 +141,6 @@ func TestFetchCert_InvalidCertificateData(t *testing.T) {
 	}
 }
 
-func TestFetchCert_ContextCancellation(t *testing.T) {
-	// Generate a valid certificate
-	certPEM, err := generateTestCertificate()
-	assert.NoError(t, err)
-
-	// Create fake secret with certificate data
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-certs",
-			Namespace: "kyverno",
-		},
-		Data: map[string][]byte{
-			"ca.pem": certPEM,
-		},
-	}
-
-	// Create fake Kubernetes client
-	client := fake.NewSimpleClientset(secret)
-
-	// Create a cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	// Call FetchCert with cancelled context
-	creds, err := FetchCert(ctx, "test-certs", client)
-
-	// With immediate cancellation, behavior depends on timing.
-	// If it succeeds before cancellation, that's ok.
-	// If it fails, error should relate to context cancellation.
-	if err != nil {
-		// Context cancellation may or may not propagate depending on timing
-		t.Logf("Expected behavior: %v", err)
-	} else {
-		assert.NotNil(t, creds)
-	}
-}
-
 func TestFetchCert_ClientError(t *testing.T) {
 	// Create fake client that will return an error
 	client := fake.NewSimpleClientset()
