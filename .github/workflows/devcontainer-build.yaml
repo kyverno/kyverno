@@ -51,6 +51,9 @@ jobs:
     if: failure() && fromJSON(github.run_attempt) < 3
     needs: [devcontainer-build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - env:
           GH_REPO: ${{ github.repository }}
