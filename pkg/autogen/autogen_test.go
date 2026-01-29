@@ -20,99 +20,57 @@ func TestDefault_IsV1(t *testing.T) {
 
 func TestAutogenInterface_V1ImplementsInterface(t *testing.T) {
 	var _ Autogen = V1
-	assert.NotNil(t, V1)
 }
 
 func TestAutogenInterface_V2ImplementsInterface(t *testing.T) {
 	var _ Autogen = V2
-	assert.NotNil(t, V2)
 }
 
 func TestV1_GetAutogenRuleNames_NilPolicy(t *testing.T) {
-	// V1.GetAutogenRuleNames should handle nil gracefully or panic
-	// This tests that the implementation exists and is callable
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected to panic with nil policy
-			t.Log("V1.GetAutogenRuleNames panics with nil policy as expected")
-		}
-	}()
-	
-	result := V1.GetAutogenRuleNames(nil)
-	// If it doesn't panic, it should return empty or nil
-	assert.Empty(t, result)
+	// V1.GetAutogenRuleNames panics with nil policy
+	assert.Panics(t, func() {
+		V1.GetAutogenRuleNames(nil)
+	}, "V1.GetAutogenRuleNames should panic with nil policy")
 }
 
 func TestV2_GetAutogenRuleNames_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("V2.GetAutogenRuleNames panics with nil policy as expected")
-		}
-	}()
-	
-	result := V2.GetAutogenRuleNames(nil)
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		V2.GetAutogenRuleNames(nil)
+	}, "V2.GetAutogenRuleNames should panic with nil policy")
 }
 
 func TestV1_GetAutogenKinds_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("V1.GetAutogenKinds panics with nil policy as expected")
-		}
-	}()
-	
-	result := V1.GetAutogenKinds(nil)
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		V1.GetAutogenKinds(nil)
+	}, "V1.GetAutogenKinds should panic with nil policy")
 }
 
 func TestV2_GetAutogenKinds_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("V2.GetAutogenKinds panics with nil policy as expected")
-		}
-	}()
-	
-	result := V2.GetAutogenKinds(nil)
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		V2.GetAutogenKinds(nil)
+	}, "V2.GetAutogenKinds should panic with nil policy")
 }
 
 func TestV1_ComputeRules_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("V1.ComputeRules panics with nil policy as expected")
-		}
-	}()
-	
-	result := V1.ComputeRules(nil, "")
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		V1.ComputeRules(nil, "")
+	}, "V1.ComputeRules should panic with nil policy")
 }
 
 func TestV2_ComputeRules_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("V2.ComputeRules panics with nil policy as expected")
-		}
-	}()
-	
-	result := V2.ComputeRules(nil, "")
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		V2.ComputeRules(nil, "")
+	}, "V2.ComputeRules should panic with nil policy")
 }
 
 func TestDefault_GetAutogenRuleNames_NilPolicy(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("Default.GetAutogenRuleNames panics with nil policy as expected")
-		}
-	}()
-	
-	result := Default.GetAutogenRuleNames(nil)
-	assert.Empty(t, result)
+	assert.Panics(t, func() {
+		Default.GetAutogenRuleNames(nil)
+	}, "Default.GetAutogenRuleNames should panic with nil policy")
 }
 
 func TestAutogenVersions_AreDifferentInstances(t *testing.T) {
 	// V1 and V2 should be different implementations
-	// They may or may not be equal depending on implementation
-	// but they should both implement the interface
 	assert.NotNil(t, V1)
 	assert.NotNil(t, V2)
 }
