@@ -104,10 +104,10 @@ func TestValidate_NilObject(t *testing.T) {
 
 func TestValidate_MultipleScenarios(t *testing.T) {
 	tests := []struct {
-		name           string
-		enabled        bool
-		objectJSON     string
-		expectedUID    string
+		name        string
+		enabled     bool
+		objectJSON  string
+		expectedUID string
 	}{
 		{
 			name:        "enabled with empty object",
@@ -122,7 +122,7 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 			expectedUID: "uid-2",
 		},
 		{
-			name:        "enabled with invalid json",
+			name:        "enabled with spec object",
 			enabled:     true,
 			objectJSON:  `{"spec": {}}`,
 			expectedUID: "uid-3",
@@ -171,28 +171,45 @@ func TestValidate_ContextCancellation(t *testing.T) {
 }
 
 func TestValidate_DifferentOperations(t *testing.T) {
-	operations := []admissionv1.Operation{
-		admissionv1.Create,
-		admissionv1.Update,
-		admissionv1.Delete,
-	}
-	
 	h := NewHandlers(validation.ValidationOptions{Enabled: true})
-	
-	for _, op := range operations {
-		t.Run(string(op), func(t *testing.T) {
-			request := handlers.AdmissionRequest{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       types.UID("uid-" + string(op)),
-					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CELPolicyException"},
-					Operation: op,
-					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
-				},
-			}
-			
-			response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
-			
-			assert.Equal(t, "uid-"+string(op), string(response.UID))
-		})
-	}
+
+	t.Run("Create", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-create"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CELPolicyException"},
+				Operation: admissionv1.Create,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-create", string(response.UID))
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-update"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CELPolicyException"},
+				Operation: admissionv1.Update,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-update", string(response.UID))
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-delete"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CELPolicyException"},
+				Operation: admissionv1.Delete,
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-delete", string(response.UID))
+	})
 }
