@@ -201,8 +201,7 @@ func TestFakeGenerator_Apply_Concurrent(t *testing.T) {
 				Type:   kyvernov2.Mutate,
 				Policy: "test-policy",
 			}
-			err := gen.Apply(context.Background(), spec)
-			errChan <- err
+			errChan <- gen.Apply(context.Background(), spec)
 		}(i)
 	}
 
