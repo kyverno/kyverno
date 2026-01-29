@@ -117,6 +117,16 @@ type Spec struct {
 	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
+
+	// GenerateExceptions controls whether PolicyExceptions are automatically created
+	// for existing resources that violate this policy when it is first applied in Enforce mode.
+	// When enabled, the reports controller will scan existing resources and create exceptions
+	// for violations, allowing pre-existing non-compliant resources (including those managed
+	// by controllers like Deployments) to continue operating while blocking new violations.
+	// Optional. Default value is "false".
+	// +optional
+	// +kubebuilder:default=false
+	GenerateExceptions bool `json:"generateExceptions,omitempty"`
 }
 
 func (s *Spec) CustomWebhookMatchConditions() bool {
@@ -301,6 +311,11 @@ func (s *Spec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 		return s.WebhookConfiguration.MatchConditions
 	}
 	return nil
+}
+
+// HasGenerateExceptions checks if generateExceptions is set to true
+func (s *Spec) HasGenerateExceptions() bool {
+	return s.GenerateExceptions
 }
 
 // GetApplyRules returns the apply rules type
