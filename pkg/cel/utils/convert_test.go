@@ -194,7 +194,7 @@ func TestGetValue(t *testing.T) {
 		name: "struct",
 		data: struct {
 			Foo string `json:"foo"`
-		}{
+		}, {
 			Foo: "bar",
 		},
 		want: map[string]any{
