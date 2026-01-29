@@ -200,30 +200,47 @@ func TestValidate_ContextCancellation(t *testing.T) {
 }
 
 func TestValidate_DifferentOperations(t *testing.T) {
-	operations := []admissionv1.Operation{
-		admissionv1.Create,
-		admissionv1.Update,
-		admissionv1.Delete,
-	}
-
 	h := NewHandlers(nil, "", "")
 
-	for _, op := range operations {
-		t.Run(string(op), func(t *testing.T) {
-			request := handlers.AdmissionRequest{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       types.UID("uid-" + string(op)),
-					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
-					Operation: op,
-					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
-				},
-			}
+	t.Run("Create", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-create"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Create,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-create", string(response.UID))
+	})
 
-			response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+	t.Run("Update", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-update"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Update,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-update", string(response.UID))
+	})
 
-			assert.Equal(t, "uid-"+string(op), string(response.UID))
-		})
-	}
+	t.Run("Delete", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-delete"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Delete,
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-delete", string(response.UID))
+	})
 }
 
 func TestValidate_DifferentPolicyKinds(t *testing.T) {
@@ -258,29 +275,48 @@ func TestValidate_DifferentPolicyKinds(t *testing.T) {
 }
 
 func TestMutate_DifferentOperations(t *testing.T) {
-	operations := []admissionv1.Operation{
-		admissionv1.Create,
-		admissionv1.Update,
-		admissionv1.Delete,
-	}
-
 	h := NewHandlers(nil, "", "")
 
-	for _, op := range operations {
-		t.Run(string(op), func(t *testing.T) {
-			request := handlers.AdmissionRequest{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID:       types.UID("uid-mutate-" + string(op)),
-					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
-					Operation: op,
-					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
-				},
-			}
+	t.Run("Create", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-mutate-create"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Create,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Mutate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-mutate-create", string(response.UID))
+		assert.True(t, response.Allowed)
+	})
 
-			response := h.Mutate(context.Background(), logr.Discard(), request, "", time.Now())
+	t.Run("Update", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-mutate-update"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Update,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Mutate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-mutate-update", string(response.UID))
+		assert.True(t, response.Allowed)
+	})
 
-			assert.Equal(t, "uid-mutate-"+string(op), string(response.UID))
-			assert.True(t, response.Allowed)
-		})
-	}
+	t.Run("Delete", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-mutate-delete"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"},
+				Operation: admissionv1.Delete,
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Mutate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-mutate-delete", string(response.UID))
+		assert.True(t, response.Allowed)
+	})
 }
