@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -298,7 +297,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		reportsServiceAccountName,
 		stateRecorder,
 	)
@@ -686,10 +685,6 @@ func main() {
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
-			if err := policiesv1alpha1.Install(scheme); err != nil {
-				setup.Logger.Error(err, "failed to initialize scheme")
-				os.Exit(1)
-			}
 			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
@@ -842,14 +837,12 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
-			setup.ReportingConfiguration,
 		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		ivpolHandlers := ivpol.New(
@@ -857,7 +850,6 @@ func main() {
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())

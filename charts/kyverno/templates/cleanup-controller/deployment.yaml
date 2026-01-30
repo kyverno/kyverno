@@ -202,14 +202,20 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if not $automountSAToken }}
+          {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumeMounts }}
           volumeMounts:
+            {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+            {{- end }}
+            {{- with .Values.cleanupController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- if not $automountSAToken }}
+      {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumes }}
       volumes:
+        {{- if not $automountSAToken }}
         - name: serviceaccount-token
           projected:
             defaultMode: 0444
@@ -228,6 +234,10 @@ spec:
                       fieldRef:
                         apiVersion: v1
                         fieldPath: metadata.namespace
+        {{- end }}
+        {{- with .Values.cleanupController.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
 {{- end -}}
 {{- end -}}

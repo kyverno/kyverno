@@ -1,6 +1,7 @@
 package time
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -33,7 +34,7 @@ func (*lib) LibraryName() string {
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		func(e *cel.Env) (*cel.Env, error) {
-			nowFunc := cel.Function("now", cel.Overload(
+			nowFunc := cel.Function("time.now", cel.Overload(
 				"time_now",
 				[]*cel.Type{},
 				types.TimestampType,
@@ -41,7 +42,25 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: time.Now()})
 				})))
 
-			truncateFunc := cel.Function("truncate", cel.Overload(
+			toCronFunc := cel.Function("time.toCron", cel.Overload(
+				"time_to_cron",
+				[]*cel.Type{types.TimestampType},
+				types.StringType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					ts, err := utils.ConvertToNative[time.Time](arg)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					var cron string = ""
+					cron += strconv.Itoa(ts.Minute()) + " "
+					cron += strconv.Itoa(ts.Hour()) + " "
+					cron += strconv.Itoa(ts.Day()) + " "
+					cron += strconv.Itoa(int(ts.Month())) + " "
+					cron += strconv.Itoa(int(ts.Weekday()))
+					return e.CELTypeAdapter().NativeToValue(cron)
+				})))
+
+			truncateFunc := cel.Function("time.truncate", cel.Overload(
 				"time_truncate",
 				[]*cel.Type{types.TimestampType, types.DurationType},
 				types.TimestampType,
@@ -56,7 +75,7 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 					}
 					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: ts.Truncate(dur)})
 				})))
-			return e.Extend(nowFunc, truncateFunc)
+			return e.Extend(nowFunc, truncateFunc, toCronFunc)
 		},
 	}
 }

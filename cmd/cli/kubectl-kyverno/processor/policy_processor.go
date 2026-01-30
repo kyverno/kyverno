@@ -91,6 +91,7 @@ type PolicyProcessor struct {
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 	NamespaceCache            map[string]*unstructured.Unstructured
+	ConfigMapResolver         engineapi.ConfigmapResolver
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -116,7 +117,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(p.Store, nil),
+		store.ContextLoaderFactory(p.Store, p.ConfigMapResolver),
 		exceptions.New(policyExceptionLister),
 		&isCluster,
 	)
