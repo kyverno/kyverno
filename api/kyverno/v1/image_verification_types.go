@@ -356,7 +356,8 @@ type ImageRegistryCredentials struct {
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials.
-	// Secrets must live in the Kyverno namespace.
+	// Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+	// imagePullSecrets from the resource namespace are also used.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty"`
 }

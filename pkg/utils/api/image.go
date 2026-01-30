@@ -154,64 +154,6 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 	return extractors
 }
 
-// getPodSpecPath returns the path to the pod spec for a given resource kind
-func getPodSpecPath(kind string) []string {
-	switch kind {
-	case "Pod":
-		return []string{"spec"}
-	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet", "ReplicationController":
-		return []string{"spec", "template", "spec"}
-	case "CronJob":
-		return []string{"spec", "jobTemplate", "spec", "template", "spec"}
-	default:
-		return nil
-	}
-}
-
-// extractImagePullSecrets extracts imagePullSecrets from a resource's pod spec
-func extractImagePullSecrets(resource map[string]interface{}, podSpecPath []string) []string {
-	if resource == nil || len(podSpecPath) == 0 {
-		return nil
-	}
-
-	// Navigate to pod spec
-	current := resource
-	for _, field := range podSpecPath {
-		if field == "" {
-			continue
-		}
-		next, ok := current[field].(map[string]interface{})
-		if !ok {
-			return nil
-		}
-		current = next
-	}
-
-	// Extract imagePullSecrets array
-	pullSecretsRaw, ok := current["imagePullSecrets"]
-	if !ok {
-		return nil
-	}
-
-	pullSecretsArray, ok := pullSecretsRaw.([]interface{})
-	if !ok {
-		return nil
-	}
-
-	var result []string
-	for _, item := range pullSecretsArray {
-		itemMap, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if name, ok := itemMap["name"].(string); ok && name != "" {
-			result = append(result, name)
-		}
-	}
-
-	return result
-}
-
 func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
 	if configs != nil {
 		if extractorConfigs, ok := configs[kind]; ok {

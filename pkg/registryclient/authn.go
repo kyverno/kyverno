@@ -6,19 +6,21 @@ import (
 )
 
 type autoRefreshSecrets struct {
-	lister           corev1listers.SecretNamespaceLister
+	lister           corev1listers.SecretLister
+	defaultNamespace string
 	imagePullSecrets []string
 }
 
-func NewAutoRefreshSecretsKeychain(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) (authn.Keychain, error) {
+func NewAutoRefreshSecretsKeychain(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) (authn.Keychain, error) {
 	return &autoRefreshSecrets{
 		lister:           lister,
+		defaultNamespace: defaultNamespace,
 		imagePullSecrets: imagePullSecrets,
 	}, nil
 }
 
 func (kc *autoRefreshSecrets) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	inner, err := generateKeychainForPullSecrets(kc.lister, kc.imagePullSecrets...)
+	inner, err := generateKeychainForPullSecrets(kc.lister, kc.defaultNamespace, kc.imagePullSecrets...)
 	if err != nil {
 		return nil, err
 	}

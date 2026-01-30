@@ -35,7 +35,7 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
-	secretLister corev1listers.SecretNamespaceLister,
+	secretLister corev1listers.SecretLister,
 	apiCallConfig apicall.APICallConfiguration,
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,
