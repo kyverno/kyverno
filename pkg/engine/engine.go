@@ -283,7 +283,7 @@ func (e *engine) invokeRuleHandler(
 				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
 				if err != nil {
 					logger.Error(err, "failed to get exceptions")
-					return resource, nil
+					return resource, handlers.WithError(rule, ruleType, "failed to get exceptions", err)
 				}
 				// process handler
 				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader, exceptions)
