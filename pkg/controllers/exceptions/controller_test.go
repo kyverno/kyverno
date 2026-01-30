@@ -7,109 +7,37 @@ import (
 )
 
 func TestConstants(t *testing.T) {
-	tests := []struct {
-		name     string
-		got      interface{}
-		expected interface{}
-	}{
-		{
-			name:     "maxRetries constant",
-			got:      maxRetries,
-			expected: 10,
-		},
-		{
-			name:     "Workers constant",
-			got:      Workers,
-			expected: 3,
-		},
-		{
-			name:     "ControllerName constant",
-			got:      ControllerName,
-			expected: "exceptions-controller",
-		},
-	}
+	t.Run("maxRetries", func(t *testing.T) {
+		assert.Equal(t, 10, maxRetries)
+		assert.Greater(t, maxRetries, 0)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.got)
-		})
-	}
+	t.Run("Workers", func(t *testing.T) {
+		assert.Equal(t, 3, Workers)
+		assert.Greater(t, Workers, 0)
+	})
+
+	t.Run("ControllerName", func(t *testing.T) {
+		assert.Equal(t, "exceptions-controller", ControllerName)
+		assert.NotEmpty(t, ControllerName)
+	})
 }
 
-func TestControllerNameValue(t *testing.T) {
-	assert.NotEmpty(t, ControllerName)
-	assert.Equal(t, "exceptions-controller", ControllerName)
+func TestIndexTypes(t *testing.T) {
+	t.Run("ruleIndex creation", func(t *testing.T) {
+		idx := make(ruleIndex)
+		assert.NotNil(t, idx)
+		assert.Empty(t, idx)
+	})
+
+	t.Run("policyIndex creation", func(t *testing.T) {
+		idx := make(policyIndex)
+		assert.NotNil(t, idx)
+		assert.Empty(t, idx)
+	})
 }
 
-func TestWorkersValue(t *testing.T) {
-	assert.Equal(t, 3, Workers)
-	assert.Greater(t, Workers, 0)
-}
-
-func TestMaxRetriesValue(t *testing.T) {
-	assert.Equal(t, 10, maxRetries)
-	assert.Greater(t, maxRetries, 0)
-}
-
-func TestRuleIndexType(t *testing.T) {
-	// Test that ruleIndex can be created and used
-	idx := make(ruleIndex)
-	assert.NotNil(t, idx)
-	assert.Empty(t, idx)
-}
-
-func TestPolicyIndexType(t *testing.T) {
-	// Test that policyIndex can be created and used
-	idx := make(policyIndex)
-	assert.NotNil(t, idx)
-	assert.Empty(t, idx)
-}
-
-func TestRuleIndexOperations(t *testing.T) {
-	idx := make(ruleIndex)
-
-	// Test adding to the index
-	idx["test-rule"] = nil
-	assert.Len(t, idx, 1)
-
-	// Test key exists
-	_, exists := idx["test-rule"]
-	assert.True(t, exists)
-
-	// Test key doesn't exist
-	_, exists = idx["nonexistent"]
-	assert.False(t, exists)
-
-	// Test deletion
-	delete(idx, "test-rule")
-	assert.Empty(t, idx)
-}
-
-func TestPolicyIndexOperations(t *testing.T) {
-	idx := make(policyIndex)
-
-	// Test adding to the index
-	idx["test-policy"] = make(ruleIndex)
-	assert.Len(t, idx, 1)
-
-	// Test nested operations
-	idx["test-policy"]["test-rule"] = nil
-	assert.Len(t, idx["test-policy"], 1)
-
-	// Test key exists
-	_, exists := idx["test-policy"]
-	assert.True(t, exists)
-
-	// Test key doesn't exist
-	_, exists = idx["nonexistent"]
-	assert.False(t, exists)
-
-	// Test deletion
-	delete(idx, "test-policy")
-	assert.Empty(t, idx)
-}
-
-func TestPolicyIndexNested(t *testing.T) {
+func TestPolicyIndexNestedStructure(t *testing.T) {
 	idx := make(policyIndex)
 
 	// Create nested structure
@@ -123,4 +51,12 @@ func TestPolicyIndexNested(t *testing.T) {
 	assert.Len(t, idx, 2)
 	assert.Len(t, idx["policy1"], 2)
 	assert.Len(t, idx["policy2"], 1)
+
+	// Test key exists
+	_, exists := idx["policy1"]
+	assert.True(t, exists)
+
+	// Test deletion
+	delete(idx, "policy1")
+	assert.Len(t, idx, 1)
 }
