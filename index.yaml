@@ -17,6 +17,73 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.17.0-rc.3
+    created: "2026-01-30T19:39:53.060069238Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.7.0-rc.3
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.7.0-rc.3
+    - condition: crds.install
+      name: kyverno-api
+      repository: https://kyverno.github.io/api
+      version: 0.0.1-alpha.2
+    - condition: openreports.installCrds
+      name: openreports
+      repository: https://openreports.github.io/reports-api
+      version: 0.1.0
+    - condition: reportsServer.enabled
+      name: reports-server
+      repository: https://kyverno.github.io/reports-server/
+      version: 0.1.6
+    description: Kubernetes Native Policy Management
+    digest: eec23ace37f4cd87e75f6f42a0ce067c2b8d790ef8944864f892417986df6c36
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.7.0-rc.3.tgz
+    version: 3.7.0-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: Ensure spec.template.metadata isn't null
+        - kind: removed
+          description: Remove the `delete` permission for policyexceptions in the admission controller
+        - kind: changed
+          description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
+        - kind: changed
+          description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.17.0-rc.2
     created: "2026-01-28T09:17:27.688788901Z"
     dependencies:
@@ -16243,4 +16310,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2026-01-30T19:37:00.119046156Z"
+generated: "2026-01-30T19:39:53.031934854Z"
