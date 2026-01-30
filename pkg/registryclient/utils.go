@@ -12,6 +12,9 @@ import (
 
 // generateKeychainForPullSecrets generates keychain by fetching secrets data from imagePullSecrets.
 func generateKeychainForPullSecrets(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) (authn.Keychain, error) {
+	if lister == nil {
+		return authn.DefaultKeychain, nil
+	}
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
 		secret, err := lister.Get(imagePullSecret)
