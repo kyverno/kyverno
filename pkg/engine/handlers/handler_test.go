@@ -20,6 +20,23 @@ func TestWithError(t *testing.T) {
 	assert.Len(t, responses, 1)
 	assert.Equal(t, "test-rule", responses[0].Name())
 	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+	assert.Equal(t, engineapi.Validation, responses[0].RuleType())
+	assert.Contains(t, responses[0].Message(), "test message")
+	assert.Contains(t, responses[0].Message(), "test error")
+}
+
+func TestWithError_NilError(t *testing.T) {
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+	}
+
+	responses := WithError(rule, engineapi.Validation, "test message", nil)
+
+	assert.Len(t, responses, 1)
+	assert.Equal(t, "test-rule", responses[0].Name())
+	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+	assert.Equal(t, engineapi.Validation, responses[0].RuleType())
+	assert.Contains(t, responses[0].Message(), "test message")
 }
 
 func TestWithSkip(t *testing.T) {
@@ -32,6 +49,8 @@ func TestWithSkip(t *testing.T) {
 	assert.Len(t, responses, 1)
 	assert.Equal(t, "test-rule", responses[0].Name())
 	assert.Equal(t, engineapi.RuleStatusSkip, responses[0].Status())
+	assert.Equal(t, engineapi.Validation, responses[0].RuleType())
+	assert.Equal(t, "test skip message", responses[0].Message())
 }
 
 func TestWithPass(t *testing.T) {
@@ -44,6 +63,8 @@ func TestWithPass(t *testing.T) {
 	assert.Len(t, responses, 1)
 	assert.Equal(t, "test-rule", responses[0].Name())
 	assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+	assert.Equal(t, engineapi.Validation, responses[0].RuleType())
+	assert.Equal(t, "test pass message", responses[0].Message())
 }
 
 func TestWithFail(t *testing.T) {
@@ -56,6 +77,8 @@ func TestWithFail(t *testing.T) {
 	assert.Len(t, responses, 1)
 	assert.Equal(t, "test-rule", responses[0].Name())
 	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Equal(t, engineapi.Validation, responses[0].RuleType())
+	assert.Equal(t, "test fail message", responses[0].Message())
 }
 
 func TestWithResponses_NilInput(t *testing.T) {
@@ -94,6 +117,8 @@ func TestWithResponses_MultipleResponses(t *testing.T) {
 	assert.Len(t, responses, 2)
 	assert.Equal(t, "rule-1", responses[0].Name())
 	assert.Equal(t, "rule-2", responses[1].Name())
+	assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+	assert.Equal(t, engineapi.RuleStatusFail, responses[1].Status())
 }
 
 func TestWithError_DifferentRuleTypes(t *testing.T) {
@@ -113,6 +138,7 @@ func TestWithError_DifferentRuleTypes(t *testing.T) {
 
 			assert.Len(t, responses, 1)
 			assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+			assert.Equal(t, ruleType, responses[0].RuleType())
 		})
 	}
 }
@@ -133,6 +159,7 @@ func TestWithSkip_DifferentRuleTypes(t *testing.T) {
 
 			assert.Len(t, responses, 1)
 			assert.Equal(t, engineapi.RuleStatusSkip, responses[0].Status())
+			assert.Equal(t, ruleType, responses[0].RuleType())
 		})
 	}
 }
@@ -153,6 +180,7 @@ func TestWithPass_DifferentRuleTypes(t *testing.T) {
 
 			assert.Len(t, responses, 1)
 			assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+			assert.Equal(t, ruleType, responses[0].RuleType())
 		})
 	}
 }
@@ -173,6 +201,7 @@ func TestWithFail_DifferentRuleTypes(t *testing.T) {
 
 			assert.Len(t, responses, 1)
 			assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+			assert.Equal(t, ruleType, responses[0].RuleType())
 		})
 	}
 }
@@ -200,4 +229,7 @@ func TestWithError_WithReportProperties(t *testing.T) {
 
 	assert.Len(t, responses, 1)
 	assert.Equal(t, "test-rule", responses[0].Name())
+	props := responses[0].Properties()
+	assert.NotNil(t, props)
+	assert.Equal(t, "value", props["key"])
 }
