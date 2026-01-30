@@ -6,7 +6,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -151,7 +151,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	return compiled, allErrs
 }
 
-func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1alpha1.MatchImageReference) (MatchImageReference, field.ErrorList) {
+func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1beta1.MatchImageReference) (MatchImageReference, field.ErrorList) {
 	var allErrs field.ErrorList
 	if match.Glob != "" {
 		path := path.Child("glob")
@@ -180,7 +180,7 @@ func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1alpha1.M
 	return nil, append(allErrs, field.Invalid(path, match, "either glob or expression must be set"))
 }
 
-func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1alpha1.MatchImageReference) (result []MatchImageReference, allErrs field.ErrorList) {
+func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1beta1.MatchImageReference) (result []MatchImageReference, allErrs field.ErrorList) {
 	if len(matches) == 0 {
 		return nil, nil
 	}
