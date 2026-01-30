@@ -68,6 +68,7 @@ func Test_MatchResources(t *testing.T) {
 		}
 	}
 }
+
 func TestMatchResources_Validate_Empty_NoPanic(t *testing.T) {
 	mr := MatchResources{}
 	
