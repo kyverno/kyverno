@@ -11,6 +11,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
+// jmespathMultiSelectIdentifiers matches a JMESPath expression that starts with a multi-select list
+// e.g. "[allPods, static]" or "[allPods, static] []" and captures the comma-separated identifiers.
+// Note: This pattern does not support nested brackets (e.g., [[a, b], c]) or quoted identifiers.
+// Only simple identifier names are validated; trailing operators (e.g., [] flatten, | pipes) are ignored.
+var jmespathMultiSelectIdentifiers = regexp.MustCompile(`^\s*\[\s*([^\[\]]+)\]\s*`)
+
 // MockContext is used for testing and validation of variables
 type MockContext struct {
 	mutex           sync.RWMutex
@@ -54,6 +60,28 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 	}
 
 	if ctx.isVariableDefined(query) {
+		return emptyResult, nil
+	}
+
+	if submatches := jmespathMultiSelectIdentifiers.FindStringSubmatch(query); len(submatches) == 2 {
+		identifiersStr := strings.TrimSpace(submatches[1])
+		for _, ident := range strings.Split(identifiersStr, ",") {
+			ident = strings.TrimSpace(ident)
+			if ident == "" {
+				continue
+			}
+			if ctx.re != nil && ctx.re.MatchString(ident) {
+				continue
+			}
+			if ctx.isVariableDefined(ident) {
+				continue
+			}
+			return emptyResult, InvalidVariableError{
+				variable:        ident,
+				re:              ctx.re,
+				allowedPatterns: ctx.allowedPatterns,
+			}
+		}
 		return emptyResult, nil
 	}
 
