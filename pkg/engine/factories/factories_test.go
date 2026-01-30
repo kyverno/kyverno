@@ -39,7 +39,6 @@ func TestWithInitializer(t *testing.T) {
 	opt := WithInitializer(initializer)
 
 	assert.NotNil(t, opt)
-	// Applying the option should work
 	cl := &contextLoader{}
 	opt(cl)
 	assert.Len(t, cl.initializers, 1)
@@ -54,6 +53,7 @@ func TestWithAPICallConfig(t *testing.T) {
 	// Applying the option should work
 	cl := &contextLoader{}
 	opt(cl)
+	assert.Equal(t, config, cl.apiCallConfig)
 }
 
 func TestWithGlobalContextStore(t *testing.T) {
@@ -141,4 +141,65 @@ func TestContextLoader_Load_NilEntries(t *testing.T) {
 	err := loader.Load(context.Background(), nil, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
+}
+
+func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
+	tests := []struct {
+		name      string
+		creds     *kyvernov1.ImageRegistryCredentials
+		wantNil   bool
+		wantError bool
+	}{
+		{
+			name:      "nil credentials returns global client",
+			creds:     nil,
+			wantNil:   true,
+			wantError: false,
+		},
+		{
+			name: "insecure registry option",
+			creds: &kyvernov1.ImageRegistryCredentials{
+				AllowInsecureRegistry: true,
+			},
+			wantNil:   false,
+			wantError: false,
+		},
+		{
+			name: "with providers",
+			creds: &kyvernov1.ImageRegistryCredentials{
+				Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{
+					kyvernov1.ImageRegistryCredentialsProvidersDefault,
+				},
+			},
+			wantNil:   false,
+			wantError: false,
+		},
+		{
+			name: "with secrets configured",
+			creds: &kyvernov1.ImageRegistryCredentials{
+				Secrets: []string{"secret-1", "secret-2"},
+			},
+			wantNil:   false,
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := DefaultRegistryClientFactory(nil, nil)
+			client, err := factory.GetClient(context.Background(), tt.creds)
+
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.wantNil {
+				assert.Nil(t, client)
+			} else {
+				assert.NotNil(t, client)
+			}
+		})
+	}
 }
