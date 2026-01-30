@@ -812,16 +812,16 @@ codegen-all: codegen-all-docs
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
-	@$(SED) -i 's/version: .* # VERSION/version: $(POLICIES_CHART_VERSION) # VERSION/' 		charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(POLICIES_CHART_VERSION)  # VERSION/' 	charts/kyverno-policies/Chart.yaml
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/version: .* # VERSION/version: $(KYVERNO_CHART_VERSION) # VERSION/' 		charts/kyverno/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/Chart.yaml
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
-	@$(SED) -i 's/version: .* # VERSION/version: $(KYVERNO_CHART_VERSION) # VERSION/' 		charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/crds/Chart.yaml
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/version: .* # VERSION/version: $(KYVERNO_CHART_VERSION) # VERSION/' 		charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/grafana/Chart.yaml
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
 
