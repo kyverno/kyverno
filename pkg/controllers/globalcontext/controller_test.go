@@ -35,18 +35,3 @@ func TestConstants(t *testing.T) {
 		})
 	}
 }
-
-func TestControllerNameValue(t *testing.T) {
-	assert.NotEmpty(t, ControllerName)
-	assert.Equal(t, "global-context", ControllerName)
-}
-
-func TestWorkersValue(t *testing.T) {
-	assert.Equal(t, 1, Workers)
-	assert.Greater(t, Workers, 0)
-}
-
-func TestMaxRetriesValue(t *testing.T) {
-	assert.Equal(t, 10, maxRetries)
-	assert.Greater(t, maxRetries, 0)
-}
