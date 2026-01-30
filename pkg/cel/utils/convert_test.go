@@ -189,12 +189,11 @@ func TestGetValue(t *testing.T) {
 				"inner": "value",
 			},
 		},
-	},
-	}
+	}, {
 		name: "struct",
 		data: struct {
 			Foo string `json:"foo"`
-		}, {
+		}{
 			Foo: "bar",
 		},
 		want: map[string]any{
