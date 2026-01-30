@@ -157,9 +157,47 @@ func TestGetValue(t *testing.T) {
 		name:    "error",
 		data:    func() {},
 		wantErr: true,
-	},
-	// TODO: Add test cases.
-	}
+	}, {
+		name: "struct",
+		data: struct {
+			Foo string `json:"foo"`
+		}{
+			Foo: "bar",
+		},
+		want: map[string]any{
+			"foo": "bar",
+		},
+	}, {
+		name: "map",
+		data: map[string]any{
+			"foo": "bar",
+		},
+		want: map[string]any{
+			"foo": "bar",
+		},
+	}, {
+		name: "unstructured",
+		data: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata": map[string]any{
+					"name": "foo",
+				},
+				"spec":   map[string]any{},
+				"status": map[string]any{},
+			},
+		},
+		want: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]any{
+				"name": "foo",
+			},
+			"spec":   map[string]any{},
+			"status": map[string]any{},
+		},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GetValue(tt.data)
