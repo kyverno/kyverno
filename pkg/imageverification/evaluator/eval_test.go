@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -24,7 +25,7 @@ var (
 	ivpol = &policiesv1beta1.ImageValidatingPolicy{
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policiesv1beta1.EvaluationModeJSON,
+				Mode: policieskyvernoio.EvaluationModeJSON,
 			},
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{
