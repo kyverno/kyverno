@@ -45,7 +45,7 @@ jobs:
           echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
           echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
       - name: Restore gomod cache
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ env.GO_MOD_CACHE }}
           key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
@@ -54,7 +54,7 @@ jobs:
             gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
       - name: Restore gobuild cache
         if: github.ref != 'refs/heads/main'
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ env.GO_BUILD_CACHE }}
           key: gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
@@ -1154,7 +1154,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          helm uninstall kyverno -n kyverno --wait --no-hooks
+          helm uninstall kyverno -n kyverno --wait --timeout 1m --no-hooks
       - name: Check validating webhook count
         shell: bash
         run: |
@@ -1297,13 +1297,16 @@ jobs:
       - filter
       - force-failure-policy-ignore
       - generate
-      - generate-validating-admission-policy
       - generate-mutating-admission-policy
+      - generate-validating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
       - lease
       - mutate
+      - mutating-admission-policy-reports
+      - reports-exclude-result
+      - mutating-policies
       - namespaced-deleting-policies
       - namespaced-generating-policies
       - namespaced-image-validating-policies
@@ -1315,12 +1318,10 @@ jobs:
       - rangeoperators
       - rbac
       - reports
-      - reports-exclude-result
       - sigstore-custom-tuf
       - ttl
       - validate
       - validating-admission-policy-reports
-      - mutating-admission-policy-reports
       - validating-policies
       - verify-images
       - verify-manifests
@@ -1353,13 +1354,16 @@ jobs:
       - filter
       - force-failure-policy-ignore
       - generate
-      - generate-validating-admission-policy
       - generate-mutating-admission-policy
+      - generate-validating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
       - lease
       - mutate
+      - mutating-admission-policy-reports
+      - reports-exclude-result
+      - mutating-policies
       - namespaced-deleting-policies
       - namespaced-generating-policies
       - namespaced-image-validating-policies
@@ -1375,7 +1379,6 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
-      - mutating-admission-policy-reports
       - validating-policies
       - verify-images
       - verify-manifests
