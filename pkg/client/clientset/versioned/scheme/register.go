@@ -19,8 +19,6 @@ limitations under the License.
 package scheme
 
 import (
-	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -43,9 +41,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov2.AddToScheme,
 	kyvernov2alpha1.AddToScheme,
 	kyvernov2beta1.AddToScheme,
-	policiesv1alpha1.AddToScheme,
 	policiesv1beta1.AddToScheme,
-	policiesv1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
 	reportsv1.AddToScheme,
 }
