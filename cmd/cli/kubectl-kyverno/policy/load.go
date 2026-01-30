@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
-	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
