@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: my-policy
+spec:
+  rules:
+  - name: my-policy
+    match:
+      any:
+      - resources:
+          kinds:
+            - Pod
+    validate:
+      foreach:
+      - list: "request.object.spec.containers"
+        podSecurity:
+          level: restricted
+          version: latest
+          

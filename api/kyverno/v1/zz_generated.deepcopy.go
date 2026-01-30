@@ -651,6 +651,11 @@ func (in *ForEachValidation) DeepCopyInto(out *ForEachValidation) {
 		*out = new(Deny)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PodSecurity != nil {
+		in, out := &in.PodSecurity, &out.PodSecurity
+		*out = new(PodSecurity)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ForEachValidation != nil {
 		in, out := &in.ForEachValidation, &out.ForEachValidation
 		*out = (*in).DeepCopy()

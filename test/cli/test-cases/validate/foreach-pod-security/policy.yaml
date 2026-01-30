@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restricted-containers-only
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-containers
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        foreach:
+          # This list selector is the key to the feature
+          - list: "request.object.spec.containers"
+            podSecurity:
+              level: restricted
+              version: latest
