@@ -13,7 +13,7 @@ spec:
     - name: jsonStr
       expression: "\"{\\\"env\\\":\\\"prod\\\", \\\"foo\\\":\\\"baz\\\"}\""
     - name: jsonObj
-      expression: json.Unmarshal(variables.jsonStr)
+      expression: json.unmarshal(variables.jsonStr)
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.jsonObj['env']
