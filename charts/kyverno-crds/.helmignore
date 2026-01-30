@@ -1,0 +1,36 @@
+# VCS
+.git/
+.gitignore
+
+# Backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+
+# IDEs
+.project
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test/docs
+tests/
+docs/
+examples/
+*.test
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Build
+*.tgz
+*.tar.gz
+dist/
+build/
