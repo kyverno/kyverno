@@ -1154,7 +1154,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          helm uninstall kyverno -n kyverno --wait --no-hooks
+          helm uninstall kyverno -n kyverno --wait --timeout 1m --no-hooks
       - name: Check validating webhook count
         shell: bash
         run: |
@@ -1297,13 +1297,16 @@ jobs:
       - filter
       - force-failure-policy-ignore
       - generate
-      - generate-validating-admission-policy
       - generate-mutating-admission-policy
+      - generate-validating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
       - lease
       - mutate
+      - mutating-admission-policy-reports
+      - reports-exclude-result
+      - mutating-policies
       - namespaced-deleting-policies
       - namespaced-generating-policies
       - namespaced-image-validating-policies
@@ -1315,12 +1318,10 @@ jobs:
       - rangeoperators
       - rbac
       - reports
-      - reports-exclude-result
       - sigstore-custom-tuf
       - ttl
       - validate
       - validating-admission-policy-reports
-      - mutating-admission-policy-reports
       - validating-policies
       - verify-images
       - verify-manifests
@@ -1353,13 +1354,16 @@ jobs:
       - filter
       - force-failure-policy-ignore
       - generate
-      - generate-validating-admission-policy
       - generate-mutating-admission-policy
+      - generate-validating-admission-policy
       - generating-policies
       - globalcontext
       - image-validating-policies
       - lease
       - mutate
+      - mutating-admission-policy-reports
+      - reports-exclude-result
+      - mutating-policies
       - namespaced-deleting-policies
       - namespaced-generating-policies
       - namespaced-image-validating-policies
@@ -1375,7 +1379,6 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
-      - mutating-admission-policy-reports
       - validating-policies
       - verify-images
       - verify-manifests
