@@ -49,7 +49,7 @@ dependencies:
     version: v0.0.0
     condition: crds.install
   - name: kyverno-api
-    version: "0.0.1-alpha.1"
+    version: "0.0.1-alpha.2"
     repository: "https://kyverno.github.io/api"
     condition: crds.install
   - name: openreports
