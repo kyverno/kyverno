@@ -318,10 +318,10 @@ func Test_handleMutateExisting(t *testing.T) {
 			}
 
 			request := handlers.AdmissionRequest{
-				AdmissionRequest:  admissionReq,
-				GroupVersionKind:  gvk,
-				Roles:             nil,
-				ClusterRoles:      nil,
+				AdmissionRequest: admissionReq,
+				GroupVersionKind: gvk,
+				Roles:            nil,
+				ClusterRoles:     nil,
 			}
 
 			logger := logr.Discard()
@@ -409,10 +409,10 @@ func Test_handleGenerate(t *testing.T) {
 			}
 
 			request := handlers.AdmissionRequest{
-				AdmissionRequest:  admissionReq,
-				GroupVersionKind:  gvk,
-				Roles:             nil,
-				ClusterRoles:      nil,
+				AdmissionRequest: admissionReq,
+				GroupVersionKind: gvk,
+				Roles:            nil,
+				ClusterRoles:     nil,
 			}
 
 			logger := logr.Discard()
@@ -473,10 +473,10 @@ func Test_handleBackgroundApplies(t *testing.T) {
 	}
 
 	request := handlers.AdmissionRequest{
-		AdmissionRequest:  admissionReq,
-		GroupVersionKind:  gvk,
-		Roles:             nil,
-		ClusterRoles:      nil,
+		AdmissionRequest: admissionReq,
+		GroupVersionKind: gvk,
+		Roles:            nil,
+		ClusterRoles:     nil,
 	}
 
 	logger := logr.Discard()
@@ -492,12 +492,12 @@ func Test_handleBackgroundApplies(t *testing.T) {
 
 func Test_skipBackgroundRequests(t *testing.T) {
 	tests := []struct {
-		name                 string
-		policy               string
-		backgroundSaDesired  string
-		backgroundSaActual   string
-		expectedRulesCount   int
-		expectedPolicyIsNil  bool
+		name                string
+		policy              string
+		backgroundSaDesired string
+		backgroundSaActual  string
+		expectedRulesCount  int
+		expectedPolicyIsNil bool
 	}{
 		{
 			name:                "policy without skipBackgroundRequests - different service accounts",
@@ -599,10 +599,10 @@ func Test_handleMutateExisting_withDeleteOperation(t *testing.T) {
 	}
 
 	request := handlers.AdmissionRequest{
-		AdmissionRequest:  admissionReq,
-		GroupVersionKind:  gvk,
-		Roles:             nil,
-		ClusterRoles:      nil,
+		AdmissionRequest: admissionReq,
+		GroupVersionKind: gvk,
+		Roles:            nil,
+		ClusterRoles:     nil,
 	}
 
 	logger := logr.Discard()
@@ -658,10 +658,10 @@ func Test_handleMutateExisting_noPolicyWithMutateExisting(t *testing.T) {
 	}
 
 	request := handlers.AdmissionRequest{
-		AdmissionRequest:  admissionReq,
-		GroupVersionKind:  gvk,
-		Roles:             nil,
-		ClusterRoles:      nil,
+		AdmissionRequest: admissionReq,
+		GroupVersionKind: gvk,
+		Roles:            nil,
+		ClusterRoles:     nil,
 	}
 
 	logger := logr.Discard()
