@@ -19,9 +19,9 @@ func TestNewHandlers(t *testing.T) {
 	opts := validation.ValidationOptions{
 		Enabled: true,
 	}
-	
+
 	h := NewHandlers(opts)
-	
+
 	assert.NotNil(t, h)
 	assert.True(t, h.validationOptions.Enabled)
 }
@@ -30,25 +30,25 @@ func TestNewHandlers_WithDisabledValidation(t *testing.T) {
 	opts := validation.ValidationOptions{
 		Enabled: false,
 	}
-	
+
 	h := NewHandlers(opts)
-	
+
 	assert.NotNil(t, h)
 	assert.False(t, h.validationOptions.Enabled)
 }
 
 func TestNewHandlers_DefaultOptions(t *testing.T) {
 	opts := validation.ValidationOptions{}
-	
+
 	h := NewHandlers(opts)
-	
+
 	assert.NotNil(t, h)
 	assert.False(t, h.validationOptions.Enabled)
 }
 
 func TestValidate_InvalidRequest(t *testing.T) {
 	h := NewHandlers(validation.ValidationOptions{Enabled: true})
-	
+
 	// Create an invalid admission request (not a CEL PolicyException)
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
@@ -61,16 +61,16 @@ func TestValidate_InvalidRequest(t *testing.T) {
 			Object:    runtime.RawExtension{Raw: []byte(`{"invalid": "json"}`)},
 		},
 	}
-	
+
 	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
-	
+
 	// Should return an error response for invalid object
 	assert.Equal(t, "test-uid", string(response.UID))
 }
 
 func TestValidate_EmptyObject(t *testing.T) {
 	h := NewHandlers(validation.ValidationOptions{Enabled: true})
-	
+
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
 			UID:       "test-uid-empty",
@@ -79,15 +79,15 @@ func TestValidate_EmptyObject(t *testing.T) {
 			Object:    runtime.RawExtension{Raw: []byte(`{}`)},
 		},
 	}
-	
+
 	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
-	
+
 	assert.Equal(t, "test-uid-empty", string(response.UID))
 }
 
 func TestValidate_NilObject(t *testing.T) {
 	h := NewHandlers(validation.ValidationOptions{Enabled: true})
-	
+
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
 			UID:       "test-uid-nil",
@@ -96,9 +96,9 @@ func TestValidate_NilObject(t *testing.T) {
 			Object:    runtime.RawExtension{},
 		},
 	}
-	
+
 	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
-	
+
 	assert.Equal(t, "test-uid-nil", string(response.UID))
 }
 
@@ -128,11 +128,11 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 			expectedUID: "uid-3",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandlers(validation.ValidationOptions{Enabled: tt.enabled})
-			
+
 			request := handlers.AdmissionRequest{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					UID:       types.UID(tt.expectedUID),
@@ -141,9 +141,9 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 					Object:    runtime.RawExtension{Raw: []byte(tt.objectJSON)},
 				},
 			}
-			
+
 			response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
-			
+
 			assert.Equal(t, tt.expectedUID, string(response.UID))
 		})
 	}
@@ -151,10 +151,10 @@ func TestValidate_MultipleScenarios(t *testing.T) {
 
 func TestValidate_ContextCancellation(t *testing.T) {
 	h := NewHandlers(validation.ValidationOptions{Enabled: true})
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-	
+
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
 			UID:       "test-uid-cancelled",
@@ -163,10 +163,10 @@ func TestValidate_ContextCancellation(t *testing.T) {
 			Object:    runtime.RawExtension{Raw: []byte(`{}`)},
 		},
 	}
-	
+
 	// Should still return a response even with cancelled context
 	response := h.Validate(ctx, logr.Discard(), request, "", time.Now())
-	
+
 	assert.Equal(t, "test-uid-cancelled", string(response.UID))
 }
 
