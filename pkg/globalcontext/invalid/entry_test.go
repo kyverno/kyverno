@@ -9,10 +9,10 @@ import (
 
 func TestEntry(t *testing.T) {
 	tests := []struct {
-		name        string
-		inputErr    error
-		wantNil     bool
-		wantErrMsg  string
+		name       string
+		inputErr   error
+		wantNil    bool
+		wantErrMsg string
 	}{
 		{"simple error", errors.New("connection failed"), true, "failed to create cached context entry: connection failed"},
 		{"wrapped error", errors.New("timeout"), true, "failed to create cached context entry: timeout"},
