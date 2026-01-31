@@ -34,7 +34,7 @@ func (*lib) LibraryName() string {
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		func(e *cel.Env) (*cel.Env, error) {
-			nowFunc := cel.Function("now", cel.Overload(
+			nowFunc := cel.Function("time.now", cel.Overload(
 				"time_now",
 				[]*cel.Type{},
 				types.TimestampType,
@@ -42,7 +42,7 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 					return e.CELTypeAdapter().NativeToValue(types.Timestamp{Time: time.Now()})
 				})))
 
-			toCronFunc := cel.Function("toCron", cel.Overload(
+			toCronFunc := cel.Function("time.toCron", cel.Overload(
 				"time_to_cron",
 				[]*cel.Type{types.TimestampType},
 				types.StringType,
@@ -60,7 +60,7 @@ func (c *lib) CompileOptions() []cel.EnvOption {
 					return e.CELTypeAdapter().NativeToValue(cron)
 				})))
 
-			truncateFunc := cel.Function("truncate", cel.Overload(
+			truncateFunc := cel.Function("time.truncate", cel.Overload(
 				"time_truncate",
 				[]*cel.Type{types.TimestampType, types.DurationType},
 				types.TimestampType,

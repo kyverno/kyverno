@@ -21,7 +21,7 @@ func Test_time_now(t *testing.T) {
 	assert.NotNil(t, env)
 
 	t.Run("time_now", func(t *testing.T) {
-		ast, issues := env.Compile(`now() - duration("3h")`)
+		ast, issues := env.Compile(`time.now() - duration("3h")`)
 		assert.Nil(t, issues)
 		assert.NotNil(t, ast)
 		prog, err := env.Program(ast)
@@ -46,7 +46,7 @@ func Test_time_truncate(t *testing.T) {
 
 	t.Run("time_truncate", func(t *testing.T) {
 		expr := `
-			truncate(
+			time.truncate(
 				timestamp("2025-01-02T03:45:27Z"),
 				duration("1h")
 			)
@@ -82,7 +82,7 @@ func Test_time_toCron(t *testing.T) {
 	assert.NotNil(t, env)
 
 	t.Run("time_toCron", func(t *testing.T) {
-		expr := `toCron(timestamp("2025-01-02T15:30:00Z"))`
+		expr := `time.toCron(timestamp("2025-01-02T15:30:00Z"))`
 		ast, issues := env.Compile(expr)
 		assert.Nil(t, issues)
 		assert.NotNil(t, ast)

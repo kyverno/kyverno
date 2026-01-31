@@ -56,7 +56,7 @@ func (*lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	impl := impl{adapter}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"Parse": {
+		"parse": {
 			cel.MemberOverload("parse_string_dyn", []*cel.Type{YamlType, types.StringType}, types.DynType, cel.BinaryBinding(impl.parse)),
 		},
 	}

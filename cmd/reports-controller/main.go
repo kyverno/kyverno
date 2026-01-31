@@ -108,7 +108,6 @@ func createReportControllers(
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
-	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
 	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
@@ -147,7 +146,7 @@ func createReportControllers(
 					policiesV1beta1.NamespacedValidatingPolicies(),
 					policiesV1beta1.ImageValidatingPolicies(),
 					policiesV1beta1.NamespacedImageValidatingPolicies(),
-					policiesV1alpha1.GeneratingPolicies(),
+					policiesV1beta1.GeneratingPolicies(),
 					policiesV1beta1.MutatingPolicies(),
 					vapInformer,
 					mapInformer,

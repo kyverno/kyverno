@@ -280,6 +280,9 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []openrepo
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
 			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
@@ -295,6 +298,9 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
+			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+				continue
+			}
 			property := make([]string, 0)
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))

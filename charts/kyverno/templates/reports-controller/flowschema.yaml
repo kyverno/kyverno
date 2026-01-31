@@ -23,6 +23,7 @@ spec:
     - apiGroups:
         - reports.kyverno.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterephemeralreports
       verbs:
@@ -52,6 +53,7 @@ spec:
     - apiGroups:
         - wgpolicyk8s.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterpolicyreports
         - clusterpolicyreports/status

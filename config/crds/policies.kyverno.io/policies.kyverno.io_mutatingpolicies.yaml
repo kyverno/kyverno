@@ -2275,6 +2275,24 @@ spec:
                           Optional. Default value is "true".
                         type: boolean
                     type: object
+                  background:
+                    description: Background controls policy evaluation during background
+                      scan.
+                    properties:
+                      enabled:
+                        default: true
+                        description: |-
+                          Enabled controls if rules are applied to existing resources during a background scan.
+                          Optional. Default value is "true". The value must be set to "false" if the policy rule
+                          uses variables that are only available in the admission review request (e.g. user name).
+                        type: boolean
+                    type: object
+                  mode:
+                    description: |-
+                      Mode is the mode of policy evaluation.
+                      Allowed values are "Kubernetes" or "JSON".
+                      Optional. Default value is "Kubernetes".
+                    type: string
                   mutateExisting:
                     description: MutateExisting controls whether existing resources
                       are mutated.
@@ -2363,7 +2381,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -2451,13 +2469,12 @@ spec:
                       - Exact: match a request only if it exactly matches a specified rule.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                      a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                       - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                       For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                       and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                      the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                      API groups. The API server translates the request to a matched resource API if necessary.
+                      a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                       Defaults to "Equivalent"
                     type: string
@@ -2552,9 +2569,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the policy based on if the
+                      ObjectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
-                      the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                      the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
                       object (oldObject in the case of create, or newObject in the case of
                       delete) or an object that cannot have labels (like a
@@ -2609,7 +2626,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -3184,7 +3201,7 @@ spec:
                   Thus, Variables must be sorted by the order of first appearance and acyclic.
                 items:
                   description: Variable is the definition of a variable that is used
-                    for composition.
+                    for composition. A variable is defined as a named expression.
                   properties:
                     expression:
                       description: |-
@@ -3201,6 +3218,7 @@ spec:
                   - expression
                   - name
                   type: object
+                  x-kubernetes-map-type: atomic
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -3269,6 +3287,24 @@ spec:
                                         Optional. Default value is "true".
                                       type: boolean
                                   type: object
+                                background:
+                                  description: Background controls policy evaluation
+                                    during background scan.
+                                  properties:
+                                    enabled:
+                                      default: true
+                                      description: |-
+                                        Enabled controls if rules are applied to existing resources during a background scan.
+                                        Optional. Default value is "true". The value must be set to "false" if the policy rule
+                                        uses variables that are only available in the admission review request (e.g. user name).
+                                      type: boolean
+                                  type: object
+                                mode:
+                                  description: |-
+                                    Mode is the mode of policy evaluation.
+                                    Allowed values are "Kubernetes" or "JSON".
+                                    Optional. Default value is "Kubernetes".
+                                  type: string
                                 mutateExisting:
                                   description: MutateExisting controls whether existing
                                     resources are mutated.
@@ -3358,7 +3394,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the policy should not care about.
+                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -3447,13 +3483,12 @@ spec:
                                     - Exact: match a request only if it exactly matches a specified rule.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy does not consider requests to apps/v1beta1 or extensions/v1beta1 API groups.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
 
                                     - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
                                     For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
                                     and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
-                                    the admission policy **does** consider requests made to apps/v1beta1 or extensions/v1beta1
-                                    API groups. The API server translates the request to a matched resource API if necessary.
+                                    a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
 
                                     Defaults to "Equivalent"
                                   type: string
@@ -3549,9 +3584,9 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the policy based on if the
+                                    ObjectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
-                                    the oldObject and newObject that would be sent to the policy's expression (CEL), and
+                                    the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
                                     object (oldObject in the case of create, or newObject in the case of
                                     delete) or an object that cannot have labels (like a
@@ -3607,7 +3642,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the admission policy matches.
+                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -4211,7 +4246,8 @@ spec:
                                 Thus, Variables must be sorted by the order of first appearance and acyclic.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -4228,6 +4264,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                               x-kubernetes-list-map-keys:
                               - name
@@ -4348,6 +4385,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.evaluation.mode
     served: true
     storage: false
     subresources:

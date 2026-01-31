@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -404,7 +404,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 
 func NewDeletingPolicyEvent(policy v1beta1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
-		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		APIVersion: schema.GroupVersion(v1beta1.GroupVersion).String(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),

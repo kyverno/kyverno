@@ -58,7 +58,7 @@ func (*lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	impl := impl{adapter}
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
-		"Unmarshal": {
+		"unmarshal": {
 			cel.MemberOverload("unmarshal_string_dyn", []*cel.Type{JsonType, types.DynType}, types.DynType, cel.BinaryBinding(impl.unmarshal)),
 		},
 	}
