@@ -323,7 +323,11 @@ func TestRuntime_ContextPropagation(t *testing.T) {
 		},
 		{
 			name: "context with timeout",
-			ctx:  func() context.Context { ctx, cancel := context.WithTimeout(context.Background(), time.Second); defer cancel(); return ctx }(),
+			ctx: func() context.Context {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				return ctx
+			}(),
 		},
 		{
 			name: "context with value",
