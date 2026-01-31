@@ -13,7 +13,7 @@ on:
       - completed
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.event.workflow_run.id }}
   cancel-in-progress: true
 
 jobs:
