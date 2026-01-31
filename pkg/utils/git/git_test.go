@@ -256,5 +256,3 @@ func TestListYamls_NonexistentPath(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, yamls)
 }
-
-
