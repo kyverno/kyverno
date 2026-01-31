@@ -1,12 +1,18 @@
 package restmapper
 
 import (
+	"context"
+	"io"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 )
 
 // mockDClient implements dclient.Interface for testing
@@ -18,14 +24,59 @@ func (m *mockDClient) GetKubeClient() kubernetes.Interface {
 	return m.kubeClient
 }
 
-// Implement other required methods as no-ops for testing
-func (m *mockDClient) Discovery() dclient.IDiscovery                     { return nil }
-func (m *mockDClient) GetEventsInterface() dclient.EventInterface        { return nil }
-func (m *mockDClient) GetResource(apiVersion, kind, namespace, name, subresources string) (interface{}, error) {
+func (m *mockDClient) Discovery() dclient.IDiscovery {
+	return nil
+}
+
+func (m *mockDClient) GetEventsInterface() eventsv1.EventsV1Interface {
+	return nil
+}
+
+func (m *mockDClient) GetDynamicInterface() dynamic.Interface {
+	return nil
+}
+
+func (m *mockDClient) SetDiscovery(discoveryClient dclient.IDiscovery) {
+}
+
+func (m *mockDClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return nil, nil
 }
-func (m *mockDClient) GetDynamicInterface() dclient.DynamicInterface { return nil }
-func (m *mockDClient) SetDiscovery(discoveryClient dclient.IDiscovery) {
+
+func (m *mockDClient) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) PatchResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error {
+	return nil
+}
+
+func (m *mockDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (m *mockDClient) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error) {
+	return nil, nil
 }
 
 func TestGetRESTMapper(t *testing.T) {
