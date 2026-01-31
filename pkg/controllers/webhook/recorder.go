@@ -33,8 +33,9 @@ func (s *Recorder) Ready(key string) (bool, bool) {
 
 func (s *Recorder) Record(key string) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
 	s.data[key] = true
+	s.lock.Unlock()
+
 	if s.NotifyChan != nil {
 		s.NotifyChan <- key
 	}
