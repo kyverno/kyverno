@@ -19,18 +19,18 @@ func TestHandlerFunc_Execute(t *testing.T) {
 			Message: "test response",
 		},
 	}
-	
+
 	handlerCalled := false
 	var capturedCtx context.Context
 	var capturedFailurePolicy string
-	
+
 	handler := HandlerFunc(func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
 		handlerCalled = true
 		capturedCtx = ctx
 		capturedFailurePolicy = failurePolicy
 		return expectedResponse
 	})
-	
+
 	ctx := context.Background()
 	logger := logr.Discard()
 	request := handlers.AdmissionRequest{
@@ -40,9 +40,9 @@ func TestHandlerFunc_Execute(t *testing.T) {
 	}
 	failurePolicy := "Fail"
 	startTime := time.Now()
-	
+
 	response := handler.Execute(ctx, logger, request, failurePolicy, startTime)
-	
+
 	assert.True(t, handlerCalled, "handler function should be called")
 	assert.Equal(t, ctx, capturedCtx)
 	assert.Equal(t, failurePolicy, capturedFailurePolicy)
@@ -97,7 +97,7 @@ func TestHandlerFunc_Execute_ResponseStates(t *testing.T) {
 func TestHandlerFunc_Execute_WithPatch(t *testing.T) {
 	patchType := admissionv1.PatchTypeJSONPatch
 	patch := []byte(`[{"op": "add", "path": "/metadata/labels/test", "value": "true"}]`)
-	
+
 	handler := HandlerFunc(func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
 		return admissionv1.AdmissionResponse{
 			Allowed:   true,
@@ -105,9 +105,9 @@ func TestHandlerFunc_Execute_WithPatch(t *testing.T) {
 			Patch:     patch,
 		}
 	})
-	
+
 	response := handler.Execute(context.Background(), logr.Discard(), handlers.AdmissionRequest{}, "", time.Now())
-	
+
 	assert.True(t, response.Allowed)
 	assert.NotNil(t, response.PatchType)
 	assert.Equal(t, admissionv1.PatchTypeJSONPatch, *response.PatchType)
@@ -132,7 +132,7 @@ func TestHandlerFunc_Execute_FailurePolicies(t *testing.T) {
 			failurePolicy: "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var capturedPolicy string
@@ -140,9 +140,9 @@ func TestHandlerFunc_Execute_FailurePolicies(t *testing.T) {
 				capturedPolicy = failurePolicy
 				return admissionv1.AdmissionResponse{Allowed: true}
 			})
-			
+
 			response := handler.Execute(context.Background(), logr.Discard(), handlers.AdmissionRequest{}, tt.failurePolicy, time.Now())
-			
+
 			assert.True(t, response.Allowed)
 			assert.Equal(t, tt.failurePolicy, capturedPolicy)
 		})
