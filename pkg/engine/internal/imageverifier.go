@@ -703,7 +703,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 		return nil, "", nil
 	}
 	if digest == "" {
-		desc, err := iv.rclient.FetchImageDescriptor(ctx, imageInfo.String())
+		desc, err := iv.rclient.FetchImageDescriptor(ctx, imageInfo.String(), "")
 		if err != nil {
 			return nil, "", err
 		}

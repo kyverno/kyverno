@@ -324,6 +324,12 @@ spec:
                             transform the ImageData struct returned as a result of processing
                             the image reference.
                           type: string
+                        platform:
+                          description: |-
+                            Platform is an optional platform specifier in the form of "os/arch[/variant]".
+                            When specified, the platform is used to resolve the image digest from a manifest list.
+                            When not specified, the default platform (`linux/amd64`) is used.
+                          type: string
                         reference:
                           description: |-
                             Reference is image reference to a container image in the registry.
@@ -1616,6 +1622,12 @@ spec:
                             JMESPath is an optional JSON Match Expression that can be used to
                             transform the ImageData struct returned as a result of processing
                             the image reference.
+                          type: string
+                        platform:
+                          description: |-
+                            Platform is an optional platform specifier in the form of "os/arch[/variant]".
+                            When specified, the platform is used to resolve the image digest from a manifest list.
+                            When not specified, the default platform (`linux/amd64`) is used.
                           type: string
                         reference:
                           description: |-
