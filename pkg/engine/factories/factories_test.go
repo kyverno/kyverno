@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +33,7 @@ func TestDefaultContextLoaderFactory_WithOptions(t *testing.T) {
 }
 
 func TestWithInitializer(t *testing.T) {
-	initializer := func(ctx interface{}) error {
+	initializer := func(jsonContext enginecontext.Interface) error {
 		return nil
 	}
 
@@ -101,7 +102,7 @@ func TestRegistryClientFactory_GetClient_WithProviders(t *testing.T) {
 
 	creds := &kyvernov1.ImageRegistryCredentials{
 		Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{
-			kyvernov1.ImageRegistryCredentialsProvidersDefault,
+			kyvernov1.DEFAULT,
 		},
 	}
 
@@ -112,7 +113,7 @@ func TestRegistryClientFactory_GetClient_WithProviders(t *testing.T) {
 }
 
 func TestContextLoaderFactoryOptions_MultipleOptions(t *testing.T) {
-	initializer := func(ctx interface{}) error {
+	initializer := func(jsonContext enginecontext.Interface) error {
 		return nil
 	}
 
@@ -168,7 +169,7 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 			name: "with providers",
 			creds: &kyvernov1.ImageRegistryCredentials{
 				Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{
-					kyvernov1.ImageRegistryCredentialsProvidersDefault,
+					kyvernov1.DEFAULT,
 				},
 			},
 			wantNil:   false,
