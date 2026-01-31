@@ -198,9 +198,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		})
 	}
 	return &Policy{
-		matchConditions: matchConditions,
-		variables:       variables,
-		generations:     generations,
-		exceptions:      compiledExceptions,
+		matchConditions:  matchConditions,
+		variables:        variables,
+		generations:      generations,
+		exceptions:       compiledExceptions,
+		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, nil
 }

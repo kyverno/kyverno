@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,8 +32,13 @@ import (
 )
 
 type Policy struct {
-	evaluator  mutating.PolicyEvaluator
-	exceptions []compiler.Exception
+	evaluator        mutating.PolicyEvaluator
+	exceptions       []compiler.Exception
+	matchConstraints *admissionregistrationv1.MatchResources
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 type compositionContext struct {

@@ -173,7 +173,8 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		}
 	}
 	return &Policy{
-		evaluator:  mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
-		exceptions: compiledExceptions,
+		evaluator:        mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
+		exceptions:       compiledExceptions,
+		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, allErrs
 }
