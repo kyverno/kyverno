@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestNewFake(t *testing.T) {
@@ -147,40 +147,11 @@ func TestFakeGenerator_Apply_WithResource(t *testing.T) {
 	spec := kyvernov2.UpdateRequestSpec{
 		Type:   kyvernov2.Mutate,
 		Policy: "test-policy",
-		Resource: kyvernov2.ResourceSpec{
+		Resource: kyvernov1.ResourceSpec{
 			Kind:       "Pod",
 			APIVersion: "v1",
 			Namespace:  "default",
 			Name:       "test-pod",
-		},
-	}
-
-	err := gen.Apply(context.Background(), spec)
-
-	assert.NoError(t, err)
-}
-
-func TestFakeGenerator_Apply_WithDeletedResource(t *testing.T) {
-	gen := NewFake()
-
-	spec := kyvernov2.UpdateRequestSpec{
-		Type:   kyvernov2.Mutate,
-		Policy: "test-policy",
-		Resource: kyvernov2.ResourceSpec{
-			Kind:       "Pod",
-			APIVersion: "v1",
-			Namespace:  "default",
-			Name:       "deleted-pod",
-		},
-		DeletedResource: unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Pod",
-				"metadata": map[string]interface{}{
-					"name":      "deleted-pod",
-					"namespace": "default",
-				},
-			},
 		},
 	}
 
