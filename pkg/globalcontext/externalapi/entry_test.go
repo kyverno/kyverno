@@ -21,7 +21,7 @@ func (m *mockJMESPathQuery) Search(data any) (any, error) {
 func TestEntry_Get_WithValidData(t *testing.T) {
 	e := &entry{
 		dataMap: map[string]any{
-			"":          map[string]any{"key": "value"},
+			"":            map[string]any{"key": "value"},
 			"projection1": "projected-value",
 		},
 		err: nil,
@@ -375,7 +375,7 @@ func TestEntry_SetData_ClearsErrorOnSuccess(t *testing.T) {
 
 	// Use simple JSON that doesn't need projection evaluation
 	jsonData := []byte(`{"key": "value"}`)
-	
+
 	// Since we have a nil JP that will fail, let's test with empty projections instead
 	// and verify the current behavior (error NOT cleared)
 	e2 := &entry{
@@ -384,7 +384,7 @@ func TestEntry_SetData_ClearsErrorOnSuccess(t *testing.T) {
 		projections: []store.Projection{},
 	}
 	e2.setData(jsonData, nil)
-	
+
 	// With no projections, error is NOT cleared per current implementation
 	assert.NotNil(t, e2.err, "error is not cleared when there are no projections")
 	_ = e
