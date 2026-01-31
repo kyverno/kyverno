@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,11 +35,11 @@ func (m *mockLister) ByNamespace(namespace string) cache.GenericNamespaceLister 
 
 // mockEventGen implements event.Interface for testing
 type mockEventGen struct {
-	events []interface{}
+	events []event.Info
 }
 
-func (m *mockEventGen) Add(event interface{}) {
-	m.events = append(m.events, event)
+func (m *mockEventGen) Add(infoList ...event.Info) {
+	m.events = append(m.events, infoList...)
 }
 
 // mockJMESPathQuery implements jmespath.Query for testing
