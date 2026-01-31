@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: check-deprecated-apis
+policies:
+- ../check-deprecated-apis.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: check-deprecated-apis
+  resources:
+  - bad-cronjob
+  result: fail
+- isValidatingPolicy: true
+  kind: FlowSchema
+  policy: check-deprecated-apis
+  resources:
+  - bad-flowschema
+  result: fail
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: check-deprecated-apis
+  resources:
+  - good-cronjob
+  result: skip
