@@ -85,120 +85,120 @@ func TestIsYaml_YamlFiles(t *testing.T) {
 }
 
 func TestListFiles_EmptyDirectory(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/empty", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/empty", 0755)
 	assert.NoError(t, err)
 
-	files, err := ListFiles(fs, "/empty", func(f fs.FileInfo) bool { return true })
+	files, err := ListFiles(memFS, "/empty", func(f fs.FileInfo) bool { return true })
 	assert.NoError(t, err)
 	assert.Empty(t, files)
 }
 
 func TestListFiles_SingleFile(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/test", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/test", 0755)
 	assert.NoError(t, err)
 
-	file, err := fs.Create("/test/file.txt")
+	file, err := memFS.Create("/test/file.txt")
 	assert.NoError(t, err)
 	file.Close()
 
-	files, err := ListFiles(fs, "/test", func(f fs.FileInfo) bool { return true })
+	files, err := ListFiles(memFS, "/test", func(f fs.FileInfo) bool { return true })
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 	assert.Contains(t, files[0], "file.txt")
 }
 
 func TestListFiles_PredicateFiltering(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/test", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/test", 0755)
 	assert.NoError(t, err)
 
 	// Create yaml and txt files
-	yamlFile, err := fs.Create("/test/config.yaml")
+	yamlFile, err := memFS.Create("/test/config.yaml")
 	assert.NoError(t, err)
 	yamlFile.Close()
 
-	txtFile, err := fs.Create("/test/readme.txt")
+	txtFile, err := memFS.Create("/test/readme.txt")
 	assert.NoError(t, err)
 	txtFile.Close()
 
 	// List only yaml files
-	files, err := ListFiles(fs, "/test", IsYaml)
+	files, err := ListFiles(memFS, "/test", IsYaml)
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 	assert.Contains(t, files[0], "config.yaml")
 }
 
 func TestListFiles_NestedDirectories(t *testing.T) {
-	fs := memfs.New()
-	
+	memFS := memfs.New()
+
 	// Create nested structure
-	err := fs.MkdirAll("/root/sub1/sub2", 0755)
+	err := memFS.MkdirAll("/root/sub1/sub2", 0755)
 	assert.NoError(t, err)
 
 	// Create files at different levels
-	file1, err := fs.Create("/root/file1.txt")
+	file1, err := memFS.Create("/root/file1.txt")
 	assert.NoError(t, err)
 	file1.Close()
 
-	file2, err := fs.Create("/root/sub1/file2.txt")
+	file2, err := memFS.Create("/root/sub1/file2.txt")
 	assert.NoError(t, err)
 	file2.Close()
 
-	file3, err := fs.Create("/root/sub1/sub2/file3.txt")
+	file3, err := memFS.Create("/root/sub1/sub2/file3.txt")
 	assert.NoError(t, err)
 	file3.Close()
 
 	// List all files recursively
-	files, err := ListFiles(fs, "/root", func(f fs.FileInfo) bool { return true })
+	files, err := ListFiles(memFS, "/root", func(f fs.FileInfo) bool { return true })
 	assert.NoError(t, err)
 	assert.Len(t, files, 3)
 }
 
 func TestListFiles_NonexistentPath(t *testing.T) {
-	fs := memfs.New()
+	memFS := memfs.New()
 
-	files, err := ListFiles(fs, "/nonexistent", func(f fs.FileInfo) bool { return true })
+	files, err := ListFiles(memFS, "/nonexistent", func(f fs.FileInfo) bool { return true })
 	assert.Error(t, err)
 	assert.Nil(t, files)
 }
 
 func TestListFiles_PathCleaning(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/test", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/test", 0755)
 	assert.NoError(t, err)
 
-	file, err := fs.Create("/test/file.txt")
+	file, err := memFS.Create("/test/file.txt")
 	assert.NoError(t, err)
 	file.Close()
 
 	// Test with messy path
-	files, err := ListFiles(fs, "/test/./", func(f fs.FileInfo) bool { return true })
+	files, err := ListFiles(memFS, "/test/./", func(f fs.FileInfo) bool { return true })
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 }
 
 func TestListYamls_FiltersYamlFiles(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/configs", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/configs", 0755)
 	assert.NoError(t, err)
 
 	// Create mixed files
-	yaml1, err := fs.Create("/configs/app.yaml")
+	yaml1, err := memFS.Create("/configs/app.yaml")
 	assert.NoError(t, err)
 	yaml1.Close()
 
-	yml1, err := fs.Create("/configs/db.yml")
+	yml1, err := memFS.Create("/configs/db.yml")
 	assert.NoError(t, err)
 	yml1.Close()
 
-	txt, err := fs.Create("/configs/readme.txt")
+	txt, err := memFS.Create("/configs/readme.txt")
 	assert.NoError(t, err)
 	txt.Close()
 
 	// List yamls only
-	yamls, err := ListYamls(fs, "/configs")
+	yamls, err := ListYamls(memFS, "/configs")
 	assert.NoError(t, err)
 	assert.Len(t, yamls, 2)
 
@@ -211,48 +211,48 @@ func TestListYamls_FiltersYamlFiles(t *testing.T) {
 }
 
 func TestListYamls_EmptyDirectory(t *testing.T) {
-	fs := memfs.New()
-	err := fs.MkdirAll("/empty", 0755)
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/empty", 0755)
 	assert.NoError(t, err)
 
-	yamls, err := ListYamls(fs, "/empty")
+	yamls, err := ListYamls(memFS, "/empty")
 	assert.NoError(t, err)
 	assert.Empty(t, yamls)
 }
 
 func TestListYamls_NestedYamlFiles(t *testing.T) {
-	fs := memfs.New()
-	
+	memFS := memfs.New()
+
 	// Create nested structure with yaml files
-	err := fs.MkdirAll("/policies/prod/apps", 0755)
+	err := memFS.MkdirAll("/policies/prod/apps", 0755)
 	assert.NoError(t, err)
 
-	yaml1, err := fs.Create("/policies/policy.yaml")
+	yaml1, err := memFS.Create("/policies/policy.yaml")
 	assert.NoError(t, err)
 	yaml1.Close()
 
-	yaml2, err := fs.Create("/policies/prod/config.yml")
+	yaml2, err := memFS.Create("/policies/prod/config.yml")
 	assert.NoError(t, err)
 	yaml2.Close()
 
-	yaml3, err := fs.Create("/policies/prod/apps/deployment.yaml")
+	yaml3, err := memFS.Create("/policies/prod/apps/deployment.yaml")
 	assert.NoError(t, err)
 	yaml3.Close()
 
 	// Non-yaml file
-	txt, err := fs.Create("/policies/readme.md")
+	txt, err := memFS.Create("/policies/readme.md")
 	assert.NoError(t, err)
 	txt.Close()
 
-	yamls, err := ListYamls(fs, "/policies")
+	yamls, err := ListYamls(memFS, "/policies")
 	assert.NoError(t, err)
 	assert.Len(t, yamls, 3)
 }
 
 func TestListYamls_NonexistentPath(t *testing.T) {
-	fs := memfs.New()
+	memFS := memfs.New()
 
-	yamls, err := ListYamls(fs, "/nonexistent")
+	yamls, err := ListYamls(memFS, "/nonexistent")
 	assert.Error(t, err)
 	assert.Nil(t, yamls)
 }
