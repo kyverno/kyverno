@@ -310,7 +310,6 @@ func TestHandle_ImageVerification_Audit(t *testing.T) {
 	}
 
 	_, _, handleErr := handler.Handle(ctx, request, []kyvernov1.PolicyInterface{&policy}, policyContext)
-	
+
 	t.Logf("Test completed, handleErr: %v", handleErr)
 }
-
