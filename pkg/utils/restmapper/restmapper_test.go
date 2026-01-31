@@ -130,4 +130,3 @@ func TestGetRESTMapper(t *testing.T) {
 		})
 	}
 }
-
