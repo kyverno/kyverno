@@ -252,7 +252,7 @@ func TestSyncWatchers(t *testing.T) {
 					log: logging.WithName("test"),
 					client: &MockClient{
 						deleteFn: func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
-							fmt.Printf("Mock delete %s/%s in %s\n", kind, name, namespace)
+							// Mock delete operation - no logging needed for test mock
 							return nil
 						},
 					},
