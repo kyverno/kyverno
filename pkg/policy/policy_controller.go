@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"go.uber.org/multierr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
@@ -406,6 +407,7 @@ func (pc *policyController) syncPolicy(key string) error {
 	parts := strings.SplitN(key, "/", 2)
 	polType := parts[0]
 	polName := parts[1]
+	var errs []error
 	switch polType {
 	case "kpol":
 		policy, err := pc.getPolicy(polName)
@@ -415,14 +417,14 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
-			err = pc.handleMutate(polName, policy)
-			if err != nil {
+			if err := pc.handleMutate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
+				errs = append(errs, err)
 			}
 
-			err = pc.handleGenerate(polName, policy)
-			if err != nil {
+			if err := pc.handleGenerate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
+				errs = append(errs, err)
 			}
 		}
 	case "gpol":
@@ -436,21 +438,21 @@ func (pc *policyController) syncPolicy(key string) error {
 		// create UR on policy events to update/generate downstream resources
 		if gpol.Spec.SynchronizationEnabled() {
 			logger.V(4).Info("creating UR on generating policy events", "name", gpol.GetName())
-			err := pc.createURForGeneratingPolicy(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR on generating policy events %s: %v", gpol.GetName(), err))
+			if err := pc.createURForGeneratingPolicy(gpol); err != nil {
+				logger.Error(err, "failed to create UR on generating policy events", "name", gpol.GetName())
+				errs = append(errs, err)
 			}
 		}
 		// generate resources for existing triggers
 		if gpol.Spec.GenerateExistingEnabled() {
 			logger.V(4).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
-			err := pc.handleGenerateExisting(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
+			if err := pc.handleGenerateExisting(gpol); err != nil {
+				logger.Error(err, "failed to create UR for generating policy", "name", gpol.GetName())
+				errs = append(errs, err)
 			}
 		}
 	}
-	return nil
+	return multierr.Combine(errs...)
 }
 
 func (pc *policyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
