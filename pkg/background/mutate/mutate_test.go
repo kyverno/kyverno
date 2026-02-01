@@ -11,6 +11,7 @@ import (
 )
 
 // mockStatusControl implements StatusControlInterface for testing
+// It tracks which methods were called and allows simulating errors
 type mockStatusControl struct {
 	failedCalled  bool
 	successCalled bool
