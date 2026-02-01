@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestConstants verifies the controller configuration constants are set correctly
 func TestConstants(t *testing.T) {
 	tests := []struct {
 		name     string
