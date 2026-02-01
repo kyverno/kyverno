@@ -96,6 +96,7 @@ func TestEntry_Get_EmptyProjection(t *testing.T) {
 
 func TestEntry_Get_WithProjection(t *testing.T) {
 	e := &entry{
+		projectedMu: sync.RWMutex{},
 		projected: map[string]interface{}{
 			"names": []string{"cm1", "cm2"},
 		},
@@ -111,7 +112,8 @@ func TestEntry_Get_WithProjection(t *testing.T) {
 
 func TestEntry_Get_ProjectionNotFound(t *testing.T) {
 	e := &entry{
-		projected: make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+		projected:   make(map[string]interface{}),
 	}
 
 	result, err := e.Get("nonexistent")
@@ -202,7 +204,7 @@ func TestEntry_Stop(t *testing.T) {
 	assert.True(t, stopCalled, "stop function should be called")
 }
 
-func TestEntry_Stop_MultipleCallsAreSafe(t *testing.T) {
+func TestEntry_Stop_CanBeCalledMultipleTimes(t *testing.T) {
 	callCount := 0
 	e := &entry{
 		stop: func() {
@@ -210,10 +212,11 @@ func TestEntry_Stop_MultipleCallsAreSafe(t *testing.T) {
 		},
 	}
 
+	// Verify Stop can be called multiple times without panicking
 	e.Stop()
 	e.Stop()
 
-	assert.Equal(t, 2, callCount, "stop should be callable multiple times")
+	assert.Equal(t, 2, callCount, "stop function should be called each time Stop is invoked")
 }
 
 func TestEntry_ListObjects_Success(t *testing.T) {
