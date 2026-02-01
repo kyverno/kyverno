@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestNewFake verifies that a fake generator is created successfully
 func TestNewFake(t *testing.T) {
 	gen := NewFake()
 
