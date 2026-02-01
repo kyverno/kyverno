@@ -27,6 +27,8 @@ func TestAutogenInterface_V2ImplementsInterface(t *testing.T) {
 }
 
 func TestNilPolicy_Panics(t *testing.T) {
+	// These functions are expected to panic when called with nil policy
+	// because they call p.GetSpec() on a nil pointer
 	tests := []struct {
 		name string
 		fn   func()
