@@ -87,19 +87,19 @@ func TestGetRESTMapper(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "nil client with isFake=true",
+			name:    "nil client with isFake=true returns fake mapper",
 			client:  nil,
 			isFake:  true,
 			wantErr: false,
 		},
 		{
-			name:    "nil client with isFake=false",
+			name:    "nil client with isFake=false uses fake path due to nil client",
 			client:  nil,
 			isFake:  false,
 			wantErr: false,
 		},
 		{
-			name: "valid client with isFake=true",
+			name: "valid client with isFake=true returns fake mapper",
 			client: &mockDClient{
 				kubeClient: fake.NewSimpleClientset(),
 			},
@@ -107,7 +107,7 @@ func TestGetRESTMapper(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid client with isFake=false",
+			name: "valid client with isFake=false returns discovery mapper",
 			client: &mockDClient{
 				kubeClient: fake.NewSimpleClientset(),
 			},
