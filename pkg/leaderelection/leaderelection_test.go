@@ -185,6 +185,8 @@ func TestConfig_MultipleInstances(t *testing.T) {
 
 func TestNew_WithCallbacks(t *testing.T) {
 	// Test that New succeeds with non-nil callbacks
+	// Note: This test verifies construction with callbacks, not execution
+	// Callback execution requires Run() and actual election which is tested in integration tests
 	logger := logr.Discard()
 	kubeClient := fake.NewSimpleClientset()
 
