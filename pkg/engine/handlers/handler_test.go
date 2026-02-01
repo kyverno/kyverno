@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestWithError verifies the error response helper function creates proper error responses
 func TestWithError(t *testing.T) {
 	rule := kyvernov1.Rule{
 		Name: "test-rule",
