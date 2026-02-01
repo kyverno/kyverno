@@ -57,7 +57,7 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 			containsMsg: "simple error",
 		},
 		{
-			name:        "with wrapped error",
+			name:        "with colon-separated error message",
 			inputErr:    errors.New("wrapped: inner error"),
 			containsMsg: "inner error",
 		},
