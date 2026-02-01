@@ -127,7 +127,8 @@ func TestStart_ServerConfiguration(t *testing.T) {
 
 func TestStart_ConcurrentCalls(t *testing.T) {
 	// Test that multiple concurrent calls to Start don't cause issues
-	// Each needs its own port
+	// Each call starts a separate server on its own port
+	// Note: Servers are not cleaned up as they run in background goroutines
 	
 	logger := logr.Discard()
 	
