@@ -204,3 +204,35 @@ func TestFetchCert_EmptySecretName(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, creds)
 }
+
+// TestFetchCert_ContextTimeout verifies behavior with context timeout
+// Note: Fake client doesn't fully respect context cancellation, so we test
+// that the function properly accepts and passes the context parameter
+func TestFetchCert_ContextTimeout(t *testing.T) {
+	// Generate a valid certificate
+	certPEM, err := generateTestCertificate()
+	assert.NoError(t, err)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-certs",
+			Namespace: "kyverno",
+		},
+		Data: map[string][]byte{
+			"ca.pem": certPEM,
+		},
+	}
+
+	client := fake.NewSimpleClientset(secret)
+
+	// Create context with timeout - verifies function signature accepts context
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Call FetchCert with timeout context
+	creds, err := FetchCert(ctx, "test-certs", client)
+
+	// With a valid secret and sufficient timeout, should succeed
+	assert.NoError(t, err)
+	assert.NotNil(t, creds)
+}
