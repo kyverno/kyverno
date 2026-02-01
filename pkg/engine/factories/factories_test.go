@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestDefaultContextLoaderFactory verifies the factory is created successfully
 func TestDefaultContextLoaderFactory(t *testing.T) {
 	factory := DefaultContextLoaderFactory(nil)
 
