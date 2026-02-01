@@ -172,8 +172,9 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &entry{
-				lister:    tt.lister,
-				projected: tt.projected,
+				lister:      tt.lister,
+				projected:   tt.projected,
+				projectedMu: sync.RWMutex{},
 			}
 
 			result, err := e.Get(tt.projection)
