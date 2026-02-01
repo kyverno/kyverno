@@ -155,10 +155,10 @@ func TestHandleMutatePolicyAbsence_VerifyLabelSelector(t *testing.T) {
 	assert.Contains(t, capturedLabelSelector, "my-policy", "label selector should contain policy name")
 }
 
-func TestHandleMutatePolicyAbsence_ErrorPropagation(t *testing.T) {
+func TestHandleMutatePolicyAbsence_PropagatesContextCanceledError(t *testing.T) {
 	kyvernoClient := fake.NewSimpleClientset()
 
-	// Simulate an error during deletion
+	// Simulate context.Canceled error during deletion to verify error propagation
 	kyvernoClient.PrependReactor("delete-collection", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, nil, context.Canceled
 	})
