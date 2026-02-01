@@ -34,11 +34,16 @@ func TestNewRuntime(t *testing.T) {
 
 	certValidator := &mockCertValidator{validity: true, err: nil}
 
-	// Create runtime
+	// Create runtime - verify it returns a valid Runtime interface implementation
 	rt := NewRuntime(logger, serverIP, deploymentInformer, certValidator)
 
-	// Assertions
+	// Verify the runtime is created successfully and implements Runtime interface
 	assert.NotNil(t, rt)
+
+	// Verify interface methods are accessible
+	assert.NotNil(t, rt.IsDebug)
+	assert.NotNil(t, rt.IsLive)
+	assert.NotNil(t, rt.IsReady)
 }
 
 func TestRuntime_IsDebug_WithServerIP(t *testing.T) {
