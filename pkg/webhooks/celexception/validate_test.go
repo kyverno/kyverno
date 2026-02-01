@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// TestNewHandlers verifies that handlers are created with the correct validation options
 func TestNewHandlers(t *testing.T) {
 	opts := validation.ValidationOptions{
 		Enabled: true,
