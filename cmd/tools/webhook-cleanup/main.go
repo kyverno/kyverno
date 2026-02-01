@@ -56,6 +56,9 @@ func getKubeConfig() (*rest.Config, error) {
 		return config, nil
 	}
 
+	// Log the in-cluster config failure for debugging
+	fmt.Fprintf(os.Stderr, "In-cluster config failed (expected in local mode): %v\n", err)
+
 	// Fall back to kubeconfig file (for local development)
 	kubeconfigPath := os.Getenv("KUBECONFIG")
 	if kubeconfigPath == "" {
