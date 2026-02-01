@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// TestNewHandlers verifies that handlers are created with correct service account configuration
 func TestNewHandlers(t *testing.T) {
 	h := NewHandlers(nil, "bg-sa", "reports-sa")
 
