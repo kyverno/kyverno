@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestConstants verifies the controller configuration constants are set correctly
 func TestConstants(t *testing.T) {
 	t.Run("Workers", func(t *testing.T) {
 		assert.Equal(t, 1, Workers)
@@ -18,7 +19,7 @@ func TestConstants(t *testing.T) {
 	})
 
 	t.Run("maxRetries", func(t *testing.T) {
-		assert.Equal(t, 10, maxRetries)
+		assert.Equal(t, maxRetries, 10)
 		assert.Greater(t, maxRetries, 0)
 	})
 }
