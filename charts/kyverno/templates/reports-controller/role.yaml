@@ -24,9 +24,20 @@ rules:
     resources:
       - secrets
     verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - delete
       - get
       - list
+      - update
       - watch
+    resourceNames:
+      - {{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+      - {{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
   - apiGroups:
       - coordination.k8s.io
     resources:
