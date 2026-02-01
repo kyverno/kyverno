@@ -336,7 +336,7 @@ kA==
 				Name: "autogen-cronjob-check-image",
 				MatchResources: kyvernov1.MatchResources{
 					ResourceDescription: kyvernov1.ResourceDescription{
-						Kinds: []string{"CronJob"},
+						Kinds: []string{"batch/v1/CronJob"},
 					},
 				},
 				VerifyImages: []kyvernov1.ImageVerification{{
