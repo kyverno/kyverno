@@ -363,8 +363,10 @@ func TestEntry_SetData_OverwritesPreviousData(t *testing.T) {
 }
 
 func TestEntry_SetData_ClearsErrorOnSuccess(t *testing.T) {
-	// Note: In the current implementation, e.err is only cleared when projections exist
-	// When projections are empty, the previous error persists (this is the current behavior)
+	// Note: In the current implementation (entry.go), e.err is only cleared
+	// inside the `if len(e.projections) > 0` block at line 160.
+	// When projections are empty, the previous error persists - this is intentional
+	// as the error may still be relevant if no data transformation occurred.
 	e := &entry{
 		dataMap: make(map[string]any),
 		err:     fmt.Errorf("previous error"),
