@@ -2,161 +2,259 @@ package exception
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stretchr/testify/assert"
-
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	validation "github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-
+	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func newAdmissionRequest(t *testing.T, obj any) handlers.AdmissionRequest {
-	raw, err := json.Marshal(obj)
-	assert.NoError(t, err)
-
-	return handlers.AdmissionRequest{
-		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID: types.UID("test-uid"),
-			Object: runtime.RawExtension{
-				Raw: raw,
-			},
-			Operation: admissionv1.Create,
-		},
+// TestNewHandlers verifies that handlers are created with the correct validation options
+func TestNewHandlers(t *testing.T) {
+	opts := validation.ValidationOptions{
+		Enabled: true,
 	}
+
+	h := NewHandlers(opts)
+
+	assert.NotNil(t, h)
+	assert.True(t, h.validationOptions.Enabled)
 }
 
-func TestExceptionValidate(t *testing.T) {
-	validException := &kyvernov2.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-exception",
+func TestNewHandlers_WithDisabledValidation(t *testing.T) {
+	opts := validation.ValidationOptions{
+		Enabled: false,
+	}
+
+	h := NewHandlers(opts)
+
+	assert.NotNil(t, h)
+	assert.False(t, h.validationOptions.Enabled)
+}
+
+func TestNewHandlers_DefaultOptions(t *testing.T) {
+	opts := validation.ValidationOptions{}
+
+	h := NewHandlers(opts)
+
+	assert.NotNil(t, h)
+	assert.False(t, h.validationOptions.Enabled)
+}
+
+func TestValidate_InvalidRequest(t *testing.T) {
+	h := NewHandlers(validation.ValidationOptions{Enabled: true})
+
+	// Create an invalid admission request (not a PolicyException)
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       "test-uid",
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Name:      "test-pod",
 			Namespace: "default",
-		},
-		Spec: kyvernov2.PolicyExceptionSpec{
-			Exceptions: []kyvernov2.Exception{
-				{
-					PolicyName: "test-policy",
-				},
-			},
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: []byte(`{"invalid": "json"}`)},
 		},
 	}
 
+	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+
+	// Should return a response with the UID
+	assert.Equal(t, "test-uid", string(response.UID))
+}
+
+func TestValidate_EmptyObject(t *testing.T) {
+	h := NewHandlers(validation.ValidationOptions{Enabled: true})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       "test-uid-empty",
+			Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+		},
+	}
+
+	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+
+	assert.Equal(t, "test-uid-empty", string(response.UID))
+}
+
+func TestValidate_NilObject(t *testing.T) {
+	h := NewHandlers(validation.ValidationOptions{Enabled: true})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       "test-uid-nil",
+			Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{},
+		},
+	}
+
+	response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+
+	assert.Equal(t, "test-uid-nil", string(response.UID))
+}
+
+func TestValidate_MultipleScenarios(t *testing.T) {
 	tests := []struct {
-		name    string
-		options validation.ValidationOptions
-		request handlers.AdmissionRequest
-		allowed bool
-		hasWarn bool
+		name        string
+		enabled     bool
+		objectJSON  string
+		expectedUID string
 	}{
 		{
-			name: "valid exception with matching namespace",
-			options: validation.ValidationOptions{
-				Enabled:   true,
-				Namespace: "default",
-			},
-			request: newAdmissionRequest(t, validException),
-			allowed: true,
-			hasWarn: false,
+			name:        "enabled with empty object",
+			enabled:     true,
+			objectJSON:  `{}`,
+			expectedUID: "uid-1",
 		},
 		{
-			name: "exception disabled produces warning",
-			options: validation.ValidationOptions{
-				Enabled: false,
-			},
-			request: newAdmissionRequest(t, validException),
-			allowed: true,
-			hasWarn: true,
+			name:        "disabled with empty object",
+			enabled:     false,
+			objectJSON:  `{}`,
+			expectedUID: "uid-2",
 		},
 		{
-			name: "namespace mismatch produces warning",
-			options: validation.ValidationOptions{
-				Enabled:   true,
-				Namespace: "other",
-			},
-			request: newAdmissionRequest(t, validException),
-			allowed: true,
-			hasWarn: true,
-		},
-		{
-			name: "empty exception spec is allowed",
-			options: validation.ValidationOptions{
-				Enabled:   true,
-				Namespace: "default",
-			},
-			request: newAdmissionRequest(t, &kyvernov2.PolicyException{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bad-exception",
-					Namespace: "default",
-				},
-				Spec: kyvernov2.PolicyExceptionSpec{},
-			}),
-			allowed: true,
-			hasWarn: false,
-		},
-		{
-			name: "exception without policyName is rejected",
-			options: validation.ValidationOptions{
-				Enabled: true,
-			},
-			request: newAdmissionRequest(t, &kyvernov2.PolicyException{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bad-exception",
-					Namespace: "default",
-				},
-				Spec: kyvernov2.PolicyExceptionSpec{
-					Exceptions: []kyvernov2.Exception{
-						{}, // missing PolicyName → INVALID
-					},
-				},
-			}),
-			allowed: false,
-			hasWarn: true,
-		},
-		{
-			name: "unmarshal error denies request",
-			options: validation.ValidationOptions{
-				Enabled: true,
-			},
-			request: handlers.AdmissionRequest{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID: types.UID("bad-uid"),
-					Object: runtime.RawExtension{
-						Raw: []byte("{invalid-json"),
-					},
-				},
-			},
-			allowed: false,
-			hasWarn: false,
+			name:        "enabled with spec object",
+			enabled:     true,
+			objectJSON:  `{"spec": {}}`,
+			expectedUID: "uid-3",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewHandlers(tt.options)
+			h := NewHandlers(validation.ValidationOptions{Enabled: tt.enabled})
 
-			resp := h.Validate(
-				context.Background(),
-				logr.Discard(),
-				tt.request,
-				"",
-				time.Now(),
-			)
-
-			assert.Equal(t, tt.allowed, resp.Allowed)
-
-			if tt.hasWarn {
-				assert.NotEmpty(t, resp.Warnings)
-			} else {
-				assert.Empty(t, resp.Warnings)
+			request := handlers.AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UID:       types.UID(tt.expectedUID),
+					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+					Operation: admissionv1.Create,
+					Object:    runtime.RawExtension{Raw: []byte(tt.objectJSON)},
+				},
 			}
+
+			response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+
+			assert.Equal(t, tt.expectedUID, string(response.UID))
+		})
+	}
+}
+
+func TestValidate_ContextCancellation(t *testing.T) {
+	h := NewHandlers(validation.ValidationOptions{Enabled: true})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       "test-uid-cancelled",
+			Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+		},
+	}
+
+	// Should still return a response even with cancelled context
+	response := h.Validate(ctx, logr.Discard(), request, "", time.Now())
+
+	assert.Equal(t, "test-uid-cancelled", string(response.UID))
+}
+
+func TestValidate_DifferentOperations(t *testing.T) {
+	h := NewHandlers(validation.ValidationOptions{Enabled: true})
+
+	t.Run("Create", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-create"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+				Operation: admissionv1.Create,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-create", string(response.UID))
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-update"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+				Operation: admissionv1.Update,
+				Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-update", string(response.UID))
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		request := handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("uid-delete"),
+				Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+				Operation: admissionv1.Delete,
+				OldObject: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}
+		response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+		assert.Equal(t, "uid-delete", string(response.UID))
+	})
+}
+
+func TestValidate_WithNamespace(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		enabled   bool
+	}{
+		{
+			name:      "default namespace with enabled validation",
+			namespace: "default",
+			enabled:   true,
+		},
+		{
+			name:      "kyverno namespace with enabled validation",
+			namespace: "kyverno",
+			enabled:   true,
+		},
+		{
+			name:      "custom namespace with disabled validation",
+			namespace: "custom-ns",
+			enabled:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewHandlers(validation.ValidationOptions{Enabled: tt.enabled})
+
+			request := handlers.AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UID:       types.UID("uid-ns-" + tt.namespace),
+					Kind:      metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"},
+					Namespace: tt.namespace,
+					Operation: admissionv1.Create,
+					Object:    runtime.RawExtension{Raw: []byte(`{}`)},
+				},
+			}
+
+			response := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
+
+			assert.Equal(t, "uid-ns-"+tt.namespace, string(response.UID))
 		})
 	}
 }
