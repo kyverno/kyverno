@@ -256,3 +256,24 @@ func TestListYamls_NonexistentPath(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, yamls)
 }
+
+// TestListFiles_WithHiddenFiles verifies that hidden files are correctly handled
+func TestListFiles_WithHiddenFiles(t *testing.T) {
+	memFS := memfs.New()
+	err := memFS.MkdirAll("/test", 0755)
+	assert.NoError(t, err)
+
+	// Create a hidden yaml file
+	hidden, err := memFS.Create("/test/.hidden.yaml")
+	assert.NoError(t, err)
+	hidden.Close()
+
+	// Create a regular yaml file
+	regular, err := memFS.Create("/test/regular.yaml")
+	assert.NoError(t, err)
+	regular.Close()
+
+	files, err := ListFiles(memFS, "/test", IsYaml)
+	assert.NoError(t, err)
+	assert.Len(t, files, 2, "should include both hidden and regular yaml files")
+}
