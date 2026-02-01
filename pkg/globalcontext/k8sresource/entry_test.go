@@ -80,8 +80,9 @@ func TestEntry_Get_EmptyProjection(t *testing.T) {
 	}
 
 	e := &entry{
-		lister:    lister,
-		projected: make(map[string]interface{}),
+		lister:      lister,
+		projectedMu: sync.RWMutex{},
+		projected:   make(map[string]interface{}),
 	}
 
 	result, err := e.Get("")
@@ -363,6 +364,7 @@ func TestEntry_RecomputeProjections_ListerError(t *testing.T) {
 		gce:         gce,
 		projections: []store.Projection{},
 		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
 	}
 
 	e.recomputeProjections()
