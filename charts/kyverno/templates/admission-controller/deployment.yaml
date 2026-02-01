@@ -15,6 +15,9 @@ metadata:
   {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+    {{- with .Values.admissionController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.admissionController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
