@@ -158,6 +158,38 @@ func TestGetValue(t *testing.T) {
 		data:    func() {},
 		wantErr: true,
 	}, {
+		name: "map",
+		data: map[string]any{
+			"key1": "value1",
+			"key2": 42,
+		},
+		want: map[string]any{
+			"key1": "value1",
+			"key2": float64(42),
+		},
+	}, {
+		name:    "array at top level",
+		data:    []string{"a", "b", "c"},
+		want:    nil,
+		wantErr: true,
+	}, {
+		name: "struct with nested fields",
+		data: struct {
+			Name string
+			Data map[string]any
+		}{
+			Name: "nested",
+			Data: map[string]any{
+				"inner": "value",
+			},
+		},
+		want: map[string]any{
+			"Name": "nested",
+			"Data": map[string]any{
+				"inner": "value",
+			},
+		},
+	}, {
 		name: "struct",
 		data: struct {
 			Foo string `json:"foo"`
