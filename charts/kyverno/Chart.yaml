@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: v0.0.0 # VERSION
+version: v0.0.0  # VERSION
 appVersion: latest
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -43,10 +43,10 @@ annotations:
       description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
 dependencies:
   - name: grafana
-    version: v0.0.0 # VERSION
+    version: v0.0.0  # VERSION
     condition: grafana.enabled
   - name: crds
-    version: v0.0.0 # VERSION
+    version: v0.0.0  # VERSION
     condition: crds.install
   - name: kyverno-api
     version: 0.0.1-alpha.2
