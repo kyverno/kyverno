@@ -192,6 +192,11 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 		return nil
 	}
 
+	// Check if there are any rule results before accessing Rules[0]
+	if len(engineResponse.PolicyResponse.Rules) == 0 {
+		return nil
+	}
+
 	if engineResponse.IsSuccessful() {
 		c.eventGen.Add(event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineResponse.Policy(), generatedResources)...)
 		for _, gen := range generatedResources {

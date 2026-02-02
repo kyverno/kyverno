@@ -157,9 +157,79 @@ func TestGetValue(t *testing.T) {
 		name:    "error",
 		data:    func() {},
 		wantErr: true,
-	},
-	// TODO: Add test cases.
-	}
+	}, {
+		name: "map",
+		data: map[string]any{
+			"key1": "value1",
+			"key2": 42,
+		},
+		want: map[string]any{
+			"key1": "value1",
+			"key2": float64(42),
+		},
+	}, {
+		name:    "array at top level",
+		data:    []string{"a", "b", "c"},
+		want:    nil,
+		wantErr: true,
+	}, {
+		name: "struct with nested fields",
+		data: struct {
+			Name string
+			Data map[string]any
+		}{
+			Name: "nested",
+			Data: map[string]any{
+				"inner": "value",
+			},
+		},
+		want: map[string]any{
+			"Name": "nested",
+			"Data": map[string]any{
+				"inner": "value",
+			},
+		},
+	}, {
+		name: "struct",
+		data: struct {
+			Foo string `json:"foo"`
+		}{
+			Foo: "bar",
+		},
+		want: map[string]any{
+			"foo": "bar",
+		},
+	}, {
+		name: "map",
+		data: map[string]any{
+			"foo": "bar",
+		},
+		want: map[string]any{
+			"foo": "bar",
+		},
+	}, {
+		name: "unstructured",
+		data: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata": map[string]any{
+					"name": "foo",
+				},
+				"spec":   map[string]any{},
+				"status": map[string]any{},
+			},
+		},
+		want: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]any{
+				"name": "foo",
+			},
+			"spec":   map[string]any{},
+			"status": map[string]any{},
+		},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GetValue(tt.data)

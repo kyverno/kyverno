@@ -913,7 +913,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if needsReconcile {
 			// update the hash if we got a new one
 			if observedHash != r.Hash {
-				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
+				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
 			}
 			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 		}

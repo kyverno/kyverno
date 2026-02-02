@@ -322,23 +322,32 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, pc.worker, time.Second)
@@ -397,7 +406,8 @@ func (pc *policyController) syncPolicy(key string) error {
 	parts := strings.SplitN(key, "/", 2)
 	polType := parts[0]
 	polName := parts[1]
-	if polType == "kpol" {
+	switch polType {
+	case "kpol":
 		policy, err := pc.getPolicy(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -415,7 +425,7 @@ func (pc *policyController) syncPolicy(key string) error {
 				logger.Error(err, "failed to updateUR on generate policy update")
 			}
 		}
-	} else if polType == "gpol" {
+	case "gpol":
 		gpol, err := pc.gpolLister.Get(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {

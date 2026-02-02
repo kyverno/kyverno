@@ -444,7 +444,8 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
 			if hash != watcher.metadataCache[uid].Hash {
 				wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				downstream := watcher.metadataCache[uid].Data
+				// create a copy of the resource to avoid modifying the cache
+				downstream := watcher.metadataCache[uid].Data.DeepCopy()
 				// clean up parameters that shouldn't be copied
 				downstream.SetUID("")
 				downstream.SetSelfLink("")
@@ -504,7 +505,8 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				wm.log.V(4).Info("downstream resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				// if the resource is already in the cache, then it is the downstream resource that has been deleted by the user.
 				// we need to revert it back.
-				downstream := watcher.metadataCache[uid].Data
+				// create a copy of the resource to avoid modifying the cache
+				downstream := watcher.metadataCache[uid].Data.DeepCopy()
 				// clean up parameters that shouldn't be copied
 				downstream.SetUID("")
 				downstream.SetSelfLink("")
