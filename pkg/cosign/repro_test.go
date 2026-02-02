@@ -27,7 +27,7 @@ func createCert(t *testing.T, template *x509.Certificate, parent *x509.Certifica
 	if parentPriv != nil {
 		signerPriv = parentPriv.(*rsa.PrivateKey)
 	}
-	
+
 	if parent == nil {
 		parent = template
 	}
@@ -45,24 +45,24 @@ func createCert(t *testing.T, template *x509.Certificate, parent *x509.Certifica
 func TestSplitPEMCertificateChain_DigiCertStructure(t *testing.T) {
 	// Root CA (Self-signed)
 	rootTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "Root CA"},
-		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(1 * time.Hour),
-		IsCA:         true,
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Root CA"},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(1 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 	}
 	rootCert, rootPEM, rootPriv := createCert(t, rootTemplate, nil, nil, nil)
 
 	// Cross Root CA (Signed by Root, No EKU)
 	crossTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: "Cross Root CA"},
-		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(1 * time.Hour),
-		IsCA:         true,
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		SerialNumber:          big.NewInt(2),
+		Subject:               pkix.Name{CommonName: "Cross Root CA"},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(1 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 		// Explicitly NO EKU
 		ExtKeyUsage: nil,
@@ -71,14 +71,14 @@ func TestSplitPEMCertificateChain_DigiCertStructure(t *testing.T) {
 
 	// Intermediate CA (Signed by Cross Root, Has Timestamping EKU)
 	interTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(3),
-		Subject:      pkix.Name{CommonName: "Intermediate CA"},
-		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(1 * time.Hour),
-		IsCA:         true,
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		SerialNumber:          big.NewInt(3),
+		Subject:               pkix.Name{CommonName: "Intermediate CA"},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(1 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
 	}
 	interCert, interPEM, interPriv := createCert(t, interTemplate, crossCert, nil, crossPriv)
 
@@ -111,11 +111,11 @@ func TestSplitPEMCertificateChain_DigiCertStructure(t *testing.T) {
 	// Check Intermediates
 	// CURRENT BEHAVIOR: Cross Root is classified as intermediate because it's not self-signed
 	assert.Equal(t, 2, len(intermediates))
-	
+
 	names := []string{intermediates[0].Subject.CommonName, intermediates[1].Subject.CommonName}
 	assert.Contains(t, names, "Intermediate CA")
 	assert.Contains(t, names, "Cross Root CA")
-	
+
 	// Verify that Cross Root CA (which had no EKU) now has TimeStamping EKU injected
 	for _, cert := range intermediates {
 		if cert.Subject.CommonName == "Cross Root CA" {
