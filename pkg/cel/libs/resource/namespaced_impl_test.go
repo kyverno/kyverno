@@ -352,10 +352,9 @@ func Test_namespaced_impl_list_resources_forbidden_error(t *testing.T) {
 			},
 		}},
 	}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	assert.True(t, types.IsError(out))
-	assert.Contains(t, out.(*types.Err).Error(), "permission denied")
+	_, _, err = prog.Eval(data)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
 }
 
 func Test_namespaced_impl_get_resource_forbidden_error(t *testing.T) {
@@ -385,10 +384,9 @@ func Test_namespaced_impl_get_resource_forbidden_error(t *testing.T) {
 			},
 		}},
 	}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	assert.True(t, types.IsError(out))
-	assert.Contains(t, out.(*types.Err).Error(), "permission denied")
+	_, _, err = prog.Eval(data)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
 }
 
 func Test_namespaced_impl_post_resource_forbidden_error(t *testing.T) {
@@ -430,8 +428,7 @@ resource.Post(
 			},
 		}},
 	}
-	out, _, err := prog.Eval(data)
-	assert.NoError(t, err)
-	assert.True(t, types.IsError(out))
-	assert.Contains(t, out.(*types.Err).Error(), "permission denied")
+	_, _, err = prog.Eval(data)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
 }
