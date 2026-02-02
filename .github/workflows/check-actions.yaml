@@ -9,6 +9,8 @@ on:
     branches:
       - main
       - release-*
+  merge_group:
+    types: [checks_requested]
 
 jobs:
   check:
