@@ -14,10 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -71,7 +69,7 @@ type controller struct {
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister     policiesv1beta1listers.GeneratingPolicyLister
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
@@ -105,7 +103,7 @@ func NewController(
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
@@ -324,7 +322,7 @@ func NewController(
 	if nivpolInformer != nil {
 		c.nivpolLister = nivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
-			ivpolInformer.Informer(),
+			nivpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
