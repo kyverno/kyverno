@@ -12,7 +12,8 @@ on:
     - synchronize
     - labeled
     - unlabeled
-
+  merge_group:
+    types: [checks_requested]
 jobs:
   check_labels:
     name: Check milestone label for pull request
