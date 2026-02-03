@@ -1,14 +1,18 @@
 package background
 
 import (
-    "testing"
+	"context"
+	"errors"
+	"testing"
 
-    kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-    "github.com/kyverno/kyverno/pkg/config"
-    "github.com/stretchr/testify/assert"
-    apierrors "k8s.io/apimachinery/pkg/api/errors"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/client-go/util/workqueue"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 )
 
 // newTestUpdateRequest creates a test UpdateRequest with given parameters
@@ -110,17 +114,7 @@ func TestAddUR_EnqueuesUpdateRequest(t *testing.T) {
 func TestMaxRetries_Constant(t *testing.T) {
 	// Verify maxRetries constant is set to expected value
 	assert.Equal(t, 10, maxRetries)
-	"context"
-	"errors"
-	"testing"
-
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
-	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clienttesting "k8s.io/client-go/testing"
-)
+}
 
 // TestReconcileURStatus_TransientGetError verifies that when the API Get() call
 // fails with a transient error (timeout, connection reset, etc.), reconcileURStatus
