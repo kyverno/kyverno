@@ -19,7 +19,7 @@ jobs:
     name: Check milestone label for pull request
     runs-on: ubuntu-latest
     # dependabot prs do not have to be in milestone
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    if: ${{ github.actor != 'dependabot[bot]' && github.event_name == 'pull_request' }}
     steps:
     - name: require milestone label for pull request
       uses: docker://agilepathway/pull-request-label-checker:latest@sha256:14f766a581beb1c2a43448b8cdc360f810f39101137c87dd55d252bb1a2e85dc
