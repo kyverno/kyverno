@@ -90,7 +90,7 @@ jobs:
           if-no-files-found: error
 
   assert:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -109,7 +109,7 @@ jobs:
           tests-path: assert
 
   autogen:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -128,7 +128,7 @@ jobs:
           tests-path: autogen
 
   background-only:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -147,7 +147,7 @@ jobs:
           tests-path: background-only
 
   cleanup:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -166,7 +166,7 @@ jobs:
           tests-path: cleanup
 
   custom-sigstore:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -249,7 +249,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   deferred:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -268,7 +268,7 @@ jobs:
           tests-path: deferred
 
   deleting-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -290,7 +290,7 @@ jobs:
           shard-count: 6
 
   events:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -309,7 +309,7 @@ jobs:
           tests-path: events
 
   exceptions:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -331,7 +331,7 @@ jobs:
           shard-count: 3
 
   filter:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -350,7 +350,7 @@ jobs:
           tests-path: filter
 
   force-failure-policy-ignore:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -369,7 +369,7 @@ jobs:
           tests-path: force-failure-policy-ignore
 
   generate:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -392,7 +392,7 @@ jobs:
           install-kubectl-evict: true
 
   generate-mutating-admission-policy:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -413,7 +413,7 @@ jobs:
           tests-path: generate-mutating-admission-policy
 
   generate-validating-admission-policy:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -432,7 +432,7 @@ jobs:
           tests-path: generate-validating-admission-policy
 
   generating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -456,7 +456,7 @@ jobs:
           install-kubectl-evict: true
 
   globalcontext:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -475,7 +475,7 @@ jobs:
           tests-path: globalcontext
 
   image-validating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -497,7 +497,7 @@ jobs:
           shard-count: 3
 
   lease:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -516,7 +516,7 @@ jobs:
           tests-path: lease
 
   mutate:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -538,7 +538,7 @@ jobs:
           shard-count: 3
 
   mutating-admission-policy-reports:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -558,7 +558,7 @@ jobs:
           tests-path: mutating-admission-policy-reports
 
   reports-exclude-result:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -577,7 +577,7 @@ jobs:
           tests-path: reports-exclude-result
 
   mutating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -599,7 +599,7 @@ jobs:
           shard-count: 3
 
   namespaced-deleting-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -618,7 +618,7 @@ jobs:
           tests-path: namespaced-deleting-policies
 
   namespaced-generating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -641,7 +641,7 @@ jobs:
           shard-count: 3
 
   namespaced-image-validating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -660,7 +660,7 @@ jobs:
           tests-path: namespaced-image-validating-policies
 
   namespaced-mutating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -679,7 +679,7 @@ jobs:
           tests-path: namespaced-mutating-policies
 
   namespaced-validating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -701,7 +701,7 @@ jobs:
           shard-count: 3
 
   openreports:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -721,7 +721,7 @@ jobs:
           install-openreports: true
 
   policy-exceptions-disabled:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -740,7 +740,7 @@ jobs:
           tests-path: policy-exceptions-disabled
 
   policy-validation:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -759,7 +759,7 @@ jobs:
           tests-path: policy-validation
 
   rangeoperators:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -778,7 +778,7 @@ jobs:
           tests-path: rangeoperators
 
   rbac:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -798,7 +798,7 @@ jobs:
           tests-path: rbac
 
   reports:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -820,7 +820,7 @@ jobs:
           shard-count: 3
 
   sigstore-custom-tuf:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -840,7 +840,7 @@ jobs:
           tests-path: sigstore-custom-tuf
 
   ttl:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -859,7 +859,7 @@ jobs:
           tests-path: ttl
 
   validate:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -881,7 +881,7 @@ jobs:
           shard-count: 8
 
   validating-admission-policy-reports:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -900,7 +900,7 @@ jobs:
           tests-path: validating-admission-policy-reports
 
   validating-policies:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -922,7 +922,7 @@ jobs:
           shard-count: 5
 
   verify-images:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -944,7 +944,7 @@ jobs:
           shard-count: 2
 
   verify-manifests:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -963,7 +963,7 @@ jobs:
           tests-path: verify-manifests
 
   webhook-configurations:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -982,7 +982,7 @@ jobs:
           tests-path: webhook-configurations
 
   webhooks:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1001,7 +1001,7 @@ jobs:
           tests-path: webhooks
 
   monitor-helm-secret-size:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1054,7 +1054,7 @@ jobs:
           fi
 
   check-tests:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1098,7 +1098,7 @@ jobs:
           cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
 
   helm-tests:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1151,7 +1151,7 @@ jobs:
           kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
 
   helm-uninstall:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1215,7 +1215,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   helm-upgrade:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1270,7 +1270,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   cert-manager-certificates:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -1302,7 +1302,7 @@ jobs:
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
-    # if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
