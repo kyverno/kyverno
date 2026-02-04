@@ -12,6 +12,8 @@ on:
     paths:
       - "cmd/**"
       - "pkg/**"
+  merge_group:
+    types: [checks_requested]
   schedule:
     - cron: "27 0 * * 0"
 
@@ -51,7 +53,7 @@ jobs:
           echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
           echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
       - name: Restore gomod cache
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ env.GO_MOD_CACHE }}
           key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
@@ -74,7 +76,7 @@ jobs:
           if-no-files-found: error
 
   old-load-test:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'merge_group'
     needs:
       - prepare-images
     outputs:
@@ -177,7 +179,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   load-test:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'merge_group'
     needs:
       - prepare-images
       - old-load-test
@@ -286,7 +288,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   scale-test:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'merge_group'
     needs:
       - define-matrix
       - prepare-images
