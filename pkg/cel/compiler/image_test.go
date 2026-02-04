@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/gobwas/glob"
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -64,7 +64,7 @@ func Test_matchCel_Match(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewMatchImageEnv()
 			assert.NoError(t, err)
-			match, errs := CompileMatchImageReference(nil, env, v1alpha1.MatchImageReference{
+			match, errs := CompileMatchImageReference(nil, env, v1beta1.MatchImageReference{
 				Expression: tt.expression,
 			})
 			assert.Nil(t, errs)
