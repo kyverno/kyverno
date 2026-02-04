@@ -2,19 +2,32 @@
 
 name: Retry workflow
 
+permissions: {}
+
 on:
-  workflow_dispatch:
-    inputs:
-      run_id:
-        required: true
+  workflow_run:
+    workflows:
+      - Build devcontainer
+      - Conformance tests
+    types: 
+      - completed
+
+concurrency:
+  group: ${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
 jobs:
   rerun:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt < 3 }}
     steps:
-      - name: Rerun ${{ inputs.run_id }}
+      - name: Rerun ${{ github.event.workflow_run.id }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run watch ${{ inputs.run_id }}
-          gh run rerun ${{ inputs.run_id }} --failed
+          gh run watch ${{ github.event.workflow_run.id }}
+          gh run rerun ${{ github.event.workflow_run.id }} --failed
