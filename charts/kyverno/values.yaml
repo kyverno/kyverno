@@ -90,8 +90,8 @@ reportsServer:
   # -- Wait for reports-server to be ready before starting Kyverno components
   waitForReady: true
 
-  # -- Timeout for waiting for reports-server readiness (in seconds)
-  readinessTimeout: 300
+  # -- Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m)
+  readinessTimeout: 300s
 
 # CRDs configuration
 crds:
