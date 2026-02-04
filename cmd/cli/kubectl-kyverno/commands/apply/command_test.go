@@ -580,6 +580,22 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-mode-on-resource/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/skipped-deployment.yaml"},
 				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
