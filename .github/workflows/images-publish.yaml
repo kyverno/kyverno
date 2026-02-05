@@ -174,21 +174,6 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
-      - name: Publish readiness-checker
-        id: publish-readiness-checker
-        uses: ./.github/actions/publish-image
-        with:
-          makefile-target: ko-publish-readiness-checker
-          registry: ghcr.io
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository_owner }}
-          version: ${{ github.ref_name }}
-          sign-image: true
-          sbom-name: readiness-checker
-          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
-          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./cmd/readiness-checker
 
   generate-kyverno-provenance:
     needs: publish-images
