@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"unsafe"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +24,7 @@ func main() {
 		fmt.Println("Commands:")
 		fmt.Println("  check-endpoints    Check if reports server endpoints are ready")
 		fmt.Println("  check-http      	  Check HTTP endpoint availability")
-		fmt.Println("  scale-deploy       Scale a group of deployments to zero")
+		fmt.Println("  scale-deploy       Scale a group of deployments to a desired target number")
 		fmt.Println("  delete-webhooks    Delete wehooks managed by kyverno")
 		os.Exit(1)
 	}
@@ -87,10 +88,12 @@ func runScaleDeploy() {
 	var (
 		label     string
 		namespace string
+		replicas  int
 	)
 
 	fs := flag.NewFlagSet("scale-deploy", flag.ExitOnError)
 	fs.StringVar(&namespace, "namespace", "kyverno", "Kubernetes namespace")
+	fs.IntVar(&replicas, "replicas", 0, "The desired count of replicas for the group of deployments")
 	fs.StringVar(&label, "label", "app.kubernetes.io/part-of=kyverno", "Label to use for selecting deployments to scale down")
 	err := fs.Parse(os.Args[2:])
 	if err != nil {
@@ -109,10 +112,9 @@ func runScaleDeploy() {
 		fmt.Printf("Failed to fetch deployments with the specified label (%v): %v\n", label, err)
 		os.Exit(1)
 	}
-	var zero int32 = 0
 
 	for _, d := range depls.Items {
-		d.Spec.Replicas = &zero
+		d.Spec.Replicas = (*int32)(unsafe.Pointer(&replicas)) // because i felt like it
 		_, err := clientset.AppsV1().Deployments(namespace).Update(context.Background(), &d, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Printf("failed to scale deployment %v to zero: %v\n", d.Name, err)
