@@ -23,6 +23,8 @@ func main() {
 		fmt.Println("Commands:")
 		fmt.Println("  check-endpoints    Check if reports server endpoints are ready")
 		fmt.Println("  check-http      	  Check HTTP endpoint availability")
+		fmt.Println("  scale-deploy       Scale a group of deployments to zero")
+		fmt.Println("  delete-webhooks    Delete wehooks managed by kyverno")
 		os.Exit(1)
 	}
 
@@ -33,10 +35,88 @@ func main() {
 		runCheckEndpoints()
 	case "check-http":
 		runCheckHTTP()
+	case "scale-deploy":
+		runScaleDeploy()
+	case "delete-webhooks":
+		runDeleteWebhooks()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
-		fmt.Println("Available commands: check-endpoints, check-metrics")
+		fmt.Println("Available commands: check-endpoints, check-metrics, scale-deploy, delete-webhooks")
 		os.Exit(1)
+	}
+}
+
+func runDeleteWebhooks() {
+	var label string
+
+	fs := flag.NewFlagSet("delete-webhooks", flag.ExitOnError)
+	fs.StringVar(&label, "label", "webhook.kyverno.io/managed-by=kyverno", "Label to use for selecting webhooks to delete")
+
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		fmt.Printf("error parsing flags: %s", err.Error())
+		os.Exit(1)
+	}
+
+	clientset, err := getKubernetesClient()
+	if err != nil {
+		fmt.Printf("Failed to create Kubernetes client: %v\n", err)
+		os.Exit(1)
+	}
+
+	mwCfgs, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		fmt.Printf("Failed to fetch mutating webhook configurations: %v\n", err)
+		os.Exit(1)
+	}
+	for _, mw := range mwCfgs.Items {
+		err = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mw.Name, metav1.DeleteOptions{})
+	}
+
+	vwCfgs, err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		fmt.Printf("Failed to fetch validating webhook configurations: %v\n", err)
+		os.Exit(1)
+	}
+	for _, vw := range vwCfgs.Items {
+		err = clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
+	}
+}
+
+func runScaleDeploy() {
+	var (
+		label     string
+		namespace string
+	)
+
+	fs := flag.NewFlagSet("scale-deploy", flag.ExitOnError)
+	fs.StringVar(&namespace, "namespace", "kyverno", "Kubernetes namespace")
+	fs.StringVar(&label, "label", "app.kubernetes.io/part-of=kyverno", "Label to use for selecting deployments to scale down")
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		fmt.Printf("error parsing flags: %s", err.Error())
+		os.Exit(1)
+	}
+
+	clientset, err := getKubernetesClient()
+	if err != nil {
+		fmt.Printf("Failed to create Kubernetes client: %v\n", err)
+		os.Exit(1)
+	}
+
+	depls, err := clientset.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		fmt.Printf("Failed to fetch deployments with the specified label (%v): %v\n", label, err)
+		os.Exit(1)
+	}
+	var zero int32 = 0
+
+	for _, d := range depls.Items {
+		d.Spec.Replicas = &zero
+		_, err := clientset.AppsV1().Deployments(namespace).Update(context.Background(), &d, metav1.UpdateOptions{})
+		if err != nil {
+			fmt.Printf("failed to scale deployment %v to zero: %v\n", d.Name, err)
+		}
 	}
 }
 
@@ -93,7 +173,7 @@ func runCheckEndpoints() {
 				panic(err)
 			}
 
-			fmt.Println("reports server is ready!")
+			fmt.Println("endpoint is ready!")
 			return
 		}
 	}
