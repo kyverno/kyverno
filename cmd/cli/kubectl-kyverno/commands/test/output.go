@@ -267,7 +267,7 @@ func printTestResult(
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
 
-								success := ok || (!ok && test.Result == openreports.StatusFail)
+								success := ok
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
@@ -285,7 +285,7 @@ func printTestResult(
 								continue
 							}
 
-							success := ok || (!ok && test.Result == openreports.StatusFail)
+							success := ok
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
@@ -293,7 +293,7 @@ func printTestResult(
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
 
-								success := ok || (!ok && test.Result == openreports.StatusFail)
+								success := ok
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
@@ -334,7 +334,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, removeColor)
 
-					success := ok || (!ok && test.Result == openreports.StatusFail)
+					success := ok
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
