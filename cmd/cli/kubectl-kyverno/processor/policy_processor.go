@@ -62,11 +62,9 @@ type PolicyProcessor struct {
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies                []policiesv1beta1.ValidatingPolicy
-	NamespacedValidatingPolicies      []policiesv1beta1.NamespacedValidatingPolicy
-	GeneratingPolicies                []policiesv1beta1.GeneratingPolicy
-	MutatingPolicies                  []policiesv1beta1.MutatingPolicy
-	NamespacedMutatingPolicies        []policiesv1beta1.NamespacedMutatingPolicy
+	ValidatingPolicies                []policiesv1beta1.ValidatingPolicyLike
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
+	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
@@ -278,16 +276,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
-	if len(p.MutatingPolicies) != 0 || len(p.NamespacedMutatingPolicies) != 0 {
+	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompiler()
-		policies := make([]policiesv1beta1.MutatingPolicyLike, 0, len(p.MutatingPolicies))
-		for i := range p.MutatingPolicies {
-			policies = append(policies, &p.MutatingPolicies[i])
-		}
-		for i := range p.NamespacedMutatingPolicies {
-			policies = append(policies, &p.NamespacedMutatingPolicies[i])
-		}
-		provider, err := mpolengine.NewProvider(compiler, policies, p.CELExceptions)
+
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -383,15 +375,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// validating policies
-	if len(p.ValidatingPolicies) != 0 || len(p.NamespacedValidatingPolicies) != 0 {
+	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
 		policies := make([]policiesv1beta1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
 		for i := range p.ValidatingPolicies {
-			policies = append(policies, &p.ValidatingPolicies[i])
-		}
-		for i := range p.NamespacedValidatingPolicies {
-			policies = append(policies, &p.NamespacedValidatingPolicies[i])
+			policies = append(policies, p.ValidatingPolicies[i])
 		}
 		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
@@ -471,12 +460,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		compiler := gpolcompiler.NewCompiler()
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(&pol, p.CELExceptions)
+			compiled, errs := compiler.Compile(pol, p.CELExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}
 			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         engineapi.NewGeneratingPolicyFromLike(&pol).AsGeneratingPolicy(),
+				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
 				CompiledPolicy: compiled,
 			})
 		}
