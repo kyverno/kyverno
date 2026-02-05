@@ -597,7 +597,7 @@ webhooksCleanup:
     repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v1.34.3'
+    tag: 'latest'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
