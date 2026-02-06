@@ -44,6 +44,8 @@ type Options struct {
 	RekorPubKey          string
 	IgnoreSCT            bool
 	TSACertChain         string
+	TSACert              string
+	VerifyTimeStamp      string
 	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string

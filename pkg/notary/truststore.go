@@ -12,13 +12,15 @@ type simpleTrustStore struct {
 	name      string
 	storeType truststore.Type
 	certs     []*x509.Certificate
+	tsacerts  []*x509.Certificate
 }
 
-func NewTrustStore(name string, certs []*x509.Certificate) truststore.X509TrustStore {
+func NewTrustStore(name string, certs []*x509.Certificate, tsacerts []*x509.Certificate) truststore.X509TrustStore {
 	return &simpleTrustStore{
 		name:      name,
 		storeType: truststore.TypeCA,
 		certs:     certs,
+		tsacerts:  tsacerts,
 	}
 }
 
@@ -30,6 +32,11 @@ func (ts *simpleTrustStore) GetCertificates(ctx context.Context, storeType trust
 	if name != ts.name {
 		return nil, errors.Errorf("invalid truststore name")
 	}
-
-	return ts.certs, nil
+	switch ts.storeType {
+	case truststore.TypeCA:
+		return ts.certs, nil
+	case truststore.TypeTSA:
+		return ts.tsacerts, nil
+	}
+	return nil, errors.New("entry not found in trust store")
 }

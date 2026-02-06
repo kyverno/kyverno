@@ -3899,6 +3899,22 @@ spec:
                                                     https://rekor.sigstore.dev.
                                                   type: string
                                               type: object
+                                            tsaCert:
+                                              description: |-
+                                                TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                              type: string
+                                            verifyTimestamp:
+                                              description: |-
+                                                VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                Notary signature verification. Valid values are "always" or
+                                                "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                and the default Notation behavior is used.
+                                              enum:
+                                              - always
+                                              - afterCertExpiry
+                                              type: string
                                           type: object
                                         keyless:
                                           description: |-
@@ -4337,6 +4353,22 @@ spec:
                                                         https://rekor.sigstore.dev.
                                                       type: string
                                                   type: object
+                                                tsaCert:
+                                                  description: |-
+                                                    TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                    certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                    When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                  type: string
+                                                verifyTimestamp:
+                                                  description: |-
+                                                    VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                    Notary signature verification. Valid values are "always" or
+                                                    "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                    and the default Notation behavior is used.
+                                                  enum:
+                                                  - always
+                                                  - afterCertExpiry
+                                                  type: string
                                               type: object
                                             keyless:
                                               description: |-
@@ -4732,6 +4764,22 @@ spec:
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
                                             type: object
+                                          tsaCert:
+                                            description: |-
+                                              TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                              certificate used to verify timestamp tokens embedded in Notary signatures.
+                                              When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                            type: string
+                                          verifyTimestamp:
+                                            description: |-
+                                              VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                              Notary signature verification. Valid values are "always" or
+                                              "afterCertExpiry". If omitted, timestamp verification is disabled
+                                              and the default Notation behavior is used.
+                                            enum:
+                                            - always
+                                            - afterCertExpiry
+                                            type: string
                                         type: object
                                       keyless:
                                         description: |-
@@ -9034,6 +9082,22 @@ spec:
                                                         https://rekor.sigstore.dev.
                                                       type: string
                                                   type: object
+                                                tsaCert:
+                                                  description: |-
+                                                    TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                    certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                    When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                  type: string
+                                                verifyTimestamp:
+                                                  description: |-
+                                                    VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                    Notary signature verification. Valid values are "always" or
+                                                    "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                    and the default Notation behavior is used.
+                                                  enum:
+                                                  - always
+                                                  - afterCertExpiry
+                                                  type: string
                                               type: object
                                             keyless:
                                               description: |-
@@ -9475,6 +9539,22 @@ spec:
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
                                                       type: object
+                                                    tsaCert:
+                                                      description: |-
+                                                        TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                        certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                        When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                      type: string
+                                                    verifyTimestamp:
+                                                      description: |-
+                                                        VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                        Notary signature verification. Valid values are "always" or
+                                                        "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                        and the default Notation behavior is used.
+                                                      enum:
+                                                      - always
+                                                      - afterCertExpiry
+                                                      type: string
                                                   type: object
                                                 keyless:
                                                   description: |-
@@ -9881,6 +9961,22 @@ spec:
                                                       https://rekor.sigstore.dev.
                                                     type: string
                                                 type: object
+                                              tsaCert:
+                                                description: |-
+                                                  TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                  certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                  When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                type: string
+                                              verifyTimestamp:
+                                                description: |-
+                                                  VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                  Notary signature verification. Valid values are "always" or
+                                                  "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                  and the default Notation behavior is used.
+                                                enum:
+                                                - always
+                                                - afterCertExpiry
+                                                type: string
                                             type: object
                                           keyless:
                                             description: |-
@@ -13942,6 +14038,22 @@ spec:
                                                     https://rekor.sigstore.dev.
                                                   type: string
                                               type: object
+                                            tsaCert:
+                                              description: |-
+                                                TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                              type: string
+                                            verifyTimestamp:
+                                              description: |-
+                                                VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                Notary signature verification. Valid values are "always" or
+                                                "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                and the default Notation behavior is used.
+                                              enum:
+                                              - always
+                                              - afterCertExpiry
+                                              type: string
                                           type: object
                                         keyless:
                                           description: |-
@@ -14369,6 +14481,22 @@ spec:
                                                         https://rekor.sigstore.dev.
                                                       type: string
                                                   type: object
+                                                tsaCert:
+                                                  description: |-
+                                                    TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                    certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                    When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                  type: string
+                                                verifyTimestamp:
+                                                  description: |-
+                                                    VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                    Notary signature verification. Valid values are "always" or
+                                                    "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                    and the default Notation behavior is used.
+                                                  enum:
+                                                  - always
+                                                  - afterCertExpiry
+                                                  type: string
                                               type: object
                                             keyless:
                                               description: |-
@@ -14764,6 +14892,22 @@ spec:
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
                                             type: object
+                                          tsaCert:
+                                            description: |-
+                                              TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                              certificate used to verify timestamp tokens embedded in Notary signatures.
+                                              When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                            type: string
+                                          verifyTimestamp:
+                                            description: |-
+                                              VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                              Notary signature verification. Valid values are "always" or
+                                              "afterCertExpiry". If omitted, timestamp verification is disabled
+                                              and the default Notation behavior is used.
+                                            enum:
+                                            - always
+                                            - afterCertExpiry
+                                            type: string
                                         type: object
                                       keyless:
                                         description: |-
@@ -19046,6 +19190,22 @@ spec:
                                                         https://rekor.sigstore.dev.
                                                       type: string
                                                   type: object
+                                                tsaCert:
+                                                  description: |-
+                                                    TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                    certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                    When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                  type: string
+                                                verifyTimestamp:
+                                                  description: |-
+                                                    VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                    Notary signature verification. Valid values are "always" or
+                                                    "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                    and the default Notation behavior is used.
+                                                  enum:
+                                                  - always
+                                                  - afterCertExpiry
+                                                  type: string
                                               type: object
                                             keyless:
                                               description: |-
@@ -19487,6 +19647,22 @@ spec:
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
                                                       type: object
+                                                    tsaCert:
+                                                      description: |-
+                                                        TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                        certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                        When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                      type: string
+                                                    verifyTimestamp:
+                                                      description: |-
+                                                        VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                        Notary signature verification. Valid values are "always" or
+                                                        "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                        and the default Notation behavior is used.
+                                                      enum:
+                                                      - always
+                                                      - afterCertExpiry
+                                                      type: string
                                                   type: object
                                                 keyless:
                                                   description: |-
@@ -19893,6 +20069,22 @@ spec:
                                                       https://rekor.sigstore.dev.
                                                     type: string
                                                 type: object
+                                              tsaCert:
+                                                description: |-
+                                                  TSACert is an optional PEM-encoded TSA (RFC3161) root or intermediate
+                                                  certificate used to verify timestamp tokens embedded in Notary signatures.
+                                                  When provided, Kyverno configures a TSA trust store for timestamp validation.
+                                                type: string
+                                              verifyTimestamp:
+                                                description: |-
+                                                  VerifyTimestamp controls how RFC3161 timestamps are verified during
+                                                  Notary signature verification. Valid values are "always" or
+                                                  "afterCertExpiry". If omitted, timestamp verification is disabled
+                                                  and the default Notation behavior is used.
+                                                enum:
+                                                - always
+                                                - afterCertExpiry
+                                                type: string
                                             type: object
                                           keyless:
                                             description: |-
