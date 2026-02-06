@@ -35,7 +35,7 @@ func TestRecordDoesNotBlockOtherMethods(t *testing.T) {
 	}
 
 	// Drain channel to unblock Record
-	<-notifyChan
+	<-recorder.NotifyChannel()
 
 	// Verify data was recorded
 	ready, ok := recorder.Ready("test-key")
