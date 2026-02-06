@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-	"unsafe"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -114,7 +113,8 @@ func runScaleDeploy() {
 	}
 
 	for _, d := range depls.Items {
-		d.Spec.Replicas = (*int32)(unsafe.Pointer(&replicas)) // because i felt like it
+		replicaI32 := int32(replicas)
+		d.Spec.Replicas = &replicaI32
 		_, err := clientset.AppsV1().Deployments(namespace).Update(context.Background(), &d, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Printf("failed to scale deployment %v to zero: %v\n", d.Name, err)
