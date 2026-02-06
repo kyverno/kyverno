@@ -60,7 +60,7 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno
-      - name: Publish reqadiness-checker
+      - name: Publish readiness-checker
         id: release-readiness-checker
         uses: ./.github/actions/publish-image
         with:
