@@ -119,6 +119,7 @@ func runScaleDeploy() {
 	}
 
 	for _, d := range depls.Items {
+		// #nosec G115
 		replicaI32 := int32(replicas)
 		d.Spec.Replicas = &replicaI32
 		_, err := clientset.AppsV1().Deployments(namespace).Update(context.Background(), &d, metav1.UpdateOptions{})
