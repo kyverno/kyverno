@@ -40,10 +40,9 @@ limitations under the License.
 - [Explore the Policy Library](#-explore-the-policy-library)
 - [Getting Help](#-getting-help)
 - [Contributing](#-contributing)
-- [Software Bill of Materials](#software-bill-of-materials)
-- [Community Highlights](#-community-highlights)
-- [Contributors](#contributors)
-- [License](#license)
+- [Software Bill of Materials](#-software-bill-of-materials)
+- [Contributors](#-contributors)
+- [License](#-license)
 
 ## About Kyverno
 
