@@ -71,7 +71,7 @@ func runDeleteWebhooks() {
 		os.Exit(1)
 	}
 	for _, mw := range mwCfgs.Items {
-		err = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mw.Name, metav1.DeleteOptions{})
+		_ = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mw.Name, metav1.DeleteOptions{})
 	}
 
 	vwCfgs, err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{LabelSelector: label})
@@ -80,7 +80,7 @@ func runDeleteWebhooks() {
 		os.Exit(1)
 	}
 	for _, vw := range vwCfgs.Items {
-		clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
+		_ = clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
 	}
 }
 
