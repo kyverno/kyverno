@@ -156,9 +156,12 @@ func Command() *cobra.Command {
 							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						}
 						for i, rule := range failedRules {
-							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
+							msg := rule.Message()
+							if msg == "" {
+								msg = "validation failed"
+							}
+							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
 						}
-						fmt.Fprintln(out, "")
 					}
 				}
 				printViolations(out, rc)
