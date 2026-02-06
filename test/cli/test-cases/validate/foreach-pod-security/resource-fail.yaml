@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsafe-main
+  labels:
+    app: demo
+spec:
+  containers:
+  - name: main-unsafe
+    image: nginx:1.14.2
+    securityContext:
+      privileged: true # VIOLATION (caught by policy)
