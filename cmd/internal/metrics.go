@@ -24,18 +24,21 @@ import (
 
 func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
-	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTlsSecretName)
+	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTLSSecretName)
 	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
 
-	var metricsTlsSecretInformer corev1informers.SecretInformer
-	var metricsCaSecretInformer corev1informers.SecretInformer
-	var keyAlgorithm kyvernotls.KeyAlgorithm
-	var ok bool
-	if metricsTlsSecretName != "" {
+	var (
+		metricsTLSSecretInformer corev1informers.SecretInformer
+		metricsCASecretInformer  corev1informers.SecretInformer
+		keyAlgorithm             kyvernotls.KeyAlgorithm
+		ok                       bool
+	)
+
+	if metricsTLSSecretName != "" {
 		logger.Info("Metrics TLS secret name is provided, metrics server will use TLS")
-		metricsTlsSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsTlsSecretName, resyncPeriod)
-		metricsCaSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsCaSecretName, resyncPeriod)
-		if !informers.StartInformersAndWaitForCacheSync(ctx, logger, metricsCaSecretInformer, metricsTlsSecretInformer) {
+		metricsTLSSecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsTLSSecretName, resyncPeriod)
+		metricsCASecretInformer = informers.NewSecretInformer(kubeClient, config.KyvernoNamespace(), metricsCASecretName, resyncPeriod)
+		if !informers.StartInformersAndWaitForCacheSync(ctx, logger, metricsCASecretInformer, metricsTLSSecretInformer) {
 			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		}
 		keyAlgorithm, ok = kyvernotls.KeyAlgorithms[strings.ToUpper(metricsKeyAlgorithm)]
@@ -53,18 +56,18 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 			config.KyvernoServiceName(),
 			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
 			config.KyvernoNamespace(),
-			metricsCaSecretName,
-			metricsTlsSecretName,
+			metricsCASecretName,
+			metricsTLSSecretName,
 			keyAlgorithm,
 		)
 		certController := NewController(
 			certmanager.ControllerName,
 			certmanager.NewController(
-				metricsCaSecretInformer,
-				metricsTlsSecretInformer,
+				metricsCASecretInformer,
+				metricsTLSSecretInformer,
 				renewer,
-				metricsCaSecretName,
-				metricsTlsSecretName,
+				metricsCASecretName,
+				metricsTLSSecretName,
 				config.KyvernoNamespace(),
 			),
 			certmanager.Workers,
@@ -74,8 +77,8 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		// Wait for the certificate controller to create the TLS secrets
 		// This ensures they exist before InitMetrics tries to use them
 		if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-			caSecret, _ := metricsCaSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsCaSecretName)
-			tlsSecret, _ := metricsTlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTlsSecretName)
+			caSecret, _ := metricsCASecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsCASecretName)
+			tlsSecret, _ := metricsTLSSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTLSSecretName)
 			return caSecret != nil && tlsSecret != nil, nil
 		}); err != nil {
 			checkError(logger, err, "timeout waiting for metrics TLS secrets to be created")
@@ -92,10 +95,10 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		metricsConfiguration,
 		transportCreds,
 		kubeClient,
-		metricsTlsSecretInformer,
-		metricsCaSecretInformer,
-		metricsCaSecretName,
-		metricsTlsSecretName,
+		metricsTLSSecretInformer,
+		metricsCASecretInformer,
+		metricsCASecretName,
+		metricsTLSSecretName,
 		logging.WithName("metrics"),
 	)
 	checkError(logger, err, "failed to init metrics")
@@ -113,7 +116,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		}
-		if metricsTlsSecretName != "" {
+		if metricsTLSSecretName != "" {
 			tlsConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 				certPem, keyPem, err := tlsProvider()
 				if err != nil {
@@ -146,7 +149,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 				IdleTimeout:       5 * time.Minute,
 				ErrorLog:          logging.StdLogger(logging.WithName("prometheus-server"), ""),
 			}
-			if metricsTlsSecretName != "" {
+			if metricsTLSSecretName != "" {
 				logger.Info("Starting HTTPS metrics server", "address", metricsAddr)
 				if err := server.ListenAndServeTLS("", ""); err != nil {
 					checkError(logger, err, "failed to enable TLS encrypted metrics server", "address", metricsAddr)

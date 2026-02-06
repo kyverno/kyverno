@@ -189,9 +189,9 @@ spec:
             - --otelConfig={{ .Values.admissionController.metering.config }}
             - --metricsPort={{ .Values.admissionController.metering.port }}
             {{- if .Values.admissionController.metering.secure }}
-            - --metricsCaSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
-            - --metricsTlsSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
-            - --metricsTlsKeyAlgorithm={{ .Values.admissionController.metering.tlsKeyAlgorithm | default "RSA" }}
+            - --metricsCASecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.admissionController.metering.tlsKeyAlgorithm | default "RSA" }}
             {{- end }}
             {{- with .Values.admissionController.metering.collector }}
             - --otelCollector={{ . }}

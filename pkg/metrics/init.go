@@ -30,8 +30,8 @@ func InitMetrics(
 	kubeClient kubernetes.Interface,
 	tlsSecretInformer corev1informers.SecretInformer,
 	caSecretInformer corev1informers.SecretInformer,
-	metricsCaSecretName string,
-	metricsTlsSecretName string,
+	metricsCASecretName string,
+	metricsTLSSecretName string,
 	logger logr.Logger,
 ) (MetricsConfigManager, TlsProvider, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
@@ -40,7 +40,7 @@ func InitMetrics(
 
 	// Create TLS provider function that loads certificates from Kubernetes secrets
 	tlsProvider := func() ([]byte, []byte, error) {
-		if metricsTlsSecretName == "" {
+		if metricsTLSSecretName == "" {
 			return nil, nil, nil
 		}
 
@@ -52,26 +52,22 @@ func InitMetrics(
 			return nil, nil, fmt.Errorf("ca secret informer is nil when value should be provided")
 		}
 
-		secret, err := tlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTlsSecretName)
+		secret, err := tlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTLSSecretName)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get metrics TLS secret %s: %w", metricsTlsSecretName, err)
+			return nil, nil, fmt.Errorf("failed to get metrics TLS secret %s: %w", metricsTLSSecretName, err)
 		}
 
 		certPem, exists := secret.Data[corev1.TLSCertKey]
 		if !exists {
-			return nil, nil, fmt.Errorf("metrics TLS certificate \"tls.crt\" not found in secret %s", metricsTlsSecretName)
+			return nil, nil, fmt.Errorf("metrics TLS certificate \"tls.crt\" not found in secret %s", metricsTLSSecretName)
 		}
 
 		keyPem, exists := secret.Data[corev1.TLSPrivateKeyKey]
 		if !exists {
-			return nil, nil, fmt.Errorf("metrics TLS private key \"tls.key\" not found in secret %s", metricsTlsSecretName)
+			return nil, nil, fmt.Errorf("metrics TLS private key \"tls.key\" not found in secret %s", metricsTLSSecretName)
 		}
 
 		return certPem, keyPem, nil
-	}
-	_, _, err = tlsProvider()
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to create TLS provider for metrics: %w", err)
 	}
 
 	SetManager(metricsConfig)
