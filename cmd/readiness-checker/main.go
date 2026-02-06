@@ -80,7 +80,7 @@ func runDeleteWebhooks() {
 		os.Exit(1)
 	}
 	for _, vw := range vwCfgs.Items {
-		err = clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
+		clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
 	}
 }
 
