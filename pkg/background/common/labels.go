@@ -2,6 +2,7 @@ package common
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -86,5 +87,9 @@ func trimByLength(value string, character int) string {
 	if len(value) > character {
 		return value[0:character]
 	}
+
+	value = regexp.MustCompile("^[^a-z0-9A-Z]*").ReplaceAllString(value, "")
+	value = regexp.MustCompile("[^a-z0-9A-Z]*$").ReplaceAllString(value, "")
+
 	return value
 }
