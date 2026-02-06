@@ -420,7 +420,12 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
 				newResource.SetLabels(downstream.GetLabels())
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
+				var err error
+				if hasSSAEnabledLabel(downstream.GetLabels()) {
+					_, err = wm.client.ApplyResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), newResource, false, "generate")
+				} else {
+					_, err = wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
+				}
 				if err != nil {
 					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 				} else {
@@ -452,7 +457,12 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				downstream.SetCreationTimestamp(metav1.Time{})
 				downstream.SetManagedFields(nil)
 				downstream.SetResourceVersion("")
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				var err error
+				if hasSSAEnabledLabel(downstream.GetLabels()) {
+					_, err = wm.client.ApplyResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), downstream, false, "generate")
+				} else {
+					_, err = wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				}
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				} else {
@@ -513,7 +523,12 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				downstream.SetCreationTimestamp(metav1.Time{})
 				downstream.SetManagedFields(nil)
 				downstream.SetResourceVersion("")
-				_, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				var err error
+				if hasSSAEnabledLabel(downstream.GetLabels()) {
+					_, err = wm.client.ApplyResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), downstream, false, "generate")
+				} else {
+					_, err = wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				}
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				} else {
@@ -522,4 +537,11 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 			}
 		}
 	}
+}
+
+func hasSSAEnabledLabel(labels map[string]string) bool {
+	if labels == nil {
+		return false
+	}
+	return labels[common.GenerateUseServerSideApplyLabel] == "true"
 }
