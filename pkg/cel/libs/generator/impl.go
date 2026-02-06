@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"google.golang.org/protobuf/types/known/structpb"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type impl struct {
@@ -24,6 +25,9 @@ func (c *impl) apply_generator_string_list(args ...ref.Val) ref.Val {
 			resources = append(resources, data.AsMap())
 		}
 		if err := self.GenerateResources(namespace, resources); err != nil {
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				return types.NewErr("failed to generate resources: permission denied: %v", err)
+			}
 			return types.NewErr("failed to generate resources: %v", err)
 		}
 		return types.True
