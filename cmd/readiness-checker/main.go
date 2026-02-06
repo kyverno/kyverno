@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -97,6 +98,11 @@ func runScaleDeploy() {
 	err := fs.Parse(os.Args[2:])
 	if err != nil {
 		fmt.Printf("error parsing flags: %s", err.Error())
+		os.Exit(1)
+	}
+
+	if replicas < 0 || replicas > math.MaxInt32 {
+		fmt.Printf("passed replica count is not in the allowed range, must be between zero and %d. got: %d\n", math.MaxInt32, replicas)
 		os.Exit(1)
 	}
 
