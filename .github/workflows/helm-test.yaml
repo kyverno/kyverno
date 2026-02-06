@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - release*
+      - gh-readonly-queue/main/**
     paths:
       - charts/**
   merge_group:

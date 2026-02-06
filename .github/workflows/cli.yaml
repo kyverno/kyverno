@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - release-*
+      - gh-readonly-queue/main/**
   merge_group:
     types: [checks_requested]
 concurrency:
