@@ -762,7 +762,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(""),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
