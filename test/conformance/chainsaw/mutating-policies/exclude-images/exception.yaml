@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: exclude-images
+spec:
+  policyRefs:
+    - name: exclude-images
+      kind: MutatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name.startsWith('dev-')"
+  # list of image names to exclude
+  images:
+  - busybox:latest
+  - nginx:latest

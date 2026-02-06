@@ -27,7 +27,6 @@ import (
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	matchconditions "k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	environment "k8s.io/apiserver/pkg/cel/environment"
 )
 
@@ -54,6 +53,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions: []cel.EnvOption{
+				cel.Variable(compiler.ExceptionsKey, cel.DynType),
 				cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 				cel.Variable(compiler.ObjectKey, cel.DynType),
 				cel.Variable(compiler.OldObjectKey, cel.DynType),
@@ -100,29 +100,14 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.GetSpec().Variables), optionsVars, environment.StoredExpressions)
 	}
 
-	// Compile match conditions and collect errors
-	var matcher matchconditions.Matcher = nil
-	matchConditions := policy.GetSpec().MatchConditions
-	if len(matchConditions) > 0 {
-		matchExpressionAccessors := make([]plugincel.ExpressionAccessor, len(matchConditions))
-		for i := range matchConditions {
-			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
+	conditions := policy.GetSpec().MatchConditions
+	matchConditions := make([]cel.Program, 0, len(conditions))
+	{
+		programs, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedEnvSet.StoredExpressionsEnv(), conditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
 		}
-
-		evaluator := compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
-		for _, err := range evaluator.CompilationErrors() {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec").Child("matchConditions"),
-				matchConditions[0].Expression,
-				err.Error(),
-			))
-		}
-
-		failurePolicy := policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore())
-		matcher = matchconditions.NewMatcher(
-			evaluator,
-			&failurePolicy,
-			"policy", "validate", policy.GetName())
+		matchConditions = append(matchConditions, programs...)
 	}
 
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -173,7 +158,9 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		}
 	}
 	return &Policy{
-		evaluator:  mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
-		exceptions: compiledExceptions,
+		evaluator:       mutating.PolicyEvaluator{Matcher: nil, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
+		exceptions:      compiledExceptions,
+		matchConditions: matchConditions,
+		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 	}, allErrs
 }
