@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -103,6 +104,19 @@ func (h *imageVerificationHandler) handleVerifyImages(
 					namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
 					if err != nil {
 						h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
+						// Create error response instead of silently skipping the policy
+						resp := engineapi.NewEngineResponse(
+							policyContext.NewResource(),
+							engineapi.NewKyvernoPolicy(policy),
+							nil,
+						)
+						policyResponse := engineapi.NewPolicyResponse()
+						policyResponse.Add(
+							engineapi.NewExecutionStats(time.Now(), time.Now()),
+							*engineapi.RuleError("", engineapi.ImageVerify, "failed to get namespace labels", err, nil),
+						)
+						resp = resp.WithPolicyResponse(policyResponse)
+						engineResponses = append(engineResponses, resp)
 						return
 					}
 					policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
