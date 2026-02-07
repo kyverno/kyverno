@@ -96,7 +96,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		return newGenResources, fmt.Errorf("failed to parse preconditions: %v", err)
 	}
 
-	preconditionsPassed, msg, err := variables.EvaluateConditions(g.logger, g.policyContext.JSONContext(), typeConditions)
+	preconditionsPassed, msg, err := variables.EvaluateConditionsWithContext(g.logger, g.policyContext.JSONContext(), typeConditions, "generate.preconditions")
 	if err != nil {
 		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %v", err)
 	}
