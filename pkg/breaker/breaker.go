@@ -2,13 +2,23 @@ package breaker
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
 
-var ReportsBreaker Breaker
+var reportsBreaker atomic.Value
 
-func GetReportsBreaker() Breaker { return ReportsBreaker }
+func GetReportsBreaker() Breaker {
+	if v := reportsBreaker.Load(); v != nil {
+		return v.(Breaker)
+	}
+	return nil
+}
+
+func SetReportsBreaker(b Breaker) {
+	reportsBreaker.Store(b)
+}
 
 type Breaker interface {
 	Do(context.Context, func(context.Context) error) error

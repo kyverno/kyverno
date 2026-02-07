@@ -418,17 +418,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// create a temporary breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 		}
 
 		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
