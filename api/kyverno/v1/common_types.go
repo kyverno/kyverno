@@ -176,6 +176,12 @@ type ImageRegistry struct {
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
 	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty"`
+
+	// Platform is an optional platform specifier in the form of "os/arch[/variant]".
+	// When specified, the platform is used to resolve the image digest from a manifest list.
+	// When not specified, the default platform (`linux/amd64`) is used.
+	// +optional
+	Platform string `json:"platform,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
