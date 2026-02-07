@@ -241,7 +241,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.MutatingAdmissionPolicies) != 0 {
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 		} else {
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
@@ -294,7 +294,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -352,7 +352,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// map gvk to gvr
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo
@@ -395,7 +395,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -478,7 +478,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
