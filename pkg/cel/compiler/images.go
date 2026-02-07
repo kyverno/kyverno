@@ -1,7 +1,10 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,13 +93,17 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 	}
 	var allErrs field.ErrorList
 	compiled := make(map[string]ImageExtractor, len(extractors))
+	expectedType := types.NewListType(types.StringType)
 	for i, m := range extractors {
 		path := path.Index(i).Child("expression")
 		ast, iss := env.Compile(m.Expression)
 		if iss.Err() != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, iss.Err().Error()))
 		}
-		// TODO: check output type
+		if !ast.OutputType().IsExactType(expectedType) && !ast.OutputType().IsExactType(types.DynType) && !ast.OutputType().IsExactType(types.NewListType(types.DynType)) {
+			msg := fmt.Sprintf("output is expected to be of type %s", expectedType.TypeName())
+			return nil, append(allErrs, field.Invalid(path, m.Expression, msg))
+		}
 		prog, err := env.Program(ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
