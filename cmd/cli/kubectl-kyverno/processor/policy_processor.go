@@ -819,8 +819,9 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 	kindPrefix := strings.ToLower(kind)
 
 	for _, newVp := range p.ValidatingPolicies {
-		if newVp.Spec.MatchConstraints != nil {
-			for _, r := range newVp.Spec.MatchConstraints.ResourceRules {
+		resRules := newVp.GetSpec().MatchConstraints.ResourceRules
+		if resRules != nil {
+			for _, r := range resRules {
 				for _, newR := range r.Resources {
 					if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
 						return newR, nil
