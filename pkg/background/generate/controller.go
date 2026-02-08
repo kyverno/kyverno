@@ -109,7 +109,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 
-		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		ruleResources, err := c.applyGenerate(*trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
@@ -124,6 +124,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.Error(err, "failed to process rule for deleted policy", "rule", rule.Rule, "policy", ur.Spec.GetPolicyKey())
 			}
 		}
+		genResources = append(genResources, ruleResources...)
 	}
 
 	return updateStatus(c.statusControl, *ur, multierr.Combine(failures...), genResources)
