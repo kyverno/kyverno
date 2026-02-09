@@ -27,10 +27,13 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      command:
-        - /bin/sh
-        - -c
-        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
+      args:
+        - check-http
+        - --service-name={{ template "kyverno.cleanup-controller.name" . }}
+        - --namespace={{ template "kyverno.namespace" . }}
+        - --port={{ .Values.cleanupController.service.port }}
+        - --path=health/liveness
+        - --https
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}

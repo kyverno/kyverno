@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -89,11 +89,11 @@ spec:
                         properties:
                           dryRun:
                             description: |-
-                              DryRun indicates that modifications will definitely not be persisted for this request.
+                              dryRun indicates that modifications will definitely not be persisted for this request.
                               Defaults to false.
                             type: boolean
                           kind:
-                            description: Kind is the fully-qualified type of object
+                            description: kind is the fully-qualified type of object
                               being submitted (for example, v1.Pod or autoscaling.v1.Scale)
                             properties:
                               group:
@@ -109,30 +109,30 @@ spec:
                             type: object
                           name:
                             description: |-
-                              Name is the name of the object as presented in the request.  On a CREATE operation, the client may omit name and
+                              name is the name of the object as presented in the request.  On a CREATE operation, the client may omit name and
                               rely on the server to generate the name.  If that is the case, this field will contain an empty string.
                             type: string
                           namespace:
-                            description: Namespace is the namespace associated with
+                            description: namespace is the namespace associated with
                               the request (if any).
                             type: string
                           object:
-                            description: Object is the object from the incoming request.
+                            description: object is the object from the incoming request.
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           oldObject:
-                            description: OldObject is the existing object. Only populated
+                            description: oldObject is the existing object. Only populated
                               for DELETE and UPDATE requests.
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           operation:
                             description: |-
-                              Operation is the operation being performed. This may be different than the operation
+                              operation is the operation being performed. This may be different than the operation
                               requested. e.g. a patch can result in either a CREATE or UPDATE Operation.
                             type: string
                           options:
                             description: |-
-                              Options is the operation option structure of the operation being performed.
+                              options is the operation option structure of the operation being performed.
                               e.g. `meta.k8s.io/v1.DeleteOptions` or `meta.k8s.io/v1.CreateOptions`. This may be
                               different than the options the caller provided. e.g. for a patch request the performed
                               Operation might be a CREATE, in which case the Options will a
@@ -141,7 +141,7 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           requestKind:
                             description: |-
-                              RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
+                              requestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
@@ -165,7 +165,7 @@ spec:
                             type: object
                           requestResource:
                             description: |-
-                              RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
+                              requestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
@@ -189,12 +189,12 @@ spec:
                             type: object
                           requestSubResource:
                             description: |-
-                              RequestSubResource is the name of the subresource of the original API request, if any (for example, "status" or "scale")
+                              requestSubResource is the name of the subresource of the original API request, if any (for example, "status" or "scale")
                               If this is specified and differs from the value in "subResource", an equivalent match and conversion was performed.
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             type: string
                           resource:
-                            description: Resource is the fully-qualified resource
+                            description: resource is the fully-qualified resource
                               being requested (for example, v1.pods)
                             properties:
                               group:
@@ -209,18 +209,18 @@ spec:
                             - version
                             type: object
                           subResource:
-                            description: SubResource is the subresource being requested,
+                            description: subResource is the subresource being requested,
                               if any (for example, "status" or "scale")
                             type: string
                           uid:
                             description: |-
-                              UID is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
+                              uid is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
                               otherwise identical (parallel requests, requests when earlier requests did not modify etc)
                               The UID is meant to track the round trip (request/response) between the KAS and the WebHook, not the user request.
                               It is suitable for correlating log entries between the webhook and apiserver, for either auditing or debugging.
                             type: string
                           userInfo:
-                            description: UserInfo is information about the requesting
+                            description: userInfo is information about the requesting
                               user
                             properties:
                               extra:
@@ -402,7 +402,7 @@ spec:
             - state
             type: object
         type: object
-    served: true
+    served: false
     storage: false
     subresources:
       status: {}
@@ -469,11 +469,11 @@ spec:
                         properties:
                           dryRun:
                             description: |-
-                              DryRun indicates that modifications will definitely not be persisted for this request.
+                              dryRun indicates that modifications will definitely not be persisted for this request.
                               Defaults to false.
                             type: boolean
                           kind:
-                            description: Kind is the fully-qualified type of object
+                            description: kind is the fully-qualified type of object
                               being submitted (for example, v1.Pod or autoscaling.v1.Scale)
                             properties:
                               group:
@@ -489,30 +489,30 @@ spec:
                             type: object
                           name:
                             description: |-
-                              Name is the name of the object as presented in the request.  On a CREATE operation, the client may omit name and
+                              name is the name of the object as presented in the request.  On a CREATE operation, the client may omit name and
                               rely on the server to generate the name.  If that is the case, this field will contain an empty string.
                             type: string
                           namespace:
-                            description: Namespace is the namespace associated with
+                            description: namespace is the namespace associated with
                               the request (if any).
                             type: string
                           object:
-                            description: Object is the object from the incoming request.
+                            description: object is the object from the incoming request.
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           oldObject:
-                            description: OldObject is the existing object. Only populated
+                            description: oldObject is the existing object. Only populated
                               for DELETE and UPDATE requests.
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                           operation:
                             description: |-
-                              Operation is the operation being performed. This may be different than the operation
+                              operation is the operation being performed. This may be different than the operation
                               requested. e.g. a patch can result in either a CREATE or UPDATE Operation.
                             type: string
                           options:
                             description: |-
-                              Options is the operation option structure of the operation being performed.
+                              options is the operation option structure of the operation being performed.
                               e.g. `meta.k8s.io/v1.DeleteOptions` or `meta.k8s.io/v1.CreateOptions`. This may be
                               different than the options the caller provided. e.g. for a patch request the performed
                               Operation might be a CREATE, in which case the Options will a
@@ -521,7 +521,7 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           requestKind:
                             description: |-
-                              RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
+                              requestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
@@ -545,7 +545,7 @@ spec:
                             type: object
                           requestResource:
                             description: |-
-                              RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
+                              requestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
@@ -569,12 +569,12 @@ spec:
                             type: object
                           requestSubResource:
                             description: |-
-                              RequestSubResource is the name of the subresource of the original API request, if any (for example, "status" or "scale")
+                              requestSubResource is the name of the subresource of the original API request, if any (for example, "status" or "scale")
                               If this is specified and differs from the value in "subResource", an equivalent match and conversion was performed.
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             type: string
                           resource:
-                            description: Resource is the fully-qualified resource
+                            description: resource is the fully-qualified resource
                               being requested (for example, v1.pods)
                             properties:
                               group:
@@ -589,18 +589,18 @@ spec:
                             - version
                             type: object
                           subResource:
-                            description: SubResource is the subresource being requested,
+                            description: subResource is the subresource being requested,
                               if any (for example, "status" or "scale")
                             type: string
                           uid:
                             description: |-
-                              UID is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
+                              uid is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
                               otherwise identical (parallel requests, requests when earlier requests did not modify etc)
                               The UID is meant to track the round trip (request/response) between the KAS and the WebHook, not the user request.
                               It is suitable for correlating log entries between the webhook and apiserver, for either auditing or debugging.
                             type: string
                           userInfo:
-                            description: UserInfo is information about the requesting
+                            description: userInfo is information about the requesting
                               user
                             properties:
                               extra:

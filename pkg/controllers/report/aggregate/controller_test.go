@@ -116,36 +116,6 @@ var (
 			},
 		},
 	}
-	rep = &openreportsv1alpha1.Report{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-report-pod",
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "kyverno",
-			},
-		},
-		Scope: &corev1.ObjectReference{
-			APIVersion: "v1",
-			Kind:       "Pod",
-			Name:       "test-pod",
-			Namespace:  "default",
-		},
-		Results: []openreportsv1alpha1.ReportResult{
-			{
-				Description: "validation error: Pods must have a 'app' label",
-				Policy:      "default/require-app-label",
-				Rule:        "check-app-label",
-				Result:      openreports.StatusFail,
-				Scored:      true,
-				Source:      "kyverno",
-				Properties: map[string]string{
-					"process": "background scan",
-				},
-			},
-		},
-		Summary: openreportsv1alpha1.ReportSummary{
-			Fail: 1,
-		},
-	}
 )
 
 func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.MetadataClient, metafake.MetadataClient) {
@@ -173,7 +143,7 @@ func TestController(t *testing.T) {
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: kyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: notKyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 
-	controller := aggregate.NewController(client, nil, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, nil, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -236,7 +206,7 @@ func TestControllerWithOpenreports(t *testing.T) {
 	dClient, _ := dclient.NewFakeClient(s, map[schema.GroupVersionResource]string{}, pod)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 
-	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

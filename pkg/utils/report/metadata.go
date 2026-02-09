@@ -1,7 +1,7 @@
 package report
 
 import (
-	"crypto/md5" //nolint:gosec
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"strings"
@@ -13,7 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,6 +48,7 @@ const (
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
 	LabelPrefixMutatingAdmissionPolicy          = "mutatingadmissionpolicy.apiserver.io/"
 	LabelPrefixMutatingAdmissionPolicyBinding   = "mutatingadmissionpolicybinding.apiserver.io/"
+	LabelPolicyExceptionPriority                = "polex.kyverno.io/priority"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
@@ -107,7 +108,7 @@ func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.Valid
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
 }
 
-func MutatingAdmissionPolicyBindingLabel(binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) string {
+func MutatingAdmissionPolicyBindingLabel(binding metav1.Object) string {
 	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
 }
 
@@ -172,7 +173,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	if err != nil {
 		return ""
 	}
-	hash := md5.Sum(data) //nolint:gosec
+	hash := md5.Sum(data)
 	return hex.EncodeToString(hash[:])
 }
 
@@ -196,8 +197,8 @@ func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, 
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 
-func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) {
-	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(&binding), binding.GetResourceVersion())
 }
 
 func GetSource(report metav1.Object) string {

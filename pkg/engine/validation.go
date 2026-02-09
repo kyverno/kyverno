@@ -39,7 +39,7 @@ func (e *engine) validate(
 			if hasValidate {
 				hasValidateAssert := rule.HasValidateAssert()
 				if hasValidateAssert && rule.Validation.Assert.Value != nil {
-					return validation.NewValidateAssertHandler()
+					return validation.NewValidateAssertHandler(e.client, e.isCluster)
 				}
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
@@ -48,13 +48,14 @@ func (e *engine) validate(
 					return validation.NewValidateManifestHandler(
 						policyContext,
 						e.client,
+						e.isCluster,
 					)
 				} else if hasValidatePss {
-					return validation.NewValidatePssHandler()
+					return validation.NewValidatePssHandler(e.client, e.isCluster)
 				} else if hasValidateCEL {
 					return validation.NewValidateCELHandler(e.client, e.isCluster)
 				} else {
-					return validation.NewValidateResourceHandler()
+					return validation.NewValidateResourceHandler(e.client, e.isCluster)
 				}
 			} else if hasVerifyImageChecks {
 				return validation.NewValidateImageHandler(
@@ -62,6 +63,8 @@ func (e *engine) validate(
 					policyContext.NewResource(),
 					rule,
 					e.configuration,
+					e.client,
+					e.isCluster,
 				)
 			}
 			return nil, nil

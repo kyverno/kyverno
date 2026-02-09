@@ -46,8 +46,6 @@ type mutateExistingController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
-
-	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -63,7 +61,6 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
 ) *mutateExistingController {
 	c := mutateExistingController{
 		client:        client,
@@ -77,7 +74,6 @@ func NewMutateExistingController(
 		eventGen:      eventGen,
 		log:           log,
 		jp:            jp,
-		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -170,7 +166,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
-		if c.needsReports(trigger) {
+		if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
@@ -251,10 +247,10 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	}
 
 	if err != nil {
-		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController,
+		events = event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), rule, event.MutateExistingController,
 			kyvernov1.ResourceSpec{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()})
 	} else {
-		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, policy,
+		events = event.NewBackgroundSuccessEvent(event.MutateExistingController, engineapi.NewKyvernoPolicy(policy),
 			[]kyvernov1.ResourceSpec{{Kind: target.GetKind(), Namespace: target.GetNamespace(), Name: target.GetName()}})
 	}
 
@@ -262,7 +258,7 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 }
 
 func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.MutateExistingReportsEnabled()
+	createReport := reportutils.ReportingCfg.MutateExistingReportsEnabled()
 	if trigger == nil {
 		return createReport
 	}

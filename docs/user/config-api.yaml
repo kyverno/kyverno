@@ -60,5 +60,15 @@ apis:
 
 - name: kyverno_cel_policies
   title: kyverno CEL policies (v1alpha1)
-  package: github.com/kyverno/kyverno
+  package: github.com/kyverno/api
   path: api/policies.kyverno.io/v1alpha1
+
+- name: kyverno_cel_policies
+  title: kyverno CEL policies (v1beta1)
+  package: github.com/kyverno/api
+  path: api/policies.kyverno.io/v1beta1
+
+- name: kyverno_cel_policies
+  title: kyverno CEL policies (v1)
+  package: github.com/kyverno/api
+  path: api/policies.kyverno.io/v1

@@ -1,0 +1,28 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  namespace: mpol-exceptions-regular
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: skipped-deployment
+results:
+- message: 'rule is passed due to policy exception: mpol-exceptions-regular/check-name'
+  policy: add-deployment-labels
+  properties:
+    exceptions: check-name
+    process: background scan
+  result: pass
+  scored: true
+  source: KyvernoMutatingPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: skipped-deployment
+  namespace: mpol-exceptions-regular
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

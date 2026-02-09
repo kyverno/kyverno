@@ -2,62 +2,156 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	corev1 "k8s.io/api/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
+
+type TlsProvider func() ([]byte, []byte, error)
 
 func InitMetrics(
 	ctx context.Context,
 	disableMetricsExport bool,
 	otelProvider string,
-	metricsAddr string,
+	metricsPort int,
 	otelCollector string,
 	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
+	tlsSecretInformer corev1informers.SecretInformer,
+	caSecretInformer corev1informers.SecretInformer,
+	metricsCASecretName string,
+	metricsTLSSecretName string,
 	logger logr.Logger,
-) (MetricsConfigManager, *http.ServeMux, *sdkmetric.MeterProvider, error) {
+) (MetricsConfigManager, TlsProvider, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
+
+	metricsConfig := NewMetricsConfigManager(logger, metricsConfiguration)
+
+	// Create TLS provider function that loads certificates from Kubernetes secrets
+	tlsProvider := func() ([]byte, []byte, error) {
+		if metricsTLSSecretName == "" {
+			return nil, nil, nil
+		}
+
+		if tlsSecretInformer == nil {
+			return nil, nil, fmt.Errorf("tls secret informer is nil when value should be provided")
+		}
+
+		if caSecretInformer == nil {
+			return nil, nil, fmt.Errorf("ca secret informer is nil when value should be provided")
+		}
+
+		secret, err := tlsSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTLSSecretName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get metrics TLS secret %s: %w", metricsTLSSecretName, err)
+		}
+
+		certPem, exists := secret.Data[corev1.TLSCertKey]
+		if !exists {
+			return nil, nil, fmt.Errorf("metrics TLS certificate \"tls.crt\" not found in secret %s", metricsTLSSecretName)
+		}
+
+		keyPem, exists := secret.Data[corev1.TLSPrivateKeyKey]
+		if !exists {
+			return nil, nil, fmt.Errorf("metrics TLS private key \"tls.key\" not found in secret %s", metricsTLSSecretName)
+		}
+
+		return certPem, keyPem, nil
+	}
+
+	SetManager(metricsConfig)
+
+	if disableMetricsExport {
+		err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
+		if err != nil {
+			logger.Error(err, "failed initializing metrics")
+			return nil, nil, nil, nil, err
+		}
+
+		return metricsConfig, nil, nil, nil, nil
+	}
+
+	var meterProvider metric.MeterProvider
 	var metricsServerMux *http.ServeMux
-	if !disableMetricsExport {
-		var meterProvider metric.MeterProvider
-		if otelProvider == "grpc" {
-			endpoint := otelCollector + metricsAddr
-			meterProvider, err = NewOTLPGRPCConfig(
-				ctx,
-				endpoint,
-				transportCreds,
-				kubeClient,
-				logger,
-				metricsConfiguration,
-			)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		} else if otelProvider == "prometheus" {
-			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger, metricsConfiguration)
-			if err != nil {
-				return nil, nil, nil, err
-			}
+
+	switch otelProvider {
+	case "grpc":
+		endpoint := fmt.Sprintf("[%s]:%d", otelCollector, metricsPort)
+		meterProvider, err = NewOTLPGRPCConfig(
+			ctx,
+			endpoint,
+			transportCreds,
+			kubeClient,
+			logger,
+			metricsConfiguration,
+		)
+		if err != nil {
+			return nil, nil, nil, nil, err
 		}
-		if meterProvider != nil {
-			otel.SetMeterProvider(meterProvider)
+	case "prometheus":
+		meterProvider, err = NewPrometheusConfig(ctx, logger, metricsConfiguration)
+		if err != nil {
+			return nil, nil, nil, nil, err
 		}
+
+		metricsServerMux = http.NewServeMux()
+		metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
 	}
-	metricsConfig := MetricsConfig{
-		Log:    logger,
-		config: metricsConfiguration,
+
+	if meterProvider != nil {
+		otel.SetMeterProvider(meterProvider)
 	}
+
 	err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
 	if err != nil {
-		logger.Error(err, "Failed initializing metrics")
-		return nil, nil, nil, err
+		logger.Error(err, "failed initializing metrics")
+		return nil, nil, nil, nil, err
 	}
-	return &metricsConfig, metricsServerMux, nil, nil
+
+	if otelProvider == "prometheus" && metricsConfiguration.GetMetricsRefreshInterval() > 0 {
+		ticker := time.NewTicker(metricsConfiguration.GetMetricsRefreshInterval())
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					if p, ok := otel.GetMeterProvider().(*sdkmetric.MeterProvider); ok {
+						if err := p.Shutdown(ctx); err != nil {
+							logger.Error(err, "failed to shutdown MeterProvider")
+						}
+					}
+
+					meterProvider, err := NewPrometheusConfig(ctx, logger, metricsConfiguration)
+					if err != nil {
+						logger.Error(err, "failed to re-create MeterProvider")
+						continue
+					}
+
+					otel.SetMeterProvider(meterProvider)
+
+					err = metricsConfig.initializeMetrics(meterProvider)
+					if err != nil {
+						logger.Error(err, "failed re-initializing metrics")
+						continue
+					}
+
+					logger.V(4).Info("restarted prometheus metrics")
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	return metricsConfig, tlsProvider, metricsServerMux, nil, nil
 }
