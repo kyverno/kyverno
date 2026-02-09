@@ -338,6 +338,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	if err != nil {
 		return nil, err
 	}
+	defer ioPredicate.Close()
 
 	predicateBytes := new(bytes.Buffer)
 	_, err = predicateBytes.ReadFrom(ioPredicate)
