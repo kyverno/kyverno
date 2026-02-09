@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
+	"github.com/kyverno/kyverno/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -33,8 +34,9 @@ func generateKeychainForPullSecrets(lister corev1listers.SecretLister, defaultNa
 			secrets = append(secrets, *secret)
 		} else if !k8serrors.IsNotFound(err) {
 			return nil, err
+		} else {
+			logging.V(4).Info("secret not found, skipping", "namespace", namespace, "name", name)
 		}
-		// Silently skip NotFound errors to allow flexible secret references
 	}
 	return kauth.NewFromPullSecrets(context.TODO(), secrets)
 }
