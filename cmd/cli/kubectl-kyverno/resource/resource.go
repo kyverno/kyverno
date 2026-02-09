@@ -115,7 +115,7 @@ func GetFileBytes(path string) ([]byte, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, err
+			return nil, fmt.Errorf("failed to fetch resource from %s: HTTP %s", path, resp.Status)
 		}
 		file, err := io.ReadAll(resp.Body)
 		if err != nil {
