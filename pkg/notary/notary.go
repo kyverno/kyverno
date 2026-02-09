@@ -209,7 +209,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
-	return nil, fmt.Errorf("failed to fetch attestations %s", err)
+	return nil, fmt.Errorf("no matching attestations found for image %s with type %s", opts.ImageRef, opts.Type)
 }
 
 func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts images.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
