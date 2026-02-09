@@ -187,16 +187,14 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 		targetDesc, err := verifyAttestators(ctx, v, ref, opts, referrer)
 		if err != nil {
-			msg := err.Error()
-			v.log.V(4).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
+			v.log.V(4).Info("failed to verify referrer", "digest", targetDesc.Digest.String(), "error", err.Error())
 			return nil, err
 		}
 
 		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
 		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
 		if err != nil {
-			msg := err.Error()
-			v.log.V(4).Info("failed to extract statements %s", "err", msg)
+			v.log.V(4).Info("failed to extract statements", "error", err.Error())
 			return nil, err
 		}
 
