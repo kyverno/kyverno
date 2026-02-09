@@ -762,7 +762,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(""),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
@@ -800,23 +800,23 @@ func main() {
 							time.Sleep(2 * time.Second)
 							continue
 						}
-						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+						breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 						return
 					}
 				}()
 				// create a temporary fake breaker until the retrying goroutine succeeds
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
-				})
+				}))
 				// no error has occurred, create a normal breaker
 			} else {
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 			}
 			// admission reports are disabled, create a fake breaker by default
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 				return true
-			})
+			}))
 		}
 
 		resourceHandlers := webhooksresource.NewHandlers(
