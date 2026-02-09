@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skipped-pod-1
+spec:
+  containers:
+  - name: container01
+    image: nginx:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: container02
+    image: ubuntu:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skipped-pod-2
+spec:
+  containers:
+  - name: container01
+    image: busybox:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: container02
+    image: ubuntu:latest
+    securityContext:
+      allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skipped-pod-3
+spec:
+  containers:
+  - name: container01
+    image: busybox:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: container02
+    image: nginx:latest
+    securityContext:
+      allowPrivilegeEscalation: true

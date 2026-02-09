@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: container-exception
+spec:
+  exceptions:
+  - policyName: max-containers
+    ruleNames:
+    - max-two-containers
+    - autogen-max-two-containers
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaceSelector:
+          matchLabels:
+            env: production

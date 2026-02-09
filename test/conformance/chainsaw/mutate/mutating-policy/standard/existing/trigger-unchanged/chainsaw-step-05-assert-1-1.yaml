@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: target-secret
+  namespace: mpol-trigger-test-ns
+  labels:
+    mutated: "true"

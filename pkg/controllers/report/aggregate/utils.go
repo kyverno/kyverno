@@ -9,11 +9,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
-	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 )
 
 type maps struct {
@@ -21,6 +21,7 @@ type maps struct {
 	vap    sets.Set[string]
 	mappol sets.Set[string]
 	vpol   sets.Set[string]
+	nvpol  sets.Set[string]
 	ivpol  sets.Set[string]
 	gpol   sets.Set[string]
 	mpol   sets.Set[string]

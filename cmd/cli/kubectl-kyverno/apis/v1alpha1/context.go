@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -19,6 +19,7 @@ type Context struct {
 }
 
 type ContextSpec struct {
+	// deprecate, use ClusterResource to define Kubernetes specific resources
 	Resources []unstructured.Unstructured `json:"resources,omitempty"`
 	Images    []ImageData                 `json:"images,omitempty"`
 }
@@ -30,7 +31,7 @@ type ImageData struct {
 	Repository    string       `json:"repository"`
 	Tag           string       `json:"tag,omitempty"`
 	Digest        string       `json:"digest,omitempty"`
-	ImageIndex    v1alpha1.Any `json:"imageIndex,omitempty"`
-	Manifest      v1alpha1.Any `json:"manifest,omitempty"`
-	ConfigData    v1alpha1.Any `json:"config,omitempty"`
+	ImageIndex    *kyverno.Any `json:"imageIndex,omitempty"`
+	Manifest      *kyverno.Any `json:"manifest,omitempty"`
+	ConfigData    *kyverno.Any `json:"config,omitempty"`
 }

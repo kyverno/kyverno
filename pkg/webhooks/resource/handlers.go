@@ -26,13 +26,13 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -65,7 +65,6 @@ type resourceHandlers struct {
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
-	reportingConfig              reportutils.ReportingConfiguration
 	breaker.Breaker
 }
 
@@ -88,7 +87,6 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportingConfig reportutils.ReportingConfiguration,
 ) *resourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -108,7 +106,6 @@ func NewHandlers(
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
-		reportingConfig:              reportingConfig,
 	}
 }
 
@@ -137,9 +134,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.eventGen,
 		h.admissionReports,
 		h.metricsConfig,
-		h.configuration,
 		h.nsLister,
-		h.reportingConfig,
 	)
 	var wg wait.Group
 	var ok bool
@@ -156,22 +151,25 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	wg.Wait()
 	if !ok {
 		logger.V(4).Info("admission request denied")
-		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
+		events := webhookutils.GenerateEvents(enforceResponses, true)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 	go h.auditPool.Submit(func() {
-		auditResponses := vh.HandleValidationAudit(ctx, request)
+		// Create a new context with timeout for audit work, independent of HTTP request lifecycle
+		auditCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		auditResponses := vh.HandleValidationAudit(auditCtx, request)
 		var events []event.Info
 
 		switch {
 		case len(auditResponses) == 0:
-			events = webhookutils.GenerateEvents(enforceResponses, false, h.configuration)
+			events = webhookutils.GenerateEvents(enforceResponses, false)
 		case len(enforceResponses) == 0:
-			events = webhookutils.GenerateEvents(auditResponses, false, h.configuration)
+			events = webhookutils.GenerateEvents(auditResponses, false)
 		default:
 			responses := mergeEngineResponses(auditResponses, enforceResponses)
-			events = webhookutils.GenerateEvents(responses, false, h.configuration)
+			events = webhookutils.GenerateEvents(responses, false)
 		}
 
 		h.eventGen.Add(events...)
@@ -198,7 +196,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig)
+	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports)
 	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
@@ -218,9 +216,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 			h.engine,
 			h.eventGen,
 			h.admissionReports,
-			h.configuration,
 			h.nsLister,
-			h.reportingConfig,
 		)
 		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 		if err != nil {
@@ -240,14 +236,26 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
-		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
-		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
-		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, request.Namespace)...)
+
+		// Get namespace object if namespace is specified
+		var namespace *corev1.Namespace
+		if request.Namespace != "" {
+			var err error
+			namespace, err = h.nsLister.Get(request.Namespace)
+			if err != nil {
+				logger.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
+				// Continue with nil namespace if we can't get it
+			}
+		}
+
+		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, namespace)...)
+		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, namespace)...)
+		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, namespace)...)
+		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, namespace)...)
 		if mutation {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, namespace)...)
 		} else {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, namespace)...)
 			policies = append(policies, imageVerifyValidatePolicies...)
 		}
 	} else {
@@ -290,7 +298,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
-		if spec.HasValidate() && *spec.EmitWarning {
+		if spec.HasValidate() && spec.EmitWarning != nil && *spec.EmitWarning {
 			auditWarnPolicies = append(auditWarnPolicies, policy)
 		}
 	}

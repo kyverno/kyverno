@@ -6,6 +6,8 @@ Helps with the creation of various Kyverno resources.
 
 Helps with the creation of various Kyverno resources.
 
+  For more information visit https://kyverno.io/docs/kyverno-cli/#create
+
 ```
 kyverno create [flags]
 ```
