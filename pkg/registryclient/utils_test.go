@@ -50,6 +50,13 @@ func TestParseSecretReference(t *testing.T) {
 			wantName:         "with/slashes",
 		},
 		{
+			name:             "secret ref starts with a slash",
+			secretRef:        "/missing-namespace",
+			defaultNamespace: "kyverno",
+			wantNamespace:    "kyverno",
+			wantName:         "/missing-namespace",
+		},
+		{
 			name:             "empty secret name",
 			secretRef:        "",
 			defaultNamespace: "kyverno",
