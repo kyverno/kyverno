@@ -356,6 +356,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
+				defer filep.Close()
 				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = resource.GetFileBytes(resourcePath)
