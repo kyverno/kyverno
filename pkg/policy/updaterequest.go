@@ -5,6 +5,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -27,12 +28,20 @@ func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpe
 	return ur
 }
 
-func newGenerateUR(policy kyvernov1.PolicyInterface) *kyvernov2.UpdateRequest {
+func newGenerateUR(policy engineapi.GenericPolicy) *kyvernov2.UpdateRequest {
 	ur := newUrMeta()
-	ur.Labels = common.GenerateLabelsSet(policyKey(policy))
-	ur.Spec = kyvernov2.UpdateRequestSpec{
-		Type:   kyvernov2.Generate,
-		Policy: policyKey(policy),
+	if kpol := policy.AsKyvernoPolicy(); kpol != nil {
+		ur.Labels = common.GenerateLabelsSet(policyKey(kpol))
+		ur.Spec = kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Generate,
+			Policy: policyKey(kpol),
+		}
+	} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		ur.Labels = common.GenerateLabelsSet(gpol.GetName())
+		ur.Spec = kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: gpol.GetName(),
+		}
 	}
 	return ur
 }
@@ -62,7 +71,7 @@ func addGeneratedResources(ur *kyvernov2.UpdateRequest, downstream unstructured.
 	)
 }
 
-func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) {
+func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream, cacheRestore bool) {
 	ur.Spec.RuleContext = append(ur.Spec.RuleContext, kyvernov2.RuleContext{
 		Rule: ruleName,
 		Trigger: kyvernov1.ResourceSpec{
@@ -73,5 +82,6 @@ func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvern
 			UID:        trigger.GetUID(),
 		},
 		DeleteDownstream: deleteDownstream,
+		CacheRestore:     cacheRestore,
 	})
 }

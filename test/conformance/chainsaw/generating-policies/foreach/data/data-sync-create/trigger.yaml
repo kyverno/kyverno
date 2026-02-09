@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: foreach-data-sync-create
+  namespace: default
+data:
+  namespaces: foreach-data-sync-create-1,foreach-data-sync-create-2,foreach-data-sync-create-3

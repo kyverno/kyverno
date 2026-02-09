@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- bad-deployment.yaml
+- good-deployment.yaml
+- skipped-deployment.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: fail
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - good-deployment
+  result: pass
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - skipped-deployment
+  result: skip

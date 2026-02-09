@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment
+  labels:
+    prod: "true"
+    app: good-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: good-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: good-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ubuntu:latest
+        securityContext:
+          seccompProfile:
+            type: Unconfined

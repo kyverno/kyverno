@@ -1,0 +1,26 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: bad-deployment
+results:
+- message: failed to verify image with notary cert
+  policy: ivpol-report-background-sample
+  result: fail
+  rule: ivpol-report-background-sample
+  scored: true
+  source: KyvernoImageValidatingPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: bad-deployment
+summary:
+  error: 0
+  fail: 1
+  pass: 0
+  skip: 0
+  warn: 0

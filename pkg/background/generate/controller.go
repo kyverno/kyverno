@@ -25,13 +25,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,9 +55,6 @@ type GenerateController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
-
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -76,24 +71,20 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		urLister:       urLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		urLister:      urLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
 	}
 	return &c
 }
@@ -111,7 +102,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
-		trigger, err := c.getTrigger(ur.Spec, i)
+		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
@@ -124,9 +115,14 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-			c.eventGen.Add(events...)
+			// Only create policy-referenced event if policy is non-nil to avoid nil pointer panic
+			if policy != nil {
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+				c.eventGen.Add(events...)
+			} else {
+				logger.Error(err, "failed to process rule for deleted policy", "rule", rule.Rule, "policy", ur.Spec.GetPolicyKey())
+			}
 		}
 	}
 
@@ -134,70 +130,6 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 }
 
 const doesNotApply = "policy does not apply to resource"
-
-func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	resourceSpec := spec.RuleContext[i].Trigger
-	c.log.V(4).Info("fetching trigger", "trigger", resourceSpec.String())
-	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	if admissionRequest == nil {
-		return common.GetResource(c.client, resourceSpec, spec, c.log)
-	} else {
-		operation := spec.Context.AdmissionRequestInfo.Operation
-		if operation == admissionv1.Delete {
-			return c.getTriggerForDeleteOperation(spec, i)
-		} else if operation == admissionv1.Create {
-			return c.getTriggerForCreateOperation(spec, i)
-		} else {
-			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
-			if err != nil {
-				c.log.Error(err, "failed to extract resources from admission review request")
-				return nil, err
-			}
-
-			trigger := &newResource
-			if newResource.Object == nil {
-				trigger = &oldResource
-			}
-			return trigger, nil
-		}
-	}
-}
-
-func (c *GenerateController) getTriggerForDeleteOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load resource from context: %w", err)
-	}
-	labels := oldResource.GetLabels()
-	resourceSpec := spec.RuleContext[i].Trigger
-	if labels[common.GeneratePolicyLabel] != "" {
-		// non-trigger deletion, get trigger from ur spec
-		c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-		return common.GetResource(c.client, resourceSpec, spec, c.log)
-	}
-	return &oldResource, nil
-}
-
-func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
-	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	resourceSpec := spec.RuleContext[i].Trigger
-	trigger, err := common.GetResource(c.client, resourceSpec, spec, c.log)
-	if err != nil || trigger == nil {
-		if admissionRequest.SubResource == "" {
-			return nil, err
-		} else {
-			c.log.V(4).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
-			newResource, _, err := admissionutils.ExtractResources(nil, *admissionRequest)
-			if err != nil {
-				c.log.Error(err, "failed to extract resources from admission review request")
-				return nil, err
-			}
-			return &newResource, nil
-		}
-	}
-	return trigger, err
-}
 
 func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
@@ -214,7 +146,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, nil
 	}
 
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, []kyvernov1.PolicyInterface{p}, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
@@ -260,7 +196,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		}
 	}
 
-	if c.needsReports(trigger) {
+	if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
@@ -276,7 +212,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		c.eventGen.Add(e)
 	}
 
-	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
+	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineapi.NewKyvernoPolicy(policy), genResources)
 	c.eventGen.Add(e...)
 
 	return genResources, err
@@ -363,6 +299,11 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(2).Info("warning: reason", err.Error())
+				return nil, nil
+			}
+
 			log.Error(err, "failed to apply generate rule")
 			return nil, err
 		}
@@ -397,7 +338,7 @@ func (c *GenerateController) GetUnstrResources(genResourceSpecs []kyvernov1.Reso
 }
 
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.GenerateReportsEnabled()
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
@@ -413,8 +354,8 @@ func (c *GenerateController) createReports(
 ) error {
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})
 		if err != nil {

@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t13
+  name: cpol-disallow-host-path-t13
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
@@ -32,10 +32,10 @@ spec:
       - CREATE
       - UPDATE
       resources:
-      - deployments
-      - statefulsets
-      - replicasets
       - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
   validations:
   - expression: '!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume,
       !has(volume.hostPath))'

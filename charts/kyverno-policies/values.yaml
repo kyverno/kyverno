@@ -2,6 +2,12 @@
 # Set to `Policy` if you need namespaced policies and not cluster policies
 policyKind: ClusterPolicy
 
+# -- Policy engine type (`ClusterPolicy`, `ValidatingPolicy`)
+# Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+)
+# ClusterPolicy will be deprecated in Kyverno 1.17
+# Default: ClusterPolicy (for backward compatibility)
+policyType: ClusterPolicy
+
 # -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
@@ -28,11 +34,11 @@ customPolicies: []
 #   spec: # spec
 
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
-# For more info: https://kyverno.io/docs/writing-policies/policy-settings/
+# For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/
 failurePolicy: Fail
 
 # -- Validation failure action (`Audit`, `Enforce`).
-# For more info https://kyverno.io/docs/writing-policies/validate.
+# For more info https://kyverno.io/docs/policy-types/cluster-policy/validate.
 validationFailureAction: Audit
 
 # -- Define validationFailureActionByPolicy for specific policies.
@@ -56,7 +62,7 @@ validationFailureActionOverrides:
   #       - fluent
 
 # -- Validate already existing resources.
-# For more info https://kyverno.io/docs/writing-policies/validate.
+# For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true
 
 # -- Exclude resources from individual policies.
@@ -100,11 +106,14 @@ policyPreconditions: {}
   #     value: "dcgm-exporter*"
 
 # -- Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`)
-# For more info https://kyverno.io/docs/writing-policies/autogen/.
+# For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/.
 autogenControllers: ""
 
 # -- Name override.
 nameOverride:
+
+# -- Additional Annotations.
+customAnnotations: {}
 
 # -- Additional labels.
 customLabels: {}

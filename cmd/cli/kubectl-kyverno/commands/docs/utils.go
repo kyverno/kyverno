@@ -15,11 +15,22 @@ weight: 35
 ---
 `
 
-func websitePrepender(filename string) string {
+const fmTemplateNoDate = `---
+title: "%s"
+weight: 35
+---
+`
+
+func websitePrepender(noDate bool) func(string) string {
 	now := time.Now().Format(time.RFC3339)
-	name := filepath.Base(filename)
-	base := strings.TrimSuffix(name, path.Ext(name))
-	return fmt.Sprintf(fmTemplate, now, strings.Replace(base, "_", " ", -1))
+	return func(filename string) string {
+		name := filepath.Base(filename)
+		base := strings.TrimSuffix(name, path.Ext(name))
+		if !noDate {
+			return fmt.Sprintf(fmTemplate, now, strings.Replace(base, "_", " ", -1))
+		}
+		return fmt.Sprintf(fmTemplateNoDate, strings.Replace(base, "_", " ", -1))
+	}
 }
 
 func websiteLinkHandler(filename string) string {

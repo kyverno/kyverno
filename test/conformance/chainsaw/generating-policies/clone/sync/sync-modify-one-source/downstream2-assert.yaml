@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  key: dmFsdWU=
+kind: Secret
+metadata:
+  name: sync-modify-one-source-2
+  namespace: sync-modify-one-source
+type: Opaque

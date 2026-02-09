@@ -1,10 +1,9 @@
 package report
 
 import (
-	"crypto/md5" //nolint:gosec
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -14,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,12 +36,19 @@ const (
 	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
 	LabelDomainPolicy                           = "pol.kyverno.io"
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
+	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
+	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
+	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
+	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
+	LabelPrefixMutatingAdmissionPolicy          = "mutatingadmissionpolicy.apiserver.io/"
+	LabelPrefixMutatingAdmissionPolicyBinding   = "mutatingadmissionpolicybinding.apiserver.io/"
+	LabelPolicyExceptionPriority                = "polex.kyverno.io/priority"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
@@ -50,21 +57,13 @@ func IsPolicyLabel(label string) bool {
 	return strings.HasPrefix(label, LabelPrefixPolicy) ||
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
-		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
-}
-
-func PolicyNameFromLabel(namespace, label string) (string, error) {
-	names := strings.Split(label, "/")
-	if len(names) == 2 {
-		if names[0] == LabelDomainClusterPolicy {
-			return names[1], nil
-		} else if names[0] == LabelDomainPolicy {
-			return namespace + "/" + names[1], nil
-		}
-	}
-	return "", fmt.Errorf("cannot get policy name from label, incorrect format: %s", label)
+		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding) ||
+		strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicy) ||
+		strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
@@ -76,6 +75,15 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	}
 	if policy.AsValidatingPolicy() != nil {
 		return LabelPrefixValidatingPolicy
+	}
+	if policy.AsImageValidatingPolicy() != nil {
+		return LabelPrefixImageValidatingPolicy
+	}
+	if policy.AsGeneratingPolicy() != nil {
+		return LabelPrefixGeneratingPolicy
+	}
+	if policy.AsMutatingAdmissionPolicy() != nil {
+		return LabelPrefixMutatingAdmissionPolicy
 	}
 	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
@@ -98,6 +106,10 @@ func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
+}
+
+func MutatingAdmissionPolicyBindingLabel(binding metav1.Object) string {
+	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
 }
 
 func CleanupKyvernoLabels(obj metav1.Object) {
@@ -161,7 +173,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	if err != nil {
 		return ""
 	}
-	hash := md5.Sum(data) //nolint:gosec
+	hash := md5.Sum(data)
 	return hex.EncodeToString(hash[:])
 }
 
@@ -183,6 +195,10 @@ func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyverno
 
 func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+}
+
+func SetMutatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	controllerutils.SetLabel(report, MutatingAdmissionPolicyBindingLabel(&binding), binding.GetResourceVersion())
 }
 
 func GetSource(report metav1.Object) string {

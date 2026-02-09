@@ -1,8 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: cpol-any-match-resources-by-names
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
@@ -24,3 +26,7 @@ spec:
         file: validatingadmissionpolicy.yaml
     - assert:
         file: validatingadmissionpolicybinding.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: validatingwebhookconfiguration.yaml

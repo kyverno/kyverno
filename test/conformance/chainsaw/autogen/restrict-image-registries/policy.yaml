@@ -1,7 +1,7 @@
 apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-image-registries
+  name: ($test.metadata.name)
 spec:
   rules:
   - name: validate-registries

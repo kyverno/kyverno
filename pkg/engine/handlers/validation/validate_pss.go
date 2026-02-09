@@ -25,10 +25,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validatePssHandler struct{}
+type validatePssHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidatePssHandler() (handlers.Handler, error) {
-	return validatePssHandler{}, nil
+func NewValidatePssHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validatePssHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validatePssHandler) Process(
@@ -59,7 +65,7 @@ func (h validatePssHandler) validate(
 	}
 
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		var polex kyvernov2.PolicyException
 		hasPodSecurity := true
@@ -79,7 +85,7 @@ func (h validatePssHandler) validate(
 				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex})
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]engineapi.GenericException{engineapi.NewPolicyException(&polex)})
 		}
 	}
 
@@ -111,6 +117,7 @@ func (h validatePssHandler) validate(
 		return resource, engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 	} else {
 		// apply pod security exceptions if exist
+		genericExceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var excludes []kyvernov1.PodSecurityStandard
 		var keys []string
 		for i, exception := range matchedExceptions {
@@ -121,13 +128,14 @@ func (h validatePssHandler) validate(
 			}
 			keys = append(keys, key)
 			excludes = append(excludes, exception.Spec.PodSecurity...)
+			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		pssChecks, err = pss.ApplyPodSecurityExclusion(levelVersion, excludes, pssChecks, pod)
 		if len(pssChecks) == 0 && err == nil {
 			podSecurityChecks.Checks = pssChecks
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(genericExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
 		pssChecks = convertChecks(pssChecks, resource.GetKind())
 		pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
@@ -151,7 +159,7 @@ func (h validatePssHandler) validate(
 					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object", rule.ReportProperties)
 				}
 
-				if ruleResponse.Status() == priorResp.Status() {
+				if priorResp != nil && ruleResponse.Status() == priorResp.Status() {
 					logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "oldResp", priorResp, "newResp", ruleResponse)
 					if ruleResponse.Status() == engineapi.RuleStatusPass {
 						return resource, ruleResponse
@@ -211,18 +219,27 @@ func (h validatePssHandler) validateOldObject(
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.template.spec")
 			}
 		}
 	} else if kind == "CronJob" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.jobTemplate.spec.template.spec")
 			}
 		}
 	}
 	for i := range checks {
+		if checks[i].CheckResult.ErrList == nil {
+			continue
+		}
 		for j := range *checks[i].CheckResult.ErrList {
 			(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "metadata", "spec.template.metadata")
 		}

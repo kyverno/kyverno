@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/webhooks
   - kyverno.io/exceptionwebhooks
@@ -33,6 +33,10 @@ rules:
       - customresourcedefinitions
     verbs:
       - get
+      {{- if .Values.admissionController.crdWatcher | default .Values.global.crdWatcher }}
+      - list
+      - watch
+      {{- end }}
   - apiGroups:
       - admissionregistration.k8s.io
     resources:
@@ -41,6 +45,10 @@ rules:
       {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
+      {{- end }}
+      {{- if .Values.features.generateMutatingAdmissionPolicy.enabled }}
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
       {{- end }}
     verbs:
       - create
@@ -73,7 +81,45 @@ rules:
       - updaterequests/status
       - globalcontextentries
       - globalcontextentries/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - kyverno.io
+    resources:
       - policyexceptions
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - validatingpolicies
+      - validatingpolicies/status
+      - namespacedvalidatingpolicies
+      - namespacedvalidatingpolicies/status
+      - imagevalidatingpolicies
+      - imagevalidatingpolicies/status
+      - namespacedimagevalidatingpolicies
+      - namespacedimagevalidatingpolicies/status
+      - generatingpolicies
+      - generatingpolicies/status
+      - namespacedgeneratingpolicies
+      - namespacedgeneratingpolicies/status
+      - mutatingpolicies
+      - mutatingpolicies/status
+      - namespacedmutatingpolicies
+      - namespacedmutatingpolicies/status
     verbs:
       - create
       - delete
@@ -86,18 +132,14 @@ rules:
   - apiGroups:
       - policies.kyverno.io
     resources:
-      - validatingpolicies
-      - validatingpolicies/status
-      - celpolicyexceptions
+      - policyexceptions
     verbs:
       - create
-      - delete
       - get
       - list
       - patch
       - update
       - watch
-      - deletecollection
   - apiGroups:
       - reports.kyverno.io
     resources:
@@ -164,7 +206,7 @@ rules:
       - list
       - watch
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:

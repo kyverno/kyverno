@@ -11,7 +11,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/imageverifiers/notary"
+	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"

@@ -29,7 +29,6 @@ func NewEngine(
 	ctx context.Context,
 	logger logr.Logger,
 	configuration config.Configuration,
-	metricsConfiguration config.MetricsConfiguration,
 	jp jmespath.Interface,
 	client dclient.Interface,
 	rclient registryclient.Client,
@@ -46,7 +45,6 @@ func NewEngine(
 	logger.V(2).Info("setup engine...")
 	return engine.NewEngine(
 		configuration,
-		metricsConfiguration,
 		jp,
 		adapters.Client(client),
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), secretLister),

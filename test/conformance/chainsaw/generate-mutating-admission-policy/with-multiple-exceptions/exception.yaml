@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-name
+spec:
+  policyRefs:
+  - name: "add-label-jsonpatch"
+    kind: MutatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-namespace
+spec:
+  policyRefs:
+  - name: "add-label-jsonpatch"
+    kind: MutatingPolicy
+  matchConditions:
+    - name: "check-namespace"
+      expression: "object.metadata.namespace == 'testing-ns'"

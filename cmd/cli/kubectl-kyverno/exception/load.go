@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
@@ -20,12 +22,14 @@ import (
 var (
 	exceptionV2beta1     = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
 	exceptionV2          = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
-	celExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("CELPolicyException")
+	celExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("PolicyException")
+	celExceptionV1beta1  = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("PolicyException")
+	celExceptionV1       = schema.GroupVersion(policiesv1.GroupVersion).WithKind("PolicyException")
 )
 
 type LoaderResults struct {
 	Exceptions    []*kyvernov2.PolicyException
-	CELExceptions []*policiesv1alpha1.CELPolicyException
+	CELExceptions []*policiesv1beta1.PolicyException
 }
 
 func Load(paths ...string) (*LoaderResults, error) {
@@ -73,8 +77,8 @@ func load(content []byte) (*LoaderResults, error) {
 				return nil, err
 			}
 			results.Exceptions = append(results.Exceptions, exception)
-		case celExceptionV1alpha1:
-			exception, err := convert.To[policiesv1alpha1.CELPolicyException](untyped)
+		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+			exception, err := convert.To[policiesv1beta1.PolicyException](untyped)
 			if err != nil {
 				return nil, err
 			}

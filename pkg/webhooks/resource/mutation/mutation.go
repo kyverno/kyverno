@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,8 +45,6 @@ func NewMutationHandler(
 	nsLister corev1listers.NamespaceLister,
 	metrics metrics.MetricsConfigManager,
 	admissionReports bool,
-	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) MutationHandler {
 	return &mutationHandler{
 		log:              log,
@@ -55,8 +54,6 @@ func NewMutationHandler(
 		nsLister:         nsLister,
 		metrics:          metrics,
 		admissionReports: admissionReports,
-		reportsConfig:    reportsConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -68,8 +65,6 @@ type mutationHandler struct {
 	nsLister         corev1listers.NamespaceLister
 	metrics          metrics.MetricsConfigManager
 	admissionReports bool
-	reportsConfig    reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -124,7 +119,7 @@ func (v *mutationHandler) applyMutations(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy)
+				engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy, policy)
 				if err != nil {
 					return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 				}
@@ -155,16 +150,16 @@ func (v *mutationHandler) applyMutations(
 		}
 	}
 
-	events := webhookutils.GenerateEvents(engineResponses, false, cfg)
+	events := webhookutils.GenerateEvents(engineResponses, false)
 	v.eventGen.Add(events...)
 
-	go func() {
-		if v.needsReports(request, v.admissionReports) {
+	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
+		go func() {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
-		}
-	}()
+		}()
+	}
 
 	logMutationResponse(patches, engineResponses, v.log)
 
@@ -172,9 +167,14 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patch.ConvertPatches(patches...)...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, failurePolicy kyvernov1.FailurePolicyType) (*engineapi.EngineResponse, []jsonpatch.JsonPatchOperation, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, failurePolicy kyvernov1.FailurePolicyType, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+		namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	}
 
 	engineResponse := h.engine.Mutate(ctx, policyContext)
@@ -201,8 +201,8 @@ func (h *mutationHandler) createReports(
 ) error {
 	report := reportutils.BuildMutationReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
 		if err != nil {
@@ -216,9 +216,8 @@ func logMutationResponse(patches []jsonpatch.JsonPatchOperation, engineResponses
 	if len(patches) != 0 {
 		logger.V(4).Info("created patches", "count", len(patches))
 	}
-
 	// if any of the policies fails, print out the error
 	if !engineutils.IsResponseSuccessful(engineResponses) {
-		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation") //nolint:govet,staticcheck
+		logger.Error(errors.New(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 	}
 }

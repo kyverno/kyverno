@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
+var versionRegex = regexp.MustCompile(`^(v\d((alpha|beta)\d)?|\*)$`)
 
 func ParseKindSelector(input string) (string, string, string, string) {
 	parts := strings.Split(input, "/")

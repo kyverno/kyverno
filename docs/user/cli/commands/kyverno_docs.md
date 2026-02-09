@@ -10,6 +10,8 @@ Generates reference documentation.
   
   It can be used to generate simple markdown files or markdown to be used for the website.
 
+  For more information visit https://kyverno.io/docs/kyverno-cli/#docs
+
 ```
 kyverno docs [flags]
 ```
@@ -29,6 +31,8 @@ kyverno docs [flags]
 ```
       --autogenTag      Determines if the generated docs should contain a timestamp (default true)
   -h, --help            help for docs
+      --markdownLinks   Determines if the generated docs should contain links to markdown files
+      --noDate          Determines if the generated docs should contain a date
   -o, --output string   Output path (default ".")
       --website         Website version
 ```

@@ -10,15 +10,19 @@ spec:
       - resources:
           kinds:
           - Namespace
+    context:
+    - name: source
+      variable:
+        value: regcred
     generate:
       apiVersion: v1
       kind: Secret
-      name: regcred
+      name: "{{source}}"
       namespace: "{{request.object.metadata.name}}"
       synchronize: true
       clone:
         namespace: default
-        name: regcred
+        name: "{{source}}"
   - name: cpol-clone-sync-delete-rule-cm
     match:
       any:

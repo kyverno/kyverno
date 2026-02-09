@@ -22,7 +22,7 @@ limitations under the License.
 package v1
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	v1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -153,7 +153,7 @@ func (in *EphemeralReportSpec) DeepCopyInto(out *EphemeralReportSpec) {
 	out.Summary = in.Summary
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results
-		*out = make([]v1alpha2.PolicyReportResult, len(*in))
+		*out = make([]v1alpha1.ReportResult, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

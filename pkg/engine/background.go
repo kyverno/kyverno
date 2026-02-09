@@ -20,13 +20,15 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
-	return e.filterRules(policyContext, logger)
+	return e.filterRules(ctx, policyContext, logger)
 }
 
 func (e *engine) filterRules(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 ) engineapi.PolicyResponse {
@@ -35,7 +37,7 @@ func (e *engine) filterRules(
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
-		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
+		if ruleResp := e.filterRule(ctx, rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status() != engineapi.RuleStatusSkip {
 				break
@@ -46,6 +48,7 @@ func (e *engine) filterRules(
 }
 
 func (e *engine) filterRule(
+	ctx context.Context,
 	rule kyvernov1.Rule,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
@@ -63,11 +66,12 @@ func (e *engine) filterRule(
 	exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
 	if err != nil {
 		logger.Error(err, "failed to get exceptions")
-		return nil
+		return engineapi.RuleError(rule.Name, ruleType, "failed to get exceptions", err, rule.ReportProperties)
 	}
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(e.client, exceptions, policyContext, true, logger)
 	if len(matchedExceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -76,10 +80,11 @@ func (e *engine) filterRule(
 				return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions)
 	}
 
 	newResource := policyContext.NewResource()
@@ -105,7 +110,7 @@ func (e *engine) filterRule(
 	defer policyContext.JSONContext().Restore()
 
 	contextLoader := e.ContextLoader(policyContext.Policy(), rule)
-	if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
+	if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

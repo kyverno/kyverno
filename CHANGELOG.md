@@ -5,6 +5,9 @@
 - Removed deprecated flag `reportsChunkSize`.
 - Added `--tufRootRaw` flag to pass tuf root for custom sigstore deployments.
 
+### Bug Fixes
+- Fixed inconsistent ordering of `imagePullSecrets` in Helm charts which could cause GitOps tools like ArgoCD to show OutOfSync status ([#12995](https://github.com/kyverno/kyverno/issues/12995))
+
 ## v1.11.0
 
 ## v1.11.0-rc.1
@@ -96,7 +99,7 @@
 ### Note
 - Helm charts are changed to enforce PodDisruptionBudget for multi-replica clusters and PDB is removed from install manifests.
 - `anyPattern` for Kyverno validate policies breaks in Kubernetes `v1.23.0`-`v1.23.2`, and the fix is being tracked by this [PR](https://github.com/kubernetes/kubernetes/pull/107688) and will be available in `v1.23.3`.
-- To use `any/all` conditions for policies that use `preconditons` and `deny.conditions`, the user can go to this [resource](https://kyverno.io/docs/writing-policies/preconditions/#any-and-all-statements) as a good starting point.
+- To use `any/all` conditions for policies that use `preconditons` and `deny.conditions`, the user can go to this [resource](https://kyverno.io/docs/policy-types/cluster-policy/preconditions/#any-and-all-statements) as a good starting point.
 ## v1.5.0-rc1
 ### Note
 - The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.

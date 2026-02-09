@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/reports/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterEphemeralReportLister helps list ClusterEphemeralReports.
@@ -30,39 +30,19 @@ import (
 type ClusterEphemeralReportLister interface {
 	// List lists all ClusterEphemeralReports in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ClusterEphemeralReport, err error)
+	List(selector labels.Selector) (ret []*reportsv1.ClusterEphemeralReport, err error)
 	// Get retrieves the ClusterEphemeralReport from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ClusterEphemeralReport, error)
+	Get(name string) (*reportsv1.ClusterEphemeralReport, error)
 	ClusterEphemeralReportListerExpansion
 }
 
 // clusterEphemeralReportLister implements the ClusterEphemeralReportLister interface.
 type clusterEphemeralReportLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*reportsv1.ClusterEphemeralReport]
 }
 
 // NewClusterEphemeralReportLister returns a new ClusterEphemeralReportLister.
 func NewClusterEphemeralReportLister(indexer cache.Indexer) ClusterEphemeralReportLister {
-	return &clusterEphemeralReportLister{indexer: indexer}
-}
-
-// List lists all ClusterEphemeralReports in the indexer.
-func (s *clusterEphemeralReportLister) List(selector labels.Selector) (ret []*v1.ClusterEphemeralReport, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ClusterEphemeralReport))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterEphemeralReport from the index for a given name.
-func (s *clusterEphemeralReportLister) Get(name string) (*v1.ClusterEphemeralReport, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("clusterephemeralreport"), name)
-	}
-	return obj.(*v1.ClusterEphemeralReport), nil
+	return &clusterEphemeralReportLister{listers.New[*reportsv1.ClusterEphemeralReport](indexer, reportsv1.Resource("clusterephemeralreport"))}
 }

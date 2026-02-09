@@ -38,10 +38,16 @@ func newLazyBinding(jsonContext enginectx.EvalInterface, name string) binding.Bi
 	}
 }
 
-type validateAssertHandler struct{}
+type validateAssertHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidateAssertHandler() (handlers.Handler, error) {
-	return validateAssertHandler{}, nil
+func NewValidateAssertHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validateAssertHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validateAssertHandler) Process(
@@ -54,8 +60,9 @@ func (h validateAssertHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -64,10 +71,11 @@ func (h validateAssertHandler) Process(
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewPolicyException(&exception))
 		}
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
 	// load context

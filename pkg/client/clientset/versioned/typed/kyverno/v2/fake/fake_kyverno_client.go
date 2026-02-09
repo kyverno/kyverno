@@ -29,19 +29,23 @@ type FakeKyvernoV2 struct {
 }
 
 func (c *FakeKyvernoV2) CleanupPolicies(namespace string) v2.CleanupPolicyInterface {
-	return &FakeCleanupPolicies{c, namespace}
+	return newFakeCleanupPolicies(c, namespace)
 }
 
 func (c *FakeKyvernoV2) ClusterCleanupPolicies() v2.ClusterCleanupPolicyInterface {
-	return &FakeClusterCleanupPolicies{c}
+	return newFakeClusterCleanupPolicies(c)
+}
+
+func (c *FakeKyvernoV2) GlobalContextEntries() v2.GlobalContextEntryInterface {
+	return newFakeGlobalContextEntries(c)
 }
 
 func (c *FakeKyvernoV2) PolicyExceptions(namespace string) v2.PolicyExceptionInterface {
-	return &FakePolicyExceptions{c, namespace}
+	return newFakePolicyExceptions(c, namespace)
 }
 
 func (c *FakeKyvernoV2) UpdateRequests(namespace string) v2.UpdateRequestInterface {
-	return &FakeUpdateRequests{c, namespace}
+	return newFakeUpdateRequests(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

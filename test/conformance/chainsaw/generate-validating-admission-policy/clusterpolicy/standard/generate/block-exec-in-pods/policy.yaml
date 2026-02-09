@@ -17,6 +17,7 @@ spec:
         expression: "request.operation == 'CONNECT'"
     validate:
       cel:
+        generate: true
         expressions:
           - expression: "request.namespace != 'pci'"
             message: Pods in this namespace may not be exec'd into.

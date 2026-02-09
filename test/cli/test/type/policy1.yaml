@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: testcase-1
+spec:
+  background: false
+  rules:
+  - name: test-rule
+    match:
+      all:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      deny:
+        conditions:
+          all:
+          - key: "{{  type(request.object.spec.replicas) }}"
+            operator: NotEquals
+            value: number

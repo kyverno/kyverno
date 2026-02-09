@@ -1,3 +1,6 @@
+global:
+  crdWatcher: true
+
 features:
   policyExceptions:
     enabled: true

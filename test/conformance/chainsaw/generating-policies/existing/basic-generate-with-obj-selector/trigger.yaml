@@ -1,0 +1,21 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: basic-generate-with-obj-selector
+  namespace: basic-generate-with-obj-selector-1
+  labels:
+    app: critical
+type: Opaque
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: basic-generate-with-obj-selector
+  namespace: basic-generate-with-obj-selector-2
+  labels:
+    app: non-critical
+type: Opaque

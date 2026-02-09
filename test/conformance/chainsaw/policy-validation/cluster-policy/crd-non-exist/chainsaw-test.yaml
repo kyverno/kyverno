@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: crd-non-exist
+spec:
+  concurrent: false
+  description: |
+    Test that ClusterPolicy works with multiple resources including non-existent ones.
+    Validates that policy blocks spec.replicas for both existing and non-existent resources,
+    and continues to work when CRDs are added/removed dynamically.
+  steps:
+    - name: create-policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy.yaml
+    - name: wait-policy-ready
+      use:
+        template: ../../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: block-replicas-policy
+    - name: create-deployment-blocked
+      try:
+        - apply:
+            file: deployment.yaml
+            expect:
+              - check:
+                  ($error != null): true
+    - name: create-crd
+      try:
+        - apply:
+            file: crd.yaml
+        - assert:
+            file: crd-ready.yaml
+    - name: create-deployment-blocked-after-crd-creation
+      try:
+        - apply:
+            file: deployment.yaml
+            expect:
+              - check:
+                  ($error != null): true
+    - name: create-custom-resource-blocked-after-crd-creation
+      try:
+        - apply:
+            file: custom-resource.yaml
+            expect:
+              - check:
+                  ($error != null): true
+    - name: delete-crd
+      try:
+        - delete:
+            ref:
+              apiVersion: apiextensions.k8s.io/v1
+              kind: CustomResourceDefinition
+              name: testresources.test.kyverno.io
+    - name: test-deployment-still-blocked-after-crd-deletion
+      try:
+        - apply:
+            file: deployment.yaml
+            expect:
+              - check:
+                  ($error != null): true
+    - name: cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: kyverno.io/v1
+              kind: ClusterPolicy
+              name: block-replicas-policy

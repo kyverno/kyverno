@@ -1,0 +1,18 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: check-deployment-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["deployments"]
+      resourceNames: ["bad-deployment", "good-deployment"]
+  variables:
+    - name: environment
+      expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'"
+  validations:
+    - expression: "variables.environment == true"
+      message: "Deployment labels must be env=prod"

@@ -14,13 +14,15 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
@@ -29,15 +31,17 @@ func GetResourceAccordingToResourcePath(
 	fs billy.Filesystem,
 	resourcePaths []string,
 	cluster bool,
-	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
+	policies []engineapi.GenericPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
+	clusterWideResources bool,
 	policyResourcePath string,
+	resourceOptions loader.ResourceOptions,
+	showPerformance bool,
 ) (resources []*unstructured.Unstructured, err error) {
 	if fs != nil {
-		resources, err = GetResourcesWithTest(out, fs, policies, resourcePaths, policyResourcePath)
+		resources, err = GetResourcesWithTest(out, fs, resourcePaths, policyResourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract the resources (%w)", err)
 		}
@@ -77,10 +81,44 @@ func GetResourceAccordingToResourcePath(
 					resourcePaths = listOfFiles
 				}
 			}
-			resources, err = GetResources(out, policies, validatingAdmissionPolicies, resourcePaths, dClient, cluster, namespace, policyReport)
+			if clusterWideResources {
+				fetcher := &ResourceFetcher{
+					Out:                  out,
+					Policies:             policies,
+					ResourcePaths:        resourcePaths,
+					Client:               dClient,
+					Cluster:              cluster,
+					Namespace:            "",
+					PolicyReport:         policyReport,
+					ClusterWideResources: clusterWideResources,
+					ResourceOptions:      resourceOptions,
+					ShowPerformance:      showPerformance,
+				}
+				resources, err := fetcher.GetResources()
+				if err != nil {
+					return resources, err
+				}
+				if namespace == "" {
+					return resources, nil
+				}
+			}
+			fetcher := &ResourceFetcher{
+				Out:                  out,
+				Policies:             policies,
+				ResourcePaths:        resourcePaths,
+				Client:               dClient,
+				Cluster:              cluster,
+				Namespace:            namespace,
+				PolicyReport:         policyReport,
+				ClusterWideResources: false,
+				ResourceOptions:      resourceOptions,
+				ShowPerformance:      showPerformance,
+			}
+			namespaceResources, err := fetcher.GetResources()
 			if err != nil {
 				return resources, err
 			}
+			resources = append(resources, namespaceResources...)
 		}
 	}
 	return resources, err
@@ -172,4 +210,32 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string)
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+// ReadFile reads a file from either a billy.Filesystem or the local filesystem.
+func ReadFile(f billy.Filesystem, filepath string) ([]byte, error) {
+	if f != nil {
+		file, err := f.Open(filepath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		return io.ReadAll(file)
+	}
+	return os.ReadFile(filepath)
+}
+
+// LoadYAML loads a YAML file and unmarshals it into a value of type T.
+// T must be a pointer type that can be unmarshaled from YAML.
+func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) (T, error) {
+	var zero T
+	yamlBytes, err := ReadFile(f, filepath)
+	if err != nil {
+		return zero, err
+	}
+	vals := newInstance()
+	if err := yaml.UnmarshalStrict(yamlBytes, vals); err != nil {
+		return zero, err
+	}
+	return vals, nil
 }

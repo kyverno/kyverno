@@ -19,10 +19,10 @@ limitations under the License.
 package v2beta1
 
 import (
-	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterPolicyLister helps list ClusterPolicies.
@@ -30,39 +30,19 @@ import (
 type ClusterPolicyLister interface {
 	// List lists all ClusterPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2beta1.ClusterPolicy, err error)
+	List(selector labels.Selector) (ret []*kyvernov2beta1.ClusterPolicy, err error)
 	// Get retrieves the ClusterPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2beta1.ClusterPolicy, error)
+	Get(name string) (*kyvernov2beta1.ClusterPolicy, error)
 	ClusterPolicyListerExpansion
 }
 
 // clusterPolicyLister implements the ClusterPolicyLister interface.
 type clusterPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kyvernov2beta1.ClusterPolicy]
 }
 
 // NewClusterPolicyLister returns a new ClusterPolicyLister.
 func NewClusterPolicyLister(indexer cache.Indexer) ClusterPolicyLister {
-	return &clusterPolicyLister{indexer: indexer}
-}
-
-// List lists all ClusterPolicies in the indexer.
-func (s *clusterPolicyLister) List(selector labels.Selector) (ret []*v2beta1.ClusterPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2beta1.ClusterPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterPolicy from the index for a given name.
-func (s *clusterPolicyLister) Get(name string) (*v2beta1.ClusterPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2beta1.Resource("clusterpolicy"), name)
-	}
-	return obj.(*v2beta1.ClusterPolicy), nil
+	return &clusterPolicyLister{listers.New[*kyvernov2beta1.ClusterPolicy](indexer, kyvernov2beta1.Resource("clusterpolicy"))}
 }

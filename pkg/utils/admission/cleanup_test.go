@@ -164,9 +164,6 @@ func TestGetCleanupPolicies(t *testing.T) {
 				}
 			} else {
 				expectedP2 := emptypolicy
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(expectedP1, p1) || !reflect.DeepEqual(expectedP2, p2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, expectedP2, p1, p2)
 				}

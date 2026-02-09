@@ -19,123 +19,32 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeUpdateRequests implements UpdateRequestInterface
-type FakeUpdateRequests struct {
+// fakeUpdateRequests implements UpdateRequestInterface
+type fakeUpdateRequests struct {
+	*gentype.FakeClientWithList[*v2.UpdateRequest, *v2.UpdateRequestList]
 	Fake *FakeKyvernoV2
-	ns   string
 }
 
-var updaterequestsResource = v2.SchemeGroupVersion.WithResource("updaterequests")
-
-var updaterequestsKind = v2.SchemeGroupVersion.WithKind("UpdateRequest")
-
-// Get takes name of the updateRequest, and returns the corresponding updateRequest object, and an error if there is any.
-func (c *FakeUpdateRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.UpdateRequest, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(updaterequestsResource, c.ns, name), &v2.UpdateRequest{})
-
-	if obj == nil {
-		return nil, err
+func newFakeUpdateRequests(fake *FakeKyvernoV2, namespace string) kyvernov2.UpdateRequestInterface {
+	return &fakeUpdateRequests{
+		gentype.NewFakeClientWithList[*v2.UpdateRequest, *v2.UpdateRequestList](
+			fake.Fake,
+			namespace,
+			v2.SchemeGroupVersion.WithResource("updaterequests"),
+			v2.SchemeGroupVersion.WithKind("UpdateRequest"),
+			func() *v2.UpdateRequest { return &v2.UpdateRequest{} },
+			func() *v2.UpdateRequestList { return &v2.UpdateRequestList{} },
+			func(dst, src *v2.UpdateRequestList) { dst.ListMeta = src.ListMeta },
+			func(list *v2.UpdateRequestList) []*v2.UpdateRequest { return gentype.ToPointerSlice(list.Items) },
+			func(list *v2.UpdateRequestList, items []*v2.UpdateRequest) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2.UpdateRequest), err
-}
-
-// List takes label and field selectors, and returns the list of UpdateRequests that match those selectors.
-func (c *FakeUpdateRequests) List(ctx context.Context, opts v1.ListOptions) (result *v2.UpdateRequestList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(updaterequestsResource, updaterequestsKind, c.ns, opts), &v2.UpdateRequestList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2.UpdateRequestList{ListMeta: obj.(*v2.UpdateRequestList).ListMeta}
-	for _, item := range obj.(*v2.UpdateRequestList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested updateRequests.
-func (c *FakeUpdateRequests) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(updaterequestsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a updateRequest and creates it.  Returns the server's representation of the updateRequest, and an error, if there is any.
-func (c *FakeUpdateRequests) Create(ctx context.Context, updateRequest *v2.UpdateRequest, opts v1.CreateOptions) (result *v2.UpdateRequest, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(updaterequestsResource, c.ns, updateRequest), &v2.UpdateRequest{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.UpdateRequest), err
-}
-
-// Update takes the representation of a updateRequest and updates it. Returns the server's representation of the updateRequest, and an error, if there is any.
-func (c *FakeUpdateRequests) Update(ctx context.Context, updateRequest *v2.UpdateRequest, opts v1.UpdateOptions) (result *v2.UpdateRequest, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(updaterequestsResource, c.ns, updateRequest), &v2.UpdateRequest{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.UpdateRequest), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeUpdateRequests) UpdateStatus(ctx context.Context, updateRequest *v2.UpdateRequest, opts v1.UpdateOptions) (*v2.UpdateRequest, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(updaterequestsResource, "status", c.ns, updateRequest), &v2.UpdateRequest{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.UpdateRequest), err
-}
-
-// Delete takes name of the updateRequest and deletes it. Returns an error if one occurs.
-func (c *FakeUpdateRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(updaterequestsResource, c.ns, name, opts), &v2.UpdateRequest{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeUpdateRequests) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(updaterequestsResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2.UpdateRequestList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched updateRequest.
-func (c *FakeUpdateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.UpdateRequest, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(updaterequestsResource, c.ns, name, pt, data, subresources...), &v2.UpdateRequest{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.UpdateRequest), err
 }

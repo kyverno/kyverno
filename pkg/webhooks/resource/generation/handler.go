@@ -121,7 +121,12 @@ func (h *generationHandler) handleTrigger(
 		var appliedRules, failedRules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
 		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			policyContext = policyContext.WithNamespaceLabels(utils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+			namespaceLabels, err := utils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, []kyvernov1.PolicyInterface{policy}, h.log)
+			if err != nil {
+				h.log.Error(err, "failed to get namespace labels for policy", "policy", policy.GetName())
+				continue
+			}
+			policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
@@ -184,7 +189,7 @@ func (h *generationHandler) applyGeneration(
 	}
 }
 
-// handleFailedRules sync changes of the trigger to the downstream
+// syncTriggerAction sync changes of the trigger to the downstream
 // it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails or is skipped
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
@@ -339,7 +344,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			}
 		}
 		if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-			e := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
+			e := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: new.GetKind(), Namespace: new.GetNamespace(), Name: new.GetName()})
 			h.eventGen.Add(e...)
 			return err

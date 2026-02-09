@@ -30,6 +30,8 @@ type mutateImageHandler struct {
 	ivCache        imageverifycache.Client
 	ivm            *engineapi.ImageVerificationMetadata
 	images         []apiutils.ImageInfo
+	client         engineapi.Client
+	isCluster      bool
 }
 
 func NewMutateImageHandler(
@@ -40,6 +42,8 @@ func NewMutateImageHandler(
 	rclientFactory engineapi.RegistryClientFactory,
 	ivCache imageverifycache.Client,
 	ivm *engineapi.ImageVerificationMetadata,
+	client engineapi.Client,
+	isCluster bool,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
@@ -57,6 +61,8 @@ func NewMutateImageHandler(
 		ivm:            ivm,
 		ivCache:        ivCache,
 		images:         ruleImages,
+		client:         client,
+		isCluster:      isCluster,
 	}, nil
 }
 
@@ -70,8 +76,9 @@ func (h mutateImageHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
+		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -80,11 +87,12 @@ func (h mutateImageHandler) Process(
 				return resource, handlers.WithError(rule, engineapi.Mutation, "failed to compute exception key", err)
 			}
 			keys = append(keys, key)
+			exceptions = append(exceptions, engineapi.NewPolicyException(&exception))
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
 

@@ -19,10 +19,10 @@ limitations under the License.
 package v2beta1
 
 import (
-	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CleanupPolicyLister helps list CleanupPolicies.
@@ -30,7 +30,7 @@ import (
 type CleanupPolicyLister interface {
 	// List lists all CleanupPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2beta1.CleanupPolicy, err error)
+	List(selector labels.Selector) (ret []*kyvernov2beta1.CleanupPolicy, err error)
 	// CleanupPolicies returns an object that can list and get CleanupPolicies.
 	CleanupPolicies(namespace string) CleanupPolicyNamespaceLister
 	CleanupPolicyListerExpansion
@@ -38,25 +38,17 @@ type CleanupPolicyLister interface {
 
 // cleanupPolicyLister implements the CleanupPolicyLister interface.
 type cleanupPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kyvernov2beta1.CleanupPolicy]
 }
 
 // NewCleanupPolicyLister returns a new CleanupPolicyLister.
 func NewCleanupPolicyLister(indexer cache.Indexer) CleanupPolicyLister {
-	return &cleanupPolicyLister{indexer: indexer}
-}
-
-// List lists all CleanupPolicies in the indexer.
-func (s *cleanupPolicyLister) List(selector labels.Selector) (ret []*v2beta1.CleanupPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2beta1.CleanupPolicy))
-	})
-	return ret, err
+	return &cleanupPolicyLister{listers.New[*kyvernov2beta1.CleanupPolicy](indexer, kyvernov2beta1.Resource("cleanuppolicy"))}
 }
 
 // CleanupPolicies returns an object that can list and get CleanupPolicies.
 func (s *cleanupPolicyLister) CleanupPolicies(namespace string) CleanupPolicyNamespaceLister {
-	return cleanupPolicyNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return cleanupPolicyNamespaceLister{listers.NewNamespaced[*kyvernov2beta1.CleanupPolicy](s.ResourceIndexer, namespace)}
 }
 
 // CleanupPolicyNamespaceLister helps list and get CleanupPolicies.
@@ -64,36 +56,15 @@ func (s *cleanupPolicyLister) CleanupPolicies(namespace string) CleanupPolicyNam
 type CleanupPolicyNamespaceLister interface {
 	// List lists all CleanupPolicies in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2beta1.CleanupPolicy, err error)
+	List(selector labels.Selector) (ret []*kyvernov2beta1.CleanupPolicy, err error)
 	// Get retrieves the CleanupPolicy from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2beta1.CleanupPolicy, error)
+	Get(name string) (*kyvernov2beta1.CleanupPolicy, error)
 	CleanupPolicyNamespaceListerExpansion
 }
 
 // cleanupPolicyNamespaceLister implements the CleanupPolicyNamespaceLister
 // interface.
 type cleanupPolicyNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all CleanupPolicies in the indexer for a given namespace.
-func (s cleanupPolicyNamespaceLister) List(selector labels.Selector) (ret []*v2beta1.CleanupPolicy, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2beta1.CleanupPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the CleanupPolicy from the indexer for a given namespace and name.
-func (s cleanupPolicyNamespaceLister) Get(name string) (*v2beta1.CleanupPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2beta1.Resource("cleanuppolicy"), name)
-	}
-	return obj.(*v2beta1.CleanupPolicy), nil
+	listers.ResourceIndexer[*kyvernov2beta1.CleanupPolicy]
 }

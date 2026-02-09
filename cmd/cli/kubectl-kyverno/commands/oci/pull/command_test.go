@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
 

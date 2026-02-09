@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,8 +32,9 @@ type resourceVersionGetter interface {
 // Please note that this is not resilient to etcd cache not having the resource version anymore - you would need to
 // use Informers for that.
 type RetryWatcher struct {
+	mu                  sync.RWMutex
 	lastResourceVersion string
-	watcherClient       cache.Watcher
+	watcherClient       cache.WatcherWithContext
 	resultChan          chan watch.Event
 	stopChan            chan struct{}
 	doneChan            chan struct{}
@@ -59,7 +61,7 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 
 	rw := &RetryWatcher{
 		lastResourceVersion: initialResourceVersion,
-		watcherClient:       watcherClient,
+		watcherClient:       cache.ToWatcherWithContext(watcherClient),
 		stopChan:            make(chan struct{}),
 		doneChan:            make(chan struct{}),
 		resultChan:          make(chan watch.Event),
@@ -85,10 +87,17 @@ func (rw *RetryWatcher) send(event watch.Event) bool {
 // doReceive returns true when it is done, false otherwise.
 // If it is not done the second return value holds the time to wait before calling it again.
 func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
-	watcher, err := rw.watcherClient.Watch(metav1.ListOptions{
-		ResourceVersion:     rw.lastResourceVersion,
-		AllowWatchBookmarks: true,
-	})
+	rw.mu.RLock()
+	currentRV := rw.lastResourceVersion
+	rw.mu.RUnlock()
+
+	watcher, err := rw.watcherClient.WatchWithContext(
+		context.TODO(),
+		metav1.ListOptions{
+			ResourceVersion:     currentRV, // Use the local copy
+			AllowWatchBookmarks: true,
+		},
+	)
 	// We are very unlikely to hit EOF here since we are just establishing the call,
 	// but it may happen that the apiserver is just shutting down (e.g. being restarted)
 	// This is consistent with how it is handled for informers
@@ -138,7 +147,9 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 			return true, 0
 		case event, ok := <-ch:
 			if !ok {
+				rw.mu.RLock()
 				klog.V(4).InfoS("Failed to get event! Re-creating the watcher.", "resourceVersion", rw.lastResourceVersion)
+				rw.mu.RUnlock()
 				return false, 0
 			}
 
@@ -172,7 +183,10 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 						return true, 0
 					}
 				}
+
+				rw.mu.Lock()
 				rw.lastResourceVersion = resourceVersion
+				rw.mu.Unlock()
 
 				continue
 
@@ -266,7 +280,9 @@ func (rw *RetryWatcher) receive() {
 		case <-timer.C:
 		}
 
+		rw.mu.RLock()
 		klog.V(4).Infof("Restarting RetryWatcher at RV=%q", rw.lastResourceVersion)
+		rw.mu.RUnlock()
 	}, rw.minRestartDelay)
 }
 

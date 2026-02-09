@@ -19,13 +19,13 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	apikyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // GlobalContextEntries.
 type GlobalContextEntryInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.GlobalContextEntryLister
+	Lister() kyvernov2alpha1.GlobalContextEntryLister
 }
 
 type globalContextEntryInformer struct {
@@ -56,21 +56,33 @@ func NewGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().GlobalContextEntries().List(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.Background(), options)
 			},
-		},
-		&kyvernov2alpha1.GlobalContextEntry{},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2alpha1().GlobalContextEntries().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(ctx, options)
+			},
+		}, client),
+		&apikyvernov2alpha1.GlobalContextEntry{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +93,9 @@ func (f *globalContextEntryInformer) defaultInformer(client versioned.Interface,
 }
 
 func (f *globalContextEntryInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov2alpha1.GlobalContextEntry{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov2alpha1.GlobalContextEntry{}, f.defaultInformer)
 }
 
-func (f *globalContextEntryInformer) Lister() v2alpha1.GlobalContextEntryLister {
-	return v2alpha1.NewGlobalContextEntryLister(f.Informer().GetIndexer())
+func (f *globalContextEntryInformer) Lister() kyvernov2alpha1.GlobalContextEntryLister {
+	return kyvernov2alpha1.NewGlobalContextEntryLister(f.Informer().GetIndexer())
 }

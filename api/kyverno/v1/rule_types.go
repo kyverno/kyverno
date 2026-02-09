@@ -179,7 +179,7 @@ func (r *Rule) HasValidateCEL() bool {
 
 // HasValidateAssert checks for validate.assert rule
 func (r *Rule) HasValidateAssert() bool {
-	return r.Validation != nil && !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
+	return r.Validation != nil && r.Validation.Assert != nil && !datautils.DeepEqual(*r.Validation.Assert, AssertionTree{})
 }
 
 // HasValidate checks for validate rule
@@ -450,22 +450,24 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if !r.HasGenerate() {
-		return nil
+		return nil, nil
 	}
 
 	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
-	return errs
+	warning, errors := r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)
+	warnings = append(warnings, warning...)
+	errs = append(errs, errors...)
+	return warnings, errs
 }

@@ -1,11 +1,13 @@
 package resource_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	engine "github.com/kyverno/kyverno/pkg/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/resource"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
@@ -119,7 +121,7 @@ func TestOpenAPITypeResolver(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	env, err := engine.NewEnv()
+	env, err := compiler.NewBaseEnv()
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
 
 	rootType, ok := provider.FindDeclType(typeName)
@@ -148,4 +150,18 @@ func TestOpenAPITypeResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+}
+
+type TestClientError struct{}
+
+func (_ TestClientError) ResolveSchema(gvk schema.GroupVersionKind) (*spec.Schema, error) {
+	return nil, errors.New("dummy")
+}
+
+func TestOpenAPITypeResolverError(t *testing.T) {
+	typeName := "self"
+	s := schema.FromAPIVersionAndKind("v1", "CustomObject")
+	resolver := resource.NewOpenAPITypeResolver(TestClientError{})
+	_, err := resolver.GetDeclProvier(s, typeName)
+	assert.Error(t, err)
 }

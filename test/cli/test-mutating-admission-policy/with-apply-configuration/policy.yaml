@@ -1,0 +1,27 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: "add-security-context-to-pods"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+    - patchType: "ApplyConfiguration"
+      applyConfiguration:
+        expression: >
+            Object{
+                spec: Object.spec{
+                    securityContext: Object.spec.securityContext{
+                        runAsNonRoot: object.spec.?securityContext.?runAsNonRoot.hasValue() ? object.spec.securityContext.runAsNonRoot : true,
+                        runAsUser: object.spec.?securityContext.?runAsUser.hasValue() ? object.spec.securityContext.runAsUser : 1000,
+                        runAsGroup: object.spec.?securityContext.?runAsGroup.hasValue() ? object.spec.securityContext.runAsGroup : 3000,
+                        fsGroup: object.spec.?securityContext.?fsGroup.hasValue() ? object.spec.securityContext.fsGroup : 2000
+                    }
+                }
+            }

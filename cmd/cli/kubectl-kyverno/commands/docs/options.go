@@ -12,6 +12,8 @@ type options struct {
 	path       string
 	website    bool
 	autogenTag bool
+	noDate     bool
+	mdLinks    bool
 }
 
 func (o options) validate(root *cobra.Command) error {
@@ -28,8 +30,10 @@ func (o options) execute(root *cobra.Command) error {
 	prepender := empty
 	linkHandler := identity
 	if o.website {
-		prepender = websitePrepender
-		linkHandler = websiteLinkHandler
+		prepender = websitePrepender(o.noDate)
+		if !o.mdLinks {
+			linkHandler = websiteLinkHandler
+		}
 	}
 	if _, err := os.Stat(o.path); errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(o.path, os.ModeDir|os.ModePerm); err != nil {

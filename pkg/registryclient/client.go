@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/pkg/imagedataloader"
+	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -180,15 +180,15 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	nameOpts := c.NameOptions()
 	parsedRef, err := name.ParseReference(imageRef, nameOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %w", imageRef, err)
 	}
 	remoteOpts, err := c.Options(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %w", imageRef, err)
 	}
 	desc, err := gcrremote.Get(parsedRef, remoteOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %w", imageRef, err)
 	}
 	if _, ok := parsedRef.(name.Digest); ok && parsedRef.Identifier() != desc.Digest.String() {
 		return nil, fmt.Errorf("digest mismatch, expected: %s, received: %s", parsedRef.Identifier(), desc.Digest.String())

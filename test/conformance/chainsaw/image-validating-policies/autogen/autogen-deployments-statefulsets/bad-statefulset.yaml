@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bad-statefulset-1
+  labels:
+    prod: "true"
+    app: bad-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      prod: "true"
+      app: bad-nginx
+  template:
+    metadata:
+      labels:
+        prod: "true"
+        app: bad-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:unsigned
+        securityContext:
+          allowPrivilegeEscalation: false

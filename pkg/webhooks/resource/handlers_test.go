@@ -25,7 +25,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var policyCheckLabel = `{
@@ -484,8 +484,9 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 
-	validPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	validPolicyCopy := validPolicy.DeepCopy()
+	validPolicyCopy.Spec.ValidationFailureAction = "Enforce"
+	policyCache.Set(key, validPolicyCopy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -520,16 +521,19 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	}
 
 	keyInvalid := makeKey(&invalidPolicy)
-	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
+	invalidPolicyCopy := invalidPolicy.DeepCopy()
+	invalidPolicyCopy.Spec.ValidationFailureAction = "Enforce"
+	policyCache.Set(keyInvalid, invalidPolicyCopy, policycache.TestResourceFinder{})
 
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
-	invalidPolicy.Spec.FailurePolicy = &ignore
-	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
+	invalidPolicyCopy2 := invalidPolicy.DeepCopy()
+	invalidPolicyCopy2.Spec.ValidationFailureAction = "Enforce"
+	invalidPolicyCopy2.Spec.FailurePolicy = &ignore
+	policyCache.Set(keyInvalid, invalidPolicyCopy2, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -564,16 +568,19 @@ func Test_ImageVerify(t *testing.T) {
 		},
 	}
 
-	policy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCopy := policy.DeepCopy()
+	policyCopy.Spec.ValidationFailureAction = "Enforce"
+	policyCache.Set(key, policyCopy, policycache.TestResourceFinder{})
 
 	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
-	policy.Spec.FailurePolicy = &ignore
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCopy2 := policy.DeepCopy()
+	policyCopy2.Spec.ValidationFailureAction = "Enforce"
+	policyCopy2.Spec.FailurePolicy = &ignore
+	policyCache.Set(key, policyCopy2, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -650,7 +657,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 				Raw: []byte(resourceMutateandGenerate),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			DryRun:          pointer.Bool(false),
+			DryRun:          ptr.To(false),
 		},
 	}
 
@@ -711,8 +718,9 @@ func Test_ValidateAuditWarn(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0, "should not emit warning when audit warn is set to false")
 
 	auditWarn := true
-	validPolicy.Spec.EmitWarning = &auditWarn
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	validPolicyCopy := validPolicy.DeepCopy()
+	validPolicyCopy.Spec.EmitWarning = &auditWarn
+	policyCache.Set(key, validPolicyCopy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -790,8 +798,9 @@ func Test_MutateWarn(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0)
 
 	auditWarn := true
-	policy.Spec.EmitWarning = &auditWarn
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCopy := policy.DeepCopy()
+	policyCopy.Spec.EmitWarning = &auditWarn
+	policyCache.Set(key, policyCopy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)

@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-0
+  namespace: foreach-data-indexed-resource-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-1
+  namespace: foreach-data-indexed-resource-2
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-2
+  namespace: foreach-data-indexed-resource-3
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

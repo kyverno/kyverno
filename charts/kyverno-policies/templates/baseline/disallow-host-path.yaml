@@ -1,5 +1,5 @@
 {{- $name := "disallow-host-path" }}
-{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (ne (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 apiVersion: kyverno.io/v1
 kind: {{ .Values.policyKind }}
 metadata:
@@ -20,6 +20,7 @@ metadata:
       HostPath volumes let Pods use host directories and volumes in containers.
       Using host resources can be used to access shared data or escalate privileges
       and should not be allowed. This policy ensures no hostPath volumes are in use.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

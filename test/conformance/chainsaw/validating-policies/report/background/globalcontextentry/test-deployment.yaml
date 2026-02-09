@@ -1,0 +1,34 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-globalcontext-validatingpolicy-audit-report-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment-for-globalcontext
+  namespace: test-globalcontext-validatingpolicy-audit-report-ns
+  labels:
+    app: test-globalcontext
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-globalcontext
+  template:
+    metadata:
+      labels:
+        app: test-globalcontext
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m" 

@@ -5,22 +5,29 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
@@ -28,8 +35,6 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
-	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
-	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -37,6 +42,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -50,19 +56,26 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -134,10 +147,9 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	servicePort int32,
-	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	vpolRecorder webhook.StateRecorder,
+	stateRecorder webhookcontroller.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
@@ -158,7 +170,14 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -166,7 +185,6 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
-		webhookServerPort,
 		autoUpdateWebhooks,
 		autoDeleteWebhooks,
 		admissionReports,
@@ -175,7 +193,7 @@ func createrLeaderControllers(
 		caSecretName,
 		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
-		vpolRecorder,
+		stateRecorder,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -187,7 +205,6 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -219,13 +236,12 @@ func createrLeaderControllers(
 		config.CELExceptionValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
 				APIVersions: []string{"v1alpha1"},
-				Resources:   []string{"celpolicyexceptions"},
+				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -251,7 +267,6 @@ func createrLeaderControllers(
 		config.GlobalContextValidatingWebhookServicePath,
 		serverIP,
 		servicePort,
-		webhookServerPort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
@@ -273,7 +288,19 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	policyStatusController := policystatuscontroller.NewController(dynamicClient, kyvernoClient, kyvernoInformer.Policies().V1alpha1().ValidatingPolicies(), reportsServiceAccountName, vpolRecorder)
+	policyStatusController := policystatuscontroller.NewController(
+		dynamicClient,
+		kyvernoClient,
+		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().ImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		reportsServiceAccountName,
+		stateRecorder,
+	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
@@ -282,20 +309,43 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	if generateVAPs {
+	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+	if generateVAPs || generateMAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
-		vapController := vapcontroller.NewController(
+
+		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
+		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+		if generateVAPs {
+			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
+			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
+		}
+
+		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+		if generateMAPs {
+			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+		}
+
+		admissionpolicyController := admissionpolicygenerator.NewController(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
+			kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
+			kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
+			kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
+			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
+			vapInformer,
+			vapBindingInformer,
+			mapInformer,
+			mapBindingInformer,
 			eventGenerator,
 			checker,
 		)
-		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
+		leaderControllers = append(leaderControllers, internal.NewController(admissionpolicygenerator.ControllerName, admissionpolicyController, admissionpolicygenerator.Workers))
 	}
 	return leaderControllers, nil, nil
 }
@@ -304,24 +354,27 @@ func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                     string
-		webhookTimeout               int
-		maxQueuedEvents              int
-		omitEvents                   string
-		autoUpdateWebhooks           bool
-		autoDeleteWebhooks           bool
-		webhookRegistrationTimeout   time.Duration
-		admissionReports             bool
-		dumpPayload                  bool
-		servicePort                  int
-		webhookServerPort            int
-		backgroundServiceAccountName string
-		reportsServiceAccountName    string
-		maxAPICallResponseLength     int64
-		renewBefore                  time.Duration
-		maxAuditWorkers              int
-		maxAuditCapacity             int
-		maxAdmissionReports          int
+		serverIP                        string
+		webhookTimeout                  int
+		maxQueuedEvents                 int
+		omitEvents                      string
+		autoUpdateWebhooks              bool
+		autoDeleteWebhooks              bool
+		webhookRegistrationTimeout      time.Duration
+		admissionReports                bool
+		dumpPayload                     bool
+		servicePort                     int
+		webhookServerHost               string
+		webhookServerPort               int
+		backgroundServiceAccountName    string
+		reportsServiceAccountName       string
+		maxAPICallResponseLength        int64
+		renewBefore                     time.Duration
+		maxAuditWorkers                 int
+		maxAuditCapacity                int
+		maxAdmissionReports             int
+		controllerRuntimeMetricsAddress string
+		tlsKeyAlgorithm                 string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -335,9 +388,11 @@ func main() {
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
+	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
+	flagset.StringVar(&webhookServerHost, "webhookServerHost", "", "Host used by the webhook server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
 	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background controller service account name.")
 	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
@@ -348,6 +403,8 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
+	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
+	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -386,6 +443,20 @@ func main() {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
 		}
+		keyAlgorithm, ok := tls.KeyAlgorithms[strings.ToUpper(tlsKeyAlgorithm)]
+		if !ok {
+			setup.Logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", tlsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
+			os.Exit(1)
+		}
+		// check if mutating admission policies are registered in the API server
+		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		if generateMutatingAdmissionPolicy {
+			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "MutatingAdmissionPolicies isn't supported in the API server")
+				os.Exit(1)
+			}
+		}
 
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
@@ -420,21 +491,26 @@ func main() {
 			config.KyvernoNamespace(),
 			caSecretName,
 			tlsSecretName,
+			keyAlgorithm,
 		)
 		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
-		stateRecorder := webhook.NewStateRecorder(notifyChan)
+		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		gcstore := store.New()
+		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
+
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
+				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
 				gcstore,
@@ -453,7 +529,6 @@ func main() {
 		)
 		// this controller only subscribe to events, nothing is returned...
 		policymetricscontroller.NewController(
-			setup.MetricsManager,
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
@@ -482,7 +557,6 @@ func main() {
 			signalCtx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,
@@ -508,8 +582,7 @@ func main() {
 		// bootstrap non leader controllers
 		if nonLeaderBootstrap != nil {
 			if err := nonLeaderBootstrap(signalCtx); err != nil {
-				setup.Logger.Error(err, "failed to bootstrap non leader controllers")
-				os.Exit(1)
+				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
 			}
 		}
 		// setup leader election
@@ -544,8 +617,7 @@ func main() {
 					setup.KyvernoDynamicClient,
 					certRenewer,
 					runtime,
-					int32(servicePort),       //nolint:gosec
-					int32(webhookServerPort), //nolint:gosec
+					int32(servicePort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
 					stateRecorder,
@@ -555,7 +627,8 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
@@ -568,7 +641,7 @@ func main() {
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()
@@ -591,36 +664,64 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-		contextProvider, err := celpolicy.NewContextProvider(
-			setup.KubeClient,
+
+		contextProvider, err := libs.NewContextProvider(
+			setup.KyvernoDynamicClient,
 			nil,
+			gcstore,
 			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			restMapper,
+			false,
 		)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		var celEngine celengine.Engine
+
+		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
+		var vpolEngine vpolengine.Engine
+		var ivpolEngine ivpolengine.Engine
+		var mpolEngine mpolengine.Engine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
-			if err := policiesv1alpha1.Install(scheme); err != nil {
+			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
+				Metrics: server.Options{
+					BindAddress: controllerRuntimeMetricsAddress,
+				},
 			})
 			if err != nil {
 				setup.Logger.Error(err, "failed to construct manager")
 				os.Exit(1)
 			}
 			// create compiler
-			compiler := celpolicy.NewCompiler()
-			// create provider
-			provider, err := celengine.NewKubeProvider(compiler, mgr, kyvernoInformer.Policies().V1alpha1().CELPolicyExceptions().Lister())
+			compiler := vpolcompiler.NewCompiler()
+			// create vpolProvider
+			vpolProvider, err := vpolengine.NewKubeProvider(
+				compiler,
+				mgr,
+				kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
+				internal.PolicyExceptionEnabled(),
+			)
 			if err != nil {
-				setup.Logger.Error(err, "failed to create policy provider")
+				setup.Logger.Error(err, "failed to create vpol provider")
+				os.Exit(1)
+			}
+			ivpolProvider, err := ivpolengine.NewKubeProvider(mgr, kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			if err != nil {
+				setup.Logger.Error(err, "failed to create ivpol provider")
+				os.Exit(1)
+			}
+			mpolcompiler := mpolcompiler.NewCompiler()
+			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+			if err != nil {
+				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
 			}
 			// create a cancellable context
@@ -639,30 +740,85 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
-			celEngine = celengine.NewEngine(
-				provider,
+			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
+				vpolProvider,
 				func(name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
 					return ns
 				},
 				matching.NewMatcher(),
-			)
+			), metrics.AdmissionRequest)
+
+			ivpolEngine = ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
+				ivpolProvider,
+				func(name string) *corev1.Namespace {
+					ns, err := nsLister.Get(name)
+					if err != nil {
+						return nil
+					}
+					return ns
+				},
+				matching.NewMatcher(),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				nil,
+			), metrics.AdmissionRequest)
+			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
+				mpolProvider,
+				func(name string) *corev1.Namespace {
+					ns, err := nsLister.Get(name)
+					if err != nil {
+						return nil
+					}
+					return ns
+				},
+				matching.NewMatcher(),
+				typeConverter,
+				contextProvider,
+			), metrics.AdmissionRequest)
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
-		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
-			os.Exit(1)
-		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
+		if admissionReports {
+			ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
+				return func(context.Context) bool {
+					count, isRunning := c.Count()
+					if !isRunning {
+						return true
+					}
+					return count > maxAdmissionReports
+				}
 			}
-			return count > maxAdmissionReports
-		})
+
+			ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+			if err != nil {
+				go func() {
+					for {
+						ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+						if err != nil {
+							setup.Logger.Error(err, "failed to start admission reports watcher, retrying...")
+							time.Sleep(2 * time.Second)
+							continue
+						}
+						breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
+						return
+					}
+				}()
+				// create a temporary fake breaker until the retrying goroutine succeeds
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
+					return true
+				}))
+				// no error has occurred, create a normal breaker
+			} else {
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
+			}
+			// admission reports are disabled, create a fake breaker by default
+		} else {
+			breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
+				return true
+			}))
+		}
+
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -670,7 +826,7 @@ func main() {
 			setup.Configuration,
 			setup.MetricsManager,
 			policyCache,
-			kubeInformer.Core().V1().Namespaces().Lister(),
+			nsLister,
 			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
@@ -682,22 +838,29 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
-			setup.ReportingConfiguration,
-			reportsBreaker,
 		)
 		voplHandlers := vpol.New(
-			celEngine,
+			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
-			reportsBreaker,
+			admissionReports,
+			eventGenerator,
 		)
+		ivpolHandlers := ivpol.New(
+			ivpolEngine,
+			contextProvider,
+			setup.KyvernoClient,
+			admissionReports,
+			eventGenerator,
+		)
+		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
+		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName, eventGenerator)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
+			Enabled: internal.PolicyExceptionEnabled(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
@@ -707,9 +870,16 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:           webhooks.HandlerFunc(resourceHandlers.Mutate),
-				Validation:         webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies: webhooks.HandlerFunc(voplHandlers.Validate),
+				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
+				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
+				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateClustered),
+				NamespacedMutatingPolicies:        webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
+				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateClustered),
+				NamespacedValidatingPolicies:      webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
+				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
+				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies:      webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
@@ -739,6 +909,7 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
+			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
 		)
 		// start informers and wait for cache sync

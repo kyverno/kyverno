@@ -3,5 +3,5 @@ kind: ValidatingAdmissionPolicyBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t13-binding
+  name: cpol-disallow-host-path-t13-binding
 spec: {}

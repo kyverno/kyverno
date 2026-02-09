@@ -4,14 +4,27 @@ kind: Test
 metadata:
   name: audit
 spec:
+  concurrent: false
   steps:
   - name: create policy
-    try:
-    - create:
-        file: policy.yaml
-    - sleep:
-        duration: 10s
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
   - name: create deployment
     try:
     - create:
         file: deployment.yaml
+  - name: check events
+    try:
+    - assert:
+        file: event-assert.yaml

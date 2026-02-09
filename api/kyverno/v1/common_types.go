@@ -523,7 +523,7 @@ type Validation struct {
 
 	// Assert defines a kyverno-json assertion tree.
 	// +optional
-	Assert AssertionTree `json:"assert"`
+	Assert *AssertionTree `json:"assert,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -535,8 +535,8 @@ type PodSecurity struct {
 	Level api.Level `json:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
-	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
-	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;v1.27;v1.28;v1.29;latest
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, v1.30, v1.31, v1.32, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;v1.27;v1.28;v1.29;v1.30;v1.31;v1.32;latest
 	// +optional
 	Version string `json:"version,omitempty"`
 
@@ -592,6 +592,12 @@ func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
+	// Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	// +kubebuilder:default=false
+	Generate *bool `json:"generate,omitempty"`
+
 	// Expressions is a list of CELExpression types.
 	Expressions []admissionregistrationv1.Validation `json:"expressions,omitempty"`
 
@@ -612,6 +618,10 @@ type CEL struct {
 	// The variables defined here will be available under `variables` in other expressions of the policy.
 	// +optional
 	Variables []admissionregistrationv1.Variable `json:"variables,omitempty"`
+}
+
+func (c *CEL) GenerateVAP() bool {
+	return c.Generate != nil && *c.Generate
 }
 
 func (c *CEL) HasParam() bool {
@@ -787,7 +797,7 @@ type Generation struct {
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`
 
 	// +optional
-	GeneratePattern `json:",omitempty"`
+	GeneratePattern `json:",inline,omitempty"`
 
 	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
@@ -797,7 +807,7 @@ type Generation struct {
 type GeneratePattern struct {
 	// ResourceSpec contains information to select the resource.
 	// +kubebuilder:validation:Optional
-	ResourceSpec `json:",omitempty"`
+	ResourceSpec `json:",inline,omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
@@ -848,7 +858,7 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	count := 0
 	if g.GetData() != nil {
 		count++
@@ -864,21 +874,22 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 	if count > 1 {
 		errs = append(errs, field.Forbidden(path, "only one of generate patterns(data, clone, cloneList and foreach) can be specified"))
-		return errs
+		return warnings, errs
 	}
 
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
-			err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			warning, err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			warnings = append(warnings, warning...)
 			errs = append(errs, err...)
 		}
-		return errs
+		return warnings, errs
 	} else {
 		return g.GeneratePattern.Validate(path, namespaced, policyNamespace, clusterResources)
 	}
 }
 
-func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
@@ -907,7 +918,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		warnings = append(warnings, fmt.Sprintf("variables in %s would lead to incorrect synchronization behavior", path.Child("clone/cloneList").String()))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {
@@ -922,7 +933,7 @@ func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyName
 		}
 	}
 
-	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
+	return warnings, append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
 func (g *GeneratePattern) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {

@@ -19,13 +19,13 @@ limitations under the License.
 package v2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	apikyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov2 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ClusterCleanupPolicies.
 type ClusterCleanupPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2.ClusterCleanupPolicyLister
+	Lister() kyvernov2.ClusterCleanupPolicyLister
 }
 
 type clusterCleanupPolicyInformer struct {
@@ -56,21 +56,33 @@ func NewClusterCleanupPolicyInformer(client versioned.Interface, resyncPeriod ti
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterCleanupPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2().ClusterCleanupPolicies().List(context.TODO(), options)
+				return client.KyvernoV2().ClusterCleanupPolicies().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2().ClusterCleanupPolicies().Watch(context.TODO(), options)
+				return client.KyvernoV2().ClusterCleanupPolicies().Watch(context.Background(), options)
 			},
-		},
-		&kyvernov2.ClusterCleanupPolicy{},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2().ClusterCleanupPolicies().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KyvernoV2().ClusterCleanupPolicies().Watch(ctx, options)
+			},
+		}, client),
+		&apikyvernov2.ClusterCleanupPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +93,9 @@ func (f *clusterCleanupPolicyInformer) defaultInformer(client versioned.Interfac
 }
 
 func (f *clusterCleanupPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov2.ClusterCleanupPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apikyvernov2.ClusterCleanupPolicy{}, f.defaultInformer)
 }
 
-func (f *clusterCleanupPolicyInformer) Lister() v2.ClusterCleanupPolicyLister {
-	return v2.NewClusterCleanupPolicyLister(f.Informer().GetIndexer())
+func (f *clusterCleanupPolicyInformer) Lister() kyvernov2.ClusterCleanupPolicyLister {
+	return kyvernov2.NewClusterCleanupPolicyLister(f.Informer().GetIndexer())
 }

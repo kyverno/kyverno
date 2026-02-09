@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	apireportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/reports/v1"
+	reportsv1 "github.com/kyverno/kyverno/pkg/client/listers/reports/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // EphemeralReports.
 type EphemeralReportInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.EphemeralReportLister
+	Lister() reportsv1.EphemeralReportLister
 }
 
 type ephemeralReportInformer struct {
@@ -57,21 +57,33 @@ func NewEphemeralReportInformer(client versioned.Interface, namespace string, re
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredEphemeralReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().EphemeralReports(namespace).List(context.TODO(), options)
+				return client.ReportsV1().EphemeralReports(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().EphemeralReports(namespace).Watch(context.TODO(), options)
+				return client.ReportsV1().EphemeralReports(namespace).Watch(context.Background(), options)
 			},
-		},
-		&reportsv1.EphemeralReport{},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ReportsV1().EphemeralReports(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ReportsV1().EphemeralReports(namespace).Watch(ctx, options)
+			},
+		}, client),
+		&apireportsv1.EphemeralReport{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *ephemeralReportInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *ephemeralReportInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&reportsv1.EphemeralReport{}, f.defaultInformer)
+	return f.factory.InformerFor(&apireportsv1.EphemeralReport{}, f.defaultInformer)
 }
 
-func (f *ephemeralReportInformer) Lister() v1.EphemeralReportLister {
-	return v1.NewEphemeralReportLister(f.Informer().GetIndexer())
+func (f *ephemeralReportInformer) Lister() reportsv1.EphemeralReportLister {
+	return reportsv1.NewEphemeralReportLister(f.Informer().GetIndexer())
 }

@@ -3,16 +3,44 @@ package webhook
 import (
 	"cmp"
 	"fmt"
+	"sort"
 	"strings"
 
+	policiesv1v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1v1beta1.GenericPolicy {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
+		return vpol
+	}
+	if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		return nvpol
+	}
+	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
+		return ivpol
+	}
+	if nivpol := policy.AsNamespacedImageValidatingPolicy(); nivpol != nil {
+		return nivpol
+	}
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		return gpol
+	}
+	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+		return mpol
+	}
+	if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
+		return nmpol
+	}
+	return nil
+}
 
 func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.AdmissionOperation) webhookConfig {
 	out := map[string]sets.Set[kyvernov1.AdmissionOperation]{}
@@ -174,3 +202,54 @@ func less[T cmp.Ordered](a []T, b []T) int {
 	}
 	return 0
 }
+
+func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
+	seen := make(map[string]struct{})
+	uniqueRules := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
+
+	for _, rule := range rules {
+		key := generateRuleKey(rule)
+		if _, exist := seen[key]; !exist {
+			seen[key] = struct{}{}
+			uniqueRules = append(uniqueRules, rule)
+		}
+	}
+	return uniqueRules
+}
+
+func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
+	sb := strings.Builder{}
+	stringBuilderFn := func(input []string) {
+		copiedInputs := make([]string, len(input))
+		copy(copiedInputs, input)
+		sort.Strings(copiedInputs)
+		sb.WriteString(strings.Join(copiedInputs, ","))
+		sb.WriteString("|")
+	}
+
+	stringBuilderFn(rule.APIGroups)
+	stringBuilderFn(rule.APIVersions)
+	stringBuilderFn(rule.Resources)
+
+	opsCopy := make([]string, len(rule.Operations))
+	for i, op := range rule.Operations {
+		opsCopy[i] = string(op)
+	}
+	stringBuilderFn(opsCopy)
+
+	sb.WriteString("s:")
+	if rule.Scope != nil {
+		sb.WriteString(string(*rule.Scope))
+	}
+	return sb.String()
+}
+
+const (
+	ValidatingPolicyType                = "ValidatingPolicy"
+	NamespacedValidatingPolicyType      = "NamespacedValidatingPolicy"
+	ImageValidatingPolicyType           = "ImageValidatingPolicy"
+	NamespacedImageValidatingPolicyType = "NamespacedImageValidatingPolicy"
+	MutatingPolicyType                  = "MutatingPolicy"
+	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
+	GeneratingPolicyType                = "GeneratingPolicy"
+)

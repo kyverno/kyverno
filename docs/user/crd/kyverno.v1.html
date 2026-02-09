@@ -2152,6 +2152,34 @@ attributes for keyless verification, or a nested attestor declaration.</p>
     
     
       <tr>
+        <td><code>generate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generate specifies whether to generate a Kubernetes ValidatingAdmissionPolicy from the rule.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>expressions</code>
           
           <span style="color:blue;"> *</span>
@@ -4401,6 +4429,8 @@ must be satisfied for the validation rule to succeed.</p>
         </td>
         <td>
           
+            <p>(Members of <code>ResourceSpec</code> are embedded into this type.)</p>
+          
 
           <p>ResourceSpec contains information to select the resource.</p>
 
@@ -4642,6 +4672,8 @@ Defaults to &quot;false&quot; if not specified.</p>
           
         </td>
         <td>
+          
+            <p>(Members of <code>GeneratePattern</code> are embedded into this type.)</p>
           
 
           
@@ -6730,7 +6762,7 @@ Allowed values are privileged, baseline, and restricted.</p>
           
 
           <p>Version defines the Pod Security Standard versions that Kubernetes supports.
-Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.</p>
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, v1.30, v1.31, v1.32, latest. Defaults to latest.</p>
 
 
           

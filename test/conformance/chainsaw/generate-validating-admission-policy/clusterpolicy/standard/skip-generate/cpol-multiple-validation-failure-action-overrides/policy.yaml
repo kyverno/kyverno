@@ -20,5 +20,6 @@ spec:
             namespaces:
               - test
         cel:
+          generate: true
           expressions:
             - expression: "'app' in object.metadata.labels"
