@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -190,7 +190,6 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
 			debug.Error(err, "failed to list resources")
-			errs = append(errs, err)
 			// record failure metric
 			if c.metrics != nil {
 				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
@@ -238,6 +237,10 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if apierrors.IsNotFound(err) {
+					debug.Info("resource not found")
+					continue
+				}
 				if c.metrics != nil {
 					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}

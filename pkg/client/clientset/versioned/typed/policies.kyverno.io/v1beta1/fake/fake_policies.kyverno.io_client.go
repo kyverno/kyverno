@@ -48,6 +48,18 @@ func (c *FakePoliciesV1beta1) NamespacedDeletingPolicies(namespace string) v1bet
 	return newFakeNamespacedDeletingPolicies(c, namespace)
 }
 
+func (c *FakePoliciesV1beta1) NamespacedGeneratingPolicies(namespace string) v1beta1.NamespacedGeneratingPolicyInterface {
+	return newFakeNamespacedGeneratingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedImageValidatingPolicies(namespace string) v1beta1.NamespacedImageValidatingPolicyInterface {
+	return newFakeNamespacedImageValidatingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedMutatingPolicies(namespace string) v1beta1.NamespacedMutatingPolicyInterface {
+	return newFakeNamespacedMutatingPolicies(c, namespace)
+}
+
 func (c *FakePoliciesV1beta1) NamespacedValidatingPolicies(namespace string) v1beta1.NamespacedValidatingPolicyInterface {
 	return newFakeNamespacedValidatingPolicies(c, namespace)
 }

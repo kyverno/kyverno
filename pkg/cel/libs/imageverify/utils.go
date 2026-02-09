@@ -1,11 +1,11 @@
 package imageverify
 
 import (
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 )
 
-func attestationMap(ivpol v1alpha1.ImageValidatingPolicyLike) map[string]v1alpha1.Attestation {
+func attestationMap(ivpol v1beta1.ImageValidatingPolicyLike) map[string]v1beta1.Attestation {
 	if ivpol == nil {
 		return nil
 	}
@@ -26,7 +26,7 @@ func arrToMap[T ARR_TYPE](arr []T) map[string]T {
 	return m
 }
 
-func GetRemoteOptsFromPolicy(creds *v1alpha1.Credentials) []imagedataloader.Option {
+func GetRemoteOptsFromPolicy(creds *v1beta1.Credentials) []imagedataloader.Option {
 	if creds == nil {
 		return []imagedataloader.Option{}
 	}

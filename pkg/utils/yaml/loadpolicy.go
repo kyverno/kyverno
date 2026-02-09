@@ -3,9 +3,8 @@ package yaml
 import (
 	"fmt"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -21,7 +20,7 @@ func GetPolicy(bytes []byte) (
 	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	validatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	validatingPolicies []policiesv1beta1.ValidatingPolicy,
-	imageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy,
+	imageVerificationPolicies []policiesv1beta1.ImageValidatingPolicy,
 	mutatingAdmissionPolicies []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mutatingAdmissionPolicyBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	err error,
@@ -108,7 +107,7 @@ func parse(obj unstructured.Unstructured) (
 	*admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	kyvernov1.PolicyInterface,
 	*policiesv1beta1.ValidatingPolicy,
-	*policiesv1alpha1.ImageValidatingPolicy,
+	*policiesv1beta1.ImageValidatingPolicy,
 	*admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	error,
@@ -208,8 +207,8 @@ func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.Vali
 	return &out, nil
 }
 
-func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
-	var out policiesv1alpha1.ImageValidatingPolicy
+func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.ImageValidatingPolicy, error) {
+	var out policiesv1beta1.ImageValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}

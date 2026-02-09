@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -353,14 +352,14 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
-		ivpols           []*policiesv1alpha1.ImageValidatingPolicy
+		ivpols           []*policiesv1beta1.ImageValidatingPolicy
 		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
 	}{
 		{
 			name: "Autogen Single Ignore Policy",
-			ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
+			ivpols: []*policiesv1beta1.ImageValidatingPolicy{
 				{
-					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -427,7 +426,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 		},
 		{
 			name: "Autogen Fine-grained Ignore Policy",
-			ivpols: []*policiesv1alpha1.ImageValidatingPolicy{
+			ivpols: []*policiesv1beta1.ImageValidatingPolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ivpol-sample",
@@ -435,7 +434,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 							kyverno.AnnotationAutogenControllers: "deployments,jobs,cronjobs",
 						},
 					},
-					Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{

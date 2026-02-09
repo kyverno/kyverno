@@ -5,13 +5,12 @@ import (
 	"maps"
 	"slices"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func Autogen(policy *policiesv1beta1.ImageValidatingPolicy) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -24,10 +23,32 @@ func Autogen(policy *policiesv1alpha1.ImageValidatingPolicy) (map[string]policie
 		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
 		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(policy, actualControllers)
+	return autogenIvPols(&policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: policy.ObjectMeta,
+		Spec:       policy.Spec,
+	}, actualControllers)
 }
 
-func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1alpha1.ImageValidatingPolicyAutogen, error) {
+func AutogenNamespaced(policy *policiesv1beta1.NamespacedImageValidatingPolicy) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
+	if policy == nil {
+		return nil, nil
+	}
+	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
+		return nil, nil
+	}
+	actualControllers := autogen.AllConfigs
+	if policy.Spec.AutogenConfiguration != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers != nil &&
+		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
+	}
+	return autogenIvPols(&policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: policy.ObjectMeta,
+		Spec:       policy.Spec,
+	}, actualControllers)
+}
+
+func autogenIvPols(ivpol *policiesv1beta1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
@@ -37,7 +58,7 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		}
 	}
 	spec := ivpol.Spec
-	rules := map[string]policiesv1alpha1.ImageValidatingPolicyAutogen{}
+	rules := map[string]policiesv1beta1.ImageValidatingPolicyAutogen{}
 	for _, config := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[config]
 		spec := spec.DeepCopy()
@@ -51,13 +72,9 @@ func autogenIvPols(ivpol *policiesv1alpha1.ImageValidatingPolicy, configs sets.S
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		t := make([]policiesv1alpha1.Target, 0, len(targets))
-		for _, target := range targets {
-			t = append(t, policiesv1alpha1.Target(target))
-		}
 
-		rules[config] = policiesv1alpha1.ImageValidatingPolicyAutogen{
-			Targets: t,
+		rules[config] = policiesv1beta1.ImageValidatingPolicyAutogen{
+			Targets: targets,
 			Spec:    spec,
 		}
 	}

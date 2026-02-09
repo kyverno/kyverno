@@ -92,6 +92,10 @@ spec:
       {{- end }}
       serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
       automountServiceAccountToken: {{ $automountSAToken }}
+      {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
+      initContainers:
+        {{- include "kyverno.reportsServer.initContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: controller
           image: {{ include "kyverno.cleanup-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -111,6 +115,7 @@ spec:
           args:
             - --caSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
+            - --tlsKeyAlgorithm={{ .Values.cleanupController.tlsKeyAlgorithm | default "RSA" }}
             - --servicePort={{ .Values.cleanupController.service.port }}
             - --resyncPeriod={{ .Values.cleanupController.resyncPeriod | default .Values.global.resyncPeriod }}
             - --cleanupServerPort={{ .Values.cleanupController.server.port }}
@@ -197,14 +202,20 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if not $automountSAToken }}
+          {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumeMounts }}
           volumeMounts:
+            {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+            {{- end }}
+            {{- with .Values.cleanupController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- if not $automountSAToken }}
+      {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumes }}
       volumes:
+        {{- if not $automountSAToken }}
         - name: serviceaccount-token
           projected:
             defaultMode: 0444
@@ -223,6 +234,10 @@ spec:
                       fieldRef:
                         apiVersion: v1
                         fieldPath: metadata.namespace
+        {{- end }}
+        {{- with .Values.cleanupController.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
 {{- end -}}
 {{- end -}}

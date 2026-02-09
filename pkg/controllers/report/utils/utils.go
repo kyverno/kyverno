@@ -2,16 +2,14 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -145,11 +143,11 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 
 func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -161,11 +159,11 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1lister
 
 func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -201,11 +199,11 @@ func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistr
 
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
-	r, err := getExcludeReportingLabelRequirement()
+	r, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := vapLister.List(labels.Everything().Add(*r)); err != nil {
+	if pols, err := vapLister.List(labels.NewSelector().Add(*r)); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -268,8 +266,8 @@ func FetchNamespacedValidatingPolicies(nvpolLister policiesv1beta1listers.Namesp
 	return policies, nil
 }
 
-func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyLister) ([]policiesv1alpha1.MutatingPolicy, error) {
-	var policies []policiesv1alpha1.MutatingPolicy
+func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyLister) ([]policiesv1beta1.MutatingPolicy, error) {
+	var policies []policiesv1beta1.MutatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -284,8 +282,8 @@ func FetchMutatingPolicies(mpolLister policiesv1alpha1listers.MutatingPolicyList
 	return policies, nil
 }
 
-func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageValidatingPolicyLister) ([]policiesv1alpha1.ImageValidatingPolicy, error) {
-	var policies []policiesv1alpha1.ImageValidatingPolicy
+func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
+	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -300,8 +298,29 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1alpha1listers.ImageVal
 	return policies, nil
 }
 
-func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLister) ([]policiesv1alpha1.GeneratingPolicy, error) {
-	var policies []policiesv1alpha1.GeneratingPolicy
+func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1listers.NamespacedImageValidatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedImageValidatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedImageValidatingPolicy
+	if namespace != "" {
+		pols, err = nivpolLister.NamespacedImageValidatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nivpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedImageValidatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
+func FetchGeneratingPolicy(gpolLister policiesv1beta1listers.GeneratingPolicyLister) ([]policiesv1beta1.GeneratingPolicy, error) {
+	var policies []policiesv1beta1.GeneratingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -316,7 +335,7 @@ func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLi
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1alpha1listers.PolicyExceptionLister, namespace string) ([]*policiesv1alpha1.PolicyException, error) {
+func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyExceptionLister, namespace string) ([]*policiesv1beta1.PolicyException, error) {
 	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -330,6 +349,18 @@ func getExcludeReportingLabelRequirement() (*labels.Requirement, error) {
 		kyverno.LabelExcludeReporting,
 		selection.DoesNotExist,
 		nil, // values not needed for DoesNotExist
+	)
+	if err != nil {
+		return nil, err
+	}
+	return requirement, nil
+}
+
+func getIncludeReportingLabelRequirement() (*labels.Requirement, error) {
+	requirement, err := labels.NewRequirement(
+		kyverno.LabelEnableVAPReporting,
+		selection.Equals,
+		[]string{"true"},
 	)
 	if err != nil {
 		return nil, err

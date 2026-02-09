@@ -8,20 +8,25 @@ import (
 type Recorder struct {
 	lock       sync.Mutex
 	data       map[string]bool
-	NotifyChan chan string
+	notifyChan chan string
 }
 
 type StateRecorder interface {
 	Ready(string) (bool, bool)
 	Record(string)
 	Reset()
+	NotifyChannel() <-chan string
 }
 
 func NewStateRecorder(notifyChan chan string) StateRecorder {
 	return &Recorder{
 		data:       make(map[string]bool),
-		NotifyChan: notifyChan,
+		notifyChan: notifyChan,
 	}
+}
+
+func (s *Recorder) NotifyChannel() <-chan string {
+	return s.notifyChan
 }
 
 func (s *Recorder) Ready(key string) (bool, bool) {
@@ -33,10 +38,11 @@ func (s *Recorder) Ready(key string) (bool, bool) {
 
 func (s *Recorder) Record(key string) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
 	s.data[key] = true
-	if s.NotifyChan != nil {
-		s.NotifyChan <- key
+	s.lock.Unlock()
+
+	if s.notifyChan != nil {
+		s.notifyChan <- key
 	}
 }
 
@@ -57,6 +63,8 @@ func BuildRecorderKey(policyType, name, namespace string) string {
 		return NamespacedValidatingPolicyType + "/" + name + "+" + namespace
 	case ImageValidatingPolicyType:
 		return ImageValidatingPolicyType + "/" + name
+	case NamespacedImageValidatingPolicyType:
+		return NamespacedImageValidatingPolicyType + "/" + name + "+" + namespace
 	case MutatingPolicyType:
 		return MutatingPolicyType + "/" + name
 	case GeneratingPolicyType:

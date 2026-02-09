@@ -26,6 +26,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -223,12 +224,14 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				if err != nil {
 					debug.Error(err, "failed to get namespace labels")
 					errs = append(errs, err)
+					continue
 				}
 				nsLabels = ns.GetLabels()
 			}
 			// match namespaces
 			if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
 				debug.Info("resource namespace didn't match policy namespace", "result", err)
+				continue
 			}
 			// match resource with match/exclude clause
 			matched := match.CheckMatchesResources(
@@ -294,6 +297,10 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			}
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if errors.IsNotFound(err) {
+					debug.Info("resource not found")
+					continue
+				}
 				if metrics != nil {
 					metrics.RecordCleanupFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}

@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: allowed-base-images
+spec:
+  evaluation:
+    background:
+      enabled: false
+  validationActions: ["Warn", "Audit"]
+  variables:
+    - name: baseImageConfigMap
+      expression: 'resource.Get("v1", "configmaps", "platform", "baseimages")'
+    - name: allowedBaseImages
+      expression: 'variables.baseImageConfigMap.data.?allowedbaseimages.orValue("").split(",").filter(img, img.trim() != "")'
+    - name: allContainers
+      expression: 'object.spec.containers + object.spec.?initContainers.orValue([]) + object.spec.?ephemeralContainers.orValue([])'
+  matchConstraints:
+    resourceRules:
+      - resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+  validations:
+    - expression: |
+        variables.allContainers.all(container, 
+          has(image.GetMetadata(container.image).manifest.annotations) && 
+          image.GetMetadata(container.image).manifest.annotations != null && 
+          'org.opencontainers.image.base.name' in image.GetMetadata(container.image).manifest.annotations && 
+          image.GetMetadata(container.image).manifest.annotations['org.opencontainers.image.base.name'] in variables.allowedBaseImages
+        )

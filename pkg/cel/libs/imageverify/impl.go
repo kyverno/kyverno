@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -23,9 +23,9 @@ type ivfuncs struct {
 
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
-	creds           *v1alpha1.Credentials
+	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestationList map[string]v1alpha1.Attestation
+	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
@@ -33,7 +33,7 @@ type ivfuncs struct {
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
-	ivpol v1alpha1.ImageValidatingPolicyLike,
+	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister k8scorev1.SecretInterface,
 	adapter types.Adapter,
 ) (*ivfuncs, error) {
@@ -64,7 +64,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
-	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](attestors); err != nil {
+	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
 		return types.WrapErr(err)
 	} else {
 		count := 0
@@ -114,7 +114,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
-	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
+	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
 		count := 0

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -32,7 +32,7 @@ import (
 type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
-	Predicate      = func(policiesv1alpha1.ImageValidatingPolicyLike) bool
+	Predicate      = func(policiesv1beta1.ImageValidatingPolicyLike) bool
 )
 
 type Engine interface {

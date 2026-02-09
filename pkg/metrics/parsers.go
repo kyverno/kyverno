@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,7 +16,7 @@ type GenericPolicy interface {
 	metav1.Object
 	GetMatchConstraints() admissionregistrationv1.MatchResources
 	GetMatchConditions() []admissionregistrationv1.MatchCondition
-	GetFailurePolicy() admissionregistrationv1.FailurePolicyType
+	GetFailurePolicy(bool) admissionregistrationv1.FailurePolicyType
 	GetVariables() []admissionregistrationv1.Variable
 }
 
@@ -100,31 +99,31 @@ func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMo
 	policyType := ""
 
 	switch p := policy.(type) {
-	case *v1beta1.ValidatingPolicy:
+	case v1beta1.ValidatingPolicyLike:
 		policyType = "Validating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
 			validationMode = admissionregistrationv1.Deny
 		}
-	case *v1alpha1.ImageValidatingPolicy:
+	case v1beta1.ImageValidatingPolicyLike:
 		policyType = "ImageValidating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-		if slices.Contains(p.Spec.ValidationActions(), admissionregistrationv1.Deny) {
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
 			validationMode = admissionregistrationv1.Deny
 		}
-	case *v1alpha1.MutatingPolicy:
+	case v1beta1.MutatingPolicyLike:
 		policyType = "Mutating"
 
-		if p.Spec.BackgroundEnabled() {
+		if p.GetSpec().BackgroundEnabled() {
 			backgroundMode = BackgroundTrue
 		}
-	case *v1alpha1.GeneratingPolicy:
+	case v1beta1.GeneratingPolicyLike:
 		policyType = "Generating"
 	}
 

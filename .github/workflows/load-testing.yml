@@ -9,6 +9,11 @@ on:
     branches:
       - "main"
       - "release*"
+    paths:
+      - "cmd/**"
+      - "pkg/**"
+  merge_group:
+    types: [checks_requested]
   schedule:
     - cron: "27 0 * * 0"
 
@@ -23,7 +28,7 @@ jobs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Set Tests
         id: set-tests
         run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
@@ -32,19 +37,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
-          free-disk-space: true
+          go-version-file: go.mod
+          cache: false
+      - name: Set cache variables
+        shell: bash
+        run: |
+          set -e
+          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+          echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+      - name: Restore gomod cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ env.GO_MOD_CACHE }}
+          key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
       - name: ko build
         shell: bash
         run: |
           set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -52,7 +76,7 @@ jobs:
           if-no-files-found: error
 
   old-load-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
     outputs:
@@ -63,12 +87,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -76,14 +100,13 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -108,12 +131,26 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -122,7 +159,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Extract P(95)
         id: extract-p95
         shell: bash
@@ -135,7 +179,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   load-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
       - old-load-test
@@ -145,12 +189,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -158,14 +202,13 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -187,12 +230,26 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -201,7 +258,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Compare P(95)
         shell: bash
         run: |
@@ -215,7 +279,7 @@ jobs:
             exit 1
           fi
       - name: Archive Report
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: load-test-report.html
           path: report
@@ -224,7 +288,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   scale-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - define-matrix
       - prepare-images
@@ -234,13 +298,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.31.0]
+        k8s-version: [v1.34.0]
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: kyverno/load-testing
           path: load-testing
@@ -248,14 +321,13 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
         with:
-          version: v0.29.0
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: kyverno.tar
       - name: Load Kyverno images archive in Kind cluster
@@ -283,12 +355,26 @@ jobs:
         shell: bash
         run: |
           set -e
-          go install go.k6.io/xk6/cmd/xk6@latest
-          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
-          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker run --rm \
+            -v "$PWD":/work -v "$RUNNER_TEMP":/out -w /work golang:1.22 \
+            bash -lc '
+              export PATH=/usr/local/go/bin:$PATH
+              go version
+              go install go.k6.io/xk6/cmd/xk6@v0.12.1
+              XBIN="$(go env GOPATH)/bin/xk6"
+              "$XBIN" build v0.52.0 --with github.com/grafana/xk6-dashboard@v0.7.0
+              mv ./k6 /out/k6
+            '
+          mkdir -p "$HOME/.local/bin" && mv "$RUNNER_TEMP/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run load tests using K6
         shell: bash
+        env:
+          # The xk6-dashboard extension requires at least 2 snapshots to generate a report.
+          # Snapshots are taken at the interval specified by this period (default: 10s).
+          # Fast tests may complete in under 10s, resulting in "not enough data" errors.
+          # Setting period=1s ensures enough snapshots are captured for report generation.
+          K6_WEB_DASHBOARD_PERIOD: 1s
         run: |
           set -e
           mkdir -p report
@@ -297,7 +383,14 @@ jobs:
           cd load-testing
           ./k6/run.sh k6/tests/${{ matrix.test.name }}.js -e SCENARIO=${{ matrix.test.scenario }} --vus ${{ matrix.test.concurrent_connections }} --iterations ${{ matrix.test.total_iterations }} ${{ matrix.test.extra_options }} --out dashboard=export=load-report.html
           wait %1 || true
-          mv load-report.html ../report
+          for i in $(seq 1 5); do
+              if [ -f "load-report.html" ]; then
+                  mv load-report.html ../report
+                  exit 0
+              fi
+              echo "report wasn't found, waiting..."
+              sleep 5
+          done
       - name: Collect Resource Metrics
         shell: bash
         run: |
@@ -314,7 +407,7 @@ jobs:
           sleep 60
           ./test/load/k6/reports-size-in-etcd.sh > report/reports-size-in-etcd.txt
       - name: Archive Report
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
           path: report

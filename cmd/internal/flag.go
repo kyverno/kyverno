@@ -65,10 +65,14 @@ var (
 	enableGlobalContext bool
 	// reporting
 	enableReporting string
+	allowedResults  string
 	// resync
 	resyncPeriod time.Duration
 	// custom resource watch
 	crdWatcher bool
+	// auto memlimit
+	autoMemLimitEnabled bool
+	autoMemLimitRatio   float64
 )
 
 func initLoggingFlags() {
@@ -77,6 +81,11 @@ func initLoggingFlags() {
 	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
+}
+
+func initMemLimitFlags() {
+	flag.BoolVar(&autoMemLimitEnabled, "autoMemLimitEnabled", true, "Enable automatic GOMEMLIMIT configuration based on container or system memory.")
+	flag.Float64Var(&autoMemLimitRatio, "autoMemLimitRatio", 0.9, "The ratio of reserved GOMEMLIMIT memory to the detected maximum container or system memory. Must be greater than 0 and less than or equal to 1.")
 }
 
 func initProfilingFlags() {
@@ -155,7 +164,8 @@ func initCleanupFlags() {
 }
 
 func initReportingFlags() {
-	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enable reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&allowedResults, "allowedResults", "pass,fail,error,warn,skip", "Comma separated list of result types for which creating reports is desired. (pass,fail,error,warn,skip)")
 }
 
 func initOpenreportsFlagSet() *flag.FlagSet {
@@ -209,6 +219,8 @@ func initFlags(config Configuration, opts ...Option) {
 	}
 	// logging
 	initLoggingFlags()
+	// memlimit
+	initMemLimitFlags()
 	// profiling
 	if config.UsesProfiling() {
 		initProfilingFlags()

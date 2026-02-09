@@ -6,12 +6,11 @@ import (
 	"maps"
 	"sync"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,14 +22,14 @@ type reconciler struct {
 	compiler     compiler.Compiler
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1alpha1listers.PolicyExceptionLister
+	polexLister  policiesv1beta1listers.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	compiler compiler.Compiler,
 	client client.Client,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -79,7 +78,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 	// get exceptions that match the policy
-	var exceptions []*policiesv1alpha1.PolicyException
+	var exceptions []*policiesv1beta1.PolicyException
 	var err error
 	if r.polexEnabled {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())

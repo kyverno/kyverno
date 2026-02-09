@@ -1,14 +1,15 @@
-apiVersion: policies.kyverno.io/v1alpha1
+apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
   name: disallow-privilege-escalation
 status:
   conditionStatus:
-    conditions:
+    (conditions[?type == 'WebhookConfigured']):
     - message: Webhook configured.
       reason: Succeeded
       status: "True"
       type: WebhookConfigured
+    (conditions[?type == 'RBACPermissionsGranted']):
     - message: 'Policy is not ready for reporting, missing permissions: get /v1,
         Resource=deployments: ; list /v1, Resource=deployments: ; watch /v1, Resource=deployments: .'
       reason: Failed

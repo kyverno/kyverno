@@ -1,20 +1,31 @@
 package eval
 
 import (
+	"context"
+
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -26,7 +37,7 @@ import (
 var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
-	Compile(policiesv1alpha1.ImageValidatingPolicyLike, []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList)
+	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
@@ -43,7 +54,7 @@ type compilerImpl struct {
 	reqGVR *metav1.GroupVersionResource
 }
 
-func (c *compilerImpl) Compile(ivpolicy policiesv1alpha1.ImageValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(ivpolicy)
@@ -138,7 +149,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1alpha1.ImageValidatingPolicyLi
 	}
 
 	return &compiledPolicy{
-		failurePolicy:        ivpolicy.GetFailurePolicy(),
+		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
 		validations:          validations,
@@ -152,7 +163,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1alpha1.ImageValidatingPolicyLi
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -164,7 +175,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidating
 		cel.Variable(engine.ObjectKey, cel.DynType),
 	)
 
-	if ivpol.GetSpec().EvaluationMode() == policiesv1alpha1.EvaluationModeKubernetes {
+	if ivpol.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeKubernetes {
 		baseOpts = append(baseOpts,
 			cel.Variable(engine.RequestKey, engine.RequestType.CelType()),
 			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
@@ -174,7 +185,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidating
 		)
 	}
 
-	base := environment.MustBaseEnvSet(ivpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -220,6 +231,29 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidating
 				user.Lib(
 					user.Latest(),
 				),
+				math.Lib(
+					math.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
+				),
 			},
 		},
 	)
@@ -229,7 +263,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1alpha1.ImageValidating
 	return extendedBase, variablesProvider, nil
 }
 
-func getAttestations(att []v1alpha1.Attestation) map[string]string {
+func getAttestations(att []v1beta1.Attestation) map[string]string {
 	m := make(map[string]string)
 	for _, v := range att {
 		m[v.Name] = v.Name

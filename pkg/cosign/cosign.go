@@ -17,11 +17,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
-	"github.com/sigstore/cosign/v2/pkg/oci"
-	"github.com/sigstore/cosign/v2/pkg/oci/remote"
-	sigs "github.com/sigstore/cosign/v2/pkg/signature"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
+	"github.com/sigstore/cosign/v3/pkg/oci"
+	"github.com/sigstore/cosign/v3/pkg/oci/remote"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
@@ -711,6 +711,11 @@ func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots = append(roots, cert)
 			} else {
+				// Intermediate certificates having empty ExtendedKeyUsage (EKU) are rejected by cosign
+				// We relax this check by adding TimeStamping EKU to such certificates
+				if len(cert.ExtKeyUsage) == 0 {
+					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+				}
 				intermediates = append(intermediates, cert)
 			}
 		}

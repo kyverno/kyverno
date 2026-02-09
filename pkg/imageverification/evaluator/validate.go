@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"
@@ -36,8 +36,8 @@ type ImageVerifyEngineResponse struct {
 }
 
 type ImageVerifyPolicyResponse struct {
-	Policy     policiesv1alpha1.ImageValidatingPolicyLike
-	Exceptions []*policiesv1alpha1.PolicyException
+	Policy     policiesv1beta1.ImageValidatingPolicyLike
+	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
 }
@@ -87,7 +87,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	return patches, nil
 }
 
-func Validate(ivpol *policiesv1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) ([]string, error) {
+func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) ([]string, error) {
 	ictx, er := imagedataloader.NewImageContext(lister)
 	if er != nil {
 		return nil, nil

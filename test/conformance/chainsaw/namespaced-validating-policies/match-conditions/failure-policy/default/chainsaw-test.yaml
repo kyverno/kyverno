@@ -4,11 +4,8 @@ kind: Test
 metadata:
   name: default
 spec:
+  concurrent: true
   steps:
-  - name: create namespace
-    try:
-    - create:
-        file: namespace.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -23,9 +20,11 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels
-        - name: namespace
-          value: test-namespace
   - name: create deployment
     try:
     - create:
         file: deployment.yaml
+        expect:
+          - check:
+              ($error): >-
+                deployments.apps "nginx-deployment" is forbidden: expression '2 / 0 == 1' resulted in error: division by zero
