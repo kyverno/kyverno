@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Value
+metadata:
+  name: values
+namespaces:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    annotations:
+      corp.com/allowed-registries: img.corp.com, docker.io
+    name: imageregistries-ns01
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: default

@@ -7,11 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 	"k8s.io/apiserver/pkg/apis/example"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestNewMatcher(t *testing.T) {
@@ -398,6 +401,70 @@ func TestMatcher(t *testing.T) {
 			if matches != testcase.expectMatches {
 				t.Fatalf("expected matches = %v; got %v", testcase.expectMatches, matches)
 			}
+		})
+	}
+}
+
+func Test_matchesResourceRules(t *testing.T) {
+	tests := []struct {
+		name         string
+		object       runtime.Object
+		resourceName string
+		expected     bool
+	}{
+		{
+			name: "match using generateName prefix",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "test-prefix-",
+					},
+				},
+			},
+			resourceName: "test-prefix",
+			expected:     true,
+		},
+		{
+			name:         "no match when object is nil and name is empty",
+			object:       nil,
+			resourceName: "test-prefix",
+			expected:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			attr := admission.NewAttributesRecord(
+				tt.object,
+				nil,
+				schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+				"default", // namespace
+				"",        // name is empty to trigger generateName fallback
+				schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+				"", // subresource
+				admission.Create,
+				nil,   // operationOptions
+				false, // dryRun
+				&user.DefaultInfo{Name: "test-user"},
+			)
+
+			namedRules := []v1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"CREATE"},
+						Rule: v1.Rule{
+							APIGroups:   []string{"*"},
+							APIVersions: []string{"*"},
+							Resources:   []string{"*/*"},
+						},
+					},
+					ResourceNames: []string{tt.resourceName},
+				},
+			}
+
+			match, err := matchesResourceRules(namedRules, attr)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, match)
 		})
 	}
 }

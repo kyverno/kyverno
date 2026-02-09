@@ -173,6 +173,16 @@ func (er EngineResponse) GetSuccessRules() []string {
 
 // GetResourceSpec returns resourceSpec of er
 func (er EngineResponse) GetResourceSpec() ResourceSpec {
+	if er.PatchedResource.Object == nil {
+		return ResourceSpec{
+			Kind:       er.Resource.GetKind(),
+			APIVersion: er.Resource.GetAPIVersion(),
+			Namespace:  er.Resource.GetNamespace(),
+			Name:       er.Resource.GetName(),
+			UID:        string(er.Resource.GetUID()),
+		}
+	}
+
 	return ResourceSpec{
 		Kind:       er.PatchedResource.GetKind(),
 		APIVersion: er.PatchedResource.GetAPIVersion(),

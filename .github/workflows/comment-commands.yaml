@@ -24,3 +24,113 @@ jobs:
             /lgtm 
             /milestone'
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  # /cherry-pick command, only send a message if PR is unmerged, cherry-pick if PR was already merged
+  cherry-pick:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cherry-pick')
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+    steps:
+    # TODO(lucchmielowski): Fix issue for commands with dash in their name then reactivate for finer-grained controls
+    # - name: Check for Command
+    #    id: command
+    #    uses: xt0rted/slash-command-action@v2
+    #   continue-on-error: true
+    #   with:
+    #     command: cherry-pick
+    #     reaction: "true"
+    #     reaction-type: "+1"
+    #     allow-edits: "false"
+    #     permission-level: write
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # NOTE: can be removed if slash-command-action is uncommented
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
+
+      - name: Check if PR is merged
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        id: check-merged
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            return {
+              merged: pr.data.merged,
+              state: pr.data.state,
+              mergeCommit: pr.data.merge_commit_sha
+            };
+
+      - name: Extract target branch
+        if: fromJSON(steps.check-merged.outputs.result).merged == true
+        id: extract-branch
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          
+          # Keep only the first line
+          first_line="$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | head -n1)"
+          candidate="$(printf '%s' "$first_line" | awk '{print $2}')"
+          
+          if [ -z "${candidate:-}" ]; then
+            echo "No branch in comment (expected: /cherry-pick <branch>)" >&2
+            exit 1
+          fi
+          
+          # Validate branch format using git
+          if ! git check-ref-format --branch "$candidate"; then
+            echo "Invalid branch name: $candidate" >&2
+            exit 1
+          fi
+          
+          echo "branch=$candidate" >> "$GITHUB_OUTPUT"
+
+
+      - name: Comment PR Unmerged
+        if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
+        uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          message: |
+            Commits from this PR will automatically be cherry-picked once this PR gets merged.
+
+      - name: Checkout repository
+        if: fromJSON(steps.check-merged.outputs.result).merged == true
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Cherry Pick
+        if: fromJSON(steps.check-merged.outputs.result).merged == true
+        uses: ./.github/actions/cherry-pick
+        continue-on-error: true # Send failure comment to PR
+        id: cherry-pick
+        with:
+          github-token: ${{ secrets.PR_UPDATE_TOKEN }}
+          source-pr: ${{ github.event.issue.number }}
+          source-pr-title: ${{ github.event.issue.title }}
+          target-branches: ${{ steps.extract-branch.outputs.branch }}
+          merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
+
+      - name: Comment Cherry-pick Fail
+        if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
+        uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
+        with:
+          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          message: |            
+            :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
+            
+            Please check workflow logs.
+            

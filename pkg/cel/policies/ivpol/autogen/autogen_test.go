@@ -3,7 +3,7 @@ package autogen
 import (
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
+	ivpol = &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
 		},
-		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -33,31 +33,31 @@ var (
 					},
 				},
 			},
-			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
 			},
-			ImageExtractors: []policiesv1alpha1.ImageExtractor{
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
 				{
 					Name:       "containers",
 					Expression: "object.spec.containers.map(e, e.image)",
 				},
 			},
-			Attestors: []policiesv1alpha1.Attestor{
+			Attestors: []policiesv1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &policiesv1alpha1.Notary{
-						Certs: &policiesv1alpha1.StringOrExpression{
+					Notary: &policiesv1beta1.Notary{
+						Certs: &policiesv1beta1.StringOrExpression{
 							Value: `-----BEGIN CERTIFICATE----------END CERTIFICATE-----`,
 						},
 					},
 				},
 			},
-			Attestations: []policiesv1alpha1.Attestation{
+			Attestations: []policiesv1beta1.Attestation{
 				{
 					Name: "sbom",
-					Referrer: &policiesv1alpha1.Referrer{
+					Referrer: &policiesv1beta1.Referrer{
 						Type: "sbom/cyclone-dx",
 					},
 				},
@@ -68,8 +68,8 @@ var (
 					Message:    "failed to verify image with notary cert",
 				},
 			},
-			AutogenConfiguration: &policiesv1alpha1.ImageValidatingPolicyAutogenConfiguration{
-				PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
+			AutogenConfiguration: &policiesv1beta1.ImageValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
 					Controllers: []string{
 						"cronjobs",
 					},
@@ -110,13 +110,13 @@ func Test_AutogenImageVerify(t *testing.T) {
 			},
 		},
 	}
-	cronimg := []policiesv1alpha1.ImageExtractor{
+	cronimg := []policiesv1beta1.ImageExtractor{
 		{
 			Name:       "containers",
 			Expression: "object.spec.jobTemplate.spec.template.spec.containers.map(e, e.image)",
 		},
 	}
-	podctrlimg := []policiesv1alpha1.ImageExtractor{
+	podctrlimg := []policiesv1beta1.ImageExtractor{
 		{
 			Name:       "containers",
 			Expression: "object.spec.template.spec.containers.map(e, e.image)",

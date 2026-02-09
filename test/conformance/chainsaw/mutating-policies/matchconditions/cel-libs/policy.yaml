@@ -1,0 +1,54 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: add-imagepullsecrets-for-containers-and-initcontainers
+  annotations:
+    policies.kyverno.io/title: Add imagePullSecrets for Containers and InitContainers
+    kyverno.io/kyverno-version: 1.16.0
+    policies.kyverno.io/description: >-
+      Images coming from certain registries require authentication in order to pull them,
+      and the kubelet uses this information in the form of an imagePullSecret to pull
+      those images on behalf of your Pod. This policy searches for images coming from a
+      registry called `corp.reg.com` referenced by either one of the containers or one 
+      of the init containers and, if found, will mutate the Pod to add an
+      imagePullSecret called `my-secret`.
+spec:
+  autogen:
+    podControllers:
+      controllers: []
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  matchConditions:
+  - name: has-corp-registry
+    expression: |
+      (
+        object.spec.containers.exists(container, 
+          image(container.image).registry() == "corp.reg.com"
+        ) ||
+        object.spec.?initContainers.orValue([]).exists(initContainer,
+          image(initContainer.image).registry() == "corp.reg.com"
+        )
+      )
+  - name: needs-my-secret
+    expression: |
+      !has(object.spec.imagePullSecrets) || 
+      !object.spec.imagePullSecrets.exists(secret, secret.name == "my-secret")
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.spec.imagePullSecrets) ?
+        [JSONPatch{
+          op: "add",
+          path: "/spec/imagePullSecrets/-",
+          value: {"name": "my-secret"}
+        }] :
+        [JSONPatch{
+          op: "add",
+          path: "/spec/imagePullSecrets",
+          value: [{"name": "my-secret"}]
+        }]

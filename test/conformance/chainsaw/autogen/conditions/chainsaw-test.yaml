@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: conditions
 spec:
+  concurrent: true
   steps:
   - name: create policy
     use:
@@ -18,7 +19,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: allowed-annotations
+          value: ($test.metadata.name)
   - name: check autogen
     try:
     - assert:

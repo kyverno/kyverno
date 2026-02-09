@@ -6,8 +6,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov2.UpdateRequestSpec {
-	ruleCtx := buildRuleContext(policyName, trigger, deleteDownstream)
+func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.UpdateRequestSpec {
+	ruleCtx := buildRuleContext(policyName, trigger, deleteDownstream, synchronize)
 	return kyvernov2.UpdateRequestSpec{
 		Type:        requestType,
 		Policy:      policyName,
@@ -15,11 +15,12 @@ func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigge
 	}
 }
 
-func buildRuleContext(policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov2.RuleContext {
+func buildRuleContext(policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.RuleContext {
 	return kyvernov2.RuleContext{
 		Rule:             policyName,
 		Trigger:          trigger,
 		DeleteDownstream: deleteDownstream,
+		Synchronize:      synchronize,
 		CacheRestore:     false,
 	}
 }

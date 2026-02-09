@@ -44,7 +44,7 @@ func Test_impl_get_request(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -79,7 +79,7 @@ func Test_impl_get_request_with_headers(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -115,7 +115,7 @@ func Test_impl_get_request_with_client_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -155,7 +155,7 @@ func Test_impl_post_request(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -196,7 +196,7 @@ func Test_impl_post_request_with_headers(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -237,7 +237,7 @@ func Test_impl_post_request_string_with_client_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -282,7 +282,7 @@ func Test_impl_http_client_string(t *testing.T) {
 	options := []cel.EnvOption{
 		cel.Variable("pem", types.StringType),
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -309,7 +309,7 @@ func Test_impl_http_client_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("http", ContextType),
-		Lib(),
+		Lib(nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

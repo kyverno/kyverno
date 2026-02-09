@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: fetch-pod-resource-mutating
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -28,14 +29,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	openreportsclient "openreports.io/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
+	"k8s.io/client-go/restmapper"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -71,13 +75,13 @@ func createReportControllers(
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
+	metaClient metaclient.UpstreamInterface,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error) {
@@ -85,29 +89,40 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-	var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-	var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+	var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+	var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+	var mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 	}
 	if mutatingAdmissionPolicyReports {
-		mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-		mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+		mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+		mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+
+		if kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 34, 0) {
+			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+		}
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
-	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
+	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			policiesV1alpha1.ValidatingPolicies(),
-			policiesV1alpha1.MutatingPolicies(),
-			policiesV1alpha1.ImageValidatingPolicies(),
+			policiesV1beta1.ValidatingPolicies(),
+			policiesV1beta1.NamespacedValidatingPolicies(),
+			policiesV1beta1.MutatingPolicies(),
+			policiesV1beta1.ImageValidatingPolicies(),
+			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
+			mapAlphaInformer,
+			metaClient,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
@@ -127,17 +142,24 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					policiesV1alpha1.ValidatingPolicies(),
-					policiesV1alpha1.ImageValidatingPolicies(),
-					policiesV1alpha1.GeneratingPolicies(),
-					policiesV1alpha1.MutatingPolicies(),
+					policiesV1beta1.ValidatingPolicies(),
+					policiesV1beta1.NamespacedValidatingPolicies(),
+					policiesV1beta1.ImageValidatingPolicies(),
+					policiesV1beta1.NamespacedImageValidatingPolicies(),
+					policiesV1beta1.GeneratingPolicies(),
+					policiesV1beta1.NamespacedGeneratingPolicies(),
+					policiesV1beta1.MutatingPolicies(),
+					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
 					mapInformer,
+					mapAlphaInformer,
 				),
 				aggregationWorkers,
 			))
 		}
 		if backgroundScan {
+			restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client.GetKubeClient().Discovery()))
+
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
@@ -145,15 +167,20 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				policiesV1alpha1.ValidatingPolicies(),
-				policiesV1alpha1.MutatingPolicies(),
-				policiesV1alpha1.ImageValidatingPolicies(),
-				policiesV1alpha1.PolicyExceptions(),
+				policiesV1beta1.ValidatingPolicies(),
+				policiesV1beta1.NamespacedValidatingPolicies(),
+				policiesV1beta1.MutatingPolicies(),
+				policiesV1beta1.NamespacedMutatingPolicies(),
+				policiesV1beta1.ImageValidatingPolicies(),
+				policiesV1beta1.NamespacedImageValidatingPolicies(),
+				policiesV1beta1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
 				mapInformer,
+				mapAlphaInformer,
 				mapBindingInformer,
+				mapAlphaBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,
@@ -161,8 +188,8 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
-				reportsConfig,
 				gcstore,
+				restMapper,
 				typeConverter,
 			)
 			ctrls = append(ctrls, internal.NewController(
@@ -196,6 +223,7 @@ func createrLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
+	metaClient metaclient.UpstreamInterface,
 	kyvernoClient versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
@@ -220,13 +248,13 @@ func createrLeaderControllers(
 		kyvernoClient,
 		orClient,
 		metadataInformer,
+		metaClient,
 		kubeInformer,
 		kyvernoInformer,
 		backgroundScanInterval,
 		configuration,
 		jp,
 		eventGenerator,
-		reportsConfig,
 		gcstore,
 		typeConverter,
 	)
@@ -289,6 +317,7 @@ func main() {
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
 		internal.WithOpenreports(),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -325,6 +354,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		eventController := internal.NewController(
@@ -336,7 +366,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
@@ -353,7 +383,6 @@ func main() {
 			ctx,
 			setup.Logger,
 			setup.Configuration,
-			setup.MetricsConfiguration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
 			setup.RegistryClient,
@@ -389,17 +418,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// create a temporary breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 		}
 
 		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
@@ -435,6 +464,7 @@ func main() {
 					kubeInformer,
 					kyvernoInformer,
 					metadataInformer,
+					setup.MetadataClient,
 					setup.KyvernoClient,
 					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
