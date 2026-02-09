@@ -711,6 +711,11 @@ func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots = append(roots, cert)
 			} else {
+				// Intermediate certificates having empty ExtendedKeyUsage (EKU) are rejected by cosign
+				// We relax this check by adding TimeStamping EKU to such certificates
+				if len(cert.ExtKeyUsage) == 0 {
+					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+				}
 				intermediates = append(intermediates, cert)
 			}
 		}
