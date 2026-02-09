@@ -1292,6 +1292,11 @@ admissionController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1637,6 +1642,11 @@ backgroundController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2029,6 +2039,11 @@ cleanupController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2352,6 +2367,11 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials
