@@ -31,5 +31,22 @@ subjects:
   name: {{ template "kyverno.background-controller.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
 {{- end -}}
+{{- if .Values.backgroundController.rbac.clusterRole.extraResources }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.background-controller.roleName" . }}:additional
+  labels:
+    {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.background-controller.roleName" . }}:additional
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.background-controller.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
