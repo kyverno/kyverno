@@ -328,7 +328,7 @@ func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: HTTP %s", path, resp.Status)
 	}
 	fileBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -342,6 +342,7 @@ func gitLoad(loader loader, fs billy.Filesystem, path string) (*LoaderResults, e
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
