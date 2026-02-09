@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,7 +20,7 @@ func GetMutatingMetrics() MutatingMetrics {
 }
 
 type MutatingMetrics interface {
-	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.MutatingPolicy, resource *unstructured.Unstructured, operation string)
+	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.MutatingPolicyLike, resource *unstructured.Unstructured, operation string)
 }
 
 type mutatingMetrics struct {
@@ -41,12 +41,12 @@ func (m *mutatingMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *mutatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.MutatingPolicy, resource *unstructured.Unstructured, operation string) {
+func (m *mutatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.MutatingPolicyLike, resource *unstructured.Unstructured, operation string) {
 	if m.durationHistogram == nil {
 		return
 	}
 
-	name, _, backgroundMode, _ := GetCELPolicyInfos(&policy)
+	name, _, backgroundMode, _ := GetCELPolicyInfos(policy)
 
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
 		attribute.String("policy_background_mode", string(backgroundMode)),

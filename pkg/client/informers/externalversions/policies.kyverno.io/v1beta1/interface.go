@@ -34,6 +34,14 @@ type Interface interface {
 	MutatingPolicies() MutatingPolicyInformer
 	// NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 	NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer
+	// NamespacedGeneratingPolicies returns a NamespacedGeneratingPolicyInformer.
+	NamespacedGeneratingPolicies() NamespacedGeneratingPolicyInformer
+	// NamespacedImageValidatingPolicies returns a NamespacedImageValidatingPolicyInformer.
+	NamespacedImageValidatingPolicies() NamespacedImageValidatingPolicyInformer
+	// NamespacedMutatingPolicies returns a NamespacedMutatingPolicyInformer.
+	NamespacedMutatingPolicies() NamespacedMutatingPolicyInformer
+	// NamespacedValidatingPolicies returns a NamespacedValidatingPolicyInformer.
+	NamespacedValidatingPolicies() NamespacedValidatingPolicyInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 	// ValidatingPolicies returns a ValidatingPolicyInformer.
@@ -74,6 +82,26 @@ func (v *version) MutatingPolicies() MutatingPolicyInformer {
 // NamespacedDeletingPolicies returns a NamespacedDeletingPolicyInformer.
 func (v *version) NamespacedDeletingPolicies() NamespacedDeletingPolicyInformer {
 	return &namespacedDeletingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedGeneratingPolicies returns a NamespacedGeneratingPolicyInformer.
+func (v *version) NamespacedGeneratingPolicies() NamespacedGeneratingPolicyInformer {
+	return &namespacedGeneratingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedImageValidatingPolicies returns a NamespacedImageValidatingPolicyInformer.
+func (v *version) NamespacedImageValidatingPolicies() NamespacedImageValidatingPolicyInformer {
+	return &namespacedImageValidatingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedMutatingPolicies returns a NamespacedMutatingPolicyInformer.
+func (v *version) NamespacedMutatingPolicies() NamespacedMutatingPolicyInformer {
+	return &namespacedMutatingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NamespacedValidatingPolicies returns a NamespacedValidatingPolicyInformer.
+func (v *version) NamespacedValidatingPolicies() NamespacedValidatingPolicyInformer {
+	return &namespacedValidatingPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.

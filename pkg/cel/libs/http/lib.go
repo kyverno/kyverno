@@ -1,7 +1,6 @@
 package http
 
 import (
-	"net/http"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
@@ -32,7 +31,7 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[http.Request]()),
+		ext.NativeTypes(reflect.TypeFor[struct{}]()), // register an empty struct type since the library depends on the ext native types provider to resolve the context type
 		c.extendEnv,
 	}
 }
@@ -42,7 +41,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}

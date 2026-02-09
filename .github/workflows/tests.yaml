@@ -13,6 +13,8 @@ on:
     branches:
     - main
     - release-*
+  merge_group:
+    types: [checks_requested]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,16 +25,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-    - name: Setup build env
-      uses: ./.github/actions/setup-build-env
-      timeout-minutes: 10
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Setup Go
+      id: setup-go
+      uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
       with:
-        free-disk-space: true
+        go-version-file: go.mod
+        cache: false
+    - name: Set cache variables
+      shell: bash
+      run: |
+        set -e
+        echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+        echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+        echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+    - name: Restore gomod cache
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ env.GO_MOD_CACHE }}
+        key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+    - name: Restore gobuild cache
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ env.GO_BUILD_CACHE }}
+        key: gobuild-unit-tests-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gobuild-unit-tests-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+          gobuild-unit-tests-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
     - name: Unit test
       run: make test-unit
+    - name: Save gobuild cache
+      if: |
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main'
+      uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ env.GO_BUILD_CACHE }}
+        key: gobuild-unit-tests-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
     - name: Upload coverage
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: coverage.out
         path: coverage.out
@@ -45,13 +81,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Download coverage
-      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: coverage.out
     - name: Upload Report to Codecov
-      uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+      uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
       with:
         files: ./coverage.out
         fail_ci_if_error: true

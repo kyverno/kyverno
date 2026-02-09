@@ -1,21 +1,32 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -23,7 +34,7 @@ import (
 )
 
 var (
-	vpolCompilerVersion = version.MajorMinor(1, 0)
+	vpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
 )
 
@@ -33,7 +44,7 @@ type Exception struct {
 }
 
 type Compiler interface {
-	Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -42,18 +53,18 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
-	case policiesv1alpha1.EvaluationModeJSON:
-		return c.compileForJSON(policy)
+	case policieskyvernoio.EvaluationModeJSON:
+		return c.compileForJSON(policy, exceptions)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
 	}
 }
 
-func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv()
+	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -112,8 +123,8 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 		})
 	}
 	return &Policy{
-		mode:             policiesv1alpha1.EvaluationModeKubernetes,
-		failurePolicy:    policy.GetFailurePolicy(),
+		mode:             policieskyvernoio.EvaluationModeKubernetes,
+		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,
@@ -122,7 +133,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1alpha1.ValidatingPo
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := compiler.NewBaseEnv()
 	if err != nil {
@@ -141,7 +152,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 	}
 
 	options = append(options, declOptions...)
-	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(resource.Latest()))
+	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()), x509.Lib(x509.Latest()))
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -185,16 +196,30 @@ func (c *compilerImpl) compileForJSON(policy policiesv1alpha1.ValidatingPolicyLi
 		}
 	}
 
+	// Compile exceptions' match conditions for JSON mode
+	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		compiledExceptions = append(compiledExceptions, compiler.Exception{
+			Exception:       polex,
+			MatchConditions: polexMatchConditions,
+		})
+	}
+
 	return &Policy{
-		mode:            policiesv1alpha1.EvaluationModeJSON,
-		failurePolicy:   policy.GetFailurePolicy(),
+		mode:            policieskyvernoio.EvaluationModeJSON,
+		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
+		exceptions:      compiledExceptions,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -210,7 +235,7 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(vpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -251,10 +276,37 @@ func (c *compilerImpl) createBaseVpolEnv() (*environment.EnvSet, *compiler.Varia
 					imagedata.Latest(),
 				),
 				resource.Lib(
+					namespace,
 					resource.Latest(),
 				),
 				user.Lib(
 					user.Latest(),
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
 				),
 			},
 		},

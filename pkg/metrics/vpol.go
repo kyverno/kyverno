@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,7 +21,7 @@ func GetValidatingMetrics() ValidatingMetrics {
 }
 
 type ValidatingMetrics interface {
-	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string)
+	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string)
 }
 
 type validatingMetrics struct {
@@ -42,7 +42,7 @@ func (m *validatingMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *validatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1alpha1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string) {
+func (m *validatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.ValidatingPolicyLike, resource *unstructured.Unstructured, operation string) {
 	if m.durationHistogram == nil {
 		return
 	}
@@ -52,7 +52,7 @@ func (m *validatingMetrics) RecordDuration(ctx context.Context, seconds float64,
 	validationMode := policy.GetValidatingPolicySpec().EvaluationMode()
 
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
-		attribute.String("policy_validation_mode", string(validationMode)),
+		attribute.String("policy_validation_mode", validationMode),
 		attribute.String("policy_background_mode", fmt.Sprintf("%t", backgroundMode)),
 		attribute.String("policy_name", name),
 		attribute.String("resource_kind", resource.GetKind()),

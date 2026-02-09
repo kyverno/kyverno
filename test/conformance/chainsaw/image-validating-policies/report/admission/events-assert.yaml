@@ -5,7 +5,7 @@ metadata:
   namespace: default
 reason: PolicyViolation
 involvedObject:
-  apiVersion: policies.kyverno.io/v1alpha1
+  apiVersion: policies.kyverno.io/v1beta1
   kind: ImageValidatingPolicy
   name: ivpol-report-admission-sample
 reportingComponent: kyverno-admission

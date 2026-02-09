@@ -4,7 +4,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -19,8 +21,8 @@ type Cache interface {
 	// Unset removes a policy from the cache
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
-	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, schema.GroupVersionResource, string, string) []kyvernov1.PolicyInterface
+	// If the namespace is nil, only cluster-wide policies are returned
+	GetPolicies(PolicyType, schema.GroupVersionResource, string, *corev1.Namespace) []kyvernov1.PolicyInterface
 }
 
 type cache struct {
@@ -42,33 +44,33 @@ func (c *cache) Unset(key string) {
 	c.store.unset(key)
 }
 
-func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, nspace string) []kyvernov1.PolicyInterface {
+func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, namespace *corev1.Namespace) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
 	result = append(result, c.store.get(pkey, gvr, subresource, "")...)
-	if nspace != "" {
-		result = append(result, c.store.get(pkey, gvr, subresource, nspace)...)
+	if namespace != nil {
+		result = append(result, c.store.get(pkey, gvr, subresource, namespace.Name)...)
 	}
 	// also get policies with ValidateEnforce
 	if pkey == ValidateAudit {
 		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
 	}
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
-		result = filterPolicies(pkey, result, nspace)
+		result = filterPolicies(pkey, result, namespace)
 	}
 	return result
 }
 
 // Filter cluster policies using validationFailureAction override
-func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
+func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, namespace *corev1.Namespace) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
 		var filteredPolicy kyvernov1.PolicyInterface
 		keepPolicy := true
 		switch pkey {
 		case ValidateAudit:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, namespace, policy)
 		case ValidateEnforce:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, namespace, policy)
 		}
 		// add policy to result
 		if keepPolicy {
@@ -78,7 +80,7 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 	return policies
 }
 
-func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
+func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Namespace, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
 	filteredRules := make([]kyvernov1.Rule, 0, len(policy.GetSpec().Rules))
 
 	// Use pointer to avoid copying the rule in each iteration
@@ -104,12 +106,26 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		// Track if an override matched for the namespace
 		overrideMatched := false
 		for _, action := range validationFailureActionOverrides {
-			if ns != "" && wildcard.CheckPatterns(action.Namespaces, ns) {
+			if namespace != nil && wildcard.CheckPatterns(action.Namespaces, namespace.Name) {
 				overrideMatched = true
 				if action.Action.Enforce() == enforce {
 					filteredRules = append(filteredRules, *rule)
 				}
 				break // Stop once we find a matching override
+			}
+			if namespace != nil && action.NamespaceSelector != nil {
+				// Check if the namespace selector matches the namespace labels
+				selector, err := metav1.LabelSelectorAsSelector(action.NamespaceSelector)
+				if err != nil {
+					continue
+				}
+				if selector.Matches(labels.Set(namespace.Labels)) {
+					overrideMatched = true
+					if action.Action.Enforce() == enforce {
+						filteredRules = append(filteredRules, *rule)
+					}
+					break // Stop once we find a matching override
+				}
 			}
 		}
 

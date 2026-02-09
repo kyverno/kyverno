@@ -21,7 +21,7 @@ package v1beta1
 import (
 	http "net/http"
 
-	policieskyvernoiov1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policieskyvernoiov1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
@@ -33,6 +33,10 @@ type PoliciesV1beta1Interface interface {
 	ImageValidatingPoliciesGetter
 	MutatingPoliciesGetter
 	NamespacedDeletingPoliciesGetter
+	NamespacedGeneratingPoliciesGetter
+	NamespacedImageValidatingPoliciesGetter
+	NamespacedMutatingPoliciesGetter
+	NamespacedValidatingPoliciesGetter
 	PolicyExceptionsGetter
 	ValidatingPoliciesGetter
 }
@@ -60,6 +64,22 @@ func (c *PoliciesV1beta1Client) MutatingPolicies() MutatingPolicyInterface {
 
 func (c *PoliciesV1beta1Client) NamespacedDeletingPolicies(namespace string) NamespacedDeletingPolicyInterface {
 	return newNamespacedDeletingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedGeneratingPolicies(namespace string) NamespacedGeneratingPolicyInterface {
+	return newNamespacedGeneratingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedImageValidatingPolicies(namespace string) NamespacedImageValidatingPolicyInterface {
+	return newNamespacedImageValidatingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedMutatingPolicies(namespace string) NamespacedMutatingPolicyInterface {
+	return newNamespacedMutatingPolicies(c, namespace)
+}
+
+func (c *PoliciesV1beta1Client) NamespacedValidatingPolicies(namespace string) NamespacedValidatingPolicyInterface {
+	return newNamespacedValidatingPolicies(c, namespace)
 }
 
 func (c *PoliciesV1beta1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {

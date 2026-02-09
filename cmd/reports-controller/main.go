@@ -82,7 +82,6 @@ func createReportControllers(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error) {
@@ -109,16 +108,17 @@ func createReportControllers(
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()
-	policiesV1alpha1 := kyvernoInformer.Policies().V1alpha1()
+	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
-			policiesV1alpha1.ValidatingPolicies(),
-			policiesV1alpha1.NamespacedValidatingPolicies(),
-			policiesV1alpha1.MutatingPolicies(),
-			policiesV1alpha1.ImageValidatingPolicies(),
+			policiesV1beta1.ValidatingPolicies(),
+			policiesV1beta1.NamespacedValidatingPolicies(),
+			policiesV1beta1.MutatingPolicies(),
+			policiesV1beta1.ImageValidatingPolicies(),
+			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
 			mapInformer,
 			mapAlphaInformer,
@@ -142,11 +142,14 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					policiesV1alpha1.ValidatingPolicies(),
-					policiesV1alpha1.NamespacedValidatingPolicies(),
-					policiesV1alpha1.ImageValidatingPolicies(),
-					policiesV1alpha1.GeneratingPolicies(),
-					policiesV1alpha1.MutatingPolicies(),
+					policiesV1beta1.ValidatingPolicies(),
+					policiesV1beta1.NamespacedValidatingPolicies(),
+					policiesV1beta1.ImageValidatingPolicies(),
+					policiesV1beta1.NamespacedImageValidatingPolicies(),
+					policiesV1beta1.GeneratingPolicies(),
+					policiesV1beta1.NamespacedGeneratingPolicies(),
+					policiesV1beta1.MutatingPolicies(),
+					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
 					mapInformer,
 					mapAlphaInformer,
@@ -164,11 +167,13 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				policiesV1alpha1.ValidatingPolicies(),
-				policiesV1alpha1.NamespacedValidatingPolicies(),
-				policiesV1alpha1.MutatingPolicies(),
-				policiesV1alpha1.ImageValidatingPolicies(),
-				policiesV1alpha1.PolicyExceptions(),
+				policiesV1beta1.ValidatingPolicies(),
+				policiesV1beta1.NamespacedValidatingPolicies(),
+				policiesV1beta1.MutatingPolicies(),
+				policiesV1beta1.NamespacedMutatingPolicies(),
+				policiesV1beta1.ImageValidatingPolicies(),
+				policiesV1beta1.NamespacedImageValidatingPolicies(),
+				policiesV1beta1.PolicyExceptions(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -183,7 +188,6 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
-				reportsConfig,
 				gcstore,
 				restMapper,
 				typeConverter,
@@ -251,7 +255,6 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		eventGenerator,
-		reportsConfig,
 		gcstore,
 		typeConverter,
 	)
@@ -363,7 +366,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
@@ -415,17 +418,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// create a temporary breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 		}
 
 		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())

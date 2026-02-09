@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -29,6 +29,7 @@ type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
+	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
 }
 
 type EngineResponse struct {
@@ -54,11 +55,11 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 }
 
 type MutatingPolicyResponse struct {
-	Policy *policiesv1alpha1.MutatingPolicy
+	Policy policiesv1beta1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
 }
 
-type Predicate = func(policiesv1alpha1.MutatingPolicy) bool
+type Predicate = func(policiesv1beta1.MutatingPolicyLike) bool
 
 type engineImpl struct {
 	provider        Provider
@@ -79,11 +80,7 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 }
 
 func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, predicate Predicate) (EngineResponse, error) {
-	mpols, err := e.provider.Fetch(ctx, true)
-	if err != nil {
-		return EngineResponse{}, err
-	}
-
+	mpols := e.provider.Fetch(ctx, true)
 	var object *unstructured.Unstructured
 	if o, ok := attr.GetObject().(*unstructured.Unstructured); ok {
 		object = o
@@ -99,6 +96,20 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
+				// Update attr to use the patched resource for the next policy evaluation
+				attr = admission.NewAttributesRecord(
+					patched,
+					attr.GetOldObject(),
+					attr.GetKind(),
+					attr.GetNamespace(),
+					attr.GetName(),
+					attr.GetResource(),
+					attr.GetSubresource(),
+					attr.GetOperation(),
+					nil,
+					attr.IsDryRun(),
+					nil,
+				)
 			}
 		}
 	}
@@ -107,10 +118,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
-	mpols, err := e.provider.Fetch(ctx, false)
-	if err != nil {
-		return response, err
-	}
+	mpols := e.provider.Fetch(ctx, false)
 
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
@@ -150,6 +158,20 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
+			// Update attr to use the patched resource for the next policy evaluation
+			attr = admission.NewAttributesRecord(
+				patchedResource,
+				attr.GetOldObject(),
+				attr.GetKind(),
+				attr.GetNamespace(),
+				attr.GetName(),
+				attr.GetResource(),
+				attr.GetSubresource(),
+				attr.GetOperation(),
+				nil,
+				attr.IsDryRun(),
+				nil,
+			)
 		}
 	}
 	return response, nil
@@ -157,7 +179,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
-		Policy: &mpol.Policy,
+		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
 	}
 
@@ -237,6 +259,16 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
+	pols := e.provider.Fetch(context.TODO(), true)
+	for _, p := range pols {
+		if p.Policy.GetName() == policyName {
+			return p, nil
+		}
+	}
+	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {

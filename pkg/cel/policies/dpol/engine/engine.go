@@ -36,6 +36,7 @@ func NewEngine(nsResolver engine.NamespaceResolver, mapper meta.RESTMapper, cont
 }
 
 func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructured.Unstructured) (EngineResponse, error) {
+	var ns runtime.Object
 	if resource.GetAPIVersion() != "" && resource.GetKind() != "" {
 		namespace := resource.GetNamespace()
 
@@ -64,7 +65,6 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 			nil,
 		)
 
-		var ns runtime.Object
 		if namespace != "" {
 			ns = e.nsResolver(namespace)
 		}
@@ -76,7 +76,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		}
 	}
 
-	result, err := policy.CompiledPolicy.Evaluate(ctx, resource, e.context)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, resource, ns, e.context)
 	if err != nil {
 		return EngineResponse{}, err
 	}

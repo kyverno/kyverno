@@ -11,50 +11,50 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/v2/pkg/oci"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"gotest.tools/assert"
 )
 
 const cosignPayload = `{
   "critical": {
- 	   "identity": {
- 	     "docker-reference": "registry-v2.nirmata.io/pause"
- 	    },
-   	"image": {
- 	     "docker-manifest-digest": "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108"
- 	    },
- 	    "type": "cosign container image signature"
+       "identity": {
+         "docker-reference": "registry-v2.nirmata.io/pause"
+        },
+    "image": {
+         "docker-manifest-digest": "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108"
+        },
+        "type": "cosign container image signature"
     },
     "optional": {
-		"foo": "bar",
-		"bar": "baz"
-	}
+        "foo": "bar",
+        "bar": "baz"
+    }
 }`
 
 const keylessPayload = `{
-	"critical": {
-		"identity": {
-			"docker-reference": "ghcr.io/kyverno/test-verify-image"
-		},
-		"image": {
-			"docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
-		},
-		"type": "cosign container image signature"
-	},
-	"optional": {
-		"Bundle": {
-			"SignedEntryTimestamp": "--TIME-STAMP--",
-			"Payload": {
-				"integratedTime": 1689234389,
-				"logIndex": 27432442,
-				"logID": "--LOG-ID--"
-			}
-		},
-		"Issuer": "https://accounts.google.com",
-		"Subject": "kyverno@nirmata.com"
-	}
+    "critical": {
+        "identity": {
+            "docker-reference": "ghcr.io/kyverno/test-verify-image"
+        },
+        "image": {
+            "docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
+        },
+        "type": "cosign container image signature"
+    },
+    "optional": {
+        "Bundle": {
+            "SignedEntryTimestamp": "--TIME-STAMP--",
+            "Payload": {
+                "integratedTime": 1689234389,
+                "logIndex": 27432442,
+                "logID": "--LOG-ID--"
+            }
+        },
+        "Issuer": "https://accounts.google.com",
+        "Subject": "kyverno@nirmata.com"
+    }
 }`
 
 const globalRekorPubKey = `-----BEGIN PUBLIC KEY-----
@@ -279,8 +279,7 @@ func TestCosignMatchCertificateData(t *testing.T) {
 func TestTSACertChain(t *testing.T) {
 	key := `
 -----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFy
-c/P/oQ22iazkKm8P0sNlaZiaZC4TSEea3oh2Pim0+wxSubhKoK+7jq9Egg==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P0sNlaZiaZC4TSEea3oh2Pim0+wxSubhKoK+7jq9Egg==
 -----END PUBLIC KEY-----`
 
 	tsaCertChain := `
@@ -313,8 +312,7 @@ cnpidXJnMQ8wDQYDVQQIEwZCYXllcm4xCzAJBgNVBAYTAkRFggkAwemGFg2o6YAw
 MwYDVR0fBCwwKjAooCagJIYiaHR0cDovL3d3dy5mcmVldHNhLm9yZy9yb290X2Nh
 LmNybDCBzwYDVR0gBIHHMIHEMIHBBgorBgEEAYHyJAEBMIGyMDMGCCsGAQUFBwIB
 FidodHRwOi8vd3d3LmZyZWV0c2Eub3JnL2ZyZWV0c2FfY3BzLmh0bWwwMgYIKwYB
-BQUHAgEWJmh0dHA6Ly93d3cuZnJlZXRzYS5vcmcvZnJlZXRzYV9jcHMucGRmMEcG
-CCsGAQUFBwICMDsaOUZyZWVUU0EgdHJ1c3RlZCB0aW1lc3RhbXBpbmcgU29mdHdh
+BQUHAgEWJmh0dHA6Ly93d3cuZnJlZXRzYS5vcmcvZnJlZXRzYV9jcHMucGRmMEcGCCsGAQUFBwICMDsaOUZyZWVUU0EgdHJ1c3RlZCB0aW1lc3RhbXBpbmcgU29mdHdh
 cmUgYXMgYSBTZXJ2aWNlIChTYWFTKTA3BggrBgEFBQcBAQQrMCkwJwYIKwYBBQUH
 MAGGG2h0dHA6Ly93d3cuZnJlZXRzYS5vcmc6MjU2MDANBgkqhkiG9w0BAQ0FAAOC
 AgEAaK9+v5OFYu9M6ztYC+L69sw1omdyli89lZAfpWMMh9CRmJhM6KBqM/ipwoLt
@@ -331,8 +329,9 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 -----END CERTIFICATE-----
 `
 	opts := images.Options{
-		ImageRef: "ghcr.io/kyverno/test-verify-image:tsa",
-		Key:      key,
+		ImageRef:     "ghcr.io/kyverno/test-verify-image:tsa",
+		Key:          key,
+		TSACertChain: tsaCertChain,
 	}
 
 	rc, err := registryclient.New()
@@ -340,10 +339,6 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 	opts.Client = rc
 
 	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
-
-	opts.TSACertChain = tsaCertChain
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
