@@ -1,8 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: generate-on-subresource-trigger
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
@@ -35,14 +37,8 @@ spec:
         - -n
         - test-generate-exec
         entrypoint: kubectl
-    - command:
-        args:
-        - wait
-        - --for=condition=Ready
-        - pod/nginx
-        - -n
-        - test-generate-exec
-        entrypoint: kubectl
+    - sleep:
+        duration: 10s
     - command:
         args:
         - exec

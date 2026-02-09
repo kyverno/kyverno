@@ -1,9 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: apicall-http-post
   
 spec:
+  concurrent: false
   steps:
   - try:
     - apply:
@@ -28,7 +30,7 @@ spec:
           value: vpol-http-post
   - try:
     - apply: 
-       file: good-pod.yaml
+        file: good-pod.yaml
     - create:
         file: bad-pod.yaml
         expect:

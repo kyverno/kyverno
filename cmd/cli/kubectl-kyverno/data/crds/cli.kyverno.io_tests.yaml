@@ -61,6 +61,12 @@ spec:
               - error
               type: object
             type: array
+          clusterResources:
+            description: ClusterResources are the cluster resources to be used in
+              the test
+            items:
+              type: string
+            type: array
           context:
             description: Context file containing context data for CEL policies
             type: string
@@ -88,6 +94,12 @@ spec:
               Name is the name of the test.
               This field is deprecated, use `metadata.name` instead
             type: string
+          paramResources:
+            description: Resources that act as parameters for validating/mutating
+              admission policies
+            items:
+              type: string
+            type: array
           policies:
             description: Policies are the policies to be used in the test
             items:
@@ -113,10 +125,29 @@ spec:
                     GeneratedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno generated resource configuration.
                   type: string
+                isDeletingPolicy:
+                  description: |-
+                    IsDeletingPolicy indicates if the policy is a deleting policy.
+                    It's required in case the policy is a deleting policy.
+                  type: boolean
+                isGeneratingPolicy:
+                  description: |-
+                    IsGeneratingPolicy indicates if the policy is a generating policy.
+                    It's required in case the policy is a generating policy.
+                  type: boolean
                 isImageValidatingPolicy:
                   description: |-
                     IsImageValidatingPolicy indicates if the policy is an image validating policy.
                     It's required in case the policy is an image validating policy.
+                  type: boolean
+                isMutatingAdmissionPolicy:
+                  description: IsMutatingAdmissionPolicy indicates if the policy is
+                    a mutating admission policy.
+                  type: boolean
+                isMutatingPolicy:
+                  description: |-
+                    IsMutatingPolicy indicates if the policy is a mutating policy.
+                    It's required in case the policy is a mutating policy.
                   type: boolean
                 isValidatingAdmissionPolicy:
                   description: |-
@@ -132,17 +163,6 @@ spec:
                   description: Kind mentions the kind of the resource on which the
                     policy is to be applied.
                   type: string
-                namespace:
-                  description: |-
-                    Namespace mentions the namespace of the policy which has namespace scope.
-                    This is DEPRECATED, use a name in the form `<namespace>/<name>` for policies and/or resources instead.
-                  type: string
-                patchedResource:
-                  description: |-
-                    PatchedResource takes a resource configuration file in yaml format from
-                    the user to compare it against the Kyverno mutated resource configuration.
-                    This is DEPRECATED, Use `patchedResources` instead.
-                  type: string
                 patchedResources:
                   description: |-
                     PatchedResource takes a resource configuration file in yaml format from
@@ -151,11 +171,6 @@ spec:
                   type: string
                 policy:
                   description: Policy mentions the name of the policy.
-                  type: string
-                resource:
-                  description: |-
-                    Resource mentions the name of the resource on which the policy is to be applied.
-                    This is DEPRECATED, use `Resources` instead.
                   type: string
                 resourceSpecs:
                   description: Resources gives us the list of resources on which the
@@ -197,18 +212,6 @@ spec:
                   description: |-
                     Rule mentions the name of the rule in the policy.
                     It's required in case policy is a kyverno policy.
-                  type: string
-                status:
-                  description: |-
-                    Status mentions the status that the user is expecting.
-                    Possible values are pass, fail and skip.
-                    This is DEPRECATED, use `Result` instead.
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
                   type: string
               required:
               - kind

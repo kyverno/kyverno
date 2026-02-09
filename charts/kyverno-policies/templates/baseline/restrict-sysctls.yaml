@@ -1,5 +1,5 @@
 {{- $name := "restrict-sysctls" }}
-{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (ne (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 apiVersion: kyverno.io/v1
 kind: {{ .Values.policyKind }}
 metadata:
@@ -23,6 +23,7 @@ metadata:
       Pod, and it is isolated from other Pods or processes on the same Node.
       This policy ensures that only those "safe" subsets can be specified in
       a Pod.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

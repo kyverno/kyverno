@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
@@ -21,6 +21,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -34,12 +35,13 @@ const (
 
 type controller struct {
 	// listers
-	gceLister kyvernov2alpha1listers.GlobalContextEntryLister
+	gceLister kyvernov2beta1listers.GlobalContextEntryLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
+	kubeClient         kubernetes.Interface
 	dclient            dclient.Interface
 	kyvernoClient      versioned.Interface
 	store              store.Store
@@ -50,7 +52,8 @@ type controller struct {
 }
 
 func NewController(
-	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
+	gceInformer kyvernov2beta1informers.GlobalContextEntryInformer,
+	kubeClient kubernetes.Interface,
 	dclient dclient.Interface,
 	kyvernoClient versioned.Interface,
 	storage store.Store,
@@ -66,6 +69,7 @@ func NewController(
 	c := &controller{
 		gceLister:          gceInformer.Lister(),
 		queue:              queue,
+		kubeClient:         kubeClient,
 		dclient:            dclient,
 		kyvernoClient:      kyvernoClient,
 		store:              storage,
@@ -82,12 +86,12 @@ func NewController(
 	return c
 }
 
-func (c *controller) addGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
+func (c *controller) addGTXEntry(obj *kyvernov2beta1.GlobalContextEntry) {
 	logger.V(4).Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry) {
+func (c *controller) updateGTXEntry(old, obj *kyvernov2beta1.GlobalContextEntry) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
@@ -95,12 +99,12 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) deleteGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
+func (c *controller) deleteGTXEntry(obj *kyvernov2beta1.GlobalContextEntry) {
 	logger.V(4).Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) enqueueGCTXEntry(gctxentry *kyvernov2alpha1.GlobalContextEntry) {
+func (c *controller) enqueueGCTXEntry(gctxentry *kyvernov2beta1.GlobalContextEntry) {
 	key, err := cache.MetaNamespaceKeyFunc(gctxentry)
 	if err != nil {
 		logger.Error(err, "failed to enqueue global context entry")
@@ -133,11 +137,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return nil
 }
 
-func (c *controller) getEntry(name string) (*kyvernov2alpha1.GlobalContextEntry, error) {
+func (c *controller) getEntry(name string) (*kyvernov2beta1.GlobalContextEntry, error) {
 	return c.gceLister.Get(name)
 }
 
-func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
+func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry) (store.Entry, error) {
 	if gce.Spec.KubernetesResource != nil {
 		gvr := schema.GroupVersionResource{
 			Group:    gce.Spec.KubernetesResource.Group,

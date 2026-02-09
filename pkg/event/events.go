@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -50,7 +52,12 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 		fmt.Fprintf(&b, "%s %s", resource.Kind, resource.Name)
 	}
 
-	fmt.Fprintf(&b, ": [%s] %s", resp.Name(), resp.Status())
+	if resp.Name() != "" {
+		fmt.Fprintf(&b, ": [%s] %s", resp.Name(), resp.Status())
+	} else {
+		fmt.Fprintf(&b, ": %s", resp.Status())
+	}
+
 	if blocked {
 		fmt.Fprintf(&b, " (blocked)")
 	}
@@ -157,7 +164,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 	}
 }
 
-func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
+func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
 	var events []Info
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
@@ -191,7 +198,7 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 	return events
 }
 
-func NewBackgroundSuccessEvent(source Source, policy kyvernov1.PolicyInterface, resources []kyvernov1.ResourceSpec) []Info {
+func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, resources []kyvernov1.ResourceSpec) []Info {
 	events := make([]Info, 0, len(resources))
 	msg := "resource generated"
 	action := ResourceGenerated
@@ -392,6 +399,41 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 		Reason:  PolicyError,
 		Message: msg,
 		Action:  None,
+	}
+}
+
+func NewDeletingPolicyEvent(policy v1beta1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
+	regarding := corev1.ObjectReference{
+		APIVersion: schema.GroupVersion(v1beta1.GroupVersion).String(),
+		Kind:       policy.GetKind(),
+		Name:       policy.GetName(),
+		Namespace:  policy.GetNamespace(),
+		UID:        policy.GetUID(),
+	}
+	related := &corev1.ObjectReference{
+		APIVersion: resource.GetAPIVersion(),
+		Kind:       resource.GetKind(),
+		Namespace:  resource.GetNamespace(),
+		Name:       resource.GetName(),
+	}
+	if err == nil {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    ResourceCleanedUp,
+			Reason:    PolicyApplied,
+			Message:   fmt.Sprintf("successfully deleted the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
+		}
+	} else {
+		return Info{
+			Regarding: regarding,
+			Related:   related,
+			Source:    CleanupController,
+			Action:    None,
+			Reason:    PolicyError,
+			Message:   fmt.Sprintf("failed to delete the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
+		}
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +36,11 @@ func TestUnmarshalPolicy(t *testing.T) {
 		{
 			name: "ImageValidatingPolicy",
 			kind: "ImageValidatingPolicy",
+			raw:  []byte(`{"field":"value"}`),
+		},
+		{
+			name: "DeletingPolicy",
+			kind: "DeletingPolicy",
 			raw:  []byte(`{"field":"value"}`),
 		},
 		{
@@ -71,7 +76,7 @@ func TestUnmarshalPolicy(t *testing.T) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsKyvernoPolicy())
 				}
 			case "ValidatingPolicy":
-				var expectedPolicy *v1alpha1.ValidatingPolicy
+				var expectedPolicy *v1beta1.ValidatingPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -82,7 +87,7 @@ func TestUnmarshalPolicy(t *testing.T) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsValidatingPolicy())
 				}
 			case "ImageValidatingPolicy":
-				var expectedPolicy *v1alpha1.ImageValidatingPolicy
+				var expectedPolicy *v1beta1.ImageValidatingPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
@@ -91,6 +96,17 @@ func TestUnmarshalPolicy(t *testing.T) {
 				}
 				if !reflect.DeepEqual(policy.AsImageValidatingPolicy(), expectedPolicy) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsImageValidatingPolicy())
+				}
+			case "DeletingPolicy":
+				var expectedPolicy *v1beta1.DeletingPolicy
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
+					expectedPolicy = nil
+				}
+				if !reflect.DeepEqual(policy.AsDeletingPolicy(), expectedPolicy) {
+					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsDeletingPolicy())
 				}
 			default:
 				if !reflect.DeepEqual(policy, nil) {
@@ -190,9 +206,6 @@ func TestGetPolicies(t *testing.T) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, expectedP2, p1, p2)
 				}
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
 				if !reflect.DeepEqual(expectedP1, p1) || !reflect.DeepEqual(nil, p2) {
 					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedP1, nil, p1, p2)
 				}

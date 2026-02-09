@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v1
+kind: Test
+metadata:
+  name: test
+paramResources:
+- param.yaml
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingAdmissionPolicy: true
+  kind: Deployment
+  patchedResources: patched-resource.yaml
+  policy: change-deployment-replicas
+  result: pass

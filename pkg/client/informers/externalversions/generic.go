@@ -21,10 +21,11 @@ package externalversions
 import (
 	fmt "fmt"
 
+	v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	v1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,6 +69,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().CleanupPolicies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterCleanupPolicies().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("globalcontextentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().GlobalContextEntries().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("policyexceptions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().PolicyExceptions().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("updaterequests"):
@@ -77,13 +80,43 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v2alpha1.SchemeGroupVersion.WithResource("globalcontextentries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().GlobalContextEntries().Informer()}, nil
 
-		// Group=policies.kyverno.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("imagevalidatingpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().ImageValidatingPolicies().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("policyexceptions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().PolicyExceptions().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1alpha1().ValidatingPolicies().Informer()}, nil
+		// Group=kyverno.io, Version=v2beta1
+	case v2beta1.SchemeGroupVersion.WithResource("cleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().CleanupPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().ClusterCleanupPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("clusterpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().ClusterPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("globalcontextentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().GlobalContextEntries().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("policies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().Policies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("policyexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().PolicyExceptions().Informer()}, nil
+
+		// Group=policies.kyverno.io, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("deletingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().DeletingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("generatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().GeneratingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("imagevalidatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().ImageValidatingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("mutatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().MutatingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespaceddeletingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedDeletingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedgeneratingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedGeneratingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedimagevalidatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedImageValidatingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedmutatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedMutatingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("namespacedvalidatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().NamespacedValidatingPolicies().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("policyexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().PolicyExceptions().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("validatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policies().V1beta1().ValidatingPolicies().Informer()}, nil
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"):

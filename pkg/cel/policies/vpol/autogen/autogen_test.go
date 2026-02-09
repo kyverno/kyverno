@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -16,7 +16,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   sets.Set[string]
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -47,9 +47,12 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -105,9 +108,13 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -169,9 +176,15 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+						{Group: "apps", Version: "v1", Resource: "replicasets", Kind: "ReplicaSet"},
+						{Group: "apps", Version: "v1", Resource: "statefulsets", Kind: "StatefulSet"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -191,8 +204,8 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						},
 						MatchConditions: []admissionregistrationv1.MatchCondition{
 							{
-								Name:       "autogen-defaults-only for production",
-								Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+								Name:       "only for production",
+								Expression: "has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true'",
 							},
 						},
 						Validations: []admissionregistrationv1.Validation{
@@ -207,7 +220,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, test.controllers)
@@ -220,7 +233,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			policySpec: []byte(`{
@@ -249,9 +262,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -311,9 +327,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -333,8 +352,8 @@ func TestGenerateCronJobRule(t *testing.T) {
 						},
 						MatchConditions: []admissionregistrationv1.MatchCondition{
 							{
-								Name:       "autogen-cronjobs-only for production",
-								Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+								Name:       "only for production",
+								Expression: "has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true'",
 							},
 						},
 						Validations: []admissionregistrationv1.Validation{
@@ -380,9 +399,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Targets: []policiesv1beta1.Target{
+						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -419,7 +441,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(tt.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, sets.New("cronjobs"))

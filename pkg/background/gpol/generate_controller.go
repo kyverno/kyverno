@@ -1,0 +1,265 @@
+package gpol
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	event "github.com/kyverno/kyverno/pkg/event"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/restmapper"
+)
+
+// CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
+type CELGenerateController struct {
+	// clients
+	client        dclient.Interface
+	kyvernoClient versioned.Interface
+
+	// mapper
+	restMapper meta.RESTMapper
+
+	context      libs.Context
+	engine       gpolengine.Engine
+	provider     gpolengine.Provider
+	watchManager *WatchManager
+
+	statusControl common.StatusControlInterface
+
+	breaker.Breaker
+
+	eventGen event.Interface
+
+	log logr.Logger
+}
+
+// NewCELGenerateController creates a new CELGenerateController.
+func NewCELGenerateController(
+	client dclient.Interface,
+	kyvernoClient versioned.Interface,
+	context libs.Context,
+	engine gpolengine.Engine,
+	provider gpolengine.Provider,
+	watchManager *WatchManager,
+	statusControl common.StatusControlInterface,
+	eventGen event.Interface,
+	log logr.Logger,
+) *CELGenerateController {
+	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
+	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	return &CELGenerateController{
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		restMapper:    restMapper,
+		context:       context,
+		engine:        engine,
+		provider:      provider,
+		watchManager:  watchManager,
+		statusControl: statusControl,
+		eventGen:      eventGen,
+		log:           log,
+	}
+}
+
+func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
+	generatedResources := make([]kyvernov1.ResourceSpec, 0)
+	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
+
+	var failures []error
+	for i := 0; i < len(ur.Spec.RuleContext); i++ {
+		if ur.Spec.RuleContext[i].DeleteDownstream {
+			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
+			continue
+		}
+		if ur.Spec.RuleContext[i].Synchronize {
+			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
+		}
+		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
+		if err != nil || trigger == nil {
+			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		var request celengine.EngineRequest
+		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+		if admissionRequest == nil {
+			gvk := trigger.GroupVersionKind()
+			mapping, err := c.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+			}
+
+			gvr := mapping.Resource
+			request = celengine.Request(
+				c.context,
+				trigger.GroupVersionKind(),
+				gvr,
+				"",
+				trigger.GetName(),
+				trigger.GetNamespace(),
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				trigger,
+				nil,
+				false,
+				nil,
+			)
+		} else {
+			request = celengine.RequestFromAdmission(c.context, *admissionRequest)
+		}
+		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+		if err != nil {
+			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
+			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
+		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
+		if err != nil {
+			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
+			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		var reportableEngineResponses []engineapi.EngineResponse
+		for _, res := range gpolResponse.Policies {
+			if res.Result == nil {
+				logger.V(4).Info("no resources generated by gpol", "gpol", ur.Spec.GetPolicyKey(), "policy", res.Policy.GetName())
+				continue
+			}
+			engineResponse := engineapi.EngineResponse{
+				Resource:       *gpolResponse.Trigger,
+				PolicyResponse: engineapi.PolicyResponse{},
+			}
+			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
+			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
+			if res.Result.Status() == engineapi.RuleStatusSkip {
+				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
+			} else {
+				for _, resource := range res.Result.GeneratedResources() {
+					generatedResources = append(generatedResources, kyvernov1.ResourceSpec{
+						Kind:       resource.GetKind(),
+						APIVersion: resource.GetAPIVersion(),
+						Name:       resource.GetName(),
+						Namespace:  resource.GetNamespace(),
+					})
+				}
+				if isSync {
+					go func() {
+						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
+							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+						} else {
+							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+						}
+					}()
+				}
+			}
+			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
+				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
+			}
+			if len(engineResponse.PolicyResponse.Rules) > 0 &&
+				reportutils.IsPolicyReportable(engineapi.NewGeneratingPolicyFromLike(res.Policy)) {
+				reportableEngineResponses = append(reportableEngineResponses, engineResponse)
+			}
+		}
+		if c.needsReports(*trigger) && len(reportableEngineResponses) > 0 {
+			if err := c.createReports(context.TODO(), *trigger, reportableEngineResponses...); err != nil {
+				c.log.Error(err, "failed to create report")
+			}
+		}
+	}
+	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
+}
+
+func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyvernov1.ResourceSpec) error {
+	if engineResponse.IsEmpty() {
+		return nil
+	}
+
+	// Check if there are any rule results before accessing Rules[0]
+	if len(engineResponse.PolicyResponse.Rules) == 0 {
+		return nil
+	}
+
+	if engineResponse.IsSuccessful() {
+		c.eventGen.Add(event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineResponse.Policy(), generatedResources)...)
+		for _, gen := range generatedResources {
+			c.eventGen.Add(event.NewResourceGenerationEvent(
+				engineResponse.Policy().GetName(),
+				engineResponse.PolicyResponse.Rules[0].Name(),
+				event.GeneratePolicyController,
+				gen))
+		}
+	}
+	if engineResponse.IsFailed() || engineResponse.IsError() {
+		trigger := kyvernov1.ResourceSpec{
+			Kind:       engineResponse.Resource.GetKind(),
+			APIVersion: engineResponse.Resource.GetAPIVersion(),
+			Name:       engineResponse.Resource.GetName(),
+			Namespace:  engineResponse.Resource.GetNamespace(),
+		}
+		c.eventGen.Add(event.NewBackgroundFailedEvent(
+			errors.New(engineResponse.PolicyResponse.Rules[0].Message()),
+			engineResponse.Policy(),
+			engineResponse.PolicyResponse.Rules[0].Name(),
+			event.GeneratePolicyController,
+			trigger)...)
+	}
+
+	return nil
+}
+
+func (c *CELGenerateController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *CELGenerateController) needsReports(trigger unstructured.Unstructured) bool {
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
+		createReport = false
+	}
+	return createReport
+}
+
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
+	if err != nil {
+		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
+			return err
+		}
+	} else {
+		if _, err := statusControl.Success(ur.GetName(), genResources); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+reason: PolicyViolation
+involvedObject:
+  apiVersion: policies.kyverno.io/v1beta1
+  kind: ImageValidatingPolicy
+  name: ivpol-report-admission-sample
+reportingComponent: kyverno-admission
+---
+apiVersion: v1
+kind: Event
+reason: PolicyViolation
+reportingComponent: kyverno-admission
+involvedObject:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: test-deployment

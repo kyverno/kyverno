@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,7 +49,7 @@ func (h validateCELHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
@@ -89,6 +88,8 @@ func (h validateCELHandler) Process(
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
+		oldResource = *oldResource.DeepCopy()
+		oldResource.SetGroupVersionKind(gvk)
 		oldObject = oldResource.DeepCopyObject()
 	}
 
@@ -101,6 +102,8 @@ func (h validateCELHandler) Process(
 	} else {
 		ns = resource.GetNamespace()
 		name = resource.GetName()
+		resource = *resource.DeepCopy()
+		resource.SetGroupVersionKind(gvk)
 		object = resource.DeepCopyObject()
 	}
 
@@ -162,7 +165,7 @@ func (h validateCELHandler) Process(
 	}
 
 	requestInfo := policyContext.AdmissionInfo()
-	userInfo := internal.NewUser(requestInfo.AdmissionUserInfo.Username, requestInfo.AdmissionUserInfo.UID, requestInfo.AdmissionUserInfo.Groups)
+	userInfo := admissionpolicy.NewUser(requestInfo.AdmissionUserInfo)
 	attr := admission.NewAttributesRecord(object, oldObject, gvk, ns, name, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	versionedAttr, err := admission.NewVersionedAttributes(attr, attr.GetKind(), o)
@@ -176,7 +179,7 @@ func (h validateCELHandler) Process(
 		paramKind := rule.Validation.CEL.ParamKind
 		paramRef := rule.Validation.CEL.ParamRef
 
-		params, err := collectParams(ctx, h.client, paramKind, paramRef, ns)
+		params, err := admissionpolicy.CollectParams(ctx, h.client, paramKind, paramRef, ns)
 		if err != nil {
 			return resource, handlers.WithResponses(
 				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err, rule.ReportProperties),
@@ -218,62 +221,4 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
 	)
-}
-
-func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
-	var params []runtime.Object
-
-	apiVersion := paramKind.APIVersion
-	kind := paramKind.Kind
-	gv, err := schema.ParseGroupVersion(apiVersion)
-	if err != nil {
-		return nil, fmt.Errorf("can't parse the parameter resource group version")
-	}
-
-	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
-	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
-	// when paramRef.namespace is left unset.
-	var paramsNamespace string
-	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if resource is namespaced or not (%w)", err)
-	}
-
-	// check if `paramKind` is namespace-scoped
-	if isNamespaced {
-		// set params namespace to the incoming object's namespace by default.
-		paramsNamespace = namespace
-		if paramRef.Namespace != "" {
-			paramsNamespace = paramRef.Namespace
-		} else if paramsNamespace == "" {
-			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
-		}
-	} else {
-		// It isn't allowed to set namespace for cluster-scoped params
-		if paramRef.Namespace != "" {
-			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")
-		}
-	}
-
-	if paramRef.Name != "" {
-		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		return []runtime.Object{param}, nil
-	} else if paramRef.Selector != nil {
-		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
-		if err != nil {
-			return nil, err
-		}
-		for i := range paramList.Items {
-			params = append(params, &paramList.Items[i])
-		}
-	}
-
-	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
-		return nil, fmt.Errorf("no params found")
-	}
-
-	return params, nil
 }

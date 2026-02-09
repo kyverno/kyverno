@@ -1,13 +1,13 @@
 package imageverify
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -15,18 +15,24 @@ import (
 const libraryName = "kyverno.imageverify"
 
 type lib struct {
-	logger logr.Logger
-	imgCtx imagedataloader.ImageContext
-	ivpol  *v1alpha1.ImageValidatingPolicy
-	lister k8scorev1.SecretInterface
+	logger  logr.Logger
+	version *version.Version
+	imgCtx  imagedataloader.ImageContext
+	ivpol   policiesv1beta1.ImageValidatingPolicyLike
+	lister  k8scorev1.SecretInterface
 }
 
-func Lib(imgCtx imagedataloader.ImageContext, ivpol *v1alpha1.ImageValidatingPolicy, lister k8scorev1.SecretInterface) cel.EnvOption {
+func Latest() *version.Version {
+	return versions.ImageVerifyVersion
+}
+
+func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
-		imgCtx: imgCtx,
-		ivpol:  ivpol,
-		lister: lister,
+		version: v,
+		imgCtx:  imgCtx,
+		ivpol:   ivpol,
+		lister:  lister,
 	})
 }
 
@@ -49,7 +55,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
@@ -61,7 +66,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"verify_image_signature_string_stringarray",
 				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
-				cel.BinaryBinding(impl.verify_image_signature_string_stringarray(context.TODO())),
+				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
 			),
 		},
 		"verifyAttestationSignatures": {
@@ -69,7 +74,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"verify_image_attestations_string_string_stringarray",
 				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
-				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray(context.TODO())),
+				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray),
 			),
 		},
 		"getImageData": {
@@ -77,7 +82,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"get_image_data_string",
 				[]*cel.Type{types.StringType},
 				types.DynType,
-				cel.UnaryBinding(impl.get_image_data_string(context.TODO())),
+				cel.UnaryBinding(impl.get_image_data_string),
 			),
 		},
 		"extractPayload": {
@@ -85,7 +90,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"payload_string_string",
 				[]*cel.Type{types.StringType, types.StringType},
 				types.DynType,
-				cel.BinaryBinding(impl.payload_string_string(context.TODO())),
+				cel.BinaryBinding(impl.payload_string_string),
 			),
 		},
 	}

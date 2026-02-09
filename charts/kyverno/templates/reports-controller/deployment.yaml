@@ -1,5 +1,7 @@
 {{- if .Values.reportsController.enabled -}}
-{{- if not .Values.templating.debug -}}
+{{- include "kyverno.validateOpenReports" . -}}
+{{- if not .Values.global.templating.debug -}}
+{{- $automountSAToken := .Values.reportsController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,7 +36,7 @@ spec:
     spec:
       {{- with .Values.reportsController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.reportsController.podSecurityContext }}
       securityContext:
@@ -83,6 +85,11 @@ spec:
         {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $automountSAToken }}
+      {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
+      initContainers:
+        {{- include "kyverno.reportsServer.initContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: controller
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -109,9 +116,15 @@ spec:
             {{- end }}
             {{- end }}
             - --disableMetrics={{ .Values.reportsController.metering.disabled }}
+            - --openreportsEnabled={{ .Values.openreports.enabled }}
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
+            {{- if .Values.reportsController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.reportsController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -120,7 +133,8 @@ spec:
             {{- end }}
             {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
-            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
+            - --imagePullSecrets={{- $secretNames := concat (keys .Values.imagePullSecrets | sortAlpha) (.Values.existingImagePullSecrets | sortAlpha) -}}
+              {{- join "," $secretNames -}}
             {{- end }}
             - --resyncPeriod={{ .Values.reportsController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.reportsController.featuresOverride)
@@ -129,6 +143,7 @@ spec:
               "aggregateReports"
               "policyReports"
               "validatingAdmissionPolicyReports"
+              "mutatingAdmissionPolicyReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"
@@ -148,7 +163,7 @@ spec:
             - --profile=true
             - --profilePort={{ .Values.reportsController.profiling.port }}
             {{- end }}
-            {{- if not .Values.reportsController.sanityChecks }}
+            {{- if or (not .Values.reportsController.sanityChecks) .Values.crds.reportsServer.enabled }}
             - --reportsCRDsSanityChecks=false
             {{- end }}
           env:
@@ -191,6 +206,14 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            {{- if not $automountSAToken }}
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            {{- end }}
+            {{- with .Values.reportsController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
@@ -206,6 +229,29 @@ spec:
       - name: ca-certificates
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      - name: serviceaccount-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                expirationSeconds: 3607
+                path: token
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            - downwardAPI:
+                items:
+                  - path: namespace
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.reportsController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}
 {{- end -}}

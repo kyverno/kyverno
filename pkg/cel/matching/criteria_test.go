@@ -119,6 +119,10 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 		constraints *admissionregistrationv1.MatchResources
 		want        admissionregistrationv1.MatchResources
 	}{{
+		name:        "nil constraints",
+		constraints: nil,
+		want:        admissionregistrationv1.MatchResources{},
+	}, {
 		name: "test",
 		constraints: &admissionregistrationv1.MatchResources{
 			NamespaceSelector: &metav1.LabelSelector{

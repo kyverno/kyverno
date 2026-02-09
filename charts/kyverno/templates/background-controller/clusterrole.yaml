@@ -48,6 +48,34 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - generatingpolicies
+      - namespacedgeneratingpolicies
+      - mutatingpolicies
+      - namespacedmutatingpolicies
+      - policyexceptions
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
       - ''
     resources:
       - namespaces

@@ -25,7 +25,7 @@ results:
   source: KyvernoImageValidatingPolicy
 - policy: report-background-sample
   properties:
-    process: admission review
+    process: background scan
     binding: report-background-sample-binding
   result: pass
   rule: report-background-sample

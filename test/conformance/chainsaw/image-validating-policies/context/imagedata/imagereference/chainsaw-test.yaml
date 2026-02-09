@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: image-data
 spec:
+  concurrent: false
   steps:
     - name: create policy
       use:
@@ -19,6 +20,8 @@ spec:
           bindings:
           - name: name
             value: ivpol-imagereference-sample
+          - name: message
+            value: ""
     - name: create deployment
       try:
         - create:

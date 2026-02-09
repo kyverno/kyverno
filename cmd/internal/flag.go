@@ -28,7 +28,13 @@ var (
 	// metrics
 	otel                 string
 	otelCollector        string
-	metricsPort          string
+	metricsHost          string
+	metricsPort          int
+	metricsCASecretName  string
+	metricsTLSSecretName string
+	metricsKeyAlgorithm  string
+	metricsRenewBefore   time.Duration
+	metricsServerIP      string
 	transportCreds       string
 	disableMetricsExport bool
 	// kubeconfig
@@ -41,6 +47,7 @@ var (
 	enablePolicyException  bool
 	exceptionNamespace     string
 	enableConfigMapCaching bool
+	openreportsEnabled     bool
 	// cosign
 	enableTUF  bool
 	tufMirror  string
@@ -52,8 +59,9 @@ var (
 	registryCredentialHelpers string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
-	// cleanupServerPort is the kyverno cleanup server port
-	cleanupServerPort string
+	// cleanupServer port and host for listening address
+	cleanupServerHost string
+	cleanupServerPort int
 	// image verify cache
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
@@ -62,8 +70,14 @@ var (
 	enableGlobalContext bool
 	// reporting
 	enableReporting string
+	allowedResults  string
 	// resync
 	resyncPeriod time.Duration
+	// custom resource watch
+	crdWatcher bool
+	// auto memlimit
+	autoMemLimitEnabled bool
+	autoMemLimitRatio   float64
 )
 
 func initLoggingFlags() {
@@ -72,6 +86,11 @@ func initLoggingFlags() {
 	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
+}
+
+func initMemLimitFlags() {
+	flag.BoolVar(&autoMemLimitEnabled, "autoMemLimitEnabled", true, "Enable automatic GOMEMLIMIT configuration based on container or system memory.")
+	flag.Float64Var(&autoMemLimitRatio, "autoMemLimitRatio", 0.9, "The ratio of reserved GOMEMLIMIT memory to the detected maximum container or system memory. Must be greater than 0 and less than or equal to 1.")
 }
 
 func initProfilingFlags() {
@@ -91,7 +110,13 @@ func initMetricsFlags() {
 	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
 	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
 	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
-	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
+	flag.StringVar(&metricsHost, "metricsHost", "", "Expose prometheus metrics at the given host. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
+	flag.IntVar(&metricsPort, "metricsPort", 8000, "Expose prometheus metrics at the given port, default to 8000.")
+	flag.StringVar(&metricsCASecretName, "metricsCASecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
+	flag.StringVar(&metricsTLSSecretName, "metricsTLSSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
+	flag.StringVar(&metricsKeyAlgorithm, "metricsKeyAlgorithm", "RSA", "Set this flag to the key algorithm used for self-signed TLS certificates for the metrics endpoint. Supported values: RSA, ECDSA, Ed25519.")
+	flag.DurationVar(&metricsRenewBefore, "metricsRenewBefore", 15*24*time.Hour, "The certificate renewal time before expiration for metrics TLS certificates.")
+	flag.StringVar(&metricsServerIP, "metricsServerIP", "", "IP address where metrics server runs. Used to add IP addresses to the metrics TLS certificate SANs. Only required if accessing metrics endpoint out-of-cluster by IP address.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
@@ -104,6 +129,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
 	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
 	flag.DurationVar(&resyncPeriod, "resyncPeriod", 15*time.Minute, "Configure the resync period for informer factory")
+	flag.BoolVar(&crdWatcher, "crdWatcher", false, "Enable watching of custom resources to invalidate discovery cache on changes.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -143,11 +169,19 @@ func initLeaderElectionFlags() {
 }
 
 func initCleanupFlags() {
-	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+	flag.StringVar(&cleanupServerHost, "cleanupServerHost", "", "Host used by the cleanup server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
+	flag.IntVar(&cleanupServerPort, "cleanupServerPort", 9443, "kyverno cleanup server port, defaults to '9443'.")
 }
 
 func initReportingFlags() {
-	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enable reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&allowedResults, "allowedResults", "pass,fail,error,warn,skip", "Comma separated list of result types for which creating reports is desired. (pass,fail,error,warn,skip)")
+}
+
+func initOpenreportsFlagSet() *flag.FlagSet {
+	flagset := flag.NewFlagSet("openreports", flag.ExitOnError)
+	flagset.BoolVar(&openreportsEnabled, "openreportsEnabled", false, "Use openreports.io/v1alpha1 for the reporting group")
+	return flagset
 }
 
 func lookupKubeconfigFlag() {
@@ -195,6 +229,8 @@ func initFlags(config Configuration, opts ...Option) {
 	}
 	// logging
 	initLoggingFlags()
+	// memlimit
+	initMemLimitFlags()
 	// profiling
 	if config.UsesProfiling() {
 		initProfilingFlags()
@@ -243,6 +279,11 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesReporting() {
 		initReportingFlags()
 	}
+
+	if config.UsesOpenreports() {
+		config.AddFlagSet(initOpenreportsFlagSet())
+	}
+
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -272,8 +313,12 @@ func LeaderElectionRetryPeriod() time.Duration {
 	return leaderElectionRetryPeriod
 }
 
-func CleanupServerPort() string {
-	return cleanupServerPort
+func CleanupServerPort() int32 {
+	return int32(cleanupServerPort) //nolint:gosec
+}
+
+func CleanupServerHost() string {
+	return cleanupServerHost
 }
 
 func GlobalContextEnabled() bool {

@@ -129,6 +129,10 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
+	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
+		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
+		return warnings, fmt.Errorf("A clusterpolicy should not have the namespace defined")
+	}
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
@@ -396,7 +400,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				if k == "Pod" && podControllerAutoGenExclusion(policy) {
 					msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
 						"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
-						"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
+						"excluded from autogen. Refer to https://kyverno.io/docs/policy-types/cluster-policy/autogen/ for details."
 
 					warnings = append(warnings, msg)
 				}
@@ -1296,13 +1300,17 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		return nil
 	}
 
+	if rule.HasValidateCEL() {
+		return fmt.Errorf("context variables are not supported for CEL expressions in validate rules")
+	}
+
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
 		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
 		// sure we can create the corresponding bindings
-		if rule.Validation != nil && rule.Validation.Assert.Value != nil {
+		if rule.Validation != nil && rule.Validation.Assert != nil && rule.Validation.Assert.Value != nil {
 			if !bindingIdentifier.MatchString(entry.Name) {
 				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
 			}

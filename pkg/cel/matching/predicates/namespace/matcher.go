@@ -18,6 +18,7 @@ package namespace
 
 import (
 	"fmt"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
 )
@@ -41,15 +43,23 @@ type Matcher struct {
 }
 
 func (m *Matcher) GetNamespace(name string) (metav1.Object, error) {
-	if m.Namespace == nil {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "v1", Resource: "namesapces"}, name)
+	// Check for both nil interface and nil pointer
+	if m.Namespace == nil || reflect.ValueOf(m.Namespace).IsNil() {
+		return &minimalNamespace{
+			name: name,
+			labels: map[string]string{
+				"kubernetes.io/metadata.name": name,
+			},
+		}, nil
 	}
+
 	accessor, err := meta.Accessor(m.Namespace)
 	if err != nil {
 		return nil, err
 	}
+
 	if accessor.GetName() != name {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "v1", Resource: "namesapces"}, name)
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "v1", Resource: "namespaces"}, name)
 	}
 	return accessor, nil
 }
@@ -124,3 +134,40 @@ func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admis
 	}
 	return selector.Matches(labels.Set(namespaceLabels)), nil
 }
+
+// minimalNamespace implements metav1.Object for CLI mode
+type minimalNamespace struct {
+	name   string
+	labels map[string]string
+}
+
+func (n *minimalNamespace) GetNamespace() string                           { return "" }
+func (n *minimalNamespace) SetNamespace(namespace string)                  {}
+func (n *minimalNamespace) GetName() string                                { return n.name }
+func (n *minimalNamespace) SetName(name string)                            {}
+func (n *minimalNamespace) GetGenerateName() string                        { return "" }
+func (n *minimalNamespace) SetGenerateName(name string)                    {}
+func (n *minimalNamespace) GetUID() types.UID                              { return "" }
+func (n *minimalNamespace) SetUID(uid types.UID)                           {}
+func (n *minimalNamespace) GetResourceVersion() string                     { return "" }
+func (n *minimalNamespace) SetResourceVersion(version string)              {}
+func (n *minimalNamespace) GetGeneration() int64                           { return 0 }
+func (n *minimalNamespace) SetGeneration(generation int64)                 {}
+func (n *minimalNamespace) GetSelfLink() string                            { return "" }
+func (n *minimalNamespace) SetSelfLink(selfLink string)                    {}
+func (n *minimalNamespace) GetCreationTimestamp() metav1.Time              { return metav1.Time{} }
+func (n *minimalNamespace) SetCreationTimestamp(t metav1.Time)             {}
+func (n *minimalNamespace) GetDeletionTimestamp() *metav1.Time             { return nil }
+func (n *minimalNamespace) SetDeletionTimestamp(t *metav1.Time)            {}
+func (n *minimalNamespace) GetDeletionGracePeriodSeconds() *int64          { return nil }
+func (n *minimalNamespace) SetDeletionGracePeriodSeconds(s *int64)         {}
+func (n *minimalNamespace) GetLabels() map[string]string                   { return n.labels }
+func (n *minimalNamespace) SetLabels(labels map[string]string)             {}
+func (n *minimalNamespace) GetAnnotations() map[string]string              { return nil }
+func (n *minimalNamespace) SetAnnotations(a map[string]string)             {}
+func (n *minimalNamespace) GetFinalizers() []string                        { return nil }
+func (n *minimalNamespace) SetFinalizers(finalizers []string)              {}
+func (n *minimalNamespace) GetOwnerReferences() []metav1.OwnerReference    { return nil }
+func (n *minimalNamespace) SetOwnerReferences(r []metav1.OwnerReference)   {}
+func (n *minimalNamespace) GetManagedFields() []metav1.ManagedFieldsEntry  { return nil }
+func (n *minimalNamespace) SetManagedFields(f []metav1.ManagedFieldsEntry) {}

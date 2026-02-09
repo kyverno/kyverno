@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,11 +27,14 @@ type Mutate struct {
 // NewMutateFactory returns a new instance of Mutate validation checker
 func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) *Mutate {
 	var authCheckBackground, authCheckerReports auth.AuthChecks
-	if mock {
+	if mock || backgroundSA == "" {
 		authCheckBackground = fake.NewFakeAuth()
-		authCheckerReports = fake.NewFakeAuth()
 	} else {
 		authCheckBackground = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
+	}
+	if mock || reportsSA == "" {
+		authCheckerReports = fake.NewFakeAuth()
+	} else {
 		authCheckerReports = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
 	}
 
@@ -54,7 +58,9 @@ func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, p
 	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
 		return nil, "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
-
+	if m.rule.CELPreconditions != nil && m.rule.Mutation != nil {
+		return nil, "", fmt.Errorf("celPrecondition can only be used with validate.cel")
+	}
 	if m.rule.Mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
 			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authCheckerBackground.User(), err)
@@ -123,7 +129,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 			return err
 		}
 		if !ok {
-			errs = append(errs, fmt.Errorf(msg)) //nolint:all
+			errs = append(errs, errors.New(msg))
 		}
 	}
 

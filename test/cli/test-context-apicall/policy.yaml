@@ -1,0 +1,80 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: computeclasses-enforce-non-spot-usage-crd
+  annotations:
+    policies.kyverno.io/title: Restrict Non-Spot ComputeClass to Approved Namespaces (CRD)
+    policies.kyverno.io/category: GKE Compute Classes
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod, ComputeClass
+    policies.kyverno.io/description: >-
+      This policy denies create and update operations on any workloads
+      with only non-spot ComputeClasses. Uses apiCall to fetch ComputeClass CRD resources.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-non-spot-in-unapproved-namespace
+      match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+            - DaemonSet
+            - Deployment
+            - Job
+            - Pod
+            - StatefulSet
+            operations:
+            - "CREATE"
+            - "UPDATE"
+      exclude:
+        any:
+        - resources:
+            namespaces:
+            - balloon-pods
+            - cluster-jobs
+            - cos-auditd
+            - fluentbit
+            - gatekeeper-system
+            - gke-managed-cim
+            - gke-managed-dpv2-observability
+            - gmp-system
+            - kube-node-lease
+            - kube-public
+            - kube-system
+            - istio-system
+            - trident-system
+      context:
+        - name: computeclassname
+          variable:
+            default: "default"
+            jmesPath: >-
+              request.object.spec.nodeSelector."cloud.google.com/compute-class" || 
+              request.object.spec.template.spec.nodeSelector."cloud.google.com/compute-class"
+        - name: computeclass
+          apiCall:
+            urlPath: "/apis/cloud.google.com/v1/computeclasses/{{computeclassname}}"
+        - name: spotvalues
+          variable:
+            default: '["true", "false", "false"]'
+            jmesPath: 'computeclass.spec.priorities[*].spot'
+      #   - name: ownerReferences
+      #     variable:
+      #       default: []
+      #       jmesPath: (request.object.metadata.ownerReferences || `[]`)[?kind=='Workflow']
+      # preconditions:
+      #   all:
+      #   - key: "{{ ownerReferences | length(@) }}"
+      #     operator: Equals
+      #     value: 0
+      validate:
+        message: |-
+          Spot values: {{spotvalues}}
+        deny:
+          conditions:
+            all:
+            - key: true
+              operator: AllNotIn
+              value: "{{spotvalues}}"
+

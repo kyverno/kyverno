@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-mpol-reporting-different-trigger-target-ns
+  labels:
+    test: "enabled"
+    existing: "yes" 

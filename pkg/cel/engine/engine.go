@@ -4,6 +4,6 @@ import (
 	"context"
 )
 
-type Engine interface {
-	Handle(context.Context, EngineRequest) (EngineResponse, error)
+type Engine[T any] interface {
+	Handle(context.Context, EngineRequest, func(T) bool) (EngineResponse, error)
 }

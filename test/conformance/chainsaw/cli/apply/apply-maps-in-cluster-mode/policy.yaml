@@ -1,0 +1,21 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: add-label-to-configmap
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:     [""]
+      apiVersions:   ["v1"]
+      operations:    ["CREATE"]
+      resources:     ["configmaps"]
+      resourceNames: ["zk-kafka-address"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+    - patchType: "ApplyConfiguration"
+      applyConfiguration:
+        expression: >
+          object.metadata.?labels["lfx-mentorship"].hasValue() ? 
+              Object{} :
+              Object{ metadata: Object.metadata{ labels: {"lfx-mentorship": "kyverno"}}}

@@ -1,0 +1,10 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-mpol-same-trigger-target-1
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: test-mpol-same-trigger-target-2

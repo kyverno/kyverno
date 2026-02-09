@@ -12,4 +12,6 @@ const (
 	Generation RuleType = "Generation"
 	// ImageVerify type for image verification
 	ImageVerify RuleType = "ImageVerify"
+	// Deletion type for deleting policies
+	Deletion RuleType = "Deletion"
 )

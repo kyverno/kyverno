@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -18,6 +19,8 @@ spec:
           bindings:
           - name: name
             value: parse-sa-test
+          - name: message
+            value: ""
     - name: create service account
       try:
         - create:

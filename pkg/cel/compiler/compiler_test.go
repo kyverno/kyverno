@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	policiesv1alpgha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -398,24 +399,24 @@ func TestCompileVariables(t *testing.T) {
 func TestCompileMatchImageReference(t *testing.T) {
 	tests := []struct {
 		name      string
-		match     policiesv1alpgha1.MatchImageReference
+		match     v1beta1.MatchImageReference
 		wantMatch bool
 		wantErrs  field.ErrorList
 	}{{
 		name: "glob",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Glob: "ghcr.io/*",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: "true",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel error",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: "bar()",
 		},
 		wantMatch: false,
@@ -427,7 +428,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name: "cel not bool",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: `"bar"`,
 		},
 		wantMatch: false,
@@ -439,12 +440,12 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name:      "unknown",
-		match:     policiesv1alpgha1.MatchImageReference{},
+		match:     v1beta1.MatchImageReference{},
 		wantMatch: false,
 		wantErrs: field.ErrorList{{
 			Type:     field.ErrorTypeInvalid,
 			Field:    "test",
-			BadValue: policiesv1alpgha1.MatchImageReference{},
+			BadValue: v1beta1.MatchImageReference{},
 			Detail:   "either glob or expression must be set",
 		}},
 	}}
@@ -462,7 +463,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 func TestCompileMatchImageReferences(t *testing.T) {
 	tests := []struct {
 		name        string
-		matches     []policiesv1alpgha1.MatchImageReference
+		matches     []v1beta1.MatchImageReference
 		wantResults int
 		wantAllErrs field.ErrorList
 	}{{
@@ -471,17 +472,17 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 0,
 	}, {
 		name:        "empty",
-		matches:     []policiesv1alpgha1.MatchImageReference{},
+		matches:     []v1beta1.MatchImageReference{},
 		wantResults: 0,
 	}, {
 		name: "single",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}},
 		wantResults: 1,
 	}, {
 		name: "multiple",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `false`,
@@ -489,7 +490,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 2,
 	}, {
 		name: "with error",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `bar()`,
@@ -503,7 +504,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		}},
 	}, {
 		name: "not bool",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `"bar"`,
@@ -523,6 +524,187 @@ func TestCompileMatchImageReferences(t *testing.T) {
 			gotResults, gotAllErrs := CompileMatchImageReferences(nil, env, tt.matches...)
 			assert.Equal(t, tt.wantAllErrs, gotAllErrs)
 			assert.Equal(t, tt.wantResults, len(gotResults))
+		})
+	}
+}
+
+func TestCompileGenerations(t *testing.T) {
+	tests := []struct {
+		name        string
+		generations []v1beta1.Generation
+		wantProgs   int
+		wantErrs    field.ErrorList
+	}{{
+		name:        "empty",
+		generations: []v1beta1.Generation{},
+		wantProgs:   0,
+	}, {
+		name: "valid",
+		generations: []v1beta1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 1,
+	}, {
+		name: "multiple",
+		generations: []v1beta1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}, {
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 2,
+	}, {
+		name: "invalid",
+		generations: []v1beta1.Generation{{
+			Expression: `
+generator.ApplyAll(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 0,
+		wantErrs: field.ErrorList{{
+			Type:  field.ErrorTypeInvalid,
+			Field: "[0].expression",
+			BadValue: `
+generator.ApplyAll(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+			Detail: "ERROR: <input>:2:19: undeclared reference to 'ApplyAll' (in container '')\n | generator.ApplyAll(\n | ..................^",
+		}},
+	}, {
+		name: "multiple invalid",
+		generations: []v1beta1.Generation{{
+			Expression: `
+generator.Apply(
+	"default",
+	[
+		{
+			"apiVersion": dyn("apps/v1"),
+			"kind":       dyn("Deployment"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}, {
+			Expression: `
+generator.Apply(
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+		}},
+		wantProgs: 1,
+		wantErrs: field.ErrorList{{
+			Type:  field.ErrorTypeInvalid,
+			Field: "[1].expression",
+			BadValue: `
+generator.Apply(
+	[
+		{
+			"apiVersion": dyn("v1"),
+			"kind":       dyn("ConfigMap"),
+			"metadata": dyn({
+				"name":      "name",
+				"namespace": "namespace",
+			}),
+		},
+	]
+)`,
+			Detail: "ERROR: <input>:2:16: found no matching overload for 'Apply' applied to 'generator.Context.(list(map(string, dyn)))'\n | generator.Apply(\n | ...............^",
+		}},
+	}, {
+		name: "bad type",
+		generations: []v1beta1.Generation{{
+			Expression: `"foo"`,
+		}},
+		wantProgs: 0,
+		wantErrs: field.ErrorList{{
+			Type:     field.ErrorTypeInvalid,
+			Field:    "[0].expression",
+			BadValue: `"foo"`,
+			Detail:   "output is expected to be of type bool",
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base, err := NewBaseEnv()
+			assert.NoError(t, err)
+			env, err := base.Extend(
+				cel.Variable(GeneratorKey, generator.ContextType),
+				generator.Lib(nil),
+			)
+			assert.NoError(t, err)
+			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)
+			assert.Equal(t, tt.wantErrs, gotErrs)
+			assert.Equal(t, tt.wantProgs, len(gotProgs))
 		})
 	}
 }

@@ -8,8 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -34,7 +33,7 @@ type EvaluationResult struct {
 	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
-	Exceptions       []*policiesv1alpha1.PolicyException
+	Exceptions       []*policiesv1beta1.PolicyException
 }
 
 type CompiledPolicy interface {
@@ -50,7 +49,7 @@ type compiledPolicy struct {
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
-	creds                *v1alpha1.Credentials
+	creds                *policiesv1beta1.Credentials
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
@@ -65,7 +64,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range c.exceptions {
 			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 			if err != nil {
@@ -127,13 +126,15 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	data[engine.ImagesKey] = images
 	data[engine.AttestationsKey] = c.attestationList
-	attestors := make(map[string]policiesv1alpha1.Attestor)
-	for _, att := range c.attestors {
-		data, err := att.Evaluate(data)
-		if err != nil {
-			return nil, err
-		}
-		attestors[data.Name] = data
+	attestors := lazy.NewMapValue(cel.DynType)
+	for _, attestor := range c.attestors {
+		attestors.Append(attestor.Key, func(*lazy.MapValue) ref.Val {
+			data, err := attestor.Evaluate(data)
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return data
+		})
 	}
 	data[engine.AttestorsKey] = attestors
 

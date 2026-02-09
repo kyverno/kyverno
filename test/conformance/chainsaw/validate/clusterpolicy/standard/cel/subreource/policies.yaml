@@ -1,0 +1,43 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cel-deny-scale-deployment
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: cel-deny-scale-deployment
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment/scale
+      validate:
+        failureAction: Audit
+        cel:
+          expressions:
+            - expression: has(object.spec.replicas) && object.spec.replicas > 0
+              message: "Scale to 0 is not allowed"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cel-deny-scale-statefulset
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: cel-deny-scale-statefulset
+      match:
+        any:
+          - resources:
+              kinds:
+                - StatefulSet/scale
+      validate:
+        failureAction: Enforce
+        cel:
+          expressions:
+            - expression: has(object.spec.replicas) && object.spec.replicas > 0
+              message: "Scale to 0 is not allowed"

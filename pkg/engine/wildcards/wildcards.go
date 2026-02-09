@@ -135,7 +135,16 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 	}
 
 	for k, v := range valMap {
-		result[k] = v.(string)
+		if v == nil {
+			continue
+		}
+
+		switch typedVal := v.(type) {
+		case string:
+			result[k] = typedVal
+		default:
+			continue
+		}
 	}
 
 	return patternKey, result

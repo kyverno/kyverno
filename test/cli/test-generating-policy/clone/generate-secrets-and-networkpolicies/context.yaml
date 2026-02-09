@@ -1,0 +1,41 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: context
+spec:
+  resources:
+  - apiVersion: v1
+    data:
+      foo: YmFy
+    kind: Secret
+    metadata:
+      name: test-secret-1
+      namespace: default
+    type: Opaque
+  - apiVersion: v1
+    data:
+      key: dmFsdWU=
+    kind: Secret
+    metadata:
+      name: test-secret-2
+      namespace: default
+    type: Opaque
+  - apiVersion: v1
+    data:
+      color: Ymx1ZQ==
+    kind: Secret
+    metadata:
+      name: test-secret-3
+      namespace: default
+    type: Opaque
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: default-deny
+      namespace: default
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      - Egress
+

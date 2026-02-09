@@ -2,17 +2,23 @@ package image
 
 import (
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.image"
 
-func Lib() cel.EnvOption {
-	return cel.Lib(imageLib)
+func Lib(v *version.Version) cel.EnvOption {
+	return cel.Lib(&imageLibType{version: v})
 }
 
-var imageLib = &imageLibType{}
+func Latest() *version.Version {
+	return versions.ImageVersion
+}
 
-type imageLibType struct{}
+type imageLibType struct {
+	version *version.Version
+}
 
 func (*imageLibType) LibraryName() string {
 	return libraryName
@@ -24,7 +30,16 @@ func (*imageLibType) Types() []*cel.Type {
 
 func (*imageLibType) declarations() map[string][]cel.FunctionOpt {
 	return map[string][]cel.FunctionOpt{
+		// DEPRECATED: alias for backward compatibility — use parseImageReference() instead
 		"image": {
+			cel.Overload(
+				"string_to_image_deprecated",
+				[]*cel.Type{cel.StringType},
+				ImageType,
+				cel.UnaryBinding(stringToImage),
+			),
+		},
+		"parseImageReference": {
 			cel.Overload(
 				"string_to_image",
 				[]*cel.Type{cel.StringType},

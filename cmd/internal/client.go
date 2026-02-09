@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
@@ -43,6 +44,14 @@ func createKubernetesClient(logger logr.Logger, rateLimitQPS float64, rateLimitB
 	logger.V(2).Info("create kube client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kubeclient.NewForConfig(createClientConfig(logger, rateLimitQPS, rateLimitBurst), opts...)
 	checkError(logger, err, "failed to create kubernetes client")
+	return client
+}
+
+func createOpenReportsClient(logger logr.Logger, rateLimitQPS float64, rateLimitBurst int) openreportsclient.OpenreportsV1alpha1Interface {
+	logger = logger.WithName("openreports-client")
+	logger.V(2).Info("create openreports client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := openreportsclient.NewForConfig(createClientConfig(logger, rateLimitQPS, rateLimitBurst))
+	checkError(logger, err, "failed to create openreports client")
 	return client
 }
 
@@ -78,10 +87,10 @@ func createApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserv
 	return client
 }
 
-func createKyvernoDynamicClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
+func createKyvernoDynamicClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration, crdWatcher bool, metadataClient meta.UpstreamInterface) dclient.Interface {
 	logger = logger.WithName("d-client")
 	logger.V(2).Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	client, err := dclient.NewClient(ctx, dyn, kube, resync)
+	client, err := dclient.NewClient(ctx, dyn, kube, resync, crdWatcher, metadataClient)
 	checkError(logger, err, "failed to create d client")
 	return client
 }

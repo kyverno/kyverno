@@ -70,6 +70,17 @@ func (c *withLogging) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (
 	}
 	return ret0, ret1
 }
+func (c *withLogging) CreateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "CreateWithEventNamespaceWithContext")
+	ret0, ret1 := c.inner.CreateWithEventNamespaceWithContext(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "CreateWithEventNamespaceWithContext failed", "duration", time.Since(start))
+	} else {
+		logger.Info("CreateWithEventNamespaceWithContext done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
 func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Delete")
@@ -143,6 +154,17 @@ func (c *withLogging) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, ar
 	}
 	return ret0, ret1
 }
+func (c *withLogging) PatchWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 []uint8) (*k8s_io_api_core_v1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "PatchWithEventNamespaceWithContext")
+	ret0, ret1 := c.inner.PatchWithEventNamespaceWithContext(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "PatchWithEventNamespaceWithContext failed", "duration", time.Since(start))
+	} else {
+		logger.Info("PatchWithEventNamespaceWithContext done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
 func (c *withLogging) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Search")
@@ -151,6 +173,17 @@ func (c *withLogging) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 
 		logger.Error(err, "Search failed", "duration", time.Since(start))
 	} else {
 		logger.Info("Search done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) SearchWithContext(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_runtime.Scheme, arg2 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "SearchWithContext")
+	ret0, ret1 := c.inner.SearchWithContext(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "SearchWithContext failed", "duration", time.Since(start))
+	} else {
+		logger.Info("SearchWithContext done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -173,6 +206,17 @@ func (c *withLogging) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (
 		logger.Error(err, "UpdateWithEventNamespace failed", "duration", time.Since(start))
 	} else {
 		logger.Info("UpdateWithEventNamespace done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) UpdateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "UpdateWithEventNamespaceWithContext")
+	ret0, ret1 := c.inner.UpdateWithEventNamespaceWithContext(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "UpdateWithEventNamespaceWithContext failed", "duration", time.Since(start))
+	} else {
+		logger.Info("UpdateWithEventNamespaceWithContext done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -205,6 +249,10 @@ func (c *withMetrics) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (
 	defer c.recorder.Record("create_with_event_namespace")
 	return c.inner.CreateWithEventNamespace(arg0)
 }
+func (c *withMetrics) CreateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	defer c.recorder.RecordWithContext(arg0, "create_with_event_namespace_with_context")
+	return c.inner.CreateWithEventNamespaceWithContext(arg0, arg1)
+}
 func (c *withMetrics) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.RecordWithContext(arg0, "delete")
 	return c.inner.Delete(arg0, arg1, arg2)
@@ -233,9 +281,17 @@ func (c *withMetrics) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, ar
 	defer c.recorder.Record("patch_with_event_namespace")
 	return c.inner.PatchWithEventNamespace(arg0, arg1)
 }
+func (c *withMetrics) PatchWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 []uint8) (*k8s_io_api_core_v1.Event, error) {
+	defer c.recorder.RecordWithContext(arg0, "patch_with_event_namespace_with_context")
+	return c.inner.PatchWithEventNamespaceWithContext(arg0, arg1, arg2)
+}
 func (c *withMetrics) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
 	defer c.recorder.Record("search")
 	return c.inner.Search(arg0, arg1)
+}
+func (c *withMetrics) SearchWithContext(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_runtime.Scheme, arg2 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
+	defer c.recorder.RecordWithContext(arg0, "search_with_context")
+	return c.inner.SearchWithContext(arg0, arg1, arg2)
 }
 func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Event, error) {
 	defer c.recorder.RecordWithContext(arg0, "update")
@@ -244,6 +300,10 @@ func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 func (c *withMetrics) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
 	defer c.recorder.Record("update_with_event_namespace")
 	return c.inner.UpdateWithEventNamespace(arg0)
+}
+func (c *withMetrics) UpdateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	defer c.recorder.RecordWithContext(arg0, "update_with_event_namespace_with_context")
+	return c.inner.UpdateWithEventNamespaceWithContext(arg0, arg1)
 }
 func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.RecordWithContext(arg0, "watch")
@@ -300,6 +360,27 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 }
 func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
 	return c.inner.CreateWithEventNamespace(arg0)
+}
+func (c *withTracing) CreateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "CreateWithEventNamespaceWithContext"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("CreateWithEventNamespaceWithContext"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.CreateWithEventNamespaceWithContext(arg0, arg1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	var span trace.Span
@@ -412,8 +493,50 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, arg1 []uint8) (*k8s_io_api_core_v1.Event, error) {
 	return c.inner.PatchWithEventNamespace(arg0, arg1)
 }
+func (c *withTracing) PatchWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 []uint8) (*k8s_io_api_core_v1.Event, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "PatchWithEventNamespaceWithContext"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("PatchWithEventNamespaceWithContext"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.PatchWithEventNamespaceWithContext(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
+}
 func (c *withTracing) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
 	return c.inner.Search(arg0, arg1)
+}
+func (c *withTracing) SearchWithContext(arg0 context.Context, arg1 *k8s_io_apimachinery_pkg_runtime.Scheme, arg2 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "SearchWithContext"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("SearchWithContext"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.SearchWithContext(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Event, error) {
 	var span trace.Span
@@ -438,6 +561,27 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 }
 func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
 	return c.inner.UpdateWithEventNamespace(arg0)
+}
+func (c *withTracing) UpdateWithEventNamespaceWithContext(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateWithEventNamespaceWithContext"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("UpdateWithEventNamespaceWithContext"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.UpdateWithEventNamespaceWithContext(arg0, arg1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	var span trace.Span
