@@ -15,6 +15,9 @@ metadata:
   {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+    {{- with .Values.cleanupController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.cleanupController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
