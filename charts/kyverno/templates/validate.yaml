@@ -4,10 +4,10 @@
 {{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.clustercleanuppolicies false) }}
 {{- fail "CRD clustercleanuppolicies disabled while cleanupController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) (eq .Values.reportsServer.enabled false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) (eq .Values.crds.reportsServer.enabled false) }}
 {{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
 {{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.policyreports false) (eq .Values.reportsServer.enabled false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.policyreports false) (eq .Values.crds.reportsServer.enabled false) }}
 {{- fail "CRD policyreports disabled while reportsController enabled" }}
 {{- end }}
 {{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.reports.ephemeralreports false) (eq .Values.crds.reportsServer.enabled false) }}

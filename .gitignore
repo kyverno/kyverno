@@ -5,7 +5,7 @@
 /config/.release
 /release
 gh-pages/public
-charts/kyverno/charts/openreports*
+charts/*/charts/*.tgz
 cmd/cli/kubectl-kyverno/kubectl-kyverno
 cmd/kyverno/kyverno
 cmd/kyverno-init/kyvernopre

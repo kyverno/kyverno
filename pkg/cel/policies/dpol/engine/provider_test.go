@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -15,16 +15,16 @@ func TestNewProvider(t *testing.T) {
 	tests := []struct {
 		name       string
 		compiler   compiler.Compiler
-		policies   []policiesv1alpha1.DeletingPolicy
-		exceptions []*policiesv1alpha1.PolicyException
+		policies   []policiesv1beta1.DeletingPolicyLike
+		exceptions []*policiesv1beta1.PolicyException
 		wantErr    bool
 		wantCount  int
 	}{
 		{
 			name:     "valid policy without exceptions",
 			compiler: c,
-			policies: []policiesv1alpha1.DeletingPolicy{
-				{
+			policies: []policiesv1beta1.DeletingPolicyLike{
+				&policiesv1beta1.DeletingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "p1"},
 					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
 				},
@@ -35,20 +35,31 @@ func TestNewProvider(t *testing.T) {
 		{
 			name:     "valid policy with matching exception",
 			compiler: c,
-			policies: []policiesv1alpha1.DeletingPolicy{
-				{
+			policies: []policiesv1beta1.DeletingPolicyLike{
+				&policiesv1beta1.DeletingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "p2"},
 					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
 				},
 			},
-			exceptions: []*policiesv1alpha1.PolicyException{
+			exceptions: []*policiesv1beta1.PolicyException{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "e1"},
-					Spec: policiesv1alpha1.PolicyExceptionSpec{
-						PolicyRefs: []policiesv1alpha1.PolicyRef{
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						PolicyRefs: []policiesv1beta1.PolicyRef{
 							{Name: "p2", Kind: "DeletingPolicy"},
 						},
 					},
+				},
+			},
+			wantErr:   false,
+			wantCount: 1,
+		},
+		{
+			name:     "namespaced policy",
+			compiler: c,
+			policies: []policiesv1beta1.DeletingPolicyLike{
+				&policiesv1beta1.NamespacedDeletingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "np1"},
 				},
 			},
 			wantErr:   false,

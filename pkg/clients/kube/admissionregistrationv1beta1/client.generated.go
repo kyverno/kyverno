@@ -2,6 +2,8 @@ package client
 
 import (
 	"github.com/go-logr/logr"
+	mutatingadmissionpolicies "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1/mutatingadmissionpolicies"
+	mutatingadmissionpolicybindings "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1/mutatingadmissionpolicybindings"
 	mutatingwebhookconfigurations "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1/mutatingwebhookconfigurations"
 	validatingadmissionpolicies "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1/validatingadmissionpolicies"
 	validatingadmissionpolicybindings "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1/validatingadmissionpolicybindings"
@@ -32,6 +34,14 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingAdmissionPolicy", c.clientType)
+	return mutatingadmissionpolicies.WithMetrics(c.inner.MutatingAdmissionPolicies(), recorder)
+}
+func (c *withMetrics) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyBindingInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingAdmissionPolicyBinding", c.clientType)
+	return mutatingadmissionpolicybindings.WithMetrics(c.inner.MutatingAdmissionPolicyBindings(), recorder)
+}
 func (c *withMetrics) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingWebhookConfigurationInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "MutatingWebhookConfiguration", c.clientType)
 	return mutatingwebhookconfigurations.WithMetrics(c.inner.MutatingWebhookConfigurations(), recorder)
@@ -57,6 +67,12 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyInterface {
+	return mutatingadmissionpolicies.WithTracing(c.inner.MutatingAdmissionPolicies(), c.client, "MutatingAdmissionPolicy")
+}
+func (c *withTracing) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyBindingInterface {
+	return mutatingadmissionpolicybindings.WithTracing(c.inner.MutatingAdmissionPolicyBindings(), c.client, "MutatingAdmissionPolicyBinding")
+}
 func (c *withTracing) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingWebhookConfigurationInterface {
 	return mutatingwebhookconfigurations.WithTracing(c.inner.MutatingWebhookConfigurations(), c.client, "MutatingWebhookConfiguration")
 }
@@ -77,6 +93,12 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) MutatingAdmissionPolicies() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyInterface {
+	return mutatingadmissionpolicies.WithLogging(c.inner.MutatingAdmissionPolicies(), c.logger.WithValues("resource", "MutatingAdmissionPolicies"))
+}
+func (c *withLogging) MutatingAdmissionPolicyBindings() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingAdmissionPolicyBindingInterface {
+	return mutatingadmissionpolicybindings.WithLogging(c.inner.MutatingAdmissionPolicyBindings(), c.logger.WithValues("resource", "MutatingAdmissionPolicyBindings"))
 }
 func (c *withLogging) MutatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.MutatingWebhookConfigurationInterface {
 	return mutatingwebhookconfigurations.WithLogging(c.inner.MutatingWebhookConfigurations(), c.logger.WithValues("resource", "MutatingWebhookConfigurations"))

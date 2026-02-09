@@ -17,7 +17,7 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -57,7 +57,7 @@ func Test_impl_get_resource_string_string_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -105,7 +105,7 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -117,7 +117,7 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"resource": Context{&ContextMock{
-			ListResourcesFunc: func(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
 						{
@@ -142,13 +142,59 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["kind"].(string), "Deployment")
 }
 
+func Test_impl_list_resources_string_string_string_map(t *testing.T) {
+	base, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
+	assert.NotNil(t, base)
+	env, err := base.Extend(
+		cel.Variable("resource", ContextType),
+		Lib("", nil),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default", {"app": "nginx"})`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+	data := map[string]any{
+		"resource": Context{&ContextMock{
+			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+				return &unstructured.UnstructuredList{
+					Items: []unstructured.Unstructured{
+						{
+							Object: map[string]any{
+								"apiVersion": "apps/v1",
+								"kind":       "Deployment",
+								"metadata": map[string]any{
+									"name":      "nginx",
+									"namespace": namespace,
+									"labels": map[string]any{
+										"app": "nginx",
+									},
+								},
+							},
+						},
+					},
+				}, nil
+			},
+		},
+		}}
+	out, _, err := prog.Eval(data)
+	assert.NoError(t, err)
+	object := out.Value().(map[string]any)
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
+	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["kind"].(string), "Deployment")
+}
+
 func Test_impl_list_resources_string_string_string_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -192,7 +238,7 @@ func Test_post_resource_string_string_string_map(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -243,7 +289,7 @@ func Test_impl_post_resource_string_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -291,7 +337,7 @@ func Test_impl_post_resource_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib(),
+		Lib("", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

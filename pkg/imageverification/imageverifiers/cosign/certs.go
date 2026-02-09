@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/sigstore/cosign/v2/pkg/oci"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
@@ -65,6 +65,9 @@ func splitCertChain(pem []byte) (leaves, intermediates, roots []*x509.Certificat
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots = append(roots, cert)
 			} else {
+				if len(cert.ExtKeyUsage) == 0 {
+					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+				}
 				intermediates = append(intermediates, cert)
 			}
 		}
