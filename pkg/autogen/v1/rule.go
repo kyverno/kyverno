@@ -32,6 +32,7 @@ type kyvernoRule struct {
 	Validation             *kyvernov1.Validation                     `json:"validate,omitempty"`
 	VerifyImages           []kyvernov1.ImageVerification             `json:"verifyImages,omitempty"`
 	SkipBackgroundRequests *bool                                     `json:"skipBackgroundRequests,omitempty"`
+	ReportProperties       map[string]string                         `json:"reportProperties,omitempty"`
 }
 
 func createRule(rule *kyvernov1.Rule) *kyvernoRule {
@@ -42,6 +43,13 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 		Name:                   rule.Name,
 		VerifyImages:           rule.VerifyImages,
 		SkipBackgroundRequests: rule.SkipBackgroundRequests,
+	}
+	if len(rule.ReportProperties) > 0 {
+		rp := make(map[string]string, len(rule.ReportProperties))
+		for k, v := range rule.ReportProperties {
+			rp[k] = v
+		}
+		jsonFriendlyStruct.ReportProperties = rp
 	}
 	if !datautils.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
@@ -229,7 +237,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			return rule
 		}
 		if rule.HasValidateAssert() {
-			rule.Validation.Assert = createAutogenAssertion(*rule.Validation.Assert.DeepCopy(), tplKey)
+			rule.Validation.Assert = createAutogenAssertion(rule.Validation.Assert.DeepCopy(), tplKey)
 			return rule
 		}
 	}

@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/webhooks
   - kyverno.io/exceptionwebhooks
@@ -45,6 +45,10 @@ rules:
       {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
+      {{- end }}
+      {{- if .Values.features.generateMutatingAdmissionPolicy.enabled }}
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
       {{- end }}
     verbs:
       - create
@@ -102,12 +106,20 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - namespacedvalidatingpolicies
+      - namespacedvalidatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - namespacedimagevalidatingpolicies
+      - namespacedimagevalidatingpolicies/status
       - generatingpolicies
       - generatingpolicies/status
+      - namespacedgeneratingpolicies
+      - namespacedgeneratingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
+      - namespacedmutatingpolicies
+      - namespacedmutatingpolicies/status
     verbs:
       - create
       - delete
@@ -194,7 +206,7 @@ rules:
       - list
       - watch
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:

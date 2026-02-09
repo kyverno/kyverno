@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"crypto/md5" //nolint:gosec
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -72,14 +72,14 @@ func buildHashes(rules []kyvernov1.Rule, oldHasSynchronizingRule bool) (ruleHash
 		if err != nil {
 			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
 		}
-		hash := md5.Sum(data) //nolint:gosec
+		hash := md5.Sum(data)
 		generationHashes.Insert(hex.EncodeToString(hash[:]))
 
 		data, err = json.Marshal(r)
 		if err != nil {
 			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
 		}
-		hash = md5.Sum(data) //nolint:gosec
+		hash = md5.Sum(data)
 		ruleHashes.Insert(hex.EncodeToString(hash[:]))
 	}
 	return ruleHashes, generationHashes, nil

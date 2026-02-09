@@ -14,7 +14,7 @@ func TestLib(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("generator", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)

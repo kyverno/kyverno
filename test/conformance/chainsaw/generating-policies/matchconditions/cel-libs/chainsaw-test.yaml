@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-libs
+spec:
+  concurrent: false
+  steps:
+  - name: create namespace
+    try:
+    - create:
+        file: namespace.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: matchcondition-with-cel-lib
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create triggers
+    try:
+    - apply:
+        file: triggers.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: check that the configmap is not generated for the bad pod
+    try:
+    - error:
+        file: configmap-error.yaml
+  - name: check that the configmap is generated in for the good pod
+    try:
+    - assert:
+        file: configmap-assert.yaml

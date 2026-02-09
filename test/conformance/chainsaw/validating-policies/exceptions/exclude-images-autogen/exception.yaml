@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-images-autogen
+spec:
+  policyRefs:
+    - name: exclude-images-autogen
+      kind: ValidatingPolicy
+  # list of image names to exclude
+  images:
+  - busybox:latest
+  - nginx:latest

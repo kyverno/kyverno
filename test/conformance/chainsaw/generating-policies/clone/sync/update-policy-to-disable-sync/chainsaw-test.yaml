@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: clone-update-policy-to-disable-sync
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:

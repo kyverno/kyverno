@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/utils/report"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	kubeinformers "k8s.io/client-go/informers"
@@ -44,22 +44,21 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
+	_ = reportutils.NewReportingConfig([]string{"pass", "fail", "warn", "error", "skip"}, "validate", "mutate", "mutateExisiting", "generate", "imageVerify")
 
 	return &resourceHandlers{
-		client:          dclient,
-		configuration:   configuration,
-		metricsConfig:   metricsConfig,
-		pCache:          policyCache,
-		nsLister:        informers.Core().V1().Namespaces().Lister(),
-		urLister:        urLister,
-		urGenerator:     updaterequest.NewFake(),
-		eventGen:        event.NewFake(),
-		pcBuilder:       webhookutils.NewPolicyContextBuilder(configuration, jp),
-		auditPool:       pond.New(8, 1000),
-		reportingConfig: report.NewReportingConfig("validate", "mutate", "mutateExisiting", "generate", "imageVerify"),
+		client:        dclient,
+		configuration: configuration,
+		metricsConfig: metricsConfig,
+		pCache:        policyCache,
+		nsLister:      informers.Core().V1().Namespaces().Lister(),
+		urLister:      urLister,
+		urGenerator:   updaterequest.NewFake(),
+		eventGen:      event.NewFake(),
+		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
+		auditPool:     pond.New(8, 1000),
 		engine: engine.NewEngine(
 			configuration,
-			config.NewDefaultMetricsConfiguration(),
 			jp,
 			adapters.Client(dclient),
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),

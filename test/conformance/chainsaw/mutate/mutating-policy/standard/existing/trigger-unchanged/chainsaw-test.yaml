@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mpol-trigger-unchanged
+spec:
+  concurrent: false
+  steps:
+  - name: create-namespace-and-secret
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-01-apply-1-2.yaml
+  - name: create-mutating-policy
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: create-trigger-configmap
+    try:
+    - apply:
+        file: chainsaw-step-03-apply-1-1.yaml
+  - name: update-trigger-to-fire-mutation
+    try:
+    - apply:
+        file: chainsaw-step-04-apply-1-1.yaml
+    - script:
+        timeout: 15s
+        content: sleep 10
+  - name: verify-trigger-unchanged
+    try:
+    - assert:
+        file: chainsaw-step-05-assert-1-1.yaml
+    - assert:
+        file: chainsaw-step-05-assert-1-2.yaml
