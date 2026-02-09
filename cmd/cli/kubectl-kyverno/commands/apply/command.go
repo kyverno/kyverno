@@ -913,10 +913,11 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error
 	if !mutateLogPathIsDir && c.MutateLogPath != "" {
 		c.MutateLogPath = filepath.Clean(c.MutateLogPath)
 		// Necessary for us to include the file via variable as it is part of the CLI.
-		_, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
+		f, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
 		if err != nil {
 			return fmt.Errorf("failed to truncate the existing file at %s (%w)", c.MutateLogPath, err)
 		}
+		f.Close()
 	}
 	return nil
 }

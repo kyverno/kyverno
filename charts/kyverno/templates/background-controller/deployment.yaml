@@ -118,6 +118,11 @@ spec:
             {{- if not .Values.backgroundController.metering.disabled }}
             - --otelConfig={{ .Values.backgroundController.metering.config }}
             - --metricsPort={{ .Values.backgroundController.metering.port }}
+            {{- if .Values.backgroundController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.backgroundController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.backgroundController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
