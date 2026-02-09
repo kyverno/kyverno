@@ -925,6 +925,9 @@ admissionController:
   podAnnotations: {}
     # example.com/annotation: foo
 
+  # -- Deployment labels.
+  labels: {}
+
   # -- Deployment annotations.
   annotations: {}
 
@@ -1434,6 +1437,9 @@ backgroundController:
   podAnnotations: {}
   # example.com/annotation: foo
 
+  # -- Deployment labels.
+  labels: {}
+
   # -- Deployment annotations.
   annotations: {}
 
@@ -1777,6 +1783,9 @@ cleanupController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -2127,6 +2136,9 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
