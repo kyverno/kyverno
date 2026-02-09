@@ -288,11 +288,13 @@ func (cd *configuration) OnChanged(callback func()) {
 	cd.callbacks = append(cd.callbacks, callback)
 }
 
-func (c *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
-	if c.inclusions.matches(username, groups, roles, clusterroles) {
+func (cd *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	if cd.inclusions.matches(username, groups, roles, clusterroles) {
 		return false
 	}
-	return c.exclusions.matches(username, groups, roles, clusterroles)
+	return cd.exclusions.matches(username, groups, roles, clusterroles)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
