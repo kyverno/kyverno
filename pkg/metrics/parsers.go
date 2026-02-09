@@ -2,20 +2,25 @@ package metrics
 
 import (
 	"fmt"
+	"slices"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
-	if validationFailureAction.Enforce() {
-		return Enforce, nil
-	}
-	return Audit, nil
+type GenericPolicy interface {
+	metav1.Object
+	GetMatchConstraints() admissionregistrationv1.MatchResources
+	GetMatchConditions() []admissionregistrationv1.MatchCondition
+	GetFailurePolicy(bool) admissionregistrationv1.FailurePolicyType
+	GetVariables() []admissionregistrationv1.Variable
 }
 
-func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
+func parsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
 	if policy.BackgroundProcessingEnabled() {
 		return BackgroundTrue
 	}
@@ -76,7 +81,7 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 		namespace = policy.GetNamespace()
 		policyType = Namespaced
 	}
-	backgroundMode := ParsePolicyBackgroundMode(policy)
+	backgroundMode := parsePolicyBackgroundMode(policy)
 	isEnforce := policy.GetSpec().HasValidateEnforce()
 	var validationMode PolicyValidationMode
 	if isEnforce {
@@ -85,4 +90,42 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 		validationMode = Audit
 	}
 	return name, namespace, policyType, backgroundMode, validationMode, nil
+}
+
+func GetCELPolicyInfos(policy GenericPolicy) (string, string, PolicyBackgroundMode, admissionregistrationv1.ValidationAction) {
+	name := policy.GetName()
+	validationMode := admissionregistrationv1.Audit
+	backgroundMode := BackgroundFalse
+	policyType := ""
+
+	switch p := policy.(type) {
+	case v1beta1.ValidatingPolicyLike:
+		policyType = "Validating"
+
+		if p.GetSpec().BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
+			validationMode = admissionregistrationv1.Deny
+		}
+	case v1beta1.ImageValidatingPolicyLike:
+		policyType = "ImageValidating"
+
+		if p.GetSpec().BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+		if slices.Contains(p.GetSpec().ValidationActions(), admissionregistrationv1.Deny) {
+			validationMode = admissionregistrationv1.Deny
+		}
+	case v1beta1.MutatingPolicyLike:
+		policyType = "Mutating"
+
+		if p.GetSpec().BackgroundEnabled() {
+			backgroundMode = BackgroundTrue
+		}
+	case v1beta1.GeneratingPolicyLike:
+		policyType = "Generating"
+	}
+
+	return name, policyType, backgroundMode, validationMode
 }

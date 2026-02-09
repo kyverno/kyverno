@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -18,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*(?:;[a-zA-Z0-9]*)*)?\u0007|(?:\\d{1,4}(?:;\\d{0,4})*)?[0-mG-Z])")
 
 func Command() *cobra.Command {
 	var testCase, outputFormat string
@@ -35,7 +38,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -67,6 +70,7 @@ func testCommandExecute(
 	failOnly bool,
 	detailedResults bool,
 	requireTests bool,
+	removeColor bool,
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -113,6 +117,7 @@ func testCommandExecute(
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
+		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
@@ -130,7 +135,10 @@ func testCommandExecute(
 	var fullTable table.Table
 	for _, test := range tests {
 		if test.Err == nil {
-			deprecations.CheckTest(out, test.Path, test.Test)
+			if deprecations.CheckTest(out, test.Path, test.Test) {
+				return fmt.Errorf("test file %s uses a deprecated schema — please migrate to the latest format", test.Path)
+			}
+
 			// filter results
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
@@ -151,7 +159,7 @@ func testCommandExecute(
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath, removeColor); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			if err := printCheckResult(test.Test.Checks, *responses, rc, &resultsTable); err != nil {
@@ -189,7 +197,15 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured) (bool, string, string) {
+func checkResult(
+	test v1alpha1.TestResult,
+	fs billy.Filesystem,
+	resoucePath string,
+	response engineapi.EngineResponse,
+	rule engineapi.RuleResponse,
+	actualResource unstructured.Unstructured,
+	removeColor bool,
+) (bool, string, string) {
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
@@ -200,6 +216,10 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		if !equals {
 			dmp := diffmatchpatch.New()
 			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				diff = StripANSI(diff)
+			}
 			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
@@ -211,14 +231,18 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		if !equals {
 			dmp := diffmatchpatch.New()
 			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				diff = StripANSI(diff)
+			}
 			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
-		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
+		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
-	return true, result.Message, "Ok"
+	return true, result.Description, "Ok"
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
@@ -236,4 +260,9 @@ func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleRe
 		}
 	}
 	return matches
+}
+
+func StripANSI(text string) string {
+	// Replace all matches of the ANSI escape code pattern with an empty string
+	return ansiRegex.ReplaceAllString(text, "")
 }

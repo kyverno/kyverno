@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-something-1
+policies:
+- policy-1.yaml
+resources:
+- resources-1.yaml
+results:
+- kind: Deployment
+  policy: policy-1
+  resources:
+  - test-1
+  result: pass
+  rule: rule-1
+---
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-something-2
+policies:
+- policy-2.yaml
+resources:
+- resources-2.yaml
+results:
+- kind: Pod
+  policy: policy-2
+  resources:
+  - test-2
+  result: skip
+  rule: rule-2

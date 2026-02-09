@@ -4,17 +4,30 @@ kind: Test
 metadata:
   name: sync-delete-trigger
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:
     - apply:
         file: permissions.yaml
   - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-delete-trigger
+  - name: sleep
     try:
-    - create:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+    - sleep:
+        duration: 5s
   - name: create the source
     try:
     - apply:

@@ -1,0 +1,9 @@
+apiVersion: cloud.google.com/v1
+kind: ComputeClass
+metadata:
+  name: spot-compute-class
+spec:
+  priorities:
+    - spot: true
+    - spot: true
+    - spot: true

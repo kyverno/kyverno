@@ -8,19 +8,19 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -32,6 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +66,7 @@ type policyController struct {
 
 	pInformer    kyvernov1informers.ClusterPolicyInformer
 	npInformer   kyvernov1informers.PolicyInformer
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -80,7 +81,7 @@ type policyController struct {
 	npLister kyvernov1listers.PolicyLister
 
 	// gpolLister can list/get generating policy from the shared informer's store
-	gpolLister policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister policiesv1beta1listers.GeneratingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -116,7 +117,7 @@ func NewPolicyController(
 	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -210,14 +211,6 @@ func (pc *policyController) addPolicy(obj interface{}) {
 		if !pc.canBackgroundProcess(kpol) {
 			return
 		}
-	} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-		if gpol.Spec.GenerateExistingEnabled() {
-			logger.V(2).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
-			err := pc.handleGenerateExisting(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
-			}
-		}
 	}
 
 	logger.V(4).Info("queuing policy for background processing", "name", policy.GetName())
@@ -261,14 +254,6 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
 			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
 		}
-		// create UR to update/generate downstream resources
-		if newgpol.Spec.SynchronizationEnabled() {
-			logger.V(2).Info("creating UR for generating policy", "name", newgpol.GetName())
-			err := pc.createURForGeneratingPolicy(newgpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", newgpol.GetName(), err))
-			}
-		}
 	}
 
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
@@ -294,8 +279,8 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
 		}
 		p = engineapi.NewKyvernoPolicy(pol)
-	case *policiesv1alpha1.GeneratingPolicy:
-		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1alpha1.GeneratingPolicy)
+	case *policiesv1beta1.GeneratingPolicy:
+		gpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.GeneratingPolicy)
 		if gpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
 		} else {
@@ -338,23 +323,32 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, pc.worker, time.Second)
@@ -413,7 +407,9 @@ func (pc *policyController) syncPolicy(key string) error {
 	parts := strings.SplitN(key, "/", 2)
 	polType := parts[0]
 	polName := parts[1]
-	if polType == "kpol" {
+	var errs []error
+	switch polType {
+	case "kpol":
 		policy, err := pc.getPolicy(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -421,18 +417,42 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
-			err = pc.handleMutate(polName, policy)
-			if err != nil {
+			if err := pc.handleMutate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
+				errs = append(errs, err)
 			}
 
-			err = pc.handleGenerate(polName, policy)
-			if err != nil {
+			if err := pc.handleGenerate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
+				errs = append(errs, err)
+			}
+		}
+	case "gpol":
+		gpol, err := pc.gpolLister.Get(polName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		// create UR on policy events to update/generate downstream resources
+		if gpol.Spec.SynchronizationEnabled() {
+			logger.V(4).Info("creating UR on generating policy events", "name", gpol.GetName())
+			if err := pc.createURForGeneratingPolicy(gpol); err != nil {
+				logger.Error(err, "failed to create UR on generating policy events", "name", gpol.GetName())
+				errs = append(errs, err)
+			}
+		}
+		// generate resources for existing triggers
+		if gpol.Spec.GenerateExistingEnabled() {
+			logger.V(4).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
+			if err := pc.handleGenerateExisting(gpol); err != nil {
+				logger.Error(err, "failed to create UR for generating policy", "name", gpol.GetName())
+				errs = append(errs, err)
 			}
 		}
 	}
-	return nil
+	return multierr.Combine(errs...)
 }
 
 func (pc *policyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {

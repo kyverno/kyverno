@@ -11,6 +11,7 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -54,6 +55,8 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
 	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
+	// NamespacedValidatingPolicyWebhookName defines default webhook name for namespacedvalidatingpolicies
+	NamespacedValidatingPolicyWebhookName = "nvpol.validate.kyverno.svc"
 	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
 	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
 	// MutatingPolicyWebhookName defines default webhook name for mutatingpolicies
@@ -70,12 +73,6 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
-	// PolicyServicePath is the prefix path for policies execution
-	PolicyServicePath = "/policies"
-	// ValidatingPolicyServicePath is the sub path for validatingpolicies execution
-	ValidatingPolicyServicePath = "/vpol"
-	// ImageValidatingPolicyServicePath is the sub path for imageverificationpolicies execution
-	ImageValidatingPolicyServicePath = "/ivpol"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)
@@ -117,9 +114,13 @@ const (
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
+	maxContextSize                = "maxContextSize"
 )
 
 const UpdateRequestThreshold = 1000
+
+// DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
+const DefaultMaxContextSize int64 = 2 * 1024 * 1024
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
@@ -208,6 +209,8 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
+	GetMaxContextSize() int64
 }
 
 // configuration stores the configuration
@@ -226,6 +229,7 @@ type configuration struct {
 	mux                           sync.RWMutex
 	callbacks                     []func()
 	updateRequestThreshold        int64
+	maxContextSize                int64
 }
 
 type match struct {
@@ -284,11 +288,13 @@ func (cd *configuration) OnChanged(callback func()) {
 	cd.callbacks = append(cd.callbacks, callback)
 }
 
-func (c *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
-	if c.inclusions.matches(username, groups, roles, clusterroles) {
+func (cd *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	if cd.inclusions.matches(username, groups, roles, clusterroles) {
 		return false
 	}
-	return c.exclusions.matches(username, groups, roles, clusterroles)
+	return cd.exclusions.matches(username, groups, roles, clusterroles)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
@@ -358,6 +364,12 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.updateRequestThreshold
+}
+
+func (cd *configuration) GetMaxContextSize() int64 {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.maxContextSize
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
@@ -534,6 +546,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("enableDefaultRegistryMutation configured")
 		}
 	}
+	// load maxContextSize (supports Kubernetes quantity format: 100Mi, 2Gi, etc.)
+	cd.maxContextSize = DefaultMaxContextSize
+	if maxCtxSizeStr, ok := data[maxContextSize]; ok {
+		logger := logger.WithValues("maxContextSize", maxCtxSizeStr)
+		quantity, err := resource.ParseQuantity(maxCtxSizeStr)
+		if err != nil {
+			logger.Error(err, "maxContextSize is not a valid quantity (use formats like 100Mi, 2Gi, or plain bytes)")
+		} else {
+			cd.maxContextSize = quantity.Value()
+			logger.V(2).Info("maxContextSize configured", "bytes", cd.maxContextSize)
+		}
+	} else {
+		logger.V(2).Info("maxContextSize not set, using default", "default", DefaultMaxContextSize)
+	}
 }
 
 func (cd *configuration) unload() {
@@ -549,6 +575,7 @@ func (cd *configuration) unload() {
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
+	cd.maxContextSize = DefaultMaxContextSize
 	logger.V(2).Info("configuration unloaded")
 }
 

@@ -5,7 +5,7 @@ kind: Role
 metadata:
   name: {{ template "kyverno.cleanup-controller.roleName" . }}
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/policywebhooks
   - kyverno.io/ttlwebhooks
@@ -35,7 +35,7 @@ rules:
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - ''
     resources:
@@ -79,7 +79,7 @@ rules:
     resourceNames:
       - kyverno-cleanup-controller
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -110,7 +110,7 @@ rules:
       - list
       - watch
       {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-      {{- if not .Values.templating.enabled }}
+      {{- if not .Values.global.templating.enabled }}
       - patch
       - update
       {{- end }}

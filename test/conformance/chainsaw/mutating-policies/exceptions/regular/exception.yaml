@@ -1,0 +1,17 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: mpol-exceptions-regular
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-name
+  namespace: mpol-exceptions-regular
+spec:
+  policyRefs:
+    - name: add-deployment-labels
+      kind: MutatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"

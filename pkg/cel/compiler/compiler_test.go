@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	policiesv1alpgha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -399,24 +399,24 @@ func TestCompileVariables(t *testing.T) {
 func TestCompileMatchImageReference(t *testing.T) {
 	tests := []struct {
 		name      string
-		match     policiesv1alpgha1.MatchImageReference
+		match     v1beta1.MatchImageReference
 		wantMatch bool
 		wantErrs  field.ErrorList
 	}{{
 		name: "glob",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Glob: "ghcr.io/*",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: "true",
 		},
 		wantMatch: true,
 	}, {
 		name: "cel error",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: "bar()",
 		},
 		wantMatch: false,
@@ -428,7 +428,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name: "cel not bool",
-		match: policiesv1alpgha1.MatchImageReference{
+		match: v1beta1.MatchImageReference{
 			Expression: `"bar"`,
 		},
 		wantMatch: false,
@@ -440,12 +440,12 @@ func TestCompileMatchImageReference(t *testing.T) {
 		}},
 	}, {
 		name:      "unknown",
-		match:     policiesv1alpgha1.MatchImageReference{},
+		match:     v1beta1.MatchImageReference{},
 		wantMatch: false,
 		wantErrs: field.ErrorList{{
 			Type:     field.ErrorTypeInvalid,
 			Field:    "test",
-			BadValue: policiesv1alpgha1.MatchImageReference{},
+			BadValue: v1beta1.MatchImageReference{},
 			Detail:   "either glob or expression must be set",
 		}},
 	}}
@@ -463,7 +463,7 @@ func TestCompileMatchImageReference(t *testing.T) {
 func TestCompileMatchImageReferences(t *testing.T) {
 	tests := []struct {
 		name        string
-		matches     []policiesv1alpgha1.MatchImageReference
+		matches     []v1beta1.MatchImageReference
 		wantResults int
 		wantAllErrs field.ErrorList
 	}{{
@@ -472,17 +472,17 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 0,
 	}, {
 		name:        "empty",
-		matches:     []policiesv1alpgha1.MatchImageReference{},
+		matches:     []v1beta1.MatchImageReference{},
 		wantResults: 0,
 	}, {
 		name: "single",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}},
 		wantResults: 1,
 	}, {
 		name: "multiple",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `false`,
@@ -490,7 +490,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		wantResults: 2,
 	}, {
 		name: "with error",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `bar()`,
@@ -504,7 +504,7 @@ func TestCompileMatchImageReferences(t *testing.T) {
 		}},
 	}, {
 		name: "not bool",
-		matches: []policiesv1alpgha1.MatchImageReference{{
+		matches: []v1beta1.MatchImageReference{{
 			Expression: `true`,
 		}, {
 			Expression: `"bar"`,
@@ -531,16 +531,16 @@ func TestCompileMatchImageReferences(t *testing.T) {
 func TestCompileGenerations(t *testing.T) {
 	tests := []struct {
 		name        string
-		generations []policiesv1alpgha1.Generation
+		generations []v1beta1.Generation
 		wantProgs   int
 		wantErrs    field.ErrorList
 	}{{
 		name:        "empty",
-		generations: []policiesv1alpgha1.Generation{},
+		generations: []v1beta1.Generation{},
 		wantProgs:   0,
 	}, {
 		name: "valid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []v1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -559,7 +559,7 @@ generator.Apply(
 		wantProgs: 1,
 	}, {
 		name: "multiple",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []v1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -593,7 +593,7 @@ generator.Apply(
 		wantProgs: 2,
 	}, {
 		name: "invalid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []v1beta1.Generation{{
 			Expression: `
 generator.ApplyAll(
 	"default",
@@ -631,7 +631,7 @@ generator.ApplyAll(
 		}},
 	}, {
 		name: "multiple invalid",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []v1beta1.Generation{{
 			Expression: `
 generator.Apply(
 	"default",
@@ -682,7 +682,7 @@ generator.Apply(
 		}},
 	}, {
 		name: "bad type",
-		generations: []policiesv1alpgha1.Generation{{
+		generations: []v1beta1.Generation{{
 			Expression: `"foo"`,
 		}},
 		wantProgs: 0,
@@ -690,7 +690,7 @@ generator.Apply(
 			Type:     field.ErrorTypeInvalid,
 			Field:    "[0].expression",
 			BadValue: `"foo"`,
-			Detail:   "output is expected to be of type null_type",
+			Detail:   "output is expected to be of type bool",
 		}},
 	}}
 	for _, tt := range tests {
@@ -699,7 +699,7 @@ generator.Apply(
 			assert.NoError(t, err)
 			env, err := base.Extend(
 				cel.Variable(GeneratorKey, generator.ContextType),
-				generator.Lib(),
+				generator.Lib(nil),
 			)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)

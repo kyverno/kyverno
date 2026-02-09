@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matched-cm-1
+  namespace: staging
+  labels:
+    color: red
+data:
+  player_initial_lives: "3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matched-cm-2
+  namespace: production
+  labels:
+    color: red
+data:
+  player_initial_lives: "3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unmatched-cm
+  namespace: testing
+  labels:
+    color: blue
+data:
+  player_initial_lives: "3"

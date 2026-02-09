@@ -55,9 +55,6 @@ type GenerateController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
-
-	reportsConfig  reportutils.ReportingConfiguration
-	reportsBreaker breaker.Breaker
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -74,24 +71,20 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		urLister:       urLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsConfig:  reportsConfig,
-		reportsBreaker: reportsBreaker,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		urLister:      urLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
+		jp:            jp,
 	}
 	return &c
 }
@@ -122,9 +115,14 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
-			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-			c.eventGen.Add(events...)
+			// Only create policy-referenced event if policy is non-nil to avoid nil pointer panic
+			if policy != nil {
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+				c.eventGen.Add(events...)
+			} else {
+				logger.Error(err, "failed to process rule for deleted policy", "rule", rule.Rule, "policy", ur.Spec.GetPolicyKey())
+			}
 		}
 	}
 
@@ -198,7 +196,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		}
 	}
 
-	if c.needsReports(trigger) {
+	if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
@@ -214,7 +212,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		c.eventGen.Add(e)
 	}
 
-	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, policy, genResources)
+	e := event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineapi.NewKyvernoPolicy(policy), genResources)
 	c.eventGen.Add(e...)
 
 	return genResources, err
@@ -301,6 +299,11 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.V(2).Info("warning: reason", err.Error())
+				return nil, nil
+			}
+
 			log.Error(err, "failed to apply generate rule")
 			return nil, err
 		}
@@ -335,7 +338,7 @@ func (c *GenerateController) GetUnstrResources(genResourceSpecs []kyvernov1.Reso
 }
 
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.GenerateReportsEnabled()
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
@@ -351,8 +354,8 @@ func (c *GenerateController) createReports(
 ) error {
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, c.kyvernoClient)
 			return err
 		})
 		if err != nil {

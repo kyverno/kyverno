@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -110,7 +110,7 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 }`,
 			expected: `Object{spec: Object.spec{template: Object.spec.template{
   metadata: Object.metadata{
-    labels: Object.metadata.labels{
+    labels: Object.spec.template.metadata.labels{
       foo: "bar"
     }
   }
@@ -129,18 +129,18 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 func TestGenerateRuleForControllers(t *testing.T) {
 	tests := []struct {
 		name          string
-		spec          *policiesv1alpha1.MutatingPolicySpec
+		spec          *policiesv1beta1.MutatingPolicySpec
 		configs       sets.Set[string]
 		expectedRules int
 		expectedError bool
 	}{
 		{
 			name: "deployment autogen with mutation",
-			spec: &policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -174,11 +174,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		},
 		{
 			name: "cronjob autogen with mutation",
-			spec: &policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -212,11 +212,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		},
 		{
 			name: "multiple controllers autogen",
-			spec: &policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -250,11 +250,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		},
 		{
 			name: "policy without mutations",
-			spec: &policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -267,6 +267,94 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 			},
 			configs:       sets.New("deployments"),
+			expectedRules: 1,
+			expectedError: false,
+		},
+		{
+			name: "deployment with match conditions - metadata.annotations",
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "check-annotations",
+						Expression: "has(object.metadata.annotations) && ('inject-certs' in object.metadata.annotations && object.metadata.annotations['inject-certs'] == 'enabled')",
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
+  spec: Object.spec{
+    containers: object.spec.containers.map(container, Object.spec.containers{
+      name: container.name,
+      securityContext: Object.spec.containers.securityContext{
+        allowPrivilegeEscalation: false
+      }
+    })
+  }
+}`,
+						},
+					},
+				},
+			},
+			configs:       sets.New("deployments"),
+			expectedRules: 1,
+			expectedError: false,
+		},
+		{
+			name: "cronjob with match conditions - metadata.labels",
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "check-labels",
+						Expression: "has(object.metadata.labels) && object.metadata.labels['app'] == 'myapp'",
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{
+  spec: Object.spec{
+    containers: [Object.spec.containers{
+      name: "app",
+      securityContext: Object.spec.containers.securityContext{
+        allowPrivilegeEscalation: false
+      }
+    }]
+  }
+}`,
+						},
+					},
+				},
+			},
+			configs:       sets.New("cronjobs"),
 			expectedRules: 1,
 			expectedError: false,
 		},
@@ -311,12 +399,12 @@ func TestGenerateRuleForControllers(t *testing.T) {
 
 func TestAutogenIntegration(t *testing.T) {
 	t.Run("deployments", func(t *testing.T) {
-		policy := &policiesv1alpha1.MutatingPolicy{
-			Spec: policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+		policy := &policiesv1beta1.MutatingPolicy{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -346,8 +434,8 @@ func TestAutogenIntegration(t *testing.T) {
 			},
 		}
 
-		policy.Spec.AutogenConfiguration = &policiesv1alpha1.MutatingPolicyAutogenConfiguration{
-			PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
 				Controllers: []string{"deployments"},
 			},
 		}
@@ -372,12 +460,12 @@ func TestAutogenIntegration(t *testing.T) {
 	})
 
 	t.Run("cronjobs", func(t *testing.T) {
-		policy := &policiesv1alpha1.MutatingPolicy{
-			Spec: policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{
+		policy := &policiesv1beta1.MutatingPolicy{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
-							RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{""},
 									APIVersions: []string{"v1"},
@@ -407,8 +495,8 @@ func TestAutogenIntegration(t *testing.T) {
 			},
 		}
 
-		policy.Spec.AutogenConfiguration = &policiesv1alpha1.MutatingPolicyAutogenConfiguration{
-			PodControllers: &policiesv1alpha1.PodControllersGenerationConfiguration{
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
 				Controllers: []string{"cronjobs"},
 			},
 		}
@@ -431,6 +519,37 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.Contains(t, convertedExpr, "jobTemplate.spec.template.spec.containers")
 		assert.NotContains(t, convertedExpr, "object.spec.containers")
 	})
+
+	t.Run("nil-policy", func(t *testing.T) {
+		result, err := Autogen(nil)
+		require.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("non-autogenable match constraints", func(t *testing.T) {
+		pol := &policiesv1beta1.MutatingPolicy{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"custom.group.io"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"customresources"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Connect},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := Autogen(pol)
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
 }
 
 func TestMutationConversionEdgeCases(t *testing.T) {
@@ -450,7 +569,7 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			name:     "expression without containers",
 			config:   "deployments",
 			input:    "Object{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}",
-			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}}}",
+			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
 		},
 		{
 			name:   "complex nested expression",

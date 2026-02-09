@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5" // #nosec G501
 	"crypto/rand"
 	"crypto/rsa"
@@ -1287,12 +1288,12 @@ func jpIsExternalURL(arguments []any) (any, error) {
 		return !(ip.IsLoopback() || ip.IsPrivate()), nil
 	}
 	// If it can't be parsed as an IP, then resolve the domain name
-	ips, err := net.LookupIP(parsedURL.Hostname())
+	addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), parsedURL.Hostname())
 	if err != nil {
 		return nil, err
 	}
-	for _, ip := range ips {
-		if ip.IsLoopback() || ip.IsPrivate() {
+	for _, addr := range addrs {
+		if addr.IP.IsLoopback() || addr.IP.IsPrivate() {
 			return false, nil
 		}
 	}

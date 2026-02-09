@@ -1,5 +1,5 @@
 {{- if .Values.webhooksCleanup.enabled -}}
-{{- if not .Values.templating.enabled -}}
+{{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
@@ -11,7 +11,8 @@ metadata:
   annotations:
     helm.sh/hook: pre-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    helm.sh/hook-weight: "100"
+    {{/* Make sure this runs before other pre-delete jobs that removes webhooksconfiguration*/}}
+    helm.sh/hook-weight: "90"
 spec:
   backoffLimit: 2
   template:
@@ -43,14 +44,14 @@ spec:
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
-            - /bin/bash
-            - '-c'
-            - |-
-              set -euo pipefail
-              kubectl scale -n {{ template "kyverno.namespace" . }} deployment -l app.kubernetes.io/part-of={{ template "kyverno.fullname" . }} --replicas=0
-              sleep 30
-              kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
-              kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+            - kubectl
+            - scale
+            - -n
+            - {{ template "kyverno.namespace" . }}
+            - deployment
+            - -l
+            - app.kubernetes.io/part-of={{ template "kyverno.fullname" . }}
+            - --replicas=0
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}

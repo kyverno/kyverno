@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-data-indexed-resource-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-data-indexed-resource-2
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foreach-data-indexed-resource-3

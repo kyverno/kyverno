@@ -1,21 +1,28 @@
 package http
 
 import (
-	"net/http"
 	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.http"
 
-type lib struct{}
+type lib struct {
+	version *version.Version
+}
 
-func Lib() cel.EnvOption {
+func Latest() *version.Version {
+	return versions.HttpVersion
+}
+
+func Lib(v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return cel.Lib(&lib{version: v})
 }
 
 func (*lib) LibraryName() string {
@@ -24,7 +31,7 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[http.Request]()),
+		ext.NativeTypes(reflect.TypeFor[struct{}]()), // register an empty struct type since the library depends on the ext native types provider to resolve the context type
 		c.extendEnv,
 	}
 }
@@ -34,7 +41,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}

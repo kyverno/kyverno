@@ -6,6 +6,8 @@ Create a Kyverno policy exception file.
 
 Create a Kyverno policy exception file.
 
+  For more information visit https://kyverno.io/docs/kyverno-cli/#create
+
 ```
 kyverno create exception [name] [flags]
 ```

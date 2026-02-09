@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-dockerhub
+  namespace: isolated-ns
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest

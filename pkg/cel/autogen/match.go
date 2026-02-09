@@ -7,13 +7,13 @@ import (
 	"slices"
 	"strings"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func CreateMatchConstraints(targets []policiesv1alpha1.Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
 	if len(targets) == 0 {
 		return nil
 	}
@@ -58,7 +58,7 @@ func CreateMatchConstraints(targets []policiesv1alpha1.Target, operations []admi
 	}
 }
 
-func CreateMatchConditions(config string, targets []policiesv1alpha1.Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+func CreateMatchConditions(config string, targets []policiesv1beta1.Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
 	if len(targets) == 0 {
 		return nil
 	}

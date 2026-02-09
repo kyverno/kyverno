@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: foreach-clone-sync-create
+  namespace: default
+type: Opaque

@@ -6,15 +6,23 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/versions"
+	"k8s.io/apimachinery/pkg/util/version"
 )
 
 const libraryName = "kyverno.generator"
 
-type lib struct{}
+type lib struct {
+	version *version.Version
+}
 
-func Lib() cel.EnvOption {
+func Lib(v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{})
+	return cel.Lib(&lib{version: v})
+}
+
+func Latest() *version.Version {
+	return versions.GeneratorVersion
 }
 
 func (*lib) LibraryName() string {
@@ -33,7 +41,6 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	// create implementation, recording the envoy types aware adapter
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
@@ -43,7 +50,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 			cel.MemberOverload(
 				"generator_apply_string_list",
 				[]*cel.Type{ContextType, types.StringType, types.NewListType(types.NewMapType(types.StringType, types.AnyType))},
-				types.NullType,
+				types.BoolType,
 				cel.FunctionBinding(impl.apply_generator_string_list),
 			),
 		},

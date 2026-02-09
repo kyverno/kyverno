@@ -5,26 +5,29 @@ import (
 	"errors"
 	"time"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type maps struct {
-	pol   map[string]policyMapEntry
-	vap   sets.Set[string]
-	vpol  sets.Set[string]
-	ivpol sets.Set[string]
-	gpol  sets.Set[string]
-	mpol  sets.Set[string]
+	pol    map[string]policyMapEntry
+	vap    sets.Set[string]
+	mappol sets.Set[string]
+	vpol   sets.Set[string]
+	nvpol  sets.Set[string]
+	ivpol  sets.Set[string]
+	gpol   sets.Set[string]
+	mpol   sets.Set[string]
 }
 
-func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
+func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
 			continue
@@ -67,6 +70,15 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
+			case reportutils.SourceMutatingAdmissionPolicy:
+				if maps.mappol != nil && maps.mappol.Has(result.Policy) {
+					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
+					}
+				}
 			case reportutils.SourceMutatingPolicy:
 				if maps.mpol != nil && maps.mpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
@@ -91,18 +103,18 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 	}
 }
 
-func deleteReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface) error {
+func deleteReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) error {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return errors.New("can't delete report because it is not managed by kyverno")
 	}
-	return reportutils.DeleteReport(ctx, report, client)
+	return reportutils.DeleteReport(ctx, report, client, orClient)
 }
 
-func updateReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface) (reportsv1.ReportInterface, error) {
+func updateReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) (reportsv1.ReportInterface, error) {
 	if !controllerutils.IsManagedByKyverno(report) {
 		return nil, errors.New("can't update report because it is not managed by kyverno")
 	}
-	return reportutils.UpdateReport(ctx, report, client)
+	return reportutils.UpdateReport(ctx, report, client, orClient)
 }
 
 func isTooOld(reportMeta *metav1.PartialObjectMetadata) bool {

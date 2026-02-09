@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -19,7 +20,7 @@ func Test_impl_get_string(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -38,7 +39,7 @@ func Test_impl_get_string(t *testing.T) {
 	}{{
 		name:          "global context entry not found",
 		gctxStoreData: map[string]store.Entry{},
-		expectedError: "global context entry not found",
+		expectedValue: structpb.NullValue(0),
 	}, {
 		name: "global context entry returns error",
 		gctxStoreData: map[string]store.Entry{
@@ -66,7 +67,7 @@ func Test_impl_get_string(t *testing.T) {
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {
-							return nil, errors.New("global context entry not found")
+							return nil, nil
 						}
 						return ent.Get(path)
 					},
@@ -101,7 +102,7 @@ func Test_impl_get_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -120,7 +121,7 @@ func Test_impl_get_string_string(t *testing.T) {
 	}{{
 		name:          "global context entry not found",
 		gctxStoreData: map[string]store.Entry{},
-		expectedError: "global context entry not found",
+		expectedValue: structpb.NullValue(0),
 	}, {
 		name: "global context entry returns error",
 		gctxStoreData: map[string]store.Entry{
@@ -148,7 +149,7 @@ func Test_impl_get_string_string(t *testing.T) {
 					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
 						ent, ok := mockStore.Get(name)
 						if !ok {
-							return nil, errors.New("global context entry not found")
+							return nil, nil
 						}
 						return ent.Get(path)
 					},
@@ -183,7 +184,7 @@ func Test_impl_get_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -216,7 +217,7 @@ func Test_impl_get_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)

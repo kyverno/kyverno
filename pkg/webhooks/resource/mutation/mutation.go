@@ -45,8 +45,6 @@ func NewMutationHandler(
 	nsLister corev1listers.NamespaceLister,
 	metrics metrics.MetricsConfigManager,
 	admissionReports bool,
-	reportsConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
 ) MutationHandler {
 	return &mutationHandler{
 		log:              log,
@@ -56,8 +54,6 @@ func NewMutationHandler(
 		nsLister:         nsLister,
 		metrics:          metrics,
 		admissionReports: admissionReports,
-		reportsConfig:    reportsConfig,
-		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -69,8 +65,6 @@ type mutationHandler struct {
 	nsLister         corev1listers.NamespaceLister
 	metrics          metrics.MetricsConfigManager
 	admissionReports bool
-	reportsConfig    reportutils.ReportingConfiguration
-	reportsBreaker   breaker.Breaker
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -156,16 +150,16 @@ func (v *mutationHandler) applyMutations(
 		}
 	}
 
-	events := webhookutils.GenerateEvents(engineResponses, false, cfg)
+	events := webhookutils.GenerateEvents(engineResponses, false)
 	v.eventGen.Add(events...)
 
-	go func() {
-		if v.needsReports(request, v.admissionReports) {
+	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
+		go func() {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
-		}
-	}()
+		}()
+	}
 
 	logMutationResponse(patches, engineResponses, v.log)
 
@@ -207,8 +201,8 @@ func (h *mutationHandler) createReports(
 ) error {
 	report := reportutils.BuildMutationReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient)
+		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateEphemeralReport(ctx, report, h.kyvernoClient)
 			return err
 		})
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -305,34 +306,36 @@ func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
 }
 
 func FormatChecksPrint(checks []pssutils.PSSCheckResult) string {
-	var str string
+	var b strings.Builder
 	for _, check := range checks {
-		str += fmt.Sprintf("(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason)
-		for idx, err := range *check.CheckResult.ErrList {
-			badValueExist := true
-			switch err.BadValue.(type) {
-			case string:
-				badValue := err.BadValue.(string)
-				if badValue == "" {
-					badValueExist = false
+		b.WriteString(fmt.Sprintf("(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason))
+		if check.CheckResult.ErrList != nil {
+			for idx, err := range *check.CheckResult.ErrList {
+				badValueExist := true
+				switch err.BadValue.(type) {
+				case string:
+					badValue := err.BadValue.(string)
+					if badValue == "" {
+						badValueExist = false
+					}
+				default:
 				}
-			default:
-			}
-			switch err.Type {
-			case field.ErrorTypeForbidden:
-				if badValueExist {
-					str += fmt.Sprintf("%s is forbidden, forbidden values found: %+v", err.Field, err.BadValue)
-				} else {
-					str += err.Error()
+				switch err.Type {
+				case field.ErrorTypeForbidden:
+					if badValueExist {
+						b.WriteString(fmt.Sprintf("%s is forbidden, forbidden values found: %+v", err.Field, err.BadValue))
+					} else {
+						b.WriteString(err.Error())
+					}
+				default:
+					b.WriteString(err.Error())
 				}
-			default:
-				str += err.Error()
-			}
-			if idx != len(*check.CheckResult.ErrList)-1 {
-				str += ", "
+				if idx != len(*check.CheckResult.ErrList)-1 {
+					b.WriteString(", ")
+				}
 			}
 		}
-		str += "])"
+		b.WriteString("])")
 	}
-	return str
+	return b.String()
 }

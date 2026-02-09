@@ -5,16 +5,15 @@ metadata:
     app.kubernetes.io/managed-by: kyverno
   name: vpol-check-deployment-labels
   ownerReferences:
-  - apiVersion: policies.kyverno.io/v1alpha1
+  - apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     name: check-deployment-labels
 spec:
   failurePolicy: Fail
-  matchConditions:
+  (matchConditions[?name == 'check-name']):
   - expression: '!(object.metadata.name == ''skipped-deployment'')'
-    name: check-name
+  (matchConditions[?name == 'check-namespace']):
   - expression: '!(namespaceObject.metadata.name == ''testing-ns'')'
-    name: check-namespace
   matchConstraints:
     resourceRules:
     - apiGroups:
