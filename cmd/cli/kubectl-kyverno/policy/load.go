@@ -342,6 +342,7 @@ func gitLoad(loader loader, fs billy.Filesystem, path string) (*LoaderResults, e
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
