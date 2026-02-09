@@ -93,29 +93,33 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}
 	}()
 
-	go func() {
-		mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
-		for _, p := range mpols {
-			logger.V(4).Info("creating a UR for mpol", "name", p)
-			if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
-				Type:   kyvernov2.CELMutate,
-				Policy: p,
-				Context: kyvernov2.UpdateRequestSpecContext{
-					UserRequestInfo: kyvernov2.RequestInfo{
-						Roles:             admissionRequest.Roles,
-						ClusterRoles:      admissionRequest.ClusterRoles,
-						AdmissionUserInfo: *admissionRequest.UserInfo.DeepCopy(),
+	// Skip mutate-existing UpdateRequest creation for dry-run requests
+	// to honor the SideEffects: NoneOnDryRun contract.
+	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		go func() {
+			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
+			for _, p := range mpols {
+				logger.V(4).Info("creating a UR for mpol", "name", p)
+				if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
+					Type:   kyvernov2.CELMutate,
+					Policy: p,
+					Context: kyvernov2.UpdateRequestSpecContext{
+						UserRequestInfo: kyvernov2.RequestInfo{
+							Roles:             admissionRequest.Roles,
+							ClusterRoles:      admissionRequest.ClusterRoles,
+							AdmissionUserInfo: *admissionRequest.UserInfo.DeepCopy(),
+						},
+						AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+							AdmissionRequest: &admissionRequest.AdmissionRequest,
+							Operation:        admissionRequest.Operation,
+						},
 					},
-					AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
-						AdmissionRequest: &admissionRequest.AdmissionRequest,
-						Operation:        admissionRequest.Operation,
-					},
-				},
-			}); err != nil {
-				logger.Error(err, "failed to create update request for mutate existing policy", "policy", p)
+				}); err != nil {
+					logger.Error(err, "failed to create update request for mutate existing policy", "policy", p)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	resp, err := h.admissionResponse(request, response)
 	if err != nil {
