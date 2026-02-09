@@ -17,7 +17,7 @@ import (
 // - "namespace/secret-name" -> namespace=namespace, name=secret-name
 func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
 	parts := strings.SplitN(secretRef, "/", 2)
-	if len(parts) == 2 {
+	if !strings.HasPrefix(secretRef, "/") && len(parts) == 2 {
 		return parts[0], parts[1]
 	}
 	return defaultNamespace, secretRef
