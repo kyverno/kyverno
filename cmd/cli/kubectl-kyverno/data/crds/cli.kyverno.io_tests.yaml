@@ -61,6 +61,12 @@ spec:
               - error
               type: object
             type: array
+          clusterResources:
+            description: ClusterResources are the cluster resources to be used in
+              the test
+            items:
+              type: string
+            type: array
           context:
             description: Context file containing context data for CEL policies
             type: string

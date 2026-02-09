@@ -46,8 +46,6 @@ type mutateExistingController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
-
-	reportsConfig reportutils.ReportingConfiguration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -63,7 +61,6 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	reportsConfig reportutils.ReportingConfiguration,
 ) *mutateExistingController {
 	c := mutateExistingController{
 		client:        client,
@@ -77,7 +74,6 @@ func NewMutateExistingController(
 		eventGen:      eventGen,
 		log:           log,
 		jp:            jp,
-		reportsConfig: reportsConfig,
 	}
 	return &c
 }
@@ -262,7 +258,7 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 }
 
 func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.MutateExistingReportsEnabled()
+	createReport := reportutils.ReportingCfg.MutateExistingReportsEnabled()
 	if trigger == nil {
 		return createReport
 	}

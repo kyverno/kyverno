@@ -188,6 +188,11 @@ spec:
             {{- if not .Values.admissionController.metering.disabled }}
             - --otelConfig={{ .Values.admissionController.metering.config }}
             - --metricsPort={{ .Values.admissionController.metering.port }}
+            {{- if .Values.admissionController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.admission-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.admissionController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.admissionController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -301,6 +306,9 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
             {{- end }}
+            {{- with .Values.admissionController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
@@ -336,5 +344,8 @@ spec:
                     fieldRef:
                       apiVersion: v1
                       fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.admissionController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}

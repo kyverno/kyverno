@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -298,7 +297,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().NamespacedImageValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		reportsServiceAccountName,
 		stateRecorder,
 	)
@@ -628,7 +627,8 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
@@ -641,7 +641,7 @@ func main() {
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()
@@ -686,10 +686,6 @@ func main() {
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
-			if err := policiesv1alpha1.Install(scheme); err != nil {
-				setup.Logger.Error(err, "failed to initialize scheme")
-				os.Exit(1)
-			}
 			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
@@ -766,7 +762,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(""),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
@@ -804,23 +800,23 @@ func main() {
 							time.Sleep(2 * time.Second)
 							continue
 						}
-						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+						breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 						return
 					}
 				}()
 				// create a temporary fake breaker until the retrying goroutine succeeds
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
-				})
+				}))
 				// no error has occurred, create a normal breaker
 			} else {
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 			}
 			// admission reports are disabled, create a fake breaker by default
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 				return true
-			})
+			}))
 		}
 
 		resourceHandlers := webhooksresource.NewHandlers(
@@ -842,14 +838,12 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
-			setup.ReportingConfiguration,
 		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		ivpolHandlers := ivpol.New(
@@ -857,7 +851,6 @@ func main() {
 			contextProvider,
 			setup.KyvernoClient,
 			admissionReports,
-			setup.ReportingConfiguration,
 			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())

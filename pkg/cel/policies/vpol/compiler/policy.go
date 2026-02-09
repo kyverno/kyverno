@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -43,7 +44,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1beta1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
