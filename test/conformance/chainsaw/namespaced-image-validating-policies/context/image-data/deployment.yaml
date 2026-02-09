@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy
+  labels:
+    prod: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+        prod: "true"
+    spec:
+      containers:
+      - name: nginx
+        image: ghcr.io/kyverno/test-verify-image:latest

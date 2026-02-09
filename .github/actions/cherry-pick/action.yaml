@@ -42,7 +42,6 @@ runs:
       run: gh auth setup-git
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-
     - name: Create cherry-pick PRs
       id: cherry-pick
       shell: bash
@@ -60,7 +59,8 @@ runs:
           git fetch --prune origin $target_branch
           git checkout -B ${pr_branch_name} origin/$target_branch
         
-          if git cherry-pick -m 1 ${{ inputs.merge-commit }}; then
+
+          if git cherry-pick -s -m 1 ${{ inputs.merge-commit }}; then
             git push --force-with-lease origin ${pr_branch_name}
         
             if gh pr list --base "$target_branch" --head "$pr_branch_name" --state open --json number --jq '.[0].number' | grep -q .; then
@@ -74,7 +74,7 @@ runs:
             fi
           else
             echo "❌ Error while cherry picking into ${target_branch}"
-            git_logs+=$(git cherry-pick -m 1 ${{ inputs.merge-commit }} 2>&1)
+            git_logs+=$(git cherry-pick -s -m 1 ${{ inputs.merge-commit }} 2>&1)
             git cherry-pick --abort
             success=false
             continue

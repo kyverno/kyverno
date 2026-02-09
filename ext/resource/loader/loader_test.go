@@ -90,9 +90,6 @@ func Test_loader_Load(t *testing.T) {
 		require.NoError(t, err)
 		var result unstructured.Unstructured
 		require.NoError(t, result.UnmarshalJSON(json))
-		if result.GetCreationTimestamp().Time.IsZero() {
-			require.NoError(t, unstructured.SetNestedField(result.UnstructuredContent(), nil, "metadata", "creationTimestamp"))
-		}
 		return result
 	}
 	tests := []struct {

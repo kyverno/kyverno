@@ -6,9 +6,10 @@ import (
 	"reflect"
 	"time"
 
+	cel "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -22,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	admission "k8s.io/apiserver/pkg/admission"
-	cel "k8s.io/apiserver/pkg/admission/plugin/cel"
+	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
@@ -170,7 +171,7 @@ func (p *Policy) Evaluate(
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
 			ObjectInterfaces:    o,
-			OptionalVariables:   cel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
+			OptionalVariables:   plugincel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
 			Namespace:           namespace,
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
@@ -187,9 +188,9 @@ func (p *Policy) Evaluate(
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
 
-func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1alpha1.PolicyException, error) {
+func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1beta1.PolicyException, error) {
 	var errs []error
-	matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+	matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
@@ -240,4 +241,16 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 		}
 	}
 	return matchedExceptions, multierr.Combine(errs...)
+}
+
+func (p *Policy) GetCompiledVariables() map[string]cel.Program {
+	allvars := p.evaluator.CompositionEnv.CompiledVariables
+	varsMap := make(map[string]cel.Program, len(allvars))
+	for variableName, compiledVariable := range allvars {
+		if compiledVariable.Error != nil {
+			continue
+		}
+		varsMap[variableName] = compiledVariable.Program
+	}
+	return varsMap
 }

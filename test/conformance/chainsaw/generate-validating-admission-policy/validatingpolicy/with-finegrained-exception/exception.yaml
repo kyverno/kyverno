@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: allow-specific-values
+spec:
+  policyRefs:
+    - name: allow-specific-values
+      kind: ValidatingPolicy
+  # list of image names to exclude
+  images:
+  - busybox:latest
+  - nginx:latest
+  # list of values to allow
+  allowedValues:
+  - FOO
+  - BAR

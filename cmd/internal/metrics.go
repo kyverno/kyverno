@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -16,12 +17,13 @@ import (
 func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsAddr := ":" + metricsPort
+	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
+	// in case of otel collector being GRPC the metrics Host is the target address instead of the listening address
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		ctx,
 		disableMetricsExport,
 		otel,
-		metricsAddr,
+		metricsPort,
 		otelCollector,
 		metricsConfiguration,
 		transportCreds,

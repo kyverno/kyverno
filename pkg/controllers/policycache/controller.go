@@ -74,15 +74,16 @@ func (c *controller) WarmUp() error {
 		return err
 	}
 	for _, policy := range pols {
-		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
+		key, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
 			return err
-		} else {
-			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
-			} else {
-				c.cache.Unset(key)
-				return nil
+		}
+		if policy.IsReady() {
+			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
+				return err
 			}
+		} else {
+			c.cache.Unset(key)
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -90,15 +91,16 @@ func (c *controller) WarmUp() error {
 		return err
 	}
 	for _, policy := range cpols {
-		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
+		key, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
 			return err
-		} else {
-			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
-			} else {
-				c.cache.Unset(key)
-				return nil
+		}
+		if policy.IsReady() {
+			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
+				return err
 			}
+		} else {
+			c.cache.Unset(key)
 		}
 	}
 	return nil

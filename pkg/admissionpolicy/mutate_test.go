@@ -8,7 +8,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/assert"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -563,7 +563,7 @@ func Test_MutateResource(t *testing.T) {
 			expectedResource, err := kubeutils.BytesToUnstructured(tt.expectedRawResource)
 			assert.NilError(t, err)
 
-			var policy admissionregistrationv1alpha1.MutatingAdmissionPolicy
+			var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 			err = json.Unmarshal(tt.rawPolicy, &policy)
 			assert.NilError(t, err)
 
@@ -580,7 +580,7 @@ func Test_MutateResource(t *testing.T) {
 
 			gvr := mapping.Resource
 			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, false)
+			response, err := mutateResource(&policy, nil, *resource, nil, gvr, nil, a, false)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, expectedResource.Object, response.PatchedResource.Object)
@@ -726,7 +726,7 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var policy admissionregistrationv1alpha1.MutatingAdmissionPolicy
+			var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 			err := json.Unmarshal(tt.rawPolicy, &policy)
 			assert.NilError(t, err)
 
@@ -743,11 +743,62 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 
 			gvr := mapping.Resource
 			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			response, err := mutateResource(&policy, nil, *resource, gvr, nil, a, true)
+			response, err := mutateResource(&policy, nil, *resource, nil, gvr, nil, a, true)
 			assert.NilError(t, err)
 
 			assert.Equal(t, len(response.PolicyResponse.Rules), 1)
 			assert.Equal(t, response.PolicyResponse.Rules[0].Status(), tt.result)
 		})
 	}
+}
+
+func Test_MutateResourceNilMatchConstraints(t *testing.T) {
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "mutate-policy"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "object"
+                }
+            }
+        ]
+    }
+}`)
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "game-demo",
+        "namespace": "default"
+    },
+    "data": {
+        "player_initial_lives": "3"
+    }
+}`)
+
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	restMapper, err := utils.GetRESTMapper(nil, false)
+	assert.NilError(t, err)
+
+	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	assert.NilError(t, err)
+
+	gvr := mapping.Resource
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	_, err = mutateResource(&policy, nil, *resource, nil, gvr, nil, a, false)
+	assert.NilError(t, err)
 }

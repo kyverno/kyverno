@@ -5,6 +5,7 @@ metadata:
   creationTimestamp: null
   name: check-subjectaccessreview
 spec:
+  concurrent: false
   steps:
   - name: create user
     try:
