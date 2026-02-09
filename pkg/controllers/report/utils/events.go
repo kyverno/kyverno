@@ -11,7 +11,7 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 	for _, result := range results {
 		var eventInfos []event.Info
 		eventInfos = append(eventInfos, generateFailEvents(logger, result)...)
-		eventInfos = append(eventInfos, generateExceptionEvents(logger, result)...)
+		eventInfos = append(eventInfos, generateExceptionEvents(result)...)
 		if config.GetGenerateSuccessEvents() {
 			eventInfos = append(eventInfos, generateSuccessEvents(logger, result)...)
 		}
@@ -31,7 +31,7 @@ func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (ev
 	return eventInfos
 }
 
-func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateExceptionEvents(ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		for _, ruleResp := range er.PolicyResponse.Rules {
 			if ruleResp.Status() == engineapi.RuleStatusSkip && ruleResp.IsException() {
