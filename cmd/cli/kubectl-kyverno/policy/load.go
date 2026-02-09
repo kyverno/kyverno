@@ -327,7 +327,7 @@ func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: HTTP %s", path, resp.Status)
 	}
 	fileBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
