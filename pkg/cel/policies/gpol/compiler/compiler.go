@@ -7,15 +7,23 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs/json"
+	"github.com/kyverno/kyverno/pkg/cel/libs/math"
+	"github.com/kyverno/kyverno/pkg/cel/libs/random"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
+	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -23,12 +31,12 @@ import (
 )
 
 var (
-	gpolCompilerVersion = version.MajorMinor(1, 0)
+	gpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + " error: %s"
 )
 
 type Compiler interface {
-	Compile(policy policiesv1alpha1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -54,7 +62,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 	)
 
-	base := environment.MustBaseEnvSet(gpolCompilerVersion, false)
+	base := environment.MustBaseEnvSet(gpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
@@ -101,6 +109,32 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 				imagedata.Lib(
 					imagedata.Latest(),
 				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
+				),
 			},
 		},
 	)
@@ -110,7 +144,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 	return extendedBase, variablesProvider, nil
 }
 
-func (c *compilerImpl) Compile(policy policiesv1alpha1.GeneratingPolicyLike, exceptions []*policiesv1alpha1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
 	if err != nil {

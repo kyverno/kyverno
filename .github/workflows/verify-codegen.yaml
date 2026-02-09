@@ -9,25 +9,101 @@ on:
     branches:
     - main
     - release-*
-
+  merge_group:
+    types: [checks_requested]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify-codegen:
+  verify-codegen-code:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-    - name: Setup build env
-      uses: ./.github/actions/setup-build-env
-      timeout-minutes: 10
-    - name: Create cluster
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Setup Go
+      id: setup-go
+      uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+      with:
+        go-version-file: go.mod
+        cache: false
+    - name: Set cache variables
+      shell: bash
       run: |
         set -e
-        make kind-create-cluster
-    - name: Verify generated code is up to date
+        echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+        echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+        echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+    - name: Restore gomod cache
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ env.GO_MOD_CACHE }}
+        key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+    - name: Generate code
+      run:  |
+        set -e
+        make codegen-all-code
+    - name: Verify codegen is up to date
       run:  |
         set -e
         make verify-codegen
+
+  verify-codegen-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Setup Go
+      id: setup-go
+      uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+      with:
+        go-version-file: go.mod
+        cache: false
+    - name: Set cache variables
+      shell: bash
+      run: |
+        set -e
+        echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+        echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+        echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+    - name: Restore gomod cache
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ env.GO_MOD_CACHE }}
+        key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+          gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+    - name: Generate api docs
+      run:  |
+        set -e
+        make codegen-all-docs
+    - name: Verify codegen is up to date
+      run:  |
+        set -e
+        make verify-codegen
+
+  verify-codegen-success:
+    name: verify-codegen
+    needs:
+      - verify-codegen-code
+      - verify-codegen-docs
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+      - run: ${{ true }}
+
+  verify-codegen-failure:
+    name: verify-codegen
+    needs:
+      - verify-codegen-code
+      - verify-codegen-docs
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+      - run: ${{ false }}

@@ -53,6 +53,10 @@ func (w *metricWrapper) MatchedMutateExistingPolicies(ctx context.Context, reque
 	return w.inner.MatchedMutateExistingPolicies(ctx, request)
 }
 
+func (w *metricWrapper) GetCompiledPolicy(policyName string) (Policy, error) {
+	return w.inner.GetCompiledPolicy(policyName)
+}
+
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {
 	return &metricWrapper{
 		inner:              inner,

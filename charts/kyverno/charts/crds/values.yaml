@@ -31,6 +31,7 @@ groups:
     policyexceptions: true
     mutatingpolicies: true
     generatingpolicies: true
+    namespacedgeneratingpolicies: true
     deletingpolicies: true
 
   # -- This field can be overwritten by setting crds.labels in the parent chart

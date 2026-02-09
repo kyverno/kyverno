@@ -4,8 +4,7 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -17,7 +16,7 @@ func TestNewProvider(t *testing.T) {
 		name       string
 		compiler   compiler.Compiler
 		policies   []policiesv1beta1.DeletingPolicyLike
-		exceptions []*policiesv1alpha1.PolicyException
+		exceptions []*policiesv1beta1.PolicyException
 		wantErr    bool
 		wantCount  int
 	}{
@@ -42,11 +41,11 @@ func TestNewProvider(t *testing.T) {
 					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
 				},
 			},
-			exceptions: []*policiesv1alpha1.PolicyException{
+			exceptions: []*policiesv1beta1.PolicyException{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "e1"},
-					Spec: policiesv1alpha1.PolicyExceptionSpec{
-						PolicyRefs: []policiesv1alpha1.PolicyRef{
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						PolicyRefs: []policiesv1beta1.PolicyRef{
 							{Name: "p2", Kind: "DeletingPolicy"},
 						},
 					},

@@ -1,24 +1,25 @@
 # Areas of code where owners always wants to be a reviewer/notified.
-/api                    @eddycharly @realshuting
-/api/kyverno/v1         @eddycharly
-/charts                 @eddycharly
-/docs                   @yrsuthari
-/pkg/autogen            @eddycharly
-/pkg/background         @realshuting
-/pkg/engine             @eddycharly @realshuting @MariamFahmy98
-/pkg/event              @aerosouund
-/pkg/globalcontext      @liuxu623 @yrsuthari
-/pkg/policy/mutate      @realshuting @aerosouund
-/pkg/pss                @realshuting @YTGhost
-/pkg/utils              @eddycharly
-/pkg/userinfo           @realshuting
-/pkg/validation         @realshuting
-/pkg/webhooks           @eddycharly @realshuting
-/test                   @eddycharly @realshuting @MariamFahmy98
-/pkg/cosign             @Vishal-Chdhry
-/pkg/notary             @Vishal-Chdhry
-/cmd/cli/               @aerosouund @yrsuthari
-/pkg/openreports        @aerosouund
-/pkg/controller/report  @aerosouund
-/pkg/cel                @aerosouund
-/pkg/admissionpolicy    @aerosouund
+*                       @kyverno/kyverno-core-maintainers
+/api                    @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
+/api/kyverno/v1         @eddycharly @kyverno/kyverno-core-maintainers 
+/charts                 @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
+/docs                   @yrsuthari @kyverno/kyverno-core-maintainers 
+/pkg/autogen            @eddycharly @kyverno/kyverno-core-maintainers 
+/pkg/background         @realshuting @kyverno/kyverno-core-maintainers 
+/pkg/engine             @eddycharly @realshuting @MariamFahmy98 @kyverno/kyverno-core-maintainers 
+/pkg/event              @aerosouund @kyverno/kyverno-core-maintainers 
+/pkg/globalcontext      @liuxu623 @yrsuthari @kyverno/kyverno-core-maintainers 
+/pkg/policy/mutate      @realshuting @aerosouund @kyverno/kyverno-core-maintainers 
+/pkg/pss                @realshuting @YTGhost @kyverno/kyverno-core-maintainers 
+/pkg/utils              @eddycharly @kyverno/kyverno-core-maintainers 
+/pkg/userinfo           @realshuting @kyverno/kyverno-core-maintainers 
+/pkg/validation         @realshuting @kyverno/kyverno-core-maintainers 
+/pkg/webhooks           @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
+/test                   @eddycharly @realshuting @MariamFahmy98 @kyverno/kyverno-core-maintainers 
+/pkg/cosign             @Vishal-Chdhry @lucchmielowski @kyverno/kyverno-core-maintainers 
+/pkg/notary             @Vishal-Chdhry @lucchmielowski @kyverno/kyverno-core-maintainers 
+/cmd/cli/               @aerosouund @yrsuthari @kyverno/kyverno-core-maintainers 
+/pkg/openreports        @aerosouund @kyverno/kyverno-core-maintainers 
+/pkg/controller/report  @aerosouund @kyverno/kyverno-core-maintainers 
+/pkg/cel                @aerosouund @realshuting @liuxu623 @kyverno/kyverno-core-maintainers 
+/pkg/admissionpolicy    @aerosouund @kyverno/kyverno-core-maintainers 

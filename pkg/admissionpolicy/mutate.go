@@ -299,7 +299,6 @@ func mutateResource(
 		HasParams:     param != nil,
 		HasAuthorizer: false,
 		HasPatchTypes: true,
-		StrictCost:    true,
 	}
 	// compile variables
 	compiler.CompileVariables(optionalVars)

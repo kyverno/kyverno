@@ -7,8 +7,8 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -44,7 +44,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1beta1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
@@ -94,7 +94,7 @@ func (p *Policy) evaluateWithData(
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {

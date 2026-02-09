@@ -6,7 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -37,7 +37,7 @@ func (p *Policy) Evaluate(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context libs.Context,
-) ([]*unstructured.Unstructured, []*policiesv1alpha1.PolicyException, error) {
+) ([]*unstructured.Unstructured, []*policiesv1beta1.PolicyException, error) {
 	data, err := prepareData(attr, request, namespace, context)
 	if err != nil {
 		return nil, nil, err
@@ -56,7 +56,7 @@ func (p *Policy) Evaluate(
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {

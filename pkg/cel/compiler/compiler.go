@@ -6,8 +6,8 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -195,7 +195,7 @@ func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1be
 	return result, allErrs
 }
 
-func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1alpha1.Generation) (cel.Program, field.ErrorList) {
+func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -215,7 +215,7 @@ func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1alph
 	}
 }
 
-func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1alpha1.Generation) (result []cel.Program, allErrs field.ErrorList) {
+func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1beta1.Generation) (result []cel.Program, allErrs field.ErrorList) {
 	if len(generations) == 0 {
 		return nil, nil
 	}

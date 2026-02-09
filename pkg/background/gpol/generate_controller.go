@@ -42,7 +42,6 @@ type CELGenerateController struct {
 
 	statusControl common.StatusControlInterface
 
-	reportsConfig reportutils.ReportingConfiguration
 	breaker.Breaker
 
 	eventGen event.Interface
@@ -59,7 +58,6 @@ func NewCELGenerateController(
 	provider gpolengine.Provider,
 	watchManager *WatchManager,
 	statusControl common.StatusControlInterface,
-	reportsConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *CELGenerateController {
@@ -74,7 +72,6 @@ func NewCELGenerateController(
 		provider:      provider,
 		watchManager:  watchManager,
 		statusControl: statusControl,
-		reportsConfig: reportsConfig,
 		eventGen:      eventGen,
 		log:           log,
 	}
@@ -90,6 +87,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
+		}
+		if ur.Spec.RuleContext[i].Synchronize {
+			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
@@ -165,7 +165,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						} else {
-							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey(), "resources", res.Result.GeneratedResources())
+							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
 					}()
 				}
@@ -189,6 +189,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyvernov1.ResourceSpec) error {
 	if engineResponse.IsEmpty() {
+		return nil
+	}
+
+	// Check if there are any rule results before accessing Rules[0]
+	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return nil
 	}
 
@@ -239,7 +244,7 @@ func (c *CELGenerateController) createReports(
 }
 
 func (c *CELGenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.GenerateReportsEnabled()
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
 	}

@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -60,8 +60,8 @@ var (
 func TestHandle(t *testing.T) {
 	t.Run("should handle policy with match constraints and return response", func(t *testing.T) {
 		pol := Policy{
-			Policy: &v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
+			Policy: &v1beta1.GeneratingPolicy{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &admissionregistrationv1.MatchResources{
 						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 							{
@@ -113,8 +113,8 @@ func TestHandle(t *testing.T) {
 			nil,
 		)
 		pol := Policy{
-			Policy: &v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
+			Policy: &v1beta1.GeneratingPolicy{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConstraints: &admissionregistrationv1.MatchResources{
 						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 							{
@@ -141,8 +141,8 @@ func TestHandle(t *testing.T) {
 
 	t.Run("should evaluate policy with valid match condition on default namespace", func(t *testing.T) {
 		pol := Policy{
-			Policy: &v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
+			Policy: &v1beta1.GeneratingPolicy{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-namespace",
@@ -163,8 +163,8 @@ func TestHandle(t *testing.T) {
 		resource.SetNamespace("valid-ns")
 
 		pol := Policy{
-			Policy: &v1alpha1.GeneratingPolicy{
-				Spec: v1alpha1.GeneratingPolicySpec{
+			Policy: &v1beta1.GeneratingPolicy{
+				Spec: v1beta1.GeneratingPolicySpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-namespace",
@@ -181,8 +181,8 @@ func TestHandle(t *testing.T) {
 	})
 
 	t.Run("should evaluate compiled policy without exceptions", func(t *testing.T) {
-		gpol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "valid-namespace",
@@ -207,8 +207,8 @@ func TestHandle(t *testing.T) {
 
 	t.Run("should evaluate compiled policy with variable expressions and policy exceptions", func(t *testing.T) {
 		obj.SetNamespace("default")
-		gpol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{
 					{
 						Name:       "apiResponse",
@@ -223,16 +223,16 @@ func TestHandle(t *testing.T) {
 						Expression: "object.metadata.name",
 					},
 				},
-				Generation: []v1alpha1.Generation{
+				Generation: []v1beta1.Generation{
 					{
 						Expression: "generator.Apply(variables.nsName, variables.nsName)",
 					},
 				},
 			},
 		}
-		exceptions := []*v1alpha1.PolicyException{
+		exceptions := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-namespace",

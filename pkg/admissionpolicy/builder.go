@@ -5,10 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -243,7 +242,7 @@ func BuildValidatingAdmissionPolicyBinding(
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
-	exceptions []policiesv1alpha1.PolicyException,
+	exceptions []policiesv1beta1.PolicyException,
 ) {
 	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
 	// convert celexceptions if exist
@@ -424,6 +423,7 @@ func constructValidatingAdmissionPolicyRules(
 				for i := range *rules {
 					if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
 						(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
+						slices.Sort((*rules)[i].Resources)
 						isNewRule = false
 						break
 					}
@@ -462,6 +462,7 @@ func buildNamedRuleWithOperations(
 	operations []admissionregistrationv1.OperationType,
 	resources ...string,
 ) admissionregistrationv1.NamedRuleWithOperations {
+	slices.Sort(resources)
 	return admissionregistrationv1.NamedRuleWithOperations{
 		ResourceNames: resourceNames,
 		RuleWithOperations: admissionregistrationv1.RuleWithOperations{

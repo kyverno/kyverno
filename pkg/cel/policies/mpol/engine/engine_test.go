@@ -3,11 +3,9 @@ package engine
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -197,8 +195,8 @@ var (
 
 type mockFailingProvider struct{}
 
-func (m *mockFailingProvider) Fetch(ctx context.Context, mutate bool) ([]Policy, error) {
-	return nil, errors.New("fetch failed")
+func (m *mockFailingProvider) Fetch(ctx context.Context, mutate bool) []Policy {
+	return nil
 }
 func (m *mockFailingProvider) MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string {
 	return nil
@@ -213,7 +211,7 @@ func (f *fakeTypeConverter) GetTypeConverter(gvk schema.GroupVersionKind) manage
 func TestEvaluate(t *testing.T) {
 	t.Run("no policies and no exceptions returns empty response without error", func(t *testing.T) {
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 
 		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs)
 
@@ -225,11 +223,9 @@ func TestEvaluate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("provider fetch failure returns error and empty response", func(t *testing.T) {
+	t.Run("provider returns an empty response", func(t *testing.T) {
 		engine := NewEngine(&mockFailingProvider{}, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
-		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
-
-		assert.Error(t, err)
+		resp, _ := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
 		assert.Equal(t, EngineResponse{}, resp)
 	})
 
@@ -285,6 +281,103 @@ func TestEvaluate(t *testing.T) {
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
 	})
+
+	t.Run("multiple policies chain mutations correctly in Evaluate", func(t *testing.T) {
+		mutateExisting := true
+		mpol1 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "add-label-env",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"env": "staging"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		mpol2 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "add-label-team",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"team": "backend"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		pols := []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}
+
+		provider, err := NewProvider(compiler.NewCompiler(), pols, nil)
+		assert.NoError(t, err)
+
+		engine := NewEngine(
+			provider,
+			func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.PatchedResource)
+		assert.Len(t, resp.Policies, 2)
+
+		// Verify that both mutations were applied (chained correctly)
+		labels, found, _ := unstructured.NestedMap(resp.PatchedResource.Object, "metadata", "labels")
+		assert.True(t, found, "expected labels to be present in patched resource")
+		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
+		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
+	})
 }
 
 func TestHandle(t *testing.T) {
@@ -298,6 +391,7 @@ func TestHandle(t *testing.T) {
 		expectPolicies int
 		expectPatched  bool
 		expectLabel    string
+		expectLabels   map[string]string // for multiple label checks
 	}{
 		{
 			name: "Successful match and mutation",
@@ -378,6 +472,109 @@ func TestHandle(t *testing.T) {
 			expectPolicies: 1,
 			expectPatched:  false,
 		},
+		{
+			name: "Multiple policies chain mutations correctly",
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "add-label-env",
+					},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{"CREATE"},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Mutations: []admissionregistrationv1alpha1.Mutation{
+							{
+								PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+								ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+									Expression: `Object{metadata: Object.metadata{labels: {"env": "production"}}}`,
+								},
+							},
+						},
+					},
+				},
+				&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "add-label-team",
+					},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{"CREATE"},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Mutations: []admissionregistrationv1alpha1.Mutation{
+							{
+								PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+								ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+									Expression: `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`,
+								},
+							},
+						},
+					},
+				},
+				&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "add-label-version",
+					},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{"CREATE"},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Mutations: []admissionregistrationv1alpha1.Mutation{
+							{
+								PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+								ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+									Expression: `Object{metadata: Object.metadata{labels: {"version": "v1"}}}`,
+								},
+							},
+						},
+					},
+				},
+			},
+			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
+			kind:           "Deployment",
+			matchNamespace: "default",
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
+			expectPolicies: 3,
+			expectPatched:  true,
+			expectLabels: map[string]string{
+				"env":     "production",
+				"team":    "platform",
+				"version": "v1",
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -436,6 +633,13 @@ func TestHandle(t *testing.T) {
 					assert.True(t, found)
 					assert.Equal(t, tc.expectLabel, labels["env"])
 				}
+				if tc.expectLabels != nil {
+					labels, found, _ := unstructured.NestedMap(resp.PatchedResource.Object, "metadata", "labels")
+					assert.True(t, found, "expected labels to be present in patched resource")
+					for key, expectedValue := range tc.expectLabels {
+						assert.Equal(t, expectedValue, labels[key], "label %s should have value %s", key, expectedValue)
+					}
+				}
 			} else {
 				assert.Nil(t, resp.PatchedResource)
 			}
@@ -464,7 +668,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		}
 
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
@@ -492,7 +696,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		}
 
 		pols := []policiesv1beta1.MutatingPolicyLike{}
-		polexs := []*policiesv1alpha1.PolicyException{}
+		polexs := []*policiesv1beta1.PolicyException{}
 		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs)
 
 		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})

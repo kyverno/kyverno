@@ -15,10 +15,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -74,32 +72,37 @@ var (
 	validatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"validatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	namespacedValidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedvalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1beta1"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	imagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"imagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	namespacedimagevalidatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"namespacedimagevalidatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	generatingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"generatingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
+	}
+	namespacedGeneratingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespacedgeneratingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1beta1", "v1"},
 	}
 	deletingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"deletingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
-		APIVersions: []string{"v1alpha1"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
@@ -134,7 +137,8 @@ type controller struct {
 	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
-	gpolLister        policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister        policiesv1beta1listers.GeneratingPolicyLister
+	ngpolLister       policiesv1beta1listers.NamespacedGeneratingPolicyLister
 	ivpolLister       policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister      policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	mpolLister        policiesv1beta1listers.MutatingPolicyLister
@@ -183,7 +187,8 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
@@ -222,6 +227,7 @@ func NewController(
 		vpolLister:          vpolInformer.Lister(),
 		nvpolLister:         nvpolInformer.Lister(),
 		gpolLister:          gpolInformer.Lister(),
+		ngpolLister:         ngpolInformer.Lister(),
 		ivpolLister:         ivpolInformer.Lister(),
 		nivpolLister:        nivpolInformer.Lister(),
 		mpolLister:          mpolInformer.Lister(),
@@ -933,6 +939,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Update,
 					},
 				}, {
+					Rule: namespacedGeneratingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
 					Rule: deletingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -1085,7 +1097,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			AdmissionReviewVersions: w.AdmissionReviewVersions,
 			NamespaceSelector:       w.NamespaceSelector,
 			ObjectSelector:          w.ObjectSelector,
-			Rules:                   w.Rules,
+			Rules:                   deDuplicatedRules(w.Rules),
 			MatchConditions:         w.MatchConditions,
 			TimeoutSeconds:          w.TimeoutSeconds,
 		})
@@ -1167,7 +1179,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(),
+				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1264,53 +1276,73 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	vpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
 		c.servicePort,
 		caBundle,
 		pols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range vpolWebhooks {
+		vpolWebhooks[i].Rules = deDuplicatedRules(vpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, vpolWebhooks...)
 
 	nvpols, err := c.getNamespacedValidatingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	nvpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.NamespacedValidatingPolicyWebhookName,
 		"/nvpol",
 		c.servicePort,
 		caBundle,
 		nvpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range nvpolWebhooks {
+		nvpolWebhooks[i].Rules = deDuplicatedRules(nvpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, nvpolWebhooks...)
 
 	gpols, err := c.getGeneratingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	gpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.GeneratingPolicyWebhookName,
 		"/gpol",
 		c.servicePort,
 		caBundle,
 		gpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range gpolWebhooks {
+		gpolWebhooks[i].Rules = deDuplicatedRules(gpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, gpolWebhooks...)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	ivpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
 		"/ivpol/validate",
 		c.servicePort,
 		caBundle,
 		ivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache)
+
+	for i := range ivpolWebhooks {
+		ivpolWebhooks[i].Rules = deDuplicatedRules(ivpolWebhooks[i].Rules)
+	}
+	result.Webhooks = append(result.Webhooks, ivpolWebhooks...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
 	if err != nil {
@@ -1410,7 +1442,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(),
+				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},

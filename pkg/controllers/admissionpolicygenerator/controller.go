@@ -11,11 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -58,7 +56,7 @@ type controller struct {
 	mpolLister       policiesv1beta1listers.MutatingPolicyLister
 	nmpolLister      policiesv1beta1listers.NamespacedMutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
+	celpolexLister   policiesv1beta1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -81,7 +79,7 @@ func NewController(
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
+	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,

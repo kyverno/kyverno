@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -53,7 +51,7 @@ func NewController(
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
 ) Controller {
@@ -179,7 +177,7 @@ func NewController(
 		gpolInformer.Informer(),
 		c.queue,
 		func(obj interface{}) cache.ExplicitKey {
-			gpol, ok := obj.(*policiesv1alpha1.GeneratingPolicy)
+			gpol, ok := obj.(*policiesv1beta1.GeneratingPolicy)
 			if !ok {
 				return ""
 			}
@@ -197,8 +195,7 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
-	notifyChan := c.polStateRecorder.(*webhook.Recorder).NotifyChan
-	for key := range notifyChan {
+	for key := range c.polStateRecorder.NotifyChannel() {
 		c.queue.Add(key)
 	}
 }
@@ -277,7 +274,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 	}
 
 	if polType == webhook.GeneratingPolicyType {
-		gpol, err := c.client.PoliciesV1alpha1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
+		gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				logger.V(4).Info("generating policy not found", "name", name)

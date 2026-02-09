@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-default-computeclass
+  namespace: test-namespace
+spec:
+  containers:
+  - name: test-container
+    image: nginx:latest
+

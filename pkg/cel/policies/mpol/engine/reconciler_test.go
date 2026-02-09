@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -160,9 +160,7 @@ func TestFetch(t *testing.T) {
 				lock:     &sync.RWMutex{},
 			}
 
-			got, err := r.Fetch(context.Background(), tt.mutateExisting)
-
-			assert.NoError(t, err)
+			got := r.Fetch(context.Background(), tt.mutateExisting)
 
 			var gotNames []string
 			for _, p := range got {

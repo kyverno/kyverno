@@ -4,13 +4,12 @@ import (
 	"context"
 	"sync"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -23,14 +22,14 @@ type reconciler struct {
 	compiler     compiler.Compiler
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1alpha1listers.PolicyExceptionLister
+	polexLister  policiesv1beta1listers.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	client client.Client,
 	compiler compiler.Compiler,
-	polexLister policiesv1alpha1listers.PolicyExceptionLister,
+	polexLister policiesv1beta1listers.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -74,7 +73,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	var exceptions []*policiesv1alpha1.PolicyException
+	var exceptions []*policiesv1beta1.PolicyException
 	if r.polexEnabled {
 		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
 		if err != nil {
@@ -115,7 +114,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, error) {
+func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	var policies []Policy
@@ -123,7 +122,7 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 		for _, p := range r.policies {
 			policies = append(policies, p...)
 		}
-		return policies, nil
+		return policies
 	}
 
 	for _, p := range r.policies {
@@ -133,17 +132,17 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, 
 			}
 		}
 	}
-	return policies, nil
+	return policies
 }
 
 func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
-	policies, err := r.Fetch(ctx, true)
-	if err != nil {
-		return nil
-	}
-
+	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		if !Or(ClusteredPolicy(), NamespacedPolicy(attr.GetNamespace()))(mpol.Policy) {
+			continue
+		}
+
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetSpec().MatchConstraints
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: matchConstraints}, attr, namespace); err != nil || !ok {

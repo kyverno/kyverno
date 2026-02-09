@@ -33,8 +33,6 @@
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
                   </li><li>
-                    <a href="#policies-kyverno-io-v1alpha1-NamespacedGeneratingPolicy">NamespacedGeneratingPolicy</a>
-                  </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>
@@ -1421,7 +1419,7 @@ image verification functions</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -1450,7 +1448,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -1482,7 +1480,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -1523,7 +1521,7 @@ There are a maximum of 64 match conditions allowed.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -1584,7 +1582,9 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <a href="#policies-kyverno-io-v1alpha1-TargetMatchConstraints">
+                <span style="font-family: monospace">TargetMatchConstraints</span>
+              </a>
             
           
         </td>
@@ -1703,7 +1703,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
@@ -1746,344 +1746,6 @@ Required.</p>
             
               <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">
                 <span style="font-family: monospace">MutatingPolicyStatus</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Status contains policy runtime data.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-
-      </tbody>
-    </table>
-  
-
-  <H3 id="policies-kyverno-io-v1alpha1-NamespacedGeneratingPolicy">NamespacedGeneratingPolicy
-    </H3>
-
-  
-
-  <p><p>NamespacedGeneratingPolicy is the namespaced CEL-based generating policy.</p>
-</p>
-
-  
-    <table class="table table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        
-          
-          <tr>
-            <td><code>apiVersion</code></br>string</td>
-            <td><code>policies.kyverno.io/v1alpha1</code></td>
-          </tr>
-          <tr>
-            <td><code>kind</code></br>string</td>
-            <td><code>NamespacedGeneratingPolicy</code></td>
-          </tr>
-        
-
-        
-        
-
-  
-  
-    
-    
-  
-    
-    
-      <tr>
-        <td><code>metadata</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-            Refer to the Kubernetes API documentation for the fields of the
-            <code>metadata</code> field.
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>spec</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicySpec">
-                <span style="font-family: monospace">GeneratingPolicySpec</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-
-          
-            <br/>
-            <br/>
-            <table>
-              
-
-  
-  
-    
-    
-      <tr>
-        <td><code>matchConstraints</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>MatchConstraints specifies what resources will trigger this policy.
-The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-Required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>matchConditions</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>MatchConditions is a list of conditions that must be met for a request to be validated.
-Match conditions filter requests that have already been matched by the rules,
-namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
-There are a maximum of 64 match conditions allowed.</p>
-<p>The exact matching logic is (in order):</p>
-<ol>
-<li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
-<li>If ALL matchConditions evaluate to TRUE, the policy is evaluated.</li>
-<li>If any matchCondition evaluates to an error (but none are FALSE):
-<ul>
-<li>If failurePolicy=Fail, reject the request</li>
-<li>If failurePolicy=Ignore, the policy is skipped</li>
-</ul>
-</li>
-</ol>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>variables</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Variables contain definitions of variables that can be used in composition of other expressions.
-Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
-<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
-Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>evaluation</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyEvaluationConfiguration">
-                <span style="font-family: monospace">GeneratingPolicyEvaluationConfiguration</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>EvaluationConfiguration defines the configuration for the policy evaluation.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>webhookConfiguration</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-WebhookConfiguration">
-                <span style="font-family: monospace">WebhookConfiguration</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>WebhookConfiguration defines the configuration for the webhook.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>generate</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-Generation">
-                <span style="font-family: monospace">[]Generation</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
-Required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-            </table>
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>status</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">
-                <span style="font-family: monospace">GeneratingPolicyStatus</span>
               </a>
             
           
@@ -3154,7 +2816,8 @@ Optional. Default value is &quot;true&quot;.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -4414,12 +4077,13 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
   
 
   <H3 id="policies-kyverno-io-v1alpha1-EvaluationMode">EvaluationMode
-    (<code>string</code> alias)</p></H3>
+    </H3>
 
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -4651,8 +4315,7 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedGeneratingPolicy">NamespacedGeneratingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
     </p>
   
 
@@ -4882,8 +4545,7 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedGeneratingPolicy">NamespacedGeneratingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>)
     </p>
   
 
@@ -6922,6 +6584,37 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
     
     
       <tr>
+        <td><code>mode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mode is the mode of policy evaluation.
+Allowed values are &quot;Kubernetes&quot; or &quot;JSON&quot;.
+Optional. Default value is &quot;Kubernetes&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>admission</code>
           
           </br>
@@ -6939,6 +6632,35 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
 
           <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-BackgroundConfiguration">
+                <span style="font-family: monospace">BackgroundConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls policy evaluation during background scan.</p>
 
 
           
@@ -7026,7 +6748,7 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -7055,7 +6777,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -7087,7 +6809,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -7128,7 +6850,7 @@ There are a maximum of 64 match conditions allowed.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -7189,7 +6911,9 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <a href="#policies-kyverno-io-v1alpha1-TargetMatchConstraints">
+                <span style="font-family: monospace">TargetMatchConstraints</span>
+              </a>
             
           
         </td>
@@ -7308,7 +7032,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
@@ -8610,6 +8334,96 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
 
           
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-TargetMatchConstraints">TargetMatchConstraints
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>MatchResources</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>MatchResources</code> are embedded into this type.)</p>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
 
           
 

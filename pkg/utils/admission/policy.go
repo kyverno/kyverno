@@ -3,9 +3,8 @@ package admission
 import (
 	"fmt"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -50,11 +49,17 @@ func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 		}
 		return api.NewNamespacedImageValidatingPolicy(policy), nil
 	case "GeneratingPolicy":
-		var policy *v1alpha1.GeneratingPolicy
+		var policy *v1beta1.GeneratingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
 		return api.NewGeneratingPolicy(policy), nil
+	case "NamespacedGeneratingPolicy":
+		var policy *v1beta1.NamespacedGeneratingPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
+		}
+		return api.NewNamespacedGeneratingPolicy(policy), nil
 	case "DeletingPolicy":
 		var policy *v1beta1.DeletingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
