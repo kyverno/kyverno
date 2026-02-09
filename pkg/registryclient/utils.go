@@ -15,9 +15,11 @@ import (
 // parseSecretReference parses a secret reference which can be:
 // - "secret-name" -> namespace=defaultNamespace, name=secret-name
 // - "namespace/secret-name" -> namespace=namespace, name=secret-name
-func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
+func ParseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
+	// trim leading "/" if secret is incorrectly defined without namespace
+	secretRef = strings.TrimPrefix(secretRef, "/")
 	parts := strings.SplitN(secretRef, "/", 2)
-	if !strings.HasPrefix(secretRef, "/") && len(parts) == 2 {
+	if len(parts) == 2 {
 		return parts[0], parts[1]
 	}
 	return defaultNamespace, secretRef
@@ -28,7 +30,7 @@ func parseSecretReference(secretRef string, defaultNamespace string) (namespace 
 func generateKeychainForPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) (authn.Keychain, error) {
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
-		namespace, name := parseSecretReference(imagePullSecret, defaultNamespace)
+		namespace, name := ParseSecretReference(imagePullSecret, defaultNamespace)
 		secret, err := lister.Secrets(namespace).Get(name)
 		if err == nil {
 			secrets = append(secrets, *secret)

@@ -54,7 +54,7 @@ func TestParseSecretReference(t *testing.T) {
 			secretRef:        "/missing-namespace",
 			defaultNamespace: "kyverno",
 			wantNamespace:    "kyverno",
-			wantName:         "/missing-namespace",
+			wantName:         "missing-namespace",
 		},
 		{
 			name:             "empty secret name",
@@ -67,7 +67,7 @@ func TestParseSecretReference(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotNamespace, gotName := parseSecretReference(tt.secretRef, tt.defaultNamespace)
+			gotNamespace, gotName := ParseSecretReference(tt.secretRef, tt.defaultNamespace)
 			assert.Equal(t, tt.wantNamespace, gotNamespace, "namespace mismatch")
 			assert.Equal(t, tt.wantName, gotName, "name mismatch")
 		})
@@ -84,7 +84,7 @@ func TestParseSecretReference_BackwardCompatibility(t *testing.T) {
 
 	for _, secretName := range testCases {
 		t.Run(secretName, func(t *testing.T) {
-			namespace, name := parseSecretReference(secretName, "kyverno")
+			namespace, name := ParseSecretReference(secretName, "kyverno")
 			assert.Equal(t, "kyverno", namespace, "simple names should default to kyverno namespace")
 			assert.Equal(t, secretName, name, "name should be preserved")
 		})
