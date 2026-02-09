@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: match-namespace-with-ns-selector
 spec:
+  concurrent: false
   steps:
   - name: create source namespace and secret
     try:

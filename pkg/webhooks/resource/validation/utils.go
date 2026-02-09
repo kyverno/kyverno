@@ -9,12 +9,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func NeedsReports(request handlers.AdmissionRequest, resource unstructured.Unstructured, admissionReport bool, reportConfig reportutils.ReportingConfiguration) bool {
+func NeedsReports(request handlers.AdmissionRequest, resource unstructured.Unstructured, admissionReport bool) bool {
 	createReport := admissionReport
 	if admissionutils.IsDryRun(request.AdmissionRequest) {
 		createReport = false
 	}
-	if !reportConfig.ValidateReportsEnabled() {
+	if !reportutils.ReportingCfg.ValidateReportsEnabled() {
 		createReport = false
 	}
 	// we don't need reports for deletions

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: sync-delete-policy-without-orphan-downstream
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:

@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/policy"
 )
 
@@ -20,9 +21,28 @@ type Verifier struct {
 
 func NewVerifier(secretInterface imagedataloader.SecretInterface, logger logr.Logger) *Verifier {
 	return &Verifier{
-		log:             logging.WithName("Notary"),
+		log:             logging.WithName("Cosign"),
 		secretInterface: secretInterface,
 	}
+}
+
+// buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format
+func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, error) {
+	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
+	if err != nil {
+		return nil, err
+	}
+
+	// Enable new bundle format detection (cosign v3)
+	cOpts.NewBundleFormat = true
+
+	// Auto-detect if new bundle format is actually present
+	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
+	if len(newBundles) == 0 || err != nil {
+		cOpts.NewBundleFormat = false
+	}
+
+	return cOpts, nil
 }
 
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
@@ -33,15 +53,28 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign image signature", "image", image.Image)
 
-	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
+	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
 		return err
 	}
-	cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
+	// Set appropriate claim verifier based on format
+	if cOpts.NewBundleFormat {
+		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+	} else {
+		cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
+	}
+
+	var sigs []oci.Signature
+	var verified bool
+
+	if cOpts.NewBundleFormat {
+		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	} else {
+		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
+	}
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -86,13 +119,16 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign attestation signature", "image", image.Image)
 
-	cOpts, err := checkOptions(ctx, attestor.Cosign, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
+	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
 		return err
 	}
+
+	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+
 	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")

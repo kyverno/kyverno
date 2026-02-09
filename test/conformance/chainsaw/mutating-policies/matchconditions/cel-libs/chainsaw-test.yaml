@@ -5,6 +5,7 @@ metadata:
   creationTimestamp: null
   name: add-imagepullsecrets-for-containers-and-initcontainers
 spec:
+  concurrent: false
   steps:
   - name: step-01
     use:
