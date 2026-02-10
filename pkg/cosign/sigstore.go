@@ -142,6 +142,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
+		defer layerBytes.Close()
 		bundleBytes, err := io.ReadAll(layerBytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
