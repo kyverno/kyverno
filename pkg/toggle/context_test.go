@@ -14,6 +14,7 @@ type mockToggles struct {
 	generateMutatingAdmissionPolicy   bool
 	dumpMutatePatches                 bool
 	autogenV2                         bool
+	unifiedImageVerifiers             bool
 }
 
 func (m mockToggles) ProtectManagedResources() bool  { return m.protectManagedResources }
@@ -25,6 +26,7 @@ func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
 func (m mockToggles) GenerateMutatingAdmissionPolicy() bool { return m.generateMutatingAdmissionPolicy }
 func (m mockToggles) DumpMutatePatches() bool               { return m.dumpMutatePatches }
 func (m mockToggles) AutogenV2() bool                       { return m.autogenV2 }
+func (m mockToggles) UnifiedImageVerifiers() bool           { return m.unifiedImageVerifiers }
 
 func TestNewContext(t *testing.T) {
 	tests := []struct {

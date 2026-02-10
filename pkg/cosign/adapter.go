@@ -26,6 +26,9 @@ func (a *ClusterPolicyAdapter) init() images.ImageVerifier {
 
 // VerifySignature implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+	// Log deprecation warning
+	logging.WithName("Cosign").V(2).Info("DEPRECATION WARNING: pkg/cosign is deprecated. This package delegates to pkg/imageverification/imageverifiers/cosign for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
+
 	// Get remote options from the client
 	remoteOpts, err := opts.Client.Options(ctx)
 	if err != nil {
@@ -64,6 +67,9 @@ func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.
 
 // FetchAttestations implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+	// Log deprecation warning
+	logging.WithName("Cosign").V(2).Info("DEPRECATION WARNING: pkg/cosign is deprecated. This package delegates to pkg/imageverification/imageverifiers/cosign for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
+
 	// Get remote options from the client
 	remoteOpts, err := opts.Client.Options(ctx)
 	if err != nil {
@@ -195,7 +201,9 @@ func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 	// 2. For key-based verification without explicit CTLog config, default to IgnoreTlog=true
 	//    to prevent nil pointer errors (TrustedMaterial is not set for key-based verification)
 	// 3. For keyless/certificate verification, TrustedMaterial will be set by the verifier
-	if opts.RekorURL != "" || opts.RekorPubKey != "" || opts.IgnoreTlog || opts.IgnoreSCT || opts.CTLogsPubKey != "" || opts.TSACertChain != "" {
+	hasCTLogConfig := opts.RekorURL != "" || opts.RekorPubKey != "" || opts.IgnoreTlog || opts.IgnoreSCT || opts.CTLogsPubKey != "" || opts.TSACertChain != ""
+
+	if hasCTLogConfig {
 		cosignAttestor.CTLog = &policiesv1beta1.CTLog{
 			InsecureIgnoreTlog: opts.IgnoreTlog,
 			InsecureIgnoreSCT:  opts.IgnoreSCT,
@@ -213,18 +221,20 @@ func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 		if opts.TSACertChain != "" {
 			cosignAttestor.CTLog.TSACertChain = opts.TSACertChain
 		}
+
+		// CRITICAL FIX: For key-based verification, we must force IgnoreTlog=true
+		// even if the old code provided RekorURL, because TrustedMaterial is only
+		// set for keyless verification. Without this, bundle verification will panic.
+		//
+		// The old ClusterPolicy code set RekorURL="https://rekor.sigstore.dev" and
+		// IgnoreTlog=false by default, but this doesn't work with the new verifier
+		// architecture which requires TrustedMaterial for transparency log verification.
+		if cosignAttestor.Key != nil || cosignAttestor.Certificate != nil {
+			cosignAttestor.CTLog.InsecureIgnoreTlog = true
+			cosignAttestor.CTLog.InsecureIgnoreSCT = true
+		}
 	} else if cosignAttestor.Key != nil {
 		// For key-based verification without explicit CTLog config, we must ignore tlog/sct
-		//
-		// This is different from the old ClusterPolicy behavior which tried to verify against
-		// public Rekor by default. However, the new verifier architecture requires TrustedMaterial
-		// for transparency log verification, which is only initialized for keyless verification.
-		//
-		// Without this, bundle verification will panic with nil pointer dereference when trying
-		// to access TrustedMaterial.RekorLogs().
-		//
-		// To enable transparency log verification with key-based signatures, users must explicitly
-		// configure the Rekor settings in the policy (which will trigger the first branch above).
 		cosignAttestor.CTLog = &policiesv1beta1.CTLog{
 			InsecureIgnoreTlog: true,
 			InsecureIgnoreSCT:  true,

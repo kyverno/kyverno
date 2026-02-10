@@ -2,12 +2,14 @@ package notary
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"gotest.tools/assert"
 )
 
@@ -66,7 +68,53 @@ func TestNotaryImageVerification(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &notaryVerifier{}
+	verifier := &legacyNotaryVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
+}
+
+func TestNewVerifierWithFeatureFlagEnabled(t *testing.T) {
+	// Set the feature flag to enabled
+	os.Setenv("FLAG_UNIFIED_IMAGE_VERIFIERS", "true")
+	defer os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Verify it returns the adapter (new implementation)
+	_, isAdapter := verifier.(*ClusterPolicyAdapter)
+	assert.Assert(t, isAdapter, "Expected ClusterPolicyAdapter when feature flag is enabled")
+}
+
+func TestNewVerifierWithFeatureFlagDisabled(t *testing.T) {
+	// Set the feature flag to disabled
+	os.Setenv("FLAG_UNIFIED_IMAGE_VERIFIERS", "false")
+	defer os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Verify it returns the legacy verifier
+	_, isLegacy := verifier.(*legacyNotaryVerifier)
+	assert.Assert(t, isLegacy, "Expected legacyNotaryVerifier when feature flag is disabled")
+}
+
+func TestNewVerifierWithDefaultFeatureFlag(t *testing.T) {
+	// Ensure no environment variable is set
+	os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Default is true, so it should return the adapter
+	_, isAdapter := verifier.(*ClusterPolicyAdapter)
+	assert.Assert(t, isAdapter, "Expected ClusterPolicyAdapter by default (flag defaults to true)")
+}
+
+func TestFeatureFlagToggleViaContext(t *testing.T) {
+	// Test with context-based toggle
+	ctx := context.TODO()
+
+	// Test that toggle is accessible via context
+	enabled := toggle.FromContext(ctx).UnifiedImageVerifiers()
+
+	// Default should be true
+	assert.Assert(t, enabled, "Expected UnifiedImageVerifiers to be enabled by default")
 }

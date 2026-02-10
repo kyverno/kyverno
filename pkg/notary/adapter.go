@@ -9,6 +9,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/pkg/errors"
+
+	_ "github.com/kyverno/kyverno/pkg/logging" // Ensure logging is available for deprecation warnings
 )
 
 // ClusterPolicyAdapter adapts the new notary verifier to the old images.ImageVerifier interface
@@ -25,6 +27,9 @@ func (a *ClusterPolicyAdapter) init() images.ImageVerifier {
 
 // VerifySignature implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+	// Log deprecation warning
+	logging.WithName("Notary").V(2).Info("DEPRECATION WARNING: pkg/notary is deprecated. This package delegates to pkg/imageverification/imageverifiers/notary for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
+
 	// Create image data fetcher with nil secret lister (client provides auth)
 	fetcher, err := imagedataloader.New(nil)
 	if err != nil {
@@ -60,6 +65,9 @@ func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.
 
 // FetchAttestations implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+	// Log deprecation warning
+	logging.WithName("Notary").V(2).Info("DEPRECATION WARNING: pkg/notary is deprecated. This package delegates to pkg/imageverification/imageverifiers/notary for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
+
 	// Create image data fetcher with nil secret lister (client provides auth)
 	fetcher, err := imagedataloader.New(nil)
 	if err != nil {

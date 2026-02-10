@@ -41,6 +41,11 @@ const (
 	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
 	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
 	defaultAutogenV2     = false
+	// unified image verifiers
+	UnifiedImageVerifiersFlagName    = "unifiedImageVerifiers"
+	UnifiedImageVerifiersDescription = "Set the flag to 'true', to use the unified image verifiers (cosign, notary) for image verification."
+	unifiedImageVerifiersEnvVar      = "FLAG_UNIFIED_IMAGE_VERIFIERS"
+	defaultUnifiedImageVerifiers     = true
 )
 
 var (
@@ -51,6 +56,7 @@ var (
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
+	UnifiedImageVerifiers             = newToggle(defaultUnifiedImageVerifiers, unifiedImageVerifiersEnvVar)
 )
 
 type ToggleFlag interface {

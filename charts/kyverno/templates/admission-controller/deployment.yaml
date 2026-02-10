@@ -226,6 +226,7 @@ spec:
               "registryClient"
               "reporting"
               "tuf"
+              "unifiedImageVerifiers"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}

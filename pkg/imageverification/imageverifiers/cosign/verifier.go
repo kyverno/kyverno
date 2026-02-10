@@ -33,22 +33,16 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, err
 	}
 
-	// Only enable bundle format detection if we have TrustedMaterial or will fetch it
-	shouldDetectBundles := true
-	if attestor.Key != nil && attestor.CTLog != nil && attestor.CTLog.InsecureIgnoreTlog {
-		shouldDetectBundles = false
-	}
+	// Enable new bundle format detection (cosign v3)
+	// TrustedMaterial is now always fetched in checkOptions for all verification types,
+	// so bundle verification will work even with key-based or certificate-based verification.
+	// When IgnoreTlog=true, transparency log verification will be skipped but bundle format
+	// signatures can still be verified using the signature itself.
+	cOpts.NewBundleFormat = true
 
-	if shouldDetectBundles {
-		// Enable new bundle format detection (cosign v3)
-		cOpts.NewBundleFormat = true
-
-		// Auto-detect if new bundle format is actually present
-		newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
-		if len(newBundles) == 0 || err != nil {
-			cOpts.NewBundleFormat = false
-		}
-	} else {
+	// Auto-detect if new bundle format is actually present
+	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
+	if len(newBundles) == 0 || err != nil {
 		cOpts.NewBundleFormat = false
 	}
 
@@ -102,12 +96,17 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	}
 
 	if len(attestor.Cosign.Annotations) != 0 {
+		var annotationErrors []error
 		for _, sig := range sigs {
 			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
-				logger.Error(err, "image verification failed")
-				return err
+				annotationErrors = append(annotationErrors, err)
+				continue
 			}
+			return nil
 		}
+		err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
+		logger.Error(err, "image verification failed")
+		return err
 	}
 
 	return nil
@@ -147,6 +146,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	checkedTypes := []string{}
 	found := false
+	var annotationErrors []error
 	for _, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
@@ -158,9 +158,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
-			logger.Error(err, "image verification failed")
-			return err
+		if len(attestor.Cosign.Annotations) != 0 {
+			if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
+				annotationErrors = append(annotationErrors, err)
+				continue
+			}
 		}
 
 		found = true
@@ -168,6 +170,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	if !found {
+		if len(annotationErrors) > 0 {
+			err := fmt.Errorf("no attestation matched the required annotations: %v", annotationErrors)
+			logger.Error(err, "image verification failed")
+			return err
+		}
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err

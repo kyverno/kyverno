@@ -120,7 +120,20 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
 		}
 		opts.TrustedMaterial = trustedRoot
-	} else if att.Key != nil {
+	}
+
+	// Fetch TrustedMaterial for key-based and certificate-based verification too
+	// This is required to support Cosign v3 bundle format signatures
+	// Even with IgnoreTlog=true, bundles require TrustedMaterial to be present
+	if opts.TrustedMaterial == nil && (att.Key != nil || att.Certificate != nil) {
+		trustedRoot, err := getTrustedRootFromTUF(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
+		}
+		opts.TrustedMaterial = trustedRoot
+	}
+
+	if att.Key != nil {
 		if len(att.Key.Data) > 0 {
 			opts.SigVerifier, err = decodePEM([]byte(att.Key.Data), signatureAlgorithmMap[att.Key.HashAlgorithm])
 			if err != nil {

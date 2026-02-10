@@ -5,12 +5,14 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
@@ -474,4 +476,50 @@ func TestCosignMatchSignatures(t *testing.T) {
 
 	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", extensions)
 	assert.ErrorContains(t, matchErr, "extension mismatch")
+}
+
+func TestNewVerifierWithFeatureFlagEnabled(t *testing.T) {
+	// Set the feature flag to enabled
+	os.Setenv("FLAG_UNIFIED_IMAGE_VERIFIERS", "true")
+	defer os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Verify it returns the adapter (new implementation)
+	_, isAdapter := verifier.(*ClusterPolicyAdapter)
+	assert.Assert(t, isAdapter, "Expected ClusterPolicyAdapter when feature flag is enabled")
+}
+
+func TestNewVerifierWithFeatureFlagDisabled(t *testing.T) {
+	// Set the feature flag to disabled
+	os.Setenv("FLAG_UNIFIED_IMAGE_VERIFIERS", "false")
+	defer os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Verify it returns the legacy verifier
+	_, isLegacy := verifier.(*legacyCosignVerifier)
+	assert.Assert(t, isLegacy, "Expected legacyCosignVerifier when feature flag is disabled")
+}
+
+func TestNewVerifierWithDefaultFeatureFlag(t *testing.T) {
+	// Ensure no environment variable is set
+	os.Unsetenv("FLAG_UNIFIED_IMAGE_VERIFIERS")
+
+	verifier := NewVerifier()
+
+	// Default is true, so it should return the adapter
+	_, isAdapter := verifier.(*ClusterPolicyAdapter)
+	assert.Assert(t, isAdapter, "Expected ClusterPolicyAdapter by default (flag defaults to true)")
+}
+
+func TestFeatureFlagToggleViaContext(t *testing.T) {
+	// Test with context-based toggle
+	ctx := context.TODO()
+
+	// Test that toggle is accessible via context
+	enabled := toggle.FromContext(ctx).UnifiedImageVerifiers()
+
+	// Default should be true
+	assert.Assert(t, enabled, "Expected UnifiedImageVerifiers to be enabled by default")
 }

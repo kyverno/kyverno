@@ -14,6 +14,7 @@ type Toggles interface {
 	GenerateMutatingAdmissionPolicy() bool
 	DumpMutatePatches() bool
 	AutogenV2() bool
+	UnifiedImageVerifiers() bool
 }
 
 type defaultToggles struct{}
@@ -44,6 +45,10 @@ func (defaultToggles) DumpMutatePatches() bool {
 
 func (defaultToggles) AutogenV2() bool {
 	return AutogenV2.enabled()
+}
+
+func (defaultToggles) UnifiedImageVerifiers() bool {
+	return UnifiedImageVerifiers.enabled()
 }
 
 type contextKey struct{}

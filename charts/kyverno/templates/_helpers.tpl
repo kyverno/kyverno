@@ -89,6 +89,9 @@
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
 {{- end -}}
+{{- with .unifiedImageVerifiers -}}
+  {{- $flags = append $flags (print "--unifiedImageVerifiers=" .enabled) -}}
+{{- end -}}
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
