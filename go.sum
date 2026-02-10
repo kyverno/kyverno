@@ -1345,8 +1345,8 @@ sigs.k8s.io/kubectl-validate v0.0.5-0.20260105161640-a97ccfaca20b h1:mWwviU3aRHO
 sigs.k8s.io/kubectl-validate v0.0.5-0.20260105161640-a97ccfaca20b/go.mod h1:TmMkFSu6ufGgM1woXu5hA6kF+lXm/H6nmNDDDKTCKbY=
 sigs.k8s.io/kustomize/api v0.21.0 h1:I7nry5p8iDJbuRdYS7ez8MUvw7XVNPcIP5GkzzuXIIQ=
 sigs.k8s.io/kustomize/api v0.21.0/go.mod h1:XGVQuR5n2pXKWbzXHweZU683pALGw/AMVO4zU4iS8SE=
-sigs.k8s.io/kustomize/kyaml v0.21.0 h1:7mQAf3dUwf0wBerWJd8rXhVcnkk5Tvn/q91cGkaP6HQ=
-sigs.k8s.io/kustomize/kyaml v0.21.0/go.mod h1:hmxADesM3yUN2vbA5z1/YTBnzLJ1dajdqpQonwBL1FQ=
+sigs.k8s.io/kustomize/kyaml v0.21.1 h1:IVlbmhC076nf6foyL6Taw4BkrLuEsXUXNpsE+ScX7fI=
+sigs.k8s.io/kustomize/kyaml v0.21.1/go.mod h1:hmxADesM3yUN2vbA5z1/YTBnzLJ1dajdqpQonwBL1FQ=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/release-utils v0.12.3 h1:iNVJY81QfmMCmXxMg8IvvkkeQNk6ZWlLj+iPKSlKyVQ=
