@@ -148,7 +148,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	options := []cel.EnvOption{ //nolint:prealloc
+	options := []cel.EnvOption{
 		cel.Variable(compiler.ObjectKey, cel.DynType),
 	}
 
