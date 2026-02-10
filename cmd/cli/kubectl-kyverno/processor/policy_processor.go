@@ -97,6 +97,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
+	if p.NamespaceCache == nil {
+		p.NamespaceCache = make(map[string]*unstructured.Unstructured)
+	}
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}

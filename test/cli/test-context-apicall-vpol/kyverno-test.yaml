@@ -1,0 +1,42 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-crd-lookup
+policies:
+- policy.yaml
+resources:
+- resources/pod-with-spot-computeclass.yaml
+- resources/pod-with-non-spot-computeclass.yaml
+- resources/pod-with-mixed-computeclass.yaml
+- resources/pod-with-default-computeclass.yaml
+- resources/deployment-with-spot-computeclass.yaml
+- resources/deployment-with-non-spot-computeclass.yaml
+results:
+- kind: Deployment
+  policy: computeclasses-enforce-non-spot-usage-crd
+  resources:
+  - deployment-with-non-spot-computeclass
+  result: fail
+  isValidatingPolicy: true
+- kind: Pod
+  policy: computeclasses-enforce-non-spot-usage-crd
+  resources:
+  - pod-with-non-spot-computeclass
+  result: fail
+  isValidatingPolicy: true
+- kind: Deployment
+  policy: computeclasses-enforce-non-spot-usage-crd
+  resources:
+  - deployment-with-spot-computeclass
+  result: pass
+  isValidatingPolicy: true
+- kind: Pod
+  policy: computeclasses-enforce-non-spot-usage-crd
+  resources:
+  - pod-with-spot-computeclass
+  - pod-with-mixed-computeclass
+  - pod-with-default-computeclass
+  result: pass
+  isValidatingPolicy: true
