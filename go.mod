@@ -22,7 +22,7 @@ require (
 	github.com/fluxcd/pkg/oci v0.45.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.7.0
-	github.com/go-git/go-git/v5 v5.16.4
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.7.0-rc.1
@@ -73,7 +73,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.40.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/crypto v0.47.0
+	golang.org/x/crypto v0.48.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.78.0
 	gopkg.in/inf.v0 v0.9.1
@@ -91,8 +91,8 @@ require (
 	k8s.io/utils v0.0.0-20251222233032-718f0e51e6d2
 	sigs.k8s.io/controller-runtime v0.23.1
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20260105161640-a97ccfaca20b
-	sigs.k8s.io/kustomize/api v0.21.0
-	sigs.k8s.io/kustomize/kyaml v0.21.0
+	sigs.k8s.io/kustomize/api v0.21.1
+	sigs.k8s.io/kustomize/kyaml v0.21.1
 	sigs.k8s.io/release-utils v0.12.3
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -391,9 +391,9 @@ require (
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/term v0.39.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/term v0.40.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/api v0.260.0 // indirect
 	google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217 // indirect
