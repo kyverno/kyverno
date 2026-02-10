@@ -17,6 +17,7 @@ func load(fs billy.Filesystem, path string, resourcePath string) ([]byte, error)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to open userInfo file: %s. \nerror: %s", path, err)
 		}
+		defer file.Close()
 		bytes, err := io.ReadAll(file)
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to read file %s: %w", file.Name(), err)
