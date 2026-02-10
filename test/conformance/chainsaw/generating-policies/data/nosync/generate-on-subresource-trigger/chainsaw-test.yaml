@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: generate-on-subresource-trigger
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:
@@ -37,21 +38,14 @@ spec:
         - -n
         - test-generate-exec
         entrypoint: kubectl
-    - command:
-        args:
-        - wait
-        - --for=condition=Ready
-        - pod/nginx
-        - -n
-        - test-generate-exec
-        entrypoint: kubectl
+    - sleep:
+        duration: 10s
     - command:
         args:
         - exec
         - -n
         - test-generate-exec
         - nginx
-        - -it
         - --
         - ls
         entrypoint: kubectl

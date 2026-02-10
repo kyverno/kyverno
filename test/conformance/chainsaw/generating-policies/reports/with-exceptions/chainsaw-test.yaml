@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: reports-with-exceptions
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:
@@ -27,10 +28,10 @@ spec:
     try:
     - sleep:
         duration: 5s
-  - name: create triggers
+  - name: create first trigger
     try:
     - apply:
-        file: triggers.yaml
+        file: trigger-1.yaml
   - name: sleep
     try:
     - sleep:
@@ -38,4 +39,16 @@ spec:
   - name: check that the reports are generated
     try:
     - assert:
-        file: report-assert.yaml
+        file: pass-report-assert.yaml
+  - name: create second trigger
+    try:
+    - apply:
+        file: trigger-2.yaml
+  - name: sleep
+    try:
+    - sleep:   
+        duration: 5s
+  - name: check that the reports are generated
+    try:
+    - assert:
+        file: skip-report-assert.yaml

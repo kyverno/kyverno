@@ -12,9 +12,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,7 +39,7 @@ type manager struct {
 	logger          logr.Logger
 	interval        time.Duration
 	lock            sync.Mutex
-	infoMetric      metric.Int64ObservableGauge
+	infoMetric      metrics.TTLInfoMetrics
 	resyncPeriod    time.Duration
 }
 
@@ -52,15 +51,7 @@ func NewManager(
 	resyncPeriod time.Duration,
 ) controllers.Controller {
 	logger := logging.WithName(ControllerName)
-	meterProvider := otel.GetMeterProvider()
-	meter := meterProvider.Meter(metrics.MeterName)
-	infoMetric, err := meter.Int64ObservableGauge(
-		"kyverno_ttl_controller_info",
-		metric.WithDescription("can be used to track individual resource controllers running for ttl based cleanup"),
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_ttl_controller_info")
-	}
+
 	mgr := &manager{
 		metadataClient:  metadataInterface,
 		discoveryClient: discoveryInterface,
@@ -68,11 +59,11 @@ func NewManager(
 		resController:   map[schema.GroupVersionResource]stopFunc{},
 		logger:          logger,
 		interval:        timeInterval,
-		infoMetric:      infoMetric,
+		infoMetric:      metrics.GetTTLInfoMetrics(),
 		resyncPeriod:    resyncPeriod,
 	}
-	if infoMetric != nil {
-		if _, err := meter.RegisterCallback(mgr.report, infoMetric); err != nil {
+	if mgr.infoMetric != nil {
+		if _, err := mgr.infoMetric.RegisterCallback(mgr.report); err != nil {
 			logger.Error(err, "failed to register callback")
 		}
 	}
@@ -135,8 +126,38 @@ func (m *manager) stop(ctx context.Context, gvr schema.GroupVersionResource) err
 	return nil
 }
 
+// preflightCheck performs a lightweight authorization check before starting an informer.
+// This prevents the informer from failing repeatedly if the service account lacks
+// permission to list/watch the resource (403 Forbidden), which can cause cascading
+// failures similar to those described in https://github.com/projectcalico/calico/issues/9527
+func (m *manager) preflightCheck(ctx context.Context, gvr schema.GroupVersionResource, logger logr.Logger) error {
+	opts := metav1.ListOptions{
+		LabelSelector: kyverno.LabelCleanupTtl,
+		Limit:         1,
+	}
+	_, err := m.metadataClient.Resource(gvr).List(ctx, opts)
+	if err != nil {
+		// Check if it's a 403 Forbidden - don't start informer for forbidden resources
+		if apierrors.IsForbidden(err) {
+			return fmt.Errorf("preflight authorization check failed: %w", err)
+		}
+		// For NotFound errors, we can still proceed as the resource type might exist but have no items
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("preflight check failed: %w", err)
+		}
+	}
+	return nil
+}
+
 func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, workers int) error {
 	logger := m.logger.WithValues("gvr", gvr)
+
+	// Perform preflight check before starting the informer
+	if err := m.preflightCheck(ctx, gvr, logger); err != nil {
+		logger.Error(err, "preflight check failed, skipping resource")
+		return nil
+	}
+
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
@@ -201,15 +222,7 @@ func (m *manager) report(ctx context.Context, observer metric.Observer) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	for gvr := range m.resController {
-		observer.ObserveInt64(
-			m.infoMetric,
-			1,
-			metric.WithAttributes(
-				attribute.String("resource_group", gvr.Group),
-				attribute.String("resource_version", gvr.Version),
-				attribute.String("resource_resource", gvr.Resource),
-			),
-		)
+		m.infoMetric.RecordTTLInfo(ctx, gvr, observer)
 	}
 	return nil
 }

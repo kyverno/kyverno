@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: skipped-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    metadata:
+      labels:
+        prod: "true" 
+    spec:
+      template:
+        metadata:
+          labels:
+            prod: "true"
+        spec:
+          containers:
+          - name: secure-container
+            image: busybox:latest
+            command: ["echo", "Hello, world"]
+            securityContext:
+              seccompProfile:
+                type: Unconfined
+          restartPolicy: OnFailure

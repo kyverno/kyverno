@@ -1,0 +1,70 @@
+global:
+  crdWatcher: true
+
+features:
+  policyExceptions:
+    enabled: true
+    namespace: "*"
+  omitEvents:
+    eventTypes: []
+  reporting:
+    allowedResults:
+      fail: true
+
+admissionController:
+  extraArgs:
+    v: 4
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - secrets
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
+
+backgroundController:
+  extraArgs:
+    v: 4
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - configmaps
+            - networkpolicies
+            - resourcequotas
+            - secrets
+            - roles
+            - rolebindings
+            - limitranges
+            - namespaces
+            - nodes
+            - nodes/status
+            - pods
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
+            - get
+            - list
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
+          verbs:
+            - list
+            - delete

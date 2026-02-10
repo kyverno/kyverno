@@ -51,7 +51,9 @@ rules:
       - policies.kyverno.io
     resources:
       - generatingpolicies
+      - namespacedgeneratingpolicies
       - mutatingpolicies
+      - namespacedmutatingpolicies
       - policyexceptions
     verbs:
       - create

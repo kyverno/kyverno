@@ -25,6 +25,8 @@ background-color: #1589dd;
 <h2 id="cli.kyverno.io/v1alpha1">cli.kyverno.io/v1alpha1</h2>
 Resource Types:
 <ul><li>
+<a href="#cli.kyverno.io/v1alpha1.ClusterResource">ClusterResource</a>
+</li><li>
 <a href="#cli.kyverno.io/v1alpha1.Context">Context</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>
@@ -33,6 +35,91 @@ Resource Types:
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.Values">Values</a>
 </li></ul>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.ClusterResource">ClusterResource
+</h3>
+<p>
+<p>ClusterResource declares Kubernetes specific resources to be loaded by the Kyverno CLI</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+cli.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterResource</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.ClusterResourceSpec">
+ClusterResourceSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>crds</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.unstructured--">
+[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="cli.kyverno.io/v1alpha1.Context">Context
 </h3>
@@ -101,6 +188,7 @@ ContextSpec
 </em>
 </td>
 <td>
+<p>deprecate, use ClusterResource to define Kubernetes specific resources</p>
 </td>
 </tr>
 <tr>
@@ -234,6 +322,17 @@ string
 </tr>
 <tr>
 <td>
+<code>paramResources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Resources that act as parameters for validating/mutating admission policies</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>userinfo</code><br/>
 <em>
 string
@@ -302,6 +401,17 @@ string
 </td>
 <td>
 <p>Context file containing context data for CEL policies</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>clusterResources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>ClusterResources are the cluster resources to be used in the test</p>
 </td>
 </tr>
 </tbody>
@@ -537,6 +647,47 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </tbody>
 </table>
 <hr />
+<h3 id="cli.kyverno.io/v1alpha1.ClusterResourceSpec">ClusterResourceSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.ClusterResource">ClusterResource</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>crds</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.unstructured--">
+[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="cli.kyverno.io/v1alpha1.ContextSpec">ContextSpec
 </h3>
 <p>
@@ -563,6 +714,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </em>
 </td>
 <td>
+<p>deprecate, use ClusterResource to define Kubernetes specific resources</p>
 </td>
 </tr>
 <tr>
@@ -660,7 +812,7 @@ string
 <td>
 <code>imageIndex</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -670,7 +822,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>manifest</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -680,7 +832,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>config</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -1193,7 +1345,7 @@ It&rsquo;s required in case the policy is a mutating policy.</p>
 <td>
 <code>result</code><br/>
 <em>
-openreports.io/apis/openreports.io/v1alpha1.Result
+github.com/openreports/reports-api/apis/openreports.io/v1alpha1.Result
 </em>
 </td>
 <td>

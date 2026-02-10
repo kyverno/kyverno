@@ -1,0 +1,43 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-secret
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    objectSelector:
+      matchExpressions:
+      - key: argocd.argoproj.io/secret-type
+        operator: In
+        values:
+        - repository
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - secrets
+  matchConditions:
+  - name: only-default
+    expression: "object.metadata.namespace == 'default'"
+  generate:
+  - expression: |
+      generator.Apply("sync-modify-trigger", [
+        {
+          "apiVersion": object.apiVersion,
+          "kind": object.kind,
+          "metadata": dyn({
+            "name": dyn(object.metadata.name),
+            "labels": dyn(object.metadata.labels)
+          }),
+          "data": object.data,
+          "type": object.type
+        }
+      ])

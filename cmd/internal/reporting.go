@@ -9,7 +9,7 @@ import (
 
 func setupReporting(logger logr.Logger) reportutils.ReportingConfiguration {
 	logger = logger.WithName("setup-reporting").WithValues("enableReporting", enableReporting)
-	cfg := reportutils.NewReportingConfig(strings.Split(enableReporting, ",")...)
+	cfg := reportutils.NewReportingConfig(strings.Split(allowedResults, ","), strings.Split(enableReporting, ",")...)
 	logger.V(2).Info("setting up reporting...", "validate", cfg.ValidateReportsEnabled(), "mutate", cfg.MutateReportsEnabled(), "mutateExisiting", cfg.MutateExistingReportsEnabled(), "imageVerify", cfg.ImageVerificationReportsEnabled(), "generate", cfg.GenerateReportsEnabled())
 	return cfg
 }

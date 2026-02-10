@@ -9,9 +9,10 @@ import (
 	"strings"
 
 	json_patch "github.com/evanphx/json-patch/v5"
+	"github.com/go-git/go-billy/v5"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -45,9 +46,10 @@ import (
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -58,19 +60,21 @@ type PolicyProcessor struct {
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	MutatingAdmissionPolicies         []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	MutatingAdmissionPolicyBindings   []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
-	ValidatingPolicies                []policiesv1alpha1.ValidatingPolicy
-	GeneratingPolicies                []policiesv1alpha1.GeneratingPolicy
-	MutatingPolicies                  []policiesv1alpha1.MutatingPolicy
+	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	ValidatingPolicies                []policiesv1beta1.ValidatingPolicyLike
+	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
+	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
-	CELExceptions                     []*policiesv1alpha1.PolicyException
+	CELExceptions                     []*policiesv1beta1.PolicyException
 	MutateLogPath                     string
 	MutateLogPathIsDir                bool
 	Variables                         *variables.Variables
+	ParameterResources                []runtime.Object
 	// TODO
+	ContextFs                 billy.Filesystem
 	ContextPath               string
 	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
@@ -85,6 +89,7 @@ type PolicyProcessor struct {
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 	NamespaceCache            map[string]*unstructured.Unstructured
+	ConfigMapResolver         engineapi.ConfigmapResolver
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -106,12 +111,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(p.Store, nil),
+		store.ContextLoaderFactory(p.Store, p.ConfigMapResolver),
 		exceptions.New(policyExceptionLister),
 		&isCluster,
 	)
@@ -239,8 +243,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		} else {
+			var user authenticationv1.UserInfo
+			if p.UserInfo != nil {
+				user = p.UserInfo.AdmissionUserInfo
+			}
 			gvr := mapping.Resource
-
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
@@ -248,7 +255,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						data.AddBinding(b)
 					}
 				}
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster, false)
+				for _, param := range p.ParameterResources {
+					data.AddParam(param)
+				}
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 					continue
@@ -256,6 +266,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if mutateResponse.IsEmpty() {
 					continue
 				}
+				// its fine to just error here because this function just logs the error
 				if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
 					log.Log.Error(err, "failed to log MAP mutation")
 				}
@@ -266,12 +277,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
-		provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), p.MutatingPolicies, nil)
+		compiler := mpolcompiler.NewCompiler()
+
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
 
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -320,7 +333,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 				p.Rc.addMutateResponse(response)
 
 				err = p.processMutateEngineResponse(response, resPath)
@@ -342,6 +355,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
 		}
 		gvr := mapping.Resource
+		var user authenticationv1.UserInfo
+		if p.UserInfo != nil {
+			user = p.UserInfo.AdmissionUserInfo
+		}
 		for _, policy := range p.ValidatingAdmissionPolicies {
 			policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
 			for _, binding := range p.ValidatingAdmissionPolicyBindings {
@@ -349,7 +366,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					policyData.AddBinding(binding)
 				}
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, !p.Cluster)
+			for _, param := range p.ParameterResources {
+				policyData.AddParam(param)
+			}
+			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
@@ -358,11 +378,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
 		compiler := vpolcompiler.NewCompiler()
-		provider, err := vpolengine.NewProvider(compiler, p.ValidatingPolicies, p.CELExceptions)
+		policies := make([]policiesv1beta1.ValidatingPolicyLike, 0, len(p.ValidatingPolicies))
+		for i := range p.ValidatingPolicies {
+			policies = append(policies, p.ValidatingPolicies[i])
+		}
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -406,7 +430,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -425,7 +449,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						Rules: r.Rules,
 					},
 				}
-				response = response.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+				response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
 				p.Rc.AddValidatingPolicyResponse(response)
 				responses = append(responses, response)
 			}
@@ -436,16 +460,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		compiler := gpolcompiler.NewCompiler()
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(&pol, p.CELExceptions)
+			compiled, errs := compiler.Compile(pol, p.CELExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}
 			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         pol,
+				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
 				CompiledPolicy: compiled,
 			})
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -491,7 +515,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							Rules: []engineapi.RuleResponse{*res.Result},
 						},
 					}
-					generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicy(&res.Policy))
+					generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 					if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
 						return responses, err
 					}
@@ -730,18 +754,17 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		filename = response.Policy().GetName() + "-generated"
 	}
 
-	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
-	if err != nil {
-		return err
-	}
-
-	if !p.MutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+	if p.MutateLogPathIsDir {
+		file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
 		if err != nil {
 			return err
 		}
-		file = f
+	} else {
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
+		file, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return err
+		}
 	}
 	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
 		return err

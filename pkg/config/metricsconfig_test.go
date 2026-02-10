@@ -139,7 +139,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 				assert = assert && !stream.AttributeFilter(attribute.String("dim1", ""))
 				assert = assert && reflect.DeepEqual(stream.Aggregation, sdkmetric.AggregationExplicitBucketHistogram{
 					Boundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30},
-					NoMinMax:   false,
+					NoMinMax:   true,
 				})
 				return assert
 			},
