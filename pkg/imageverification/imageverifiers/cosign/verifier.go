@@ -33,12 +33,22 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, err
 	}
 
-	// Enable new bundle format detection (cosign v3)
-	cOpts.NewBundleFormat = true
+	// Only enable bundle format detection if we have TrustedMaterial or will fetch it
+	shouldDetectBundles := true
+	if attestor.Key != nil && attestor.CTLog != nil && attestor.CTLog.InsecureIgnoreTlog {
+		shouldDetectBundles = false
+	}
 
-	// Auto-detect if new bundle format is actually present
-	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
-	if len(newBundles) == 0 || err != nil {
+	if shouldDetectBundles {
+		// Enable new bundle format detection (cosign v3)
+		cOpts.NewBundleFormat = true
+
+		// Auto-detect if new bundle format is actually present
+		newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
+		if len(newBundles) == 0 || err != nil {
+			cOpts.NewBundleFormat = false
+		}
+	} else {
 		cOpts.NewBundleFormat = false
 	}
 
