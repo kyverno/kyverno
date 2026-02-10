@@ -264,6 +264,7 @@ func (i *ImageData) FetchReferrerData(desc gcrv1.Descriptor) ([]byte, *gcrv1.Des
 	if err != nil {
 		return nil, nil, err
 	}
+	defer reader.Close()
 
 	b, err := io.ReadAll(io.LimitReader(reader, maxPayloadSize))
 
