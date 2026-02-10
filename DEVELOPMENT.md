@@ -35,6 +35,7 @@ It contains instructions to build, run, and test Kyverno.
 - [Reports Design](#reports-design)
 - [Troubleshooting](#troubleshooting)
 - [Selecting Issues](#selecting-issues)
+- [Release Instructions](#release-instructions)
 
 ## Open project in devcontainer (recommended)
 
@@ -610,3 +611,7 @@ See [docs/dev/troubleshooting](./docs/dev/troubleshooting/)
 ## Selecting Issues
 
 When you are ready to contribute, you can select an issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10).
+
+## Release Instructions
+
+For release instructions, see [create-a-release.md](./docs/dev/releases/create-a-release.md).
