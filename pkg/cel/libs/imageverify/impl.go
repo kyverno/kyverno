@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -82,7 +82,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-					f.logger.Info("failed to verify image cosign: %v", err)
+					f.logger.Info("failed to verify image cosign", "error", err)
 				} else {
 					count += 1
 				}
@@ -95,7 +95,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify image notary: %v", err)
+					f.logger.Info("failed to verify image notary", "error", err)
 				} else {
 					count += 1
 				}
@@ -135,7 +135,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-					f.logger.Info("failed to verify attestation cosign: %v", err)
+					f.logger.Info("failed to verify attestation cosign", "error", err)
 				} else {
 					count += 1
 				}
@@ -151,7 +151,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify attestation notary: %v", err)
+					f.logger.Info("failed to verify attestation notary", "error", err)
 				} else {
 					count += 1
 				}

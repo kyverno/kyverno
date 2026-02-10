@@ -56,7 +56,7 @@ func NewGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -81,7 +81,7 @@ func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPer
 				}
 				return client.KyvernoV2().GlobalContextEntries().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apikyvernov2.GlobalContextEntry{},
 		resyncPeriod,
 		indexers,

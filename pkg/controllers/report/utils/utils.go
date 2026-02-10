@@ -2,16 +2,14 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -321,8 +319,8 @@ func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1lister
 	return policies, nil
 }
 
-func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLister) ([]policiesv1alpha1.GeneratingPolicy, error) {
-	var policies []policiesv1alpha1.GeneratingPolicy
+func FetchGeneratingPolicy(gpolLister policiesv1beta1listers.GeneratingPolicyLister) ([]policiesv1beta1.GeneratingPolicy, error) {
+	var policies []policiesv1beta1.GeneratingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err

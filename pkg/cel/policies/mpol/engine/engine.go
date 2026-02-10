@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -96,6 +96,20 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
+				// Update attr to use the patched resource for the next policy evaluation
+				attr = admission.NewAttributesRecord(
+					patched,
+					attr.GetOldObject(),
+					attr.GetKind(),
+					attr.GetNamespace(),
+					attr.GetName(),
+					attr.GetResource(),
+					attr.GetSubresource(),
+					attr.GetOperation(),
+					nil,
+					attr.IsDryRun(),
+					nil,
+				)
 			}
 		}
 	}
@@ -144,6 +158,20 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
+			// Update attr to use the patched resource for the next policy evaluation
+			attr = admission.NewAttributesRecord(
+				patchedResource,
+				attr.GetOldObject(),
+				attr.GetKind(),
+				attr.GetNamespace(),
+				attr.GetName(),
+				attr.GetResource(),
+				attr.GetSubresource(),
+				attr.GetOperation(),
+				nil,
+				attr.IsDryRun(),
+				nil,
+			)
 		}
 	}
 	return response, nil

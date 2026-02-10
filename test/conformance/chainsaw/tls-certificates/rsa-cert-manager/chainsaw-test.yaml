@@ -1,163 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: rsa-cert-manager
 spec:
   steps:
-  # Step 1: Verify cert-manager is ready
-  - name: assert-cert-manager-ready
-    try:
-    - assert:
-        timeout: 120s
-        resource:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: cert-manager
-            namespace: cert-manager
-          status:
-            readyReplicas: 1
-    - assert:
-        timeout: 120s
-        resource:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: cert-manager-webhook
-            namespace: cert-manager
-          status:
-            readyReplicas: 1
-
-  # Step 2: Create kyverno namespace
-  - name: create-namespace
-    try:
-    - apply:
-        resource:
-          apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: kyverno
-
-  # Step 3: Create self-signed issuer and CA infrastructure
-  - name: create-ca-infrastructure
-    try:
-    - apply:
-        file: 01-issuer.yaml
-    - apply:
-        file: 02-ca-certificate.yaml
-    # Wait for CA certificate to be ready
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: cert-manager.io/v1
-          kind: Certificate
-          metadata:
-            name: kyverno-ca
-            namespace: kyverno
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-
-  # Step 4: Create CA issuer and TLS certificates
-  - name: create-tls-certificates
-    try:
-    - apply:
-        file: 03-ca-issuer.yaml
-    - apply:
-        file: 04-tls-certificates.yaml
-    # Wait for TLS certificates to be ready
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: cert-manager.io/v1
-          kind: Certificate
-          metadata:
-            name: kyverno-svc-tls
-            namespace: kyverno
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: cert-manager.io/v1
-          kind: Certificate
-          metadata:
-            name: kyverno-cleanup-controller-tls
-            namespace: kyverno
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: cert-manager.io/v1
-          kind: Certificate
-          metadata:
-            name: kyverno-cleanup-controller-ca
-            namespace: kyverno
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
-
-  # Step 5: Install Kyverno using Helm with local images
-  # Uses make target to ensure correct image registry/repository/tag settings
-  # Requires ROOT_DIR and HELM environment variables to be set by the workflow
-  - name: install-kyverno
+  # Step 1: Verify the certificates are RSA
+  - name: verify-rsa-certificates
     try:
     - script:
-        timeout: 300s
+        timeout: 60s
         content: |
           #!/bin/bash
           set -e
-          cd "$ROOT_DIR"
-          make kind-install-kyverno
-          echo "Kyverno installed successfully with local images"
 
-  # Step 6: Verify Kyverno is ready
-  - name: verify-kyverno-ready
-    try:
-    - assert:
-        timeout: 180s
-        resource:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: kyverno-admission-controller
-            namespace: kyverno
-          status:
-            readyReplicas: 1
-    - assert:
-        timeout: 180s
-        resource:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: kyverno-cleanup-controller
-            namespace: kyverno
-          status:
-            readyReplicas: 1
+          echo "Checking admission controller CA certificate..."
+          CA_SECRET="kyverno-svc.kyverno.svc.kyverno-tls-ca"
+          CERT=$(kubectl get secret "$CA_SECRET" -n kyverno -o jsonpath='{.data.tls\.crt}' | base64 -d)
+          KEY_TYPE=$(echo "$CERT" | openssl x509 -noout -text 2>/dev/null | grep "Public Key Algorithm" | head -1)
 
-  # Step 7: Test webhook functionality with a simple policy
+          if echo "$KEY_TYPE" | grep -qi "rsa"; then
+            echo "✓ CA certificate uses RSA key algorithm"
+          else
+            echo "✗ CA certificate does not use RSA: $KEY_TYPE"
+            exit 1
+          fi
+
+          echo "Checking admission controller TLS certificate..."
+          TLS_SECRET="kyverno-svc.kyverno.svc.kyverno-tls-pair"
+          CERT=$(kubectl get secret "$TLS_SECRET" -n kyverno -o jsonpath='{.data.tls\.crt}' | base64 -d)
+          KEY_TYPE=$(echo "$CERT" | openssl x509 -noout -text 2>/dev/null | grep "Public Key Algorithm" | head -1)
+
+          if echo "$KEY_TYPE" | grep -qi "rsa"; then
+            echo "✓ TLS certificate uses RSA key algorithm"
+          else
+            echo "✗ TLS certificate does not use RSA: $KEY_TYPE"
+            exit 1
+          fi
+
+          echo "All certificates verified as RSA"
+
+  # Step 2: Test webhook functionality with a simple policy
   - name: test-webhook-functionality
     try:
     - apply:
         file: 05-test-policy.yaml
-    - assert:
-        timeout: 60s
-        resource:
-          apiVersion: kyverno.io/v1
-          kind: ClusterPolicy
-          metadata:
-            name: require-labels-test
-          status:
-            conditions:
-            - type: Ready
-              status: "True"
+  - name: wait-policy-ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-labels-test
+  - name: test-webhook
+    try:
     - script:
         timeout: 30s
         content: |
@@ -165,7 +61,7 @@ spec:
           set -e
 
           # Create a test namespace
-          kubectl create namespace test-rsa-cert-manager --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace test-rsa-cert-manager
 
           # Try to create a pod without the required label - should be blocked
           if kubectl run test-pod --image=nginx --restart=Never -n test-rsa-cert-manager 2>&1 | grep -q "blocked"; then
@@ -181,16 +77,13 @@ spec:
           kubectl run test-pod-with-label --image=nginx --restart=Never \
             --labels="app.kubernetes.io/name=test" -n test-rsa-cert-manager
 
-          echo "Webhook test completed successfully"
-    # Cleanup at the end of this step
+          echo "Webhook test completed successfully with RSA cert-manager certificates"
     finally:
     - script:
-        timeout: 120s
+        timeout: 60s
         content: |
           #!/bin/bash
-          # Cleanup resources
+          # Cleanup test resources
           kubectl delete namespace test-rsa-cert-manager --ignore-not-found=true
           kubectl delete clusterpolicy require-labels-test --ignore-not-found=true
-          helm uninstall kyverno -n kyverno --ignore-not-found || true
-          kubectl delete namespace kyverno --ignore-not-found=true
           echo "Cleanup completed"

@@ -3,8 +3,8 @@ package admissionpolicygenerator
 import (
 	"strings"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,11 +41,10 @@ func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
 
 		cpol, err := c.getClusterPolicy(exception.PolicyName)
 		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "unable to get the policy from policy informer")
 			}
-			logger.Error(err, "unable to get the policy from policy informer")
-			return
+			continue
 		}
 		c.enqueuePolicy(cpol)
 	}
@@ -76,13 +75,19 @@ func (c *controller) enqueueCELException(obj *policiesv1beta1.PolicyException) {
 		if policy.Kind == "ValidatingPolicy" {
 			vpol, err := c.getValidatingPolicy(policy.Name)
 			if err != nil {
-				return
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "unable to get validating policy from informer", "name", policy.Name)
+				}
+				continue
 			}
 			c.enqueueVP(vpol)
 		} else if policy.Kind == "MutatingPolicy" {
 			mpol, err := c.getMutatingPolicy(policy.Name)
 			if err != nil {
-				return
+				if !apierrors.IsNotFound(err) {
+					logger.Error(err, "unable to get mutating policy from informer", "name", policy.Name)
+				}
+				continue
 			}
 			c.enqueueMP(mpol)
 		}

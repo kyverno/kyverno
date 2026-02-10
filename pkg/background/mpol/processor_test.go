@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -61,7 +61,7 @@ var (
 	}})
 	ctx           = &fakeContext{}
 	statusControl = common.NewStatusControl(&kyvernoClient, nil)
-	reportsConfig = reportutils.NewReportingConfig()
+	reportsConfig = reportutils.NewReportingConfig([]string{})
 )
 
 type fakeStatusControl struct {
@@ -107,6 +107,7 @@ func (f *fakeEngine) MatchedMutateExistingPolicies(ctx context.Context, engine e
 
 func TestProcess_NoPolicyFound(t *testing.T) {
 	kyvernoClient := fake.NewSimpleClientset()
+	_ = reportutils.NewReportingConfig([]string{})
 
 	p := NewProcessor(
 		dclient.NewEmptyFakeClient(),
@@ -114,7 +115,6 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		&fakeEngine{},
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
 		&libs.FakeContextProvider{},
-		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
 		event.NewFake())
 
@@ -140,8 +140,8 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 				Name: "mypol",
 			},
 			Spec: policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
 							Rule: admissionregistrationv1alpha1.Rule{
 								APIGroups:   []string{""},
@@ -157,6 +157,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 
 	engine := &fakeEngine{}
 	engine.On("Evaluate").Return(mpolengine.EngineResponse{}, errors.New("eval failed"))
+	_ = reportutils.NewReportingConfig([]string{})
 
 	p := NewProcessor(
 		dclient.NewEmptyFakeClient(),
@@ -164,7 +165,6 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		engine,
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}}),
 		&libs.FakeContextProvider{},
-		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
 		event.NewFake(),
 	)

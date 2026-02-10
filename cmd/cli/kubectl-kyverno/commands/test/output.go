@@ -341,24 +341,43 @@ func printTestResult(
 			}
 
 			if len(rows) == 0 && !resourceSkipped {
+				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
+
 				resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 				resourceParts := strings.Split(resourceGVKAndName, "/")
 
-				row := table.Row{
-					RowCompact: table.RowCompact{
-						ID:        testCount,
-						Policy:    color.Policy("", test.Policy),
-						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-						IsFailure: true,
-						Result:    color.ResultFail(),
-						Reason:    color.NotFound(),
-					},
-					Message: color.NotFound(),
+				var row table.Row
+				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
+					row = table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Result:    color.ResultSkip(),
+							Reason:    color.InvalidPolicy(),
+							IsFailure: false,
+						},
+						Message: responses.SkippedPolicies[policyName],
+					}
+					rc.Skip++
+				} else {
+					row = table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							IsFailure: true,
+							Result:    color.ResultFail(),
+							Reason:    color.NotFound(),
+						},
+						Message: color.NotFound(),
+					}
+					rc.Fail++
 				}
 				testCount++
 				resultsTable.Add(row)
-				rc.Fail++
 			} else {
 				resultsTable.Add(rows...)
 			}
@@ -508,8 +527,9 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 				} else {
 					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n   ]]></system-out>\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
 					}
+					b.WriteString("   ]]></system-out>\n")
 				}
 				b.WriteString("  </testcase>\n")
 			}

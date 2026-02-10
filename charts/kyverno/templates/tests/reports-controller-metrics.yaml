@@ -27,10 +27,12 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      command:
-        - /bin/sh
-        - -c
-        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
+      args:
+        - check-http
+        - --service-name={{ template "kyverno.reports-controller.name" . }}-metrics
+        - --namespace={{ template "kyverno.namespace" . }}
+        - --port={{ .Values.reportsController.metricsService.port }}
+        - --path=metrics
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}

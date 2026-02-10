@@ -5,23 +5,30 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
-	"github.com/sigstore/cosign/v2/pkg/blob"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	ociremote "github.com/sigstore/cosign/v2/pkg/oci/remote"
-	sigs "github.com/sigstore/cosign/v2/pkg/signature"
+	"github.com/sigstore/cosign/v3/pkg/blob"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekor "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
+var tufMu sync.Mutex
+
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
+	tufMu.Lock()
+	defer tufMu.Unlock()
+
 	if err := initializeTuf(ctx, att.TUF); err != nil {
 		return nil, err
 	}
@@ -107,6 +114,12 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 			opts.RootCerts = cp
 		}
+
+		trustedRoot, err := getTrustedRootFromTUF(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
+		}
+		opts.TrustedMaterial = trustedRoot
 	} else if att.Key != nil {
 		if len(att.Key.Data) > 0 {
 			opts.SigVerifier, err = decodePEM([]byte(att.Key.Data), signatureAlgorithmMap[att.Key.HashAlgorithm])
@@ -260,4 +273,20 @@ func getFulcio(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
 		return nil, nil, fmt.Errorf("failed to fetch Fulcio intermediates: %w", err)
 	}
 	return roots, intermediates, nil
+}
+
+func getTrustedRootFromTUF(ctx context.Context) (*root.TrustedRoot, error) {
+	tufClient, err := tuf.NewFromEnv(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("initializing tuf: %w", err)
+	}
+	targetBytes, err := tufClient.GetTarget("trusted_root.json")
+	if err != nil {
+		return nil, fmt.Errorf("error getting targets: %w", err)
+	}
+	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error creating trusted root: %w", err)
+	}
+	return trustedRoot, nil
 }

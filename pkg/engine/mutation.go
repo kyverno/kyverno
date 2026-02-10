@@ -36,6 +36,12 @@ func (e *engine) mutate(
 			if !rule.HasMutate() {
 				return nil, nil
 			}
+			// For mutateExisting rules during admission, skip mutation.
+			// The mutation will be applied by the background controller via UpdateRequest.
+			// This prevents the trigger resource from being mutated during admission.
+			if policyContext.AdmissionOperation() && rule.HasMutateExisting() {
+				return nil, nil
+			}
 			if !policyContext.AdmissionOperation() && rule.HasMutateExisting() {
 				if e.client == nil {
 					return nil, fmt.Errorf("Handler factory requires a client but a nil client was passed, likely due to a bug or unsupported operation.")
