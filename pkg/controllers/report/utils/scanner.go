@@ -123,7 +123,7 @@ func (s *scanner) ScanResource(
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
 		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			ivpols = append(vpols, policy)
+			ivpols = append(ivpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		} else if pol := policy.AsMutatingAdmissionPolicy(); pol != nil {

@@ -265,7 +265,7 @@ The chart values are organised per component.
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
-| crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
+| crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedgeneratingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
 | crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
@@ -410,6 +410,7 @@ The chart values are organised per component.
 | admissionController.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| admissionController.labels | object | `{}` | Deployment labels. |
 | admissionController.annotations | object | `{}` | Deployment annotations. |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
@@ -461,6 +462,8 @@ The chart values are organised per component.
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
+| admissionController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| admissionController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | admissionController.service.port | int | `443` | Service port. |
 | admissionController.service.type | string | `"ClusterIP"` | Service type. |
 | admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
@@ -491,6 +494,8 @@ The chart values are organised per component.
 | admissionController.metering.disabled | bool | `false` | Disable metrics export |
 | admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
+| admissionController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | admissionController.metering.collector | string | `""` | Otel collector endpoint |
 | admissionController.metering.creds | string | `""` | Otel collector credentials |
 | admissionController.profiling.enabled | bool | `false` | Enable profiling |
@@ -523,6 +528,7 @@ The chart values are organised per component.
 | backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| backgroundController.labels | object | `{}` | Deployment labels. |
 | backgroundController.annotations | object | `{}` | Deployment annotations. |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
@@ -548,6 +554,8 @@ The chart values are organised per component.
 | backgroundController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
 | backgroundController.caCertificates.data | string | `nil` | CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates |
 | backgroundController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.backgroundController.caCertificates.data` is defined |
+| backgroundController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| backgroundController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | backgroundController.metricsService.create | bool | `true` | Create service. |
 | backgroundController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
@@ -573,6 +581,8 @@ The chart values are organised per component.
 | backgroundController.metering.disabled | bool | `false` | Disable metrics export |
 | backgroundController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
+| backgroundController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| backgroundController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
 | backgroundController.server | object | `{"port":9443}` | backgroundController server port in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to |
@@ -620,6 +630,7 @@ The chart values are organised per component.
 | cleanupController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| cleanupController.labels | object | `{}` | Deployment labels. |
 | cleanupController.annotations | object | `{}` | Deployment annotations. |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
@@ -647,6 +658,8 @@ The chart values are organised per component.
 | cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | cleanupController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | cleanupController.podDisruptionBudget.unhealthyPodEvictionPolicy | string | `nil` | Unhealthy pod eviction policy to be used. Possible values are `IfHealthyBudget` or `AlwaysAllow`. |
+| cleanupController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| cleanupController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | cleanupController.service.port | int | `443` | Service port. |
 | cleanupController.service.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
@@ -677,6 +690,8 @@ The chart values are organised per component.
 | cleanupController.metering.disabled | bool | `false` | Disable metrics export |
 | cleanupController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
+| cleanupController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| cleanupController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
 | cleanupController.profiling.enabled | bool | `false` | Enable profiling |
@@ -709,6 +724,7 @@ The chart values are organised per component.
 | reportsController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| reportsController.labels | object | `{}` | Deployment labels. |
 | reportsController.annotations | object | `{}` | Deployment annotations. |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
@@ -738,6 +754,8 @@ The chart values are organised per component.
 | reportsController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | reportsController.caCertificates.data | string | `nil` | CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates |
 | reportsController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.reportsController.caCertificates.data` is defined |
+| reportsController.extraVolumes | list | `[]` | Additional volumes to be mounted in the pod |
+| reportsController.extraVolumeMounts | list | `[]` | Additional volumeMounts to be mounted to the main container |
 | reportsController.metricsService.create | bool | `true` | Create service. |
 | reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
@@ -763,6 +781,8 @@ The chart values are organised per component.
 | reportsController.metering.disabled | bool | `false` | Disable metrics export |
 | reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
+| reportsController.metering.secure | bool | `false` | Is TLS required for endpoint |
+| reportsController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
 | reportsController.server | object | `{"port":9443}` | reportsController server port in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to |
@@ -789,9 +809,9 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
-| webhooksCleanup.image.registry | string | `"registry.k8s.io"` | Image registry |
-| webhooksCleanup.image.repository | string | `"kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"v1.32.7"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.registry | string | `nil` | Image registry |
+| webhooksCleanup.image.repository | string | `"ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup"` | Image repository |
+| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to current release tag if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -812,9 +832,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | test.sleep | int | `20` | Sleep time before running test |
-| test.image.registry | string | `"bitnami"` | Image registry |
-| test.image.repository | string | `"kubectl"` | Image repository |
-| test.image.tag | string | `"latest"` | Image tag Defaults to `latest` if omitted |
+| test.image.registry | string | `"ghcr.io"` | Image registry |
+| test.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
+| test.image.tag | string | `"v0.1.0"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -853,7 +873,7 @@ The chart values are organised per component.
 | openreports.installCrds | bool | `false` | Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true. |
 | reportsServer.enabled | bool | `false` | Enable reports-server deployment alongside Kyverno |
 | reportsServer.waitForReady | bool | `true` | Wait for reports-server to be ready before starting Kyverno components |
-| reportsServer.readinessTimeout | int | `300` | Timeout for waiting for reports-server readiness (in seconds) |
+| reportsServer.readinessTimeout | string | `"300s"` | Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m) |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
@@ -919,14 +939,9 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
+| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.2 |
 | https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
-
-## Maintainers
-
-| Name | Email | Url |
-| ---- | ------ | --- |
-| Nirmata |  | <https://kyverno.io/> |
 
 ----------------------------------------------
 Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)

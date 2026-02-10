@@ -20,12 +20,14 @@ CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
 BACKGROUND_IMAGE     := background-controller
+READINESS_IMAGE      := readiness-checker
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
+REPO_READINESS       := $(REGISTRY)/$(REPO)/$(READINESS_IMAGE)
 USE_CONFIG           ?= standard
 INSTALL_VERSION	     ?= 3.2.6
 
@@ -140,19 +142,24 @@ clean-tools: ## Remove installed tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR        := cmd
-KYVERNO_DIR    := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
-CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
-CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
-REPORTS_DIR    := $(CMD_DIR)/reports-controller
-BACKGROUND_DIR := $(CMD_DIR)/background-controller
-KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
-KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
-CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
-CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
-REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
-BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
+CMD_DIR            := cmd
+KYVERNO_DIR        := $(CMD_DIR)/kyverno
+KYVERNOPRE_DIR     := $(CMD_DIR)/kyverno-init
+CLI_DIR            := $(CMD_DIR)/cli/kubectl-kyverno
+CLEANUP_DIR        := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR        := $(CMD_DIR)/reports-controller
+BACKGROUND_DIR     := $(CMD_DIR)/background-controller
+READINESS_DIR      := $(CMD_DIR)/readiness-checker
+WEBHOOK_CLEANUP_DIR := $(CMD_DIR)/tools/webhook-cleanup
+KYVERNO_BIN        := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE_BIN     := $(KYVERNOPRE_DIR)/kyvernopre
+CLI_BIN            := $(CLI_DIR)/kubectl-kyverno
+CLEANUP_BIN        := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN        := $(REPORTS_DIR)/reports-controller
+BACKGROUND_BIN     := $(BACKGROUND_DIR)/background-controller
+READINESS_BIN      := $(READINESS_DIR)/readiness-checker
+WEBHOOK_CLEANUP_BIN := $(WEBHOOK_CLEANUP_DIR)/webhook-cleanup
+
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -200,34 +207,35 @@ unused-package-check:
 	fi
 
 $(BACKGROUND_BIN): fmt
-$(BACKGROUND_BIN): vet
 	@echo Build background controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 $(CLEANUP_BIN): fmt
-$(CLEANUP_BIN): vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
 $(CLI_BIN): fmt
-# $(CLI_BIN): vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(KYVERNO_BIN): fmt
-$(KYVERNO_BIN): vet
 	@echo Build kyverno binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
 $(KYVERNOPRE_BIN): fmt
-$(KYVERNOPRE_BIN): vet
 	@echo Build kyvernopre binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(REPORTS_BIN): fmt
-$(REPORTS_BIN): vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
+
+$(WEBHOOK_CLEANUP_BIN): fmt
+	@echo Build webhook cleanup binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(WEBHOOK_CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(WEBHOOK_CLEANUP_DIR)
+$(READINESS_BIN): fmt vet
+	@echo Build readiness-checker binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(READINESS_BIN) -ldflags=$(LD_FLAGS) ./$(READINESS_DIR)
 
 .PHONY: build-background-controller
 build-background-controller: ## Build background controller binary
@@ -253,6 +261,13 @@ build-kyverno-init: $(KYVERNOPRE_BIN)
 build-reports-controller: ## Build reports controller binary
 build-reports-controller: $(REPORTS_BIN)
 
+.PHONY: build-webhook-cleanup
+build-webhook-cleanup: ## Build webhook cleanup binary
+build-webhook-cleanup: $(WEBHOOK_CLEANUP_BIN)
+.PHONY: build-readiness-checker
+build-readiness-checker: ## Build readiness-checker binary
+build-readiness-checker: $(READINESS_BIN)
+
 build-all: ## Build all binaries
 build-all: build-background-controller
 build-all: build-cleanup-controller
@@ -260,6 +275,8 @@ build-all: build-cli
 build-all: build-kyverno
 build-all: build-kyverno-init
 build-all: build-reports-controller
+build-all: build-webhook-cleanup
+build-all: build-readiness-checker
 
 ##############
 # BUILD (KO) #
@@ -281,6 +298,8 @@ KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
+KO_WEBHOOK_CLEANUP_REPO := $(PACKAGE)/$(WEBHOOK_CLEANUP_DIR)
+KO_READINESS_REPO   := $(PACKAGE)/$(READINESS_DIR)
 
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
@@ -318,8 +337,20 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
+.PHONY: ko-build-webhook-cleanup
+ko-build-webhook-cleanup: $(KO) ## Build webhook cleanup local image (with ko)
+	@echo Build webhook cleanup local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(WEBHOOK_CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
+
+.PHONY: ko-build-readiness-checker
+ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
+	@echo Build readiness-checker local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
+
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -368,8 +399,14 @@ ko-publish-background-controller: ko-login ## Build and publish background contr
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
 		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/background-controller'
 
+.PHONY: ko-publish-readiness-checker
+ko-publish-readiness-checker: ko-login ## Build and publish readiness-checker image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_READINESS) \
+		$(KO) build ./$(READINESS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
+		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/readiness-checker'
+
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ko-publish-readiness-checker ## Build and publish all images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -469,9 +506,7 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input kyverno/api/kyverno/v2beta1 \
 		--input kyverno/api/reports/v1 \
 		--input kyverno/api/policyreport/v1alpha2 \
-		--input api/api/policies.kyverno.io/v1alpha1 \
-		--input api/api/policies.kyverno.io/v1beta1 \
-		--input api/api/policies.kyverno.io/v1
+		--input api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -488,9 +523,7 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -509,9 +542,7 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -530,7 +561,7 @@ codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
 	@echo "Tidying modules after client generation..."
-	go mod tidy
+	@go mod tidy
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: ## Generate kyverno CRDs
@@ -667,16 +698,6 @@ define generate_crd
 		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
-	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/crds/templates/$(3)/$(1)
-	@cat $(CRDS_PATH)/$(2)/$(1) \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
-		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
- 		>> ./charts/crds/templates/$(3)/$(1)
-	@echo "{{- end }}" >> ./charts/crds/templates/$(3)/$(1)
 endef
 
 .PHONY: helm-setup-dependency-charts
@@ -684,20 +705,16 @@ helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dep
 	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
-	@$(HELM) dependency build ./charts/kyverno
+	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
+	@$(HELM) dependency update ./charts/kyverno
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
-	@rm -rf ./charts/crds/templates/kyverno.io && mkdir -p ./charts/crds/templates/kyverno.io
-	@rm -rf ./charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/crds/templates/wgpolicyk8s.io
-	@rm -rf ./charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	@rm -rf ./charts/kyverno/charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/policies.kyverno.io
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
@@ -705,24 +722,10 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
-	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
-	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
-	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedgeneratingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedgeneratingpolicies)
-	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespacedmutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedmutatingpolicies)
-	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
-	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
 	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports,true)
-	@rm -rf ./charts/crds/templates/kyverno.io
-	@rm -rf ./charts/crds/templates/reports.kyverno.io
-	@rm -rf ./charts/crds/templates/wgpolicyk8s.io
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: $(HELM_DOCS) ## Generate helm docs
@@ -826,18 +829,18 @@ codegen-all: codegen-all-docs
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
-	@$(SED) -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' 		charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(POLICIES_CHART_VERSION)  # VERSION/' 	charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
 
 ##################
 # VERIFY CODEGEN #
@@ -864,7 +867,7 @@ test-clean: ## Clean tests cache
 
 .PHONY: test-unit
 test-unit: ## Run unit tests
-test-unit: test-clean
+test-unit:
 	@echo Running unit tests... >&2
 	@go test -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
@@ -940,7 +943,6 @@ test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
 test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
 	@echo Running local cli exception tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-exceptions
-
 
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
