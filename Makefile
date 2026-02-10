@@ -343,8 +343,6 @@ ko-build-webhook-cleanup: $(KO) ## Build webhook cleanup local image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(WEBHOOK_CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
-.PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ## Build all local images (with ko)
 .PHONY: ko-build-readiness-checker
 ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
 	@echo Build readiness-checker local image with ko... >&2
@@ -352,7 +350,7 @@ ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with k
 		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-readiness-checker ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
