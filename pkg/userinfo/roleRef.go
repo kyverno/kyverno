@@ -23,13 +23,13 @@ type ClusterRoleBindingLister interface {
 }
 
 // GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, userInfo authenticationv1.UserInfo) ([]string, []string, error) {
+func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, userInfo authenticationv1.UserInfo, requestNamespace string) ([]string, []string, error) {
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.Everything())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list rolebindings: %v", err)
 	}
-	rs, crs := getRoleRefByRoleBindings(roleBindings, userInfo)
+	rs, crs := getRoleRefByRoleBindings(roleBindings, userInfo, requestNamespace)
 	// clusterrolebindings
 	clusterroleBindings, err := crbLister.List(labels.Everything())
 	if err != nil {
@@ -45,7 +45,7 @@ func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, 
 	return rs, crs, nil
 }
 
-func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) ([]string, []string) {
+func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo, requestNamespace string) ([]string, []string) {
 	var roles, clusterRoles []string
 	for _, rolebinding := range roleBindings {
 		if matchBindingSubjects(rolebinding.Subjects, userInfo, rolebinding.Namespace) {
@@ -53,6 +53,11 @@ func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authe
 			case roleKind:
 				roles = append(roles, rolebinding.Namespace+":"+rolebinding.RoleRef.Name)
 			case clusterroleKind:
+
+				if rolebinding.Namespace != requestNamespace {
+					continue
+				}
+
 				clusterRoles = append(clusterRoles, rolebinding.RoleRef.Name)
 			}
 		}

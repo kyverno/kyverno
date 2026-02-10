@@ -160,6 +160,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	allObjects = append(allObjects, paramObjectsArr...)
 
 	cl := cluster.NewFake()
+	dClient, err = cl.DClient(allObjects)
+	if err != nil {
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+		if err != nil {
+			return nil, err
+		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	}
+
 	var cmResolver engineapi.ConfigmapResolver
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
@@ -229,7 +238,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.NamespacedValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies) + len(results.NamespacedMutatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -315,10 +324,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
-			NamespacedValidatingPolicies:      results.NamespacedValidatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
 			MutatingPolicies:                  results.MutatingPolicies,
-			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			Resource:                          *resource,
@@ -365,16 +372,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ers = append(ers, ivpols...)
 		}
 
-		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
-			for i := range results.DeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
-			}
-			for i := range results.NamespacedDeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.NamespacedDeletingPolicies[i])
-			}
+		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
-				dpolInputs,
+				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -405,7 +405,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			MutatingPolicies:                  results.MutatingPolicies,
-			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
+			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
@@ -449,16 +449,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ers = append(ers, ivpols...)
 		}
 
-		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
-			for i := range results.DeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
-			}
-			for i := range results.NamespacedDeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.NamespacedDeletingPolicies[i])
-			}
+		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
-				dpolInputs,
+				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -490,7 +483,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 }
 
 func applyImageValidatingPolicies(
-	ivps []policiesv1beta1.ImageValidatingPolicy,
+	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
@@ -503,12 +496,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 ) ([]engineapi.EngineResponse, error) {
-	// Convert to ImageValidatingPolicyLike interface
-	ivpsLike := make([]policiesv1beta1.ImageValidatingPolicyLike, len(ivps))
-	for i := range ivps {
-		ivpsLike[i] = &ivps[i]
-	}
-	provider, err := ivpolengine.NewProvider(ivpsLike, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +573,7 @@ func applyImageValidatingPolicies(
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
-		p := &ivps[i]
+		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}

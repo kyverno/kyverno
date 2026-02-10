@@ -50,7 +50,7 @@ runs:
     - name: Install Cosign
       uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
     - name: Setup yq
-      uses: mikefarah/yq@065b200af9851db0d5132f50bc10b1406ea5c0a8 # v4.50.1
+      uses: mikefarah/yq@2be0094729a1006f61e8339ce9934bfb3cbb549f # v4.52.2
     - name: Install chainsaw
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:

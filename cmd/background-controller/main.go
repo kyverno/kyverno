@@ -253,17 +253,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// temporarily create a fake breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 		}
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -396,14 +396,15 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()
