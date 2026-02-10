@@ -1,0 +1,9 @@
+apiVersion: cloud.google.com/v1
+kind: ComputeClass
+metadata:
+  name: mixed-compute-class
+spec:
+  priorities:
+    - spot: true
+    - spot: false
+    - spot: false

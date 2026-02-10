@@ -224,6 +224,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				if err != nil {
 					debug.Error(err, "failed to get namespace labels")
 					errs = append(errs, err)
+					continue
 				}
 				nsLabels = ns.GetLabels()
 			}

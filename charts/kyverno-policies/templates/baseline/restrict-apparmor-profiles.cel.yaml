@@ -1,0 +1,64 @@
+{{- $name := "restrict-apparmor-profiles" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Restrict AppArmor Profiles
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      AppArmor profiles should be restricted to allowed values. This policy ensures
+      AppArmor profiles are unset or set to allowed values.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.metadata) || 
+         !has(object.metadata.annotations) ||
+         object.metadata.annotations.filter(k, k.startsWith('container.apparmor.security.beta.kubernetes.io/')).all(k, 
+           object.metadata.annotations[k] in ['', 'runtime/default', 'localhost/*'])) &&
+        (!has(object.spec.securityContext) || 
+         !has(object.spec.securityContext.appArmorProfile) || 
+         !has(object.spec.securityContext.appArmorProfile.type) || 
+         object.spec.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost']) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.appArmorProfile) || 
+          !has(c.securityContext.appArmorProfile.type) || 
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.appArmorProfile) || 
+          !has(c.securityContext.appArmorProfile.type) || 
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.appArmorProfile) || 
+          !has(c.securityContext.appArmorProfile.type) || 
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost']))
+      message: >-
+        AppArmor profiles must be restricted. The fields
+        metadata.annotations['container.apparmor.security.beta.kubernetes.io/*'],
+        spec.securityContext.appArmorProfile.type,
+        spec.containers[*].securityContext.appArmorProfile.type,
+        spec.initContainers[*].securityContext.appArmorProfile.type, and
+        spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset or set to allowed values.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+

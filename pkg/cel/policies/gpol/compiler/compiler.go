@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	gpolCompilerVersion = version.MajorMinor(1, 0)
+	gpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + " error: %s"
 )
 
