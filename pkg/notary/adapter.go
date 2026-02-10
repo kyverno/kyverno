@@ -27,7 +27,6 @@ func (a *ClusterPolicyAdapter) init() images.ImageVerifier {
 
 // VerifySignature implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
-	// Log deprecation warning
 	logging.WithName("Notary").V(2).Info("DEPRECATION WARNING: pkg/notary is deprecated. This package delegates to pkg/imageverification/imageverifiers/notary for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
 
 	// Create image data fetcher with nil secret lister (client provides auth)
@@ -42,7 +41,6 @@ func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.
 		return nil, errors.Wrapf(err, "failed to fetch image data for %s", opts.ImageRef)
 	}
 
-	// Combine certs and cert chain
 	certsData := opts.Cert
 	if opts.CertChain != "" {
 		if certsData != "" {
@@ -51,12 +49,10 @@ func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.
 		certsData = certsData + opts.CertChain
 	}
 
-	// Call new verifier
 	if err := a.verifier.VerifyImageSignature(ctx, imageData, certsData, ""); err != nil {
 		return nil, err
 	}
 
-	// Return response
 	return &images.Response{
 		Digest:     imageData.Digest,
 		Statements: nil,
@@ -65,7 +61,6 @@ func (a *ClusterPolicyAdapter) VerifySignature(ctx context.Context, opts images.
 
 // FetchAttestations implements images.ImageVerifier interface by adapting to the new verifier API
 func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	// Log deprecation warning
 	logging.WithName("Notary").V(2).Info("DEPRECATION WARNING: pkg/notary is deprecated. This package delegates to pkg/imageverification/imageverifiers/notary for compatibility. Please migrate to ImageValidatingPolicy or update imports to use the new package directly.")
 
 	// Create image data fetcher with nil secret lister (client provides auth)
@@ -80,7 +75,6 @@ func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts image
 		return nil, errors.Wrapf(err, "failed to fetch image data for %s", opts.ImageRef)
 	}
 
-	// Combine certs and cert chain
 	certsData := opts.Cert
 	if opts.CertChain != "" {
 		if certsData != "" {
@@ -89,13 +83,11 @@ func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts image
 		certsData = certsData + opts.CertChain
 	}
 
-	// Determine referrer type from options
 	referrerType := opts.Type
 	if referrerType == "" && opts.PredicateType != "" {
 		referrerType = opts.PredicateType
 	}
 
-	// Call new verifier
 	if err := a.verifier.VerifyAttestationSignature(ctx, imageData, referrerType, certsData, ""); err != nil {
 		return nil, err
 	}
@@ -113,9 +105,21 @@ func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts image
 		}
 		payload, err := imageData.GetPayload(*attestation)
 		if err == nil && payload != nil {
+			// Wrap the payload in a statement structure expected by buildStatementMap
+			// The structure should have:
+			// - "type": the predicate type (used by buildStatementMap)
+			// - "predicate": the predicate data (used by EvaluateConditions)
+			statement := make(map[string]interface{})
+			statement["type"] = referrerType
+
 			if payloadMap, ok := payload.(map[string]interface{}); ok {
-				statements = append(statements, payloadMap)
+				statement["predicate"] = payloadMap
+			} else {
+				// If payload is not a map, wrap it as-is
+				statement["predicate"] = payload
 			}
+
+			statements = append(statements, statement)
 		}
 	}
 

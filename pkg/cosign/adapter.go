@@ -104,9 +104,27 @@ func (a *ClusterPolicyAdapter) FetchAttestations(ctx context.Context, opts image
 	statements := make([]map[string]interface{}, 0)
 	payload, err := imageData.GetPayload(*attestation)
 	if err == nil && payload != nil {
-		if payloadMap, ok := payload.(map[string]interface{}); ok {
-			statements = append(statements, payloadMap)
+		// Determine the attestation type
+		attestationType := opts.Type
+		if attestationType == "" && opts.PredicateType != "" {
+			attestationType = opts.PredicateType
 		}
+
+		// Wrap the payload in a statement structure expected by buildStatementMap
+		// The structure should have:
+		// - "type": the predicate type (used by buildStatementMap)
+		// - "predicate": the predicate data (used by EvaluateConditions)
+		statement := make(map[string]interface{})
+		statement["type"] = attestationType
+
+		if payloadMap, ok := payload.(map[string]interface{}); ok {
+			statement["predicate"] = payloadMap
+		} else {
+			// If payload is not a map, wrap it as-is
+			statement["predicate"] = payload
+		}
+
+		statements = append(statements, statement)
 	}
 
 	return &images.Response{
@@ -125,16 +143,6 @@ func (a *ClusterPolicyAdapter) fetchImageDataWithClient(ctx context.Context, fet
 }
 
 // convertOptionsToAttestor converts images.Options to a policiesv1beta1.Attestor
-//
-// Key Routing Logic:
-// - Direct PEM keys are routed to Key.Data field
-// - k8s:// secret references are routed to Key.KMS field
-// - KMS references (AWS, GCP, Azure, HashiVault) are routed to Key.KMS field
-//
-// The Key.KMS field is handled by Cosign's PublicKeyFromKeyRefWithHashAlgo function,
-// which has built-in support for fetching Kubernetes secrets and KMS keys.
-// This means k8s://namespace/secret references work without needing a secretInterface
-// in the adapter - Cosign accesses the cluster API directly.
 func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 	attestor := &policiesv1beta1.Attestor{}
 
@@ -148,18 +156,12 @@ func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 			HashAlgorithm: opts.SignatureAlgorithm,
 		}
 
-		// Route to the correct field based on key format:
-		// - Key.KMS: for k8s:// and KMS providers (handled by Cosign's PublicKeyFromKeyRefWithHashAlgo)
-		// - Key.Data: for direct PEM-encoded public keys (handled by decodePEM)
 		if strings.HasPrefix(opts.Key, "k8s://") || strings.HasPrefix(opts.Key, "azurekms://") ||
 			strings.HasPrefix(opts.Key, "gcpkms://") || strings.HasPrefix(opts.Key, "awskms://") ||
 			strings.HasPrefix(opts.Key, "hashivault://") {
-			// KMS and k8s:// references go to the KMS field
-			// Cosign will fetch these from their respective sources (K8s API, cloud KMS, etc.)
+
 			cosignAttestor.Key.KMS = opts.Key
 		} else {
-			// Direct PEM keys go to the Data field
-			// These are decoded directly without external lookups
 			cosignAttestor.Key.Data = opts.Key
 		}
 	}
@@ -191,11 +193,6 @@ func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 	}
 
 	// Handle CTLog settings - CTLog is on the Cosign struct itself in v1beta1 API
-	//
-	// IMPORTANT: TrustedMaterial is only set for keyless verification in the new verifier.
-	// For key-based verification, if we try to verify transparency logs without TrustedMaterial,
-	// it will cause a nil pointer dereference panic.
-	//
 	// Behavior:
 	// 1. If explicit CTLog config is provided (RekorURL, RekorPubKey, etc.), use it
 	// 2. For key-based verification without explicit CTLog config, default to IgnoreTlog=true
@@ -222,10 +219,6 @@ func convertOptionsToAttestor(opts *images.Options) *policiesv1beta1.Attestor {
 			cosignAttestor.CTLog.TSACertChain = opts.TSACertChain
 		}
 
-		// CRITICAL FIX: For key-based verification, we must force IgnoreTlog=true
-		// even if the old code provided RekorURL, because TrustedMaterial is only
-		// set for keyless verification. Without this, bundle verification will panic.
-		//
 		// The old ClusterPolicy code set RekorURL="https://rekor.sigstore.dev" and
 		// IgnoreTlog=false by default, but this doesn't work with the new verifier
 		// architecture which requires TrustedMaterial for transparency log verification.

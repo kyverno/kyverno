@@ -121,7 +121,16 @@ func buildStatementMap(statements []map[string]interface{}) (map[string][]map[st
 	results := map[string][]map[string]interface{}{}
 	predicateTypes := make([]string, 0, len(statements))
 	for _, s := range statements {
-		predicateType := s["type"].(string)
+		typeVal, ok := s["type"]
+		if !ok || typeVal == nil {
+			// This should not happen with the fixed adapters, but handle gracefully
+			continue
+		}
+		predicateType, ok := typeVal.(string)
+		if !ok {
+			// Type is not a string, skip this statement
+			continue
+		}
 		if results[predicateType] != nil {
 			results[predicateType] = append(results[predicateType], s)
 		} else {
