@@ -19,7 +19,6 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.18.0
-	github.com/fluxcd/pkg/oci v0.45.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.7.0
 	github.com/go-git/go-git/v5 v5.16.5
@@ -194,7 +193,7 @@ require (
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
-	github.com/docker/cli v29.0.3+incompatible // indirect
+	github.com/docker/cli v29.1.5+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
