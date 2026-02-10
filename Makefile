@@ -20,12 +20,14 @@ CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
 BACKGROUND_IMAGE     := background-controller
+READINESS_IMAGE      := readiness-checker
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
+REPO_READINESS       := $(REGISTRY)/$(REPO)/$(READINESS_IMAGE)
 USE_CONFIG           ?= standard
 INSTALL_VERSION	     ?= 3.2.6
 
@@ -140,19 +142,24 @@ clean-tools: ## Remove installed tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR        := cmd
-KYVERNO_DIR    := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
-CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
-CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
-REPORTS_DIR    := $(CMD_DIR)/reports-controller
-BACKGROUND_DIR := $(CMD_DIR)/background-controller
-KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
-KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
-CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
-CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
-REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
-BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
+CMD_DIR            := cmd
+KYVERNO_DIR        := $(CMD_DIR)/kyverno
+KYVERNOPRE_DIR     := $(CMD_DIR)/kyverno-init
+CLI_DIR            := $(CMD_DIR)/cli/kubectl-kyverno
+CLEANUP_DIR        := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR        := $(CMD_DIR)/reports-controller
+BACKGROUND_DIR     := $(CMD_DIR)/background-controller
+READINESS_DIR      := $(CMD_DIR)/readiness-checker
+WEBHOOK_CLEANUP_DIR := $(CMD_DIR)/tools/webhook-cleanup
+KYVERNO_BIN        := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE_BIN     := $(KYVERNOPRE_DIR)/kyvernopre
+CLI_BIN            := $(CLI_DIR)/kubectl-kyverno
+CLEANUP_BIN        := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN        := $(REPORTS_DIR)/reports-controller
+BACKGROUND_BIN     := $(BACKGROUND_DIR)/background-controller
+READINESS_BIN      := $(READINESS_DIR)/readiness-checker
+WEBHOOK_CLEANUP_BIN := $(WEBHOOK_CLEANUP_DIR)/webhook-cleanup
+
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -223,6 +230,13 @@ $(REPORTS_BIN): fmt
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
+$(WEBHOOK_CLEANUP_BIN): fmt
+	@echo Build webhook cleanup binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(WEBHOOK_CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(WEBHOOK_CLEANUP_DIR)
+$(READINESS_BIN): fmt vet
+	@echo Build readiness-checker binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(READINESS_BIN) -ldflags=$(LD_FLAGS) ./$(READINESS_DIR)
+
 .PHONY: build-background-controller
 build-background-controller: ## Build background controller binary
 build-background-controller: $(BACKGROUND_BIN)
@@ -247,6 +261,13 @@ build-kyverno-init: $(KYVERNOPRE_BIN)
 build-reports-controller: ## Build reports controller binary
 build-reports-controller: $(REPORTS_BIN)
 
+.PHONY: build-webhook-cleanup
+build-webhook-cleanup: ## Build webhook cleanup binary
+build-webhook-cleanup: $(WEBHOOK_CLEANUP_BIN)
+.PHONY: build-readiness-checker
+build-readiness-checker: ## Build readiness-checker binary
+build-readiness-checker: $(READINESS_BIN)
+
 build-all: ## Build all binaries
 build-all: build-background-controller
 build-all: build-cleanup-controller
@@ -254,6 +275,8 @@ build-all: build-cli
 build-all: build-kyverno
 build-all: build-kyverno-init
 build-all: build-reports-controller
+build-all: build-webhook-cleanup
+build-all: build-readiness-checker
 
 ##############
 # BUILD (KO) #
@@ -275,6 +298,8 @@ KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
+KO_WEBHOOK_CLEANUP_REPO := $(PACKAGE)/$(WEBHOOK_CLEANUP_DIR)
+KO_READINESS_REPO   := $(PACKAGE)/$(READINESS_DIR)
 
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
@@ -312,8 +337,20 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
+.PHONY: ko-build-webhook-cleanup
+ko-build-webhook-cleanup: $(KO) ## Build webhook cleanup local image (with ko)
+	@echo Build webhook cleanup local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(WEBHOOK_CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
+
+.PHONY: ko-build-readiness-checker
+ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
+	@echo Build readiness-checker local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
+
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -362,8 +399,14 @@ ko-publish-background-controller: ko-login ## Build and publish background contr
 		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
 		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/background-controller'
 
+.PHONY: ko-publish-readiness-checker
+ko-publish-readiness-checker: ko-login ## Build and publish readiness-checker image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_READINESS) \
+		$(KO) build ./$(READINESS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
+		--image-annotation 'org.opencontainers.image.authors'='The Kyverno team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/readiness-checker'
+
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ko-publish-readiness-checker ## Build and publish all images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -463,9 +506,7 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input kyverno/api/kyverno/v2beta1 \
 		--input kyverno/api/reports/v1 \
 		--input kyverno/api/policyreport/v1alpha2 \
-		--input api/api/policies.kyverno.io/v1alpha1 \
-		--input api/api/policies.kyverno.io/v1beta1 \
-		--input api/api/policies.kyverno.io/v1
+		--input api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-listers
 codegen-client-listers: ## Generate listers
@@ -482,9 +523,7 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-informers
 codegen-client-informers: ## Generate informers
@@ -503,9 +542,7 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1beta1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1
+		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-wrappers
 codegen-client-wrappers: ## Generate client wrappers
@@ -792,18 +829,18 @@ codegen-all: codegen-all-docs
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
-	@$(SED) -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' 		charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(POLICIES_CHART_VERSION)  # VERSION/' 	charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/version: .*  # VERSION/version: $(KYVERNO_CHART_VERSION)  # VERSION/' 	charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 						charts/kyverno/charts/grafana/Chart.yaml
 
 ##################
 # VERIFY CODEGEN #
