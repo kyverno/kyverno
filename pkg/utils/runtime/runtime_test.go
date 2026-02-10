@@ -47,6 +47,7 @@ func TestNewRuntime(t *testing.T) {
 }
 
 func TestRuntime_IsDebug_WithServerIP(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -57,6 +58,7 @@ func TestRuntime_IsDebug_WithServerIP(t *testing.T) {
 }
 
 func TestRuntime_IsDebug_WithoutServerIP(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -67,6 +69,7 @@ func TestRuntime_IsDebug_WithoutServerIP(t *testing.T) {
 }
 
 func TestRuntime_IsLive_AlwaysTrue(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -79,6 +82,7 @@ func TestRuntime_IsLive_AlwaysTrue(t *testing.T) {
 }
 
 func TestRuntime_IsReady_ValidCertificates(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -91,6 +95,7 @@ func TestRuntime_IsReady_ValidCertificates(t *testing.T) {
 }
 
 func TestRuntime_IsReady_InvalidCertificates(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -103,6 +108,7 @@ func TestRuntime_IsReady_InvalidCertificates(t *testing.T) {
 }
 
 func TestRuntime_IsReady_CertValidationError(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -115,6 +121,7 @@ func TestRuntime_IsReady_CertValidationError(t *testing.T) {
 }
 
 func TestRuntime_IsRollingUpdate_InDebugMode(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -127,6 +134,7 @@ func TestRuntime_IsRollingUpdate_InDebugMode(t *testing.T) {
 }
 
 func TestRuntime_IsRollingUpdate_NormalReplicas(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -158,6 +166,7 @@ func TestRuntime_IsRollingUpdate_NormalReplicas(t *testing.T) {
 }
 
 func TestRuntime_IsRollingUpdate_ExtraReplicas(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -189,6 +198,7 @@ func TestRuntime_IsRollingUpdate_ExtraReplicas(t *testing.T) {
 }
 
 func TestRuntime_IsGoingDown_InDebugMode(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
@@ -201,6 +211,7 @@ func TestRuntime_IsGoingDown_InDebugMode(t *testing.T) {
 }
 
 func TestRuntime_IsGoingDown_DeploymentNotFound(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	// No deployment exists
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
@@ -219,6 +230,7 @@ func TestRuntime_IsGoingDown_DeploymentNotFound(t *testing.T) {
 }
 
 func TestRuntime_IsGoingDown_WithDeletionTimestamp(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	now := metav1.Now()
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{
@@ -249,6 +261,7 @@ func TestRuntime_IsGoingDown_WithDeletionTimestamp(t *testing.T) {
 }
 
 func TestRuntime_IsGoingDown_ZeroReplicas(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	replicas := int32(0)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -277,6 +290,7 @@ func TestRuntime_IsGoingDown_ZeroReplicas(t *testing.T) {
 }
 
 func TestRuntime_IsGoingDown_NormalState(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	replicas := int32(3)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -304,12 +318,8 @@ func TestRuntime_IsGoingDown_NormalState(t *testing.T) {
 	assert.False(t, rt.IsGoingDown())
 }
 
-func TestRuntime_InterfaceCompliance(t *testing.T) {
-	// Verify that runtime implements Runtime interface
-	var _ Runtime = (*runtime)(nil)
-}
-
 func TestRuntime_ContextPropagation(t *testing.T) {
+	t.Setenv("KYVERNO_DEPLOYMENT", "kyverno-admission-controller")
 	kubeClient := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 	deploymentInformer := informerFactory.Apps().V1().Deployments()
