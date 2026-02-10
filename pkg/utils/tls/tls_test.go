@@ -93,7 +93,7 @@ func TestFetchCert_SecretNotFound(t *testing.T) {
 
 func TestFetchCert_InvalidCertificateData(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		secretData map[string][]byte
 	}{
 		{
