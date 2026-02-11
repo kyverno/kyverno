@@ -308,21 +308,21 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
-	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-	if generateVAPs || generateMAPs {
+	vapsRegistered, _ := admissionpolicy.IsValidatingAdmissionPolicyRegistered(kubeClient)
+	mapsRegistered, _ := admissionpolicy.IsMutatingAdmissionPolicyRegistered(kubeClient)
+	if vapsRegistered || mapsRegistered {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-		if generateVAPs {
+		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 		}
 
 		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
-		if generateMAPs {
+		if mapsRegistered {
 			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
 			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
 		}
@@ -627,7 +627,8 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
@@ -640,7 +641,7 @@ func main() {
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()
@@ -761,7 +762,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(""),
+				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
@@ -799,23 +800,23 @@ func main() {
 							time.Sleep(2 * time.Second)
 							continue
 						}
-						breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+						breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 						return
 					}
 				}()
 				// create a temporary fake breaker until the retrying goroutine succeeds
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
-				})
+				}))
 				// no error has occurred, create a normal breaker
 			} else {
-				breaker.ReportsBreaker = breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))
+				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 			}
 			// admission reports are disabled, create a fake breaker by default
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("admission reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 				return true
-			})
+			}))
 		}
 
 		resourceHandlers := webhooksresource.NewHandlers(
