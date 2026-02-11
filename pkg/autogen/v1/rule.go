@@ -196,7 +196,6 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 			if err != nil {
 				logger.Error(err, "failed to deserialize anyPattern, expect type array")
-				return rule
 			}
 			var patterns []interface{}
 			for _, pattern := range anyPatterns {

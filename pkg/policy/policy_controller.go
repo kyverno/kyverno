@@ -417,14 +417,14 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
-			if err := pc.handleMutate(polName, policy); err != nil {
+			err = pc.handleMutate(polName, policy)
+			if err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
-				errs = append(errs, err)
 			}
 
-			if err := pc.handleGenerate(polName, policy); err != nil {
+			err = pc.handleGenerate(polName, policy)
+			if err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
-				errs = append(errs, err)
 			}
 		}
 	case "gpol":
