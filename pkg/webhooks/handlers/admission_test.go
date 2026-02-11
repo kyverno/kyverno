@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// mockAdmissionHandler creates a handler that returns a fixed response for testing
 func mockAdmissionHandler(response AdmissionResponse) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		return response

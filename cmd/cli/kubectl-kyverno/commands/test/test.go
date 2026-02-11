@@ -160,6 +160,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	allObjects = append(allObjects, paramObjectsArr...)
 
 	cl := cluster.NewFake()
+	dClient, err = cl.DClient(allObjects)
+	if err != nil {
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+		if err != nil {
+			return nil, err
+		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	}
+
 	var cmResolver engineapi.ConfigmapResolver
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
