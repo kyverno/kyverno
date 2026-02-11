@@ -68,3 +68,14 @@ func Test_MatchResources(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchResources_Validate_Empty_NoPanic(t *testing.T) {
+	mr := MatchResources{}
+
+	path := field.NewPath("dummy")
+	errs := mr.Validate(path, false, nil)
+
+	if len(errs) > 0 {
+		t.Logf("Empty validation returned errors (expected behavior): %v", errs)
+	}
+}
