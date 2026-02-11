@@ -203,19 +203,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 		}
 
+		dClient, err = cl.DClient(allObjects)
+		if err != nil {
+			return nil, err
+		}
+
 		cmResolver, err = cluster.NewConfigMapResolver(dClient)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	dClient, err = cl.DClient(allObjects)
-	if err != nil {
-		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
-		if err != nil {
-			return nil, err
-		}
-		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	}
 
 	// exceptions
@@ -341,7 +337,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
@@ -421,7 +417,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
@@ -516,7 +512,7 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
@@ -634,7 +630,7 @@ func applyDeletingPolicies(
 		return nil, err
 	}
 
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
