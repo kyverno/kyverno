@@ -86,7 +86,12 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		obj = urSpec.GetResource()
 	}
 
-	log.V(4).Info("fetching resource", "resourceSpec", resourceSpec.String(), "uid", obj.GetUID(), "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", resourceSpec.GetKind(), "apiVersion", resourceSpec.GetAPIVersion())
+	log.V(4).Info("fetching resource by UID",
+		"uid", obj.GetUID(),
+		"name", obj.GetName(),
+		"namespace", obj.GetNamespace(),
+		"kind", resourceSpec.GetKind(),
+		"apiVersion", resourceSpec.GetAPIVersion())
 	if obj.GetUID() != "" {
 		triggers, err := client.ListResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
 		if err != nil {
