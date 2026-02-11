@@ -14,10 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -71,8 +69,10 @@ type controller struct {
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	gpolLister     policiesv1alpha1listers.GeneratingPolicyLister
+	gpolLister     policiesv1beta1listers.GeneratingPolicyLister
+	ngpolLister    policiesv1beta1listers.NamespacedGeneratingPolicyLister
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -105,8 +105,10 @@ func NewController(
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
-	gpolInformer policiesv1alpha1informers.GeneratingPolicyInformer,
+	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
@@ -324,7 +326,7 @@ func NewController(
 	if nivpolInformer != nil {
 		c.nivpolLister = nivpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
-			ivpolInformer.Informer(),
+			nivpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
@@ -343,10 +345,32 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if nmpolInformer != nil {
+		c.nmpolLister = nmpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			nmpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if gpolInformer != nil {
 		c.gpolLister = gpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
 			gpolInformer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if ngpolInformer != nil {
+		c.ngpolLister = ngpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			ngpolInformer.Informer(),
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
 			func(o metav1.Object) { enqueueReportsForPolicy(o) },

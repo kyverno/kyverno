@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
@@ -33,7 +34,7 @@ import (
 )
 
 var (
-	vpolCompilerVersion = version.MajorMinor(2, 0)
+	vpolCompilerVersion = version.MajorMinor(1, 0)
 	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
 )
 
@@ -54,7 +55,7 @@ type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
-	case policiesv1beta1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
 	default:
 		return c.compileForKubernetes(policy, exceptions)
@@ -122,8 +123,9 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		})
 	}
 	return &Policy{
-		mode:             policiesv1beta1.EvaluationModeKubernetes,
+		mode:             policieskyvernoio.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConstraints: spec.MatchConstraints,
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,
@@ -209,7 +211,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}
 
 	return &Policy{
-		mode:            policiesv1beta1.EvaluationModeJSON,
+		mode:            policieskyvernoio.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions: matchConditions,
 		variables:       variables,

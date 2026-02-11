@@ -90,8 +90,8 @@ reportsServer:
   # -- Wait for reports-server to be ready before starting Kyverno components
   waitForReady: true
 
-  # -- Timeout for waiting for reports-server readiness (in seconds)
-  readinessTimeout: 300
+  # -- Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m)
+  readinessTimeout: 300s
 
 # CRDs configuration
 crds:
@@ -160,13 +160,15 @@ crds:
       - policies.kyverno.io
       - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
+      # policies.kyverno.io
       - deletingpolicies.policies.kyverno.io
       - generatingpolicies.policies.kyverno.io
       - imagevalidatingpolicies.policies.kyverno.io
-      - namespacedimagevalidatingpolicies.policies.kyverno.io
       - mutatingpolicies.policies.kyverno.io
-      - namespacedmutatingpolicies.policies.kyverno.io
       - namespaceddeletingpolicies.policies.kyverno.io
+      - namespacedgeneratingpolicies.policies.kyverno.io
+      - namespacedimagevalidatingpolicies.policies.kyverno.io
+      - namespacedmutatingpolicies.policies.kyverno.io
       - namespacedvalidatingpolicies.policies.kyverno.io
       - policyexceptions.policies.kyverno.io
       - validatingpolicies.policies.kyverno.io
@@ -537,12 +539,12 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: bitnami
+    registry: ghcr.io
     # -- Image repository
-    repository: kubectl
+    repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: latest
+    tag: 'v0.1.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -612,12 +614,13 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: registry.k8s.io
+    registry: ~
     # -- Image repository
-    repository: kubectl
+    repository: ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup
     # -- Image tag
+    # Defaults to current release tag if omitted
+    tag: ~
     # Defaults to `latest` if omitted
-    tag: 'v1.32.7'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -967,6 +970,9 @@ admissionController:
   podAnnotations: {}
     # example.com/annotation: foo
 
+  # -- Deployment labels.
+  labels: {}
+
   # -- Deployment annotations.
   annotations: {}
 
@@ -1244,6 +1250,16 @@ admissionController:
     #   image: busybox
     #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -1321,6 +1337,11 @@ admissionController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1472,6 +1493,9 @@ backgroundController:
   podAnnotations: {}
   # example.com/annotation: foo
 
+  # -- Deployment labels.
+  labels: {}
+
   # -- Deployment annotations.
   annotations: {}
 
@@ -1599,6 +1623,16 @@ backgroundController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   metricsService:
     # -- Create service.
     create: true
@@ -1664,6 +1698,11 @@ backgroundController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1811,6 +1850,9 @@ cleanupController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -1975,6 +2017,16 @@ cleanupController:
     # Possible values are `IfHealthyBudget` or `AlwaysAllow`.
     unhealthyPodEvictionPolicy:
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
+
   service:
     # -- Service port.
     port: 443
@@ -2054,6 +2106,11 @@ cleanupController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2157,6 +2214,9 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -2310,6 +2370,15 @@ reportsController:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Additional volumes to be mounted in the pod
+  extraVolumes: []
+    # - name: my-volume
+    #   emptyDir: {}
+
+  # -- Additional volumeMounts to be mounted to the main container
+  extraVolumeMounts: []
+    # - name: my-volume
+    #   mountPath: /path/to/mount
 
   metricsService:
     # -- Create service.
@@ -2376,6 +2445,11 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials

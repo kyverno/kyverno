@@ -635,3 +635,141 @@ func Test_collectResourceDescriptions(t *testing.T) {
 		})
 	}
 }
+
+func TestDeduplicateRules(t *testing.T) {
+	rule1 := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps", ""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods", "deployments"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule2_ExactDuplicate := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps", ""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods", "deployments"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule3_LogicalDuplicate := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"", "apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments", "pods"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Update,
+			admissionregistrationv1.Create,
+		},
+	}
+	rule4_Unique := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"statefulsets"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule5_AnotherUnique := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"jobs", "cronjobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Delete,
+		},
+	}
+	rule6_LogicalDuplicateOfRule5 := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"cronjobs", "jobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Delete,
+			admissionregistrationv1.Create,
+		},
+	}
+	rule7_ExactDuplicateOfRule4 := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"statefulsets"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+
+	testCases := []struct {
+		name          string
+		input         []admissionregistrationv1.RuleWithOperations
+		expectedCount int
+		expectedRules []admissionregistrationv1.RuleWithOperations
+	}{
+		{
+			name:          "No duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
+			expectedCount: 2,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
+		},
+		{
+			name:          "Simple exact duplicate",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
+		},
+		{
+			name:          "Logical duplicate (different slice order)",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule3_LogicalDuplicate},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
+		},
+		{
+			name:          "All types of duplicates and unique rules",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule2_ExactDuplicate, rule3_LogicalDuplicate, rule4_Unique},
+			expectedCount: 2,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
+		},
+		{
+			name:          "Multiple unique rules with mixed duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique, rule5_AnotherUnique, rule6_LogicalDuplicateOfRule5, rule7_ExactDuplicateOfRule4},
+			expectedCount: 3,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique, rule5_AnotherUnique},
+		},
+		{
+			name:          "Empty list",
+			input:         []admissionregistrationv1.RuleWithOperations{},
+			expectedCount: 0,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := deDuplicatedRules(tc.input)
+			assert.Equal(t, tc.expectedCount, len(result))
+			assert.Equal(t, tc.expectedRules, result)
+		})
+	}
+}

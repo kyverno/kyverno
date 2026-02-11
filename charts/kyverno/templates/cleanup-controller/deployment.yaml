@@ -15,6 +15,9 @@ metadata:
   {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+    {{- with .Values.cleanupController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.cleanupController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -134,6 +137,11 @@ spec:
             {{- if not .Values.cleanupController.metering.disabled }}
             - --otelConfig={{ .Values.cleanupController.metering.config }}
             - --metricsPort={{ .Values.cleanupController.metering.port }}
+            {{- if .Values.cleanupController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.cleanupController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.cleanupController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -202,14 +210,20 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if not $automountSAToken }}
+          {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumeMounts }}
           volumeMounts:
+            {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+            {{- end }}
+            {{- with .Values.cleanupController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- if not $automountSAToken }}
+      {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumes }}
       volumes:
+        {{- if not $automountSAToken }}
         - name: serviceaccount-token
           projected:
             defaultMode: 0444
@@ -231,6 +245,10 @@ spec:
                       fieldRef:
                         apiVersion: v1
                         fieldPath: metadata.namespace
+        {{- end }}
+        {{- with .Values.cleanupController.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
 {{- end -}}
 {{- end -}}
