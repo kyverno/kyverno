@@ -6,6 +6,7 @@
 
 {{- define "kyverno.cleanup-controller.labels" -}}
 {{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.name" (include "kyverno.cleanup-controller.name" .))
   (include "kyverno.labels.common" .)
   (include "kyverno.cleanup-controller.matchLabels" .)
 ) -}}
