@@ -14,29 +14,29 @@ resources:
 - resources/deployment-with-spot-computeclass.yaml
 - resources/deployment-with-non-spot-computeclass.yaml
 results:
-- kind: Deployment
+- isValidatingPolicy: true
+  kind: Deployment
   policy: computeclasses-enforce-non-spot-usage
   resources:
   - deployment-with-non-spot-computeclass
   result: fail
-  isValidatingPolicy: true
-- kind: Pod
+- isValidatingPolicy: true
+  kind: Pod
   policy: computeclasses-enforce-non-spot-usage
   resources:
   - pod-with-non-spot-computeclass
   result: fail
-  isValidatingPolicy: true
-- kind: Deployment
+- isValidatingPolicy: true
+  kind: Deployment
   policy: computeclasses-enforce-non-spot-usage
   resources:
   - deployment-with-spot-computeclass
   result: pass
-  isValidatingPolicy: true
-- kind: Pod
+- isValidatingPolicy: true
+  kind: Pod
   policy: computeclasses-enforce-non-spot-usage
   resources:
   - pod-with-spot-computeclass
   - pod-with-mixed-computeclass
   - pod-with-default-computeclass
   result: pass
-  isValidatingPolicy: true

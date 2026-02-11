@@ -22,7 +22,7 @@ func GetRESTMapper(client dclient.Interface, _ bool) (meta.RESTMapper, error) {
 		}
 	}
 
-	if !isFake {
+	if client != nil && !isFake {
 		dc := client.GetKubeClient().Discovery()
 		cachedDiscovery := memory.NewMemCacheClient(dc)
 		restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
