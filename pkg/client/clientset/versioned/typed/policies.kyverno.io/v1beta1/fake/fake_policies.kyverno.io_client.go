@@ -36,12 +36,32 @@ func (c *FakePoliciesV1beta1) GeneratingPolicies() v1beta1.GeneratingPolicyInter
 	return newFakeGeneratingPolicies(c)
 }
 
+func (c *FakePoliciesV1beta1) ImageValidatingPolicies() v1beta1.ImageValidatingPolicyInterface {
+	return newFakeImageValidatingPolicies(c)
+}
+
 func (c *FakePoliciesV1beta1) MutatingPolicies() v1beta1.MutatingPolicyInterface {
 	return newFakeMutatingPolicies(c)
 }
 
 func (c *FakePoliciesV1beta1) NamespacedDeletingPolicies(namespace string) v1beta1.NamespacedDeletingPolicyInterface {
 	return newFakeNamespacedDeletingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedGeneratingPolicies(namespace string) v1beta1.NamespacedGeneratingPolicyInterface {
+	return newFakeNamespacedGeneratingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedImageValidatingPolicies(namespace string) v1beta1.NamespacedImageValidatingPolicyInterface {
+	return newFakeNamespacedImageValidatingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedMutatingPolicies(namespace string) v1beta1.NamespacedMutatingPolicyInterface {
+	return newFakeNamespacedMutatingPolicies(c, namespace)
+}
+
+func (c *FakePoliciesV1beta1) NamespacedValidatingPolicies(namespace string) v1beta1.NamespacedValidatingPolicyInterface {
+	return newFakeNamespacedValidatingPolicies(c, namespace)
 }
 
 func (c *FakePoliciesV1beta1) PolicyExceptions(namespace string) v1beta1.PolicyExceptionInterface {

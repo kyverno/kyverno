@@ -7,10 +7,10 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -25,13 +25,18 @@ import (
 )
 
 type Policy struct {
-	mode             policiesv1alpha1.EvaluationMode
+	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -43,7 +48,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1alpha1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
@@ -93,7 +98,7 @@ func (p *Policy) evaluateWithData(
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {
@@ -111,7 +116,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}

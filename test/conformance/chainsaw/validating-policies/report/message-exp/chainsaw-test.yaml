@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: accept
 spec:
+  concurrent: false
   template: false
   steps:
   - name: create policy

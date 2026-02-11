@@ -3,15 +3,15 @@ package policystatus
 import (
 	"context"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c controller) updateGpolStatus(ctx context.Context, gpol *policiesv1alpha1.GeneratingPolicy) error {
-	updateFunc := func(gpol *policiesv1alpha1.GeneratingPolicy) error {
+func (c controller) updateGpolStatus(ctx context.Context, gpol *v1beta1.GeneratingPolicy) error {
+	updateFunc := func(gpol *v1beta1.GeneratingPolicy) error {
 		p := engineapi.NewGeneratingPolicy(gpol)
 		// conditions
 		conditionStatus := c.reconcileConditions(ctx, p)
@@ -25,18 +25,22 @@ func (c controller) updateGpolStatus(ctx context.Context, gpol *policiesv1alpha1
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
-		// assign
-		gpol.Status = policiesv1alpha1.GeneratingPolicyStatus{
-			ConditionStatus: *conditionStatus,
+		// assign - convert v1beta1.ConditionStatus to v1alpha1.ConditionStatus
+		gpol.Status = v1beta1.GeneratingPolicyStatus{
+			ConditionStatus: v1beta1.ConditionStatus{
+				Conditions: conditionStatus.Conditions,
+				Ready:      conditionStatus.Ready,
+				Message:    conditionStatus.Message,
+			},
 		}
 		return nil
 	}
 	err := controllerutils.UpdateStatus(
 		ctx,
 		gpol,
-		c.client.PoliciesV1alpha1().GeneratingPolicies(),
+		c.client.PoliciesV1beta1().GeneratingPolicies(),
 		updateFunc,
-		func(current, expect *policiesv1alpha1.GeneratingPolicy) bool {
+		func(current, expect *v1beta1.GeneratingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
 		},
 	)

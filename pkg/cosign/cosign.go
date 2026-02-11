@@ -17,11 +17,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
-	"github.com/sigstore/cosign/v2/pkg/oci"
-	"github.com/sigstore/cosign/v2/pkg/oci/remote"
-	sigs "github.com/sigstore/cosign/v2/pkg/signature"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
+	"github.com/sigstore/cosign/v3/pkg/oci"
+	"github.com/sigstore/cosign/v3/pkg/oci/remote"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
@@ -661,16 +661,29 @@ func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, er
 	}
 }
 
-func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
-	for _, p := range payload {
+func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	var errs []error
+	for _, p := range payloads {
+		allMatch := true
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-					p.Optional[key], val, key)
+				errs = append(errs, fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+					p.Optional[key], val, key))
+				allMatch = false
+				break
 			}
 		}
+		if allMatch {
+			// At least one payload matches all required annotations
+			return nil
+		}
 	}
-	return nil
+
+	return fmt.Errorf("no signature matched the required annotations")
 }
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
@@ -711,6 +724,11 @@ func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots = append(roots, cert)
 			} else {
+				// Intermediate certificates having empty ExtendedKeyUsage (EKU) are rejected by cosign
+				// We relax this check by adding TimeStamping EKU to such certificates
+				if len(cert.ExtKeyUsage) == 0 {
+					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+				}
 				intermediates = append(intermediates, cert)
 			}
 		}

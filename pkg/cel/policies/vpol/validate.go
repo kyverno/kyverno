@@ -1,12 +1,12 @@
 package vpol
 
 import (
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func Validate(vpol v1alpha1.ValidatingPolicyLike) ([]string, error) {
+func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 	warnings := make([]string, 0)
 	err := make(field.ErrorList, 0)
 

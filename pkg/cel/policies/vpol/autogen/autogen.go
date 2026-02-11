@@ -6,12 +6,12 @@ import (
 	"maps"
 	"slices"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy policiesv1alpha1.ValidatingPolicyLike) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
+func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
@@ -28,8 +28,8 @@ func Autogen(policy policiesv1alpha1.ValidatingPolicyLike) (map[string]policiesv
 	return generateRuleForControllers(*spec, actualControllers)
 }
 
-func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1alpha1.ValidatingPolicyAutogen, error) {
-	mapping := map[string][]policiesv1alpha1.Target{}
+func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
+	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
 			targets := mapping[config.ReplacementsRef]
@@ -37,7 +37,7 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 			mapping[config.ReplacementsRef] = targets
 		}
 	}
-	rules := map[string]policiesv1alpha1.ValidatingPolicyAutogen{}
+	rules := map[string]policiesv1beta1.ValidatingPolicyAutogen{}
 	for _, config := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[config]
 		spec := spec.DeepCopy()
@@ -51,7 +51,7 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-		slices.SortFunc(targets, func(a, b policiesv1alpha1.Target) int {
+		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
 			if x := cmp.Compare(a.Group, b.Group); x != 0 {
 				return x
 			}
@@ -66,7 +66,7 @@ func generateRuleForControllers(spec policiesv1alpha1.ValidatingPolicySpec, conf
 			}
 			return 0
 		})
-		rules[config] = policiesv1alpha1.ValidatingPolicyAutogen{
+		rules[config] = policiesv1beta1.ValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,
 		}

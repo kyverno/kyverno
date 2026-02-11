@@ -30,6 +30,7 @@ func DefaultEnvOptions() []cel.EnvOption {
 		library.Regex(),
 		library.URLs(),
 		library.Quantity(),
+		library.SemverLib(),
 	}
 }
 

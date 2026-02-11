@@ -33,7 +33,7 @@ import (
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="REFRESH INTERVAL",type="string",JSONPath=".spec.apiCall.refreshInterval"
 // +kubebuilder:printcolumn:name="LAST REFRESH",type="date",JSONPath=".status.lastRefreshTime"
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {

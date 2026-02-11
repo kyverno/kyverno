@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,22 +31,22 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
 
-	ivpol = &v1alpha1.ImageValidatingPolicy{
-		Spec: v1alpha1.ImageValidatingPolicySpec{
-			Attestors: []v1alpha1.Attestor{
+	ivpol = &v1beta1.ImageValidatingPolicy{
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: []v1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &v1alpha1.Notary{
-						Certs: &v1alpha1.StringOrExpression{
+					Notary: &v1beta1.Notary{
+						Certs: &v1beta1.StringOrExpression{
 							Value: cert,
 						},
 					},
 				},
 			},
-			Attestations: []v1alpha1.Attestation{
+			Attestations: []v1beta1.Attestation{
 				{
 					Name: "sbom",
-					Referrer: &v1alpha1.Referrer{
+					Referrer: &v1beta1.Referrer{
 						Type: "sbom/cyclone-dx",
 					},
 				},
@@ -74,11 +74,11 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	att := map[string]v1alpha1.Attestor{
+	att := map[string]v1beta1.Attestor{
 		"notary": {
 			Name: "notary",
-			Notary: &v1alpha1.Notary{
-				Certs: &v1alpha1.StringOrExpression{
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
 					Value: cert,
 				},
 			},
@@ -113,11 +113,11 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
 
-	att := map[string]v1alpha1.Attestor{
+	att := map[string]v1beta1.Attestor{
 		"notary": {
 			Name: "notary",
-			Notary: &v1alpha1.Notary{
-				Certs: &v1alpha1.StringOrExpression{
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
 					Value: cert,
 				},
 			},

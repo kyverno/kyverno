@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -32,7 +32,7 @@ import (
 type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
-	Predicate      = func(policiesv1alpha1.ImageValidatingPolicy) bool
+	Predicate      = func(policiesv1beta1.ImageValidatingPolicyLike) bool
 )
 
 type Engine interface {
@@ -111,7 +111,7 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	var relevant []Policy
 	if predicate != nil {
 		for _, policy := range policies {
-			if !predicate(*policy.Policy) {
+			if !predicate(policy.Policy) {
 				continue
 			}
 			relevant = append(relevant, policy)
@@ -172,7 +172,7 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	var relevant []Policy
 	if predicate != nil {
 		for _, policy := range policies {
-			if !predicate(*policy.Policy) {
+			if !predicate(policy.Policy) {
 				continue
 			}
 			relevant = append(relevant, policy)
@@ -198,7 +198,7 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 		return matches, nil
 	}
 	// match against main policy constraints
-	matches, err := match(policy.Policy.Spec.MatchConstraints)
+	matches, err := match(policy.Policy.GetSpec().MatchConstraints)
 	if err != nil {
 		return false, err
 	}

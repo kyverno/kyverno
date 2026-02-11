@@ -20,10 +20,10 @@ spec:
       - CREATE
       - UPDATE
       resources:
-      - deployments
-      - statefulsets
-      - replicasets
       - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
     namespaceSelector:
       matchExpressions:
       - key: type

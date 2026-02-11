@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -27,8 +27,8 @@ import (
 type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
-	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicyLike]
-	Predicate      = func(policiesv1alpha1.ValidatingPolicyLike) bool
+	Engine         = engine.Engine[policiesv1beta1.ValidatingPolicyLike]
+	Predicate      = func(policiesv1beta1.ValidatingPolicyLike) bool
 )
 
 type engineImpl struct {
@@ -116,9 +116,8 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
-	spec := policy.Policy.GetValidatingPolicySpec()
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(policy.CompiledPolicy.MatchConstraints(), attr, namespace)
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response

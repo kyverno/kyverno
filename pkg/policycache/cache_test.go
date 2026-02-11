@@ -9,6 +9,8 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubecache "k8s.io/client-go/tools/cache"
 )
 
@@ -888,6 +890,74 @@ func newValidateEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	return policy
 }
 
+func newValidateEnforceLabeledNSPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "check-label-app-override-enforce"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+				"match": {
+					"resources": {
+						"kinds": [
+							"Pod"
+						]
+					}
+				},
+				"name": "check-label-app",
+				"validate": {
+					"failureAction": "Audit",
+					"failureActionOverrides": [
+						{
+							"action": "Enforce",
+							"namespaceSelector": {
+								"matchExpressions": [
+									{
+										"key": "enforce-policy",
+										"operator": "In",
+										"values": [
+											"true"
+										]
+									}
+								]
+							}
+						},
+						{
+							"action": "Audit",
+							"namespaceSelector": {
+								"matchExpressions": [
+									{
+										"key": "enforce-policy",
+										"operator": "In",
+										"values": [
+											"false"
+										]
+									}
+								]
+							}
+						}
+					],
+					"message": "The label 'app' is required.",
+					"pattern": {
+						"metadata": {
+							"labels": {
+								"app": "?*"
+							}
+						}
+					}
+				}
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+	return policy
+}
+
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
@@ -1181,23 +1251,30 @@ func Test_Get_Policies(t *testing.T) {
 	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", "")
+	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", nil)
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
+
+	// Create a test namespace object
+	testNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+	}
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", testNamespace)
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS.GroupVersionResource(), "", "")
+	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS.GroupVersionResource(), "", nil)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", "")
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", nil)
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", "")
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", nil)
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
@@ -1210,21 +1287,59 @@ func Test_Get_Policies_Ns(t *testing.T) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
 	nspace := policy.GetNamespace()
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", nspace)
+
+	// Create a namespace object
+	testNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nspace,
+		},
+	}
+
+	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", testNamespace)
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
+	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", testNamespace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", nspace)
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", testNamespace)
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", nspace)
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", testNamespace)
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
+	}
+}
+
+func Test_Get_Policies_Labeled_Failure_Action_Overrides(t *testing.T) {
+	type testCase struct {
+		name             string
+		action           PolicyType
+		namespace        *corev1.Namespace
+		expectedPolicies int
+	}
+
+	cache := NewCache()
+	policy := newValidateEnforceLabeledNSPolicy(t)
+	finder := TestResourceFinder{}
+
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	cache.Set(key, policy, finder)
+
+	testCases := []testCase{
+		{name: "ValidateEnforce with labeled namespace", action: ValidateEnforce, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "labeled-namespace", Labels: map[string]string{"enforce-policy": "true"}}}, expectedPolicies: 1},
+		{name: "ValidateAudit with labeled namespace", action: ValidateAudit, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "labeled-namespace", Labels: map[string]string{"enforce-policy": "false"}}}, expectedPolicies: 1},
+		{name: "ValidateEnforce with unmatched namespace in failureActionOverrides", action: ValidateEnforce, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "nonexistent"}}, expectedPolicies: 0},
+		{name: "ValidateAudit with unmatched namespace in failureActionOverrides", action: ValidateAudit, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "nonexistent"}}, expectedPolicies: 1},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			policies := cache.GetPolicies(tc.action, podsGVRS.GroupVersionResource(), "", tc.namespace)
+			require.Equal(t, tc.expectedPolicies, len(policies), "unexpected number of policies")
+		})
 	}
 }
 
@@ -1232,7 +1347,7 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	type testCase struct {
 		name             string
 		action           PolicyType
-		namespace        string
+		namespace        *corev1.Namespace
 		expectedPolicies int
 	}
 
@@ -1248,14 +1363,14 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	cache.Set(key2, policy2, finder)
 
 	testCases := []testCase{
-		{name: "ValidateAudit with no namespace", action: ValidateAudit, namespace: "", expectedPolicies: 1},
-		{name: "ValidateEnforce with no namespace", action: ValidateEnforce, namespace: "", expectedPolicies: 1},
-		{name: "ValidateAudit with test namespace", action: ValidateAudit, namespace: "test", expectedPolicies: 2},
-		{name: "ValidateEnforce with test namespace", action: ValidateEnforce, namespace: "test", expectedPolicies: 0},
-		{name: "ValidateAudit with default namespace", action: ValidateAudit, namespace: "default", expectedPolicies: 0},
-		{name: "ValidateEnforce with default namespace", action: ValidateEnforce, namespace: "default", expectedPolicies: 2},
-		{name: "ValidateEnforce with unmatched namespace in failureActionOverrides", action: ValidateEnforce, namespace: "nonexistent", expectedPolicies: 1},
-		{name: "ValidateAudit with unmatched namespace in failureActionOverrides", action: ValidateAudit, namespace: "nonexistent", expectedPolicies: 1},
+		{name: "ValidateAudit with no namespace", action: ValidateAudit, namespace: nil, expectedPolicies: 1},
+		{name: "ValidateEnforce with no namespace", action: ValidateEnforce, namespace: nil, expectedPolicies: 1},
+		{name: "ValidateAudit with test namespace", action: ValidateAudit, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, expectedPolicies: 2},
+		{name: "ValidateEnforce with test namespace", action: ValidateEnforce, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}, expectedPolicies: 0},
+		{name: "ValidateAudit with default namespace", action: ValidateAudit, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, expectedPolicies: 0},
+		{name: "ValidateEnforce with default namespace", action: ValidateEnforce, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}, expectedPolicies: 2},
+		{name: "ValidateEnforce with unmatched namespace in failureActionOverrides", action: ValidateEnforce, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "nonexistent"}}, expectedPolicies: 1},
+		{name: "ValidateAudit with unmatched namespace in failureActionOverrides", action: ValidateAudit, namespace: &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "nonexistent"}}, expectedPolicies: 1},
 	}
 
 	for _, tc := range testCases {
@@ -1264,4 +1379,57 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 			require.Equal(t, tc.expectedPolicies, len(policies), "unexpected number of policies")
 		})
 	}
+}
+
+// newOverlappingNSSelectorPolicy creates a policy with overlapping namespace selectors.
+func newOverlappingNSSelectorPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {"name": "overlapping-ns-selectors"},
+		"spec": {
+		  "background": false,
+		  "rules": [{
+			"match": {"resources": {"kinds": ["Pod"]}},
+			"name": "check-label",
+			"validate": {
+			  "failureAction": "Enforce",
+			  "failureActionOverrides": [
+				{"action": "Audit", "namespaceSelector": {"matchLabels": {"env": "production"}}},
+				{"action": "Enforce", "namespaceSelector": {"matchLabels": {"team": "security"}}}
+			  ],
+			  "message": "label required",
+			  "pattern": {"metadata": {"labels": {"app": "?*"}}}
+			}
+		  }]
+		}
+	}`)
+	var policy *kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+	return policy
+}
+
+// Test_Get_Policies_Overlapping_NamespaceSelector_Overrides verifies that when a namespace
+// matches multiple namespaceSelector overrides, only the first match takes effect.
+func Test_Get_Policies_Overlapping_NamespaceSelector_Overrides(t *testing.T) {
+	cache := NewCache()
+	policy := newOverlappingNSSelectorPolicy(t)
+	finder := TestResourceFinder{}
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	cache.Set(key, policy, finder)
+
+	// Namespace with BOTH labels matches both selectors - first override (Audit) should win
+	overlappingNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "overlapping-ns",
+			Labels: map[string]string{"env": "production", "team": "security"},
+		},
+	}
+
+	t.Run("Overlapping selectors should use first match only", func(t *testing.T) {
+		enforcePolicies := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", overlappingNS)
+		auditPolicies := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", overlappingNS)
+
+		require.Equal(t, 0, len(enforcePolicies), "rule should NOT be in Enforce (first match is Audit)")
+		require.Equal(t, 1, len(auditPolicies), "rule should be in Audit (first match)")
+	})
 }

@@ -30,7 +30,6 @@ type handler struct {
 	engine           vpolengine.Engine
 	kyvernoClient    versioned.Interface
 	admissionReports bool
-	reportConfig     reportutils.ReportingConfiguration
 	eventGen         event.Interface
 }
 
@@ -39,7 +38,6 @@ func New(
 	context libs.Context,
 	kyvernoClient versioned.Interface,
 	admissionReports bool,
-	reportConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
 ) *handler {
 	return &handler{
@@ -47,20 +45,35 @@ func New(
 		engine:           engine,
 		kyvernoClient:    kyvernoClient,
 		admissionReports: admissionReports,
-		reportConfig:     reportConfig,
 		eventGen:         eventGen,
 	}
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+func (h *handler) ValidateClustered(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
 			policies = params
 		}
 	}
+	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.ClusteredPolicy())
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	var policies []string
+	if params := httprouter.ParamsFromContext(ctx); params != nil {
+		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
+			policies = params
+		}
+	}
+	predicate := vpolengine.And(vpolengine.MatchNames(policies...), vpolengine.NamespacedPolicy(admissionRequest.Namespace))
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, predicate vpolengine.Predicate) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.Handle(ctx, request, vpolengine.MatchNames(policies...))
+	response, err := h.engine.Handle(ctx, request, predicate)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
@@ -97,7 +110,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports, h.reportConfig) {
+	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
 		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
@@ -121,7 +134,7 @@ func (h *handler) admissionReport(ctx context.Context, request vpolengine.Engine
 	return nil
 }
 
-func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.EngineResponse, blocked bool) {
+func (h *handler) admissionEvent(_ context.Context, responses []engineapi.EngineResponse, blocked bool) {
 	for _, response := range responses {
 		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked)
 		h.eventGen.Add(events...)

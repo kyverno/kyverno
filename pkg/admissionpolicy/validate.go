@@ -143,7 +143,7 @@ func Validate(
 		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 		policy        = policyData.GetDefinition()
 		bindings      = policyData.GetBindings()
-		namespace     *corev1.Namespace
+		namespace     = &corev1.Namespace{}
 		namespaceName = resource.GetNamespace()
 	)
 
@@ -159,7 +159,6 @@ func Validate(
 			},
 		}
 	}
-
 	var user UserInfo
 	if userInfo != nil {
 		user = NewUser(*userInfo)
@@ -372,7 +371,7 @@ func validateResource(
 	compiler.CompileVariables(optionalVars)
 
 	var matchPolicy admissionregistrationv1.MatchPolicyType
-	if policy.Spec.MatchConstraints.MatchPolicy == nil {
+	if policy.Spec.MatchConstraints == nil || policy.Spec.MatchConstraints.MatchPolicy == nil {
 		matchPolicy = admissionregistrationv1.Equivalent
 	} else {
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy

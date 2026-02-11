@@ -58,6 +58,9 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Sophotech](https://sopho.tech) | Sophotech leverages Kyverno as a central component of our Kubernetes security strategy. We use it to enforce policies that support SOC 2 compliance and to automate security hardening across our clusters, ensuring consistent governance and operational integrity. |
 | [Swiss Post](https://github.com/swisspost) | Introduced as a replacement of PSPs on all EKS and AKS cluster before we upgraded to K8s 1.25, we now use it to enforce a variety of best practices like having a PDB, spread constraint across all AZs, not using latest tags, automate some manual CIS Controls, etc. |
 | [Finastra](https://www.finastra.com/) | Currently exploring and leveraging Kyverno to enforce our security and compliance for our K8s deployments in a financial context. |
+| [Okteto](https://www.okteto.com/) | Our managed service users Kyverno to ensure that our customer's clusters remain complaint with our internal devops and security policies. |
+| [Miro](https://www.miro.com/) | Miro Compute platform leverages Kyverno as the backbone of our Policy as a Code strategy. Beyond standard compliance validation during admission, we utilize Kyverno’s mutating policies to shift critical platform logic directly into the control plane. |
+| [Akamai Technologies](https://www.akamai.com/) | Kyverno is a default one-click add on for policy enforcement in the Akamai App Platform ― a fully cloud native Internal Developer Platform (IDP) built on CNCF projects. |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
