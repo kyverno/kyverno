@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+spec:
+  containers:
+  - name: container01
+    image: busybox:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: container02
+    image: ubuntu:latest
+    securityContext:
+      allowPrivilegeEscalation: true

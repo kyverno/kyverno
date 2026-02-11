@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
@@ -21,27 +22,27 @@ var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
-	ivpol = &policiesv1alpha1.ImageValidatingPolicy{
-		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
-				Mode: policiesv1alpha1.EvaluationModeJSON,
+	ivpol = &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
 			},
-			MatchImageReferences: []policiesv1alpha1.MatchImageReference{
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{
 					Glob: "ghcr.io/*",
 				},
 			},
-			ImageExtractors: []policiesv1alpha1.ImageExtractor{
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
 				{
 					Name:       "bar",
 					Expression: "[object.foo.bar]",
 				},
 			},
-			Attestors: []policiesv1alpha1.Attestor{
+			Attestors: []policiesv1beta1.Attestor{
 				{
 					Name: "notary",
-					Notary: &policiesv1alpha1.Notary{
-						Certs: &policiesv1alpha1.StringOrExpression{
+					Notary: &policiesv1beta1.Notary{
+						Certs: &policiesv1beta1.StringOrExpression{
 							Value: `-----BEGIN CERTIFICATE-----
 MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
 BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
@@ -66,10 +67,10 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 					},
 				},
 			},
-			Attestations: []policiesv1alpha1.Attestation{
+			Attestations: []policiesv1beta1.Attestation{
 				{
 					Name: "sbom",
-					Referrer: &policiesv1alpha1.Referrer{
+					Referrer: &policiesv1beta1.Referrer{
 						Type: "sbom/cyclone-dx",
 					},
 				},

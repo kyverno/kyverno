@@ -6,6 +6,8 @@ Create a Kyverno metrics-config file.
 
 Create a Kyverno metrics-config file.
 
+  For more information visit https://kyverno.io/docs/kyverno-cli/#create
+
 ```
 kyverno create metrics-config [flags]
 ```

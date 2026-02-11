@@ -3,8 +3,8 @@ package yaml
 import (
 	"fmt"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -19,8 +19,8 @@ func GetPolicy(bytes []byte) (
 	policies []kyvernov1.PolicyInterface,
 	validatingAdmissionPolicies []admissionregistrationv1.ValidatingAdmissionPolicy,
 	validatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	validatingPolicies []policiesv1alpha1.ValidatingPolicy,
-	imageVerificationPolicies []policiesv1alpha1.ImageValidatingPolicy,
+	validatingPolicies []policiesv1beta1.ValidatingPolicy,
+	imageVerificationPolicies []policiesv1beta1.ImageValidatingPolicy,
 	mutatingAdmissionPolicies []admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mutatingAdmissionPolicyBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	err error,
@@ -106,8 +106,8 @@ func parse(obj unstructured.Unstructured) (
 	*admissionregistrationv1.ValidatingAdmissionPolicy,
 	*admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	kyvernov1.PolicyInterface,
-	*policiesv1alpha1.ValidatingPolicy,
-	*policiesv1alpha1.ImageValidatingPolicy,
+	*policiesv1beta1.ValidatingPolicy,
+	*policiesv1beta1.ImageValidatingPolicy,
 	*admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	error,
@@ -133,11 +133,15 @@ func parse(obj unstructured.Unstructured) (
 		return nil, nil, nil, nil, out, nil, nil, err
 	case "MutatingAdmissionPolicy":
 		out, err := parseMutatingAdmissionPolicy(obj)
-		fmt.Println("DEBUG: inside parse for MAP, error:", err, "object kind:", obj.GetKind())
+		if err != nil {
+			log.V(3).Info("error parsing MutatingAdmissionPolicy", "error", err, "kind", obj.GetKind())
+		}
 		return nil, nil, nil, nil, nil, out, nil, err
 	case "MutatingAdmissionPolicyBinding":
 		out, err := parseMutatingAdmissionPolicyBinding(obj)
-		fmt.Println("DEBUG: inside parse for MAPBinding, error:", err, "object kind:", obj.GetKind())
+		if err != nil {
+			log.V(3).Info("error parsing MutatingAdmissionPolicyBinding", "error", err, "kind", obj.GetKind())
+		}
 		return nil, nil, nil, nil, nil, nil, out, err
 	}
 	return nil, nil, nil, nil, nil, nil, nil, nil
@@ -195,8 +199,8 @@ func parseClusterPolicy(obj unstructured.Unstructured) (*kyvernov1.ClusterPolicy
 	return &out, nil
 }
 
-func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ValidatingPolicy, error) {
-	var out policiesv1alpha1.ValidatingPolicy
+func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.ValidatingPolicy, error) {
+	var out policiesv1beta1.ValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
@@ -207,8 +211,8 @@ func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.Val
 	return &out, nil
 }
 
-func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1alpha1.ImageValidatingPolicy, error) {
-	var out policiesv1alpha1.ImageValidatingPolicy
+func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.ImageValidatingPolicy, error) {
+	var out policiesv1beta1.ImageValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
 		return nil, fmt.Errorf("failed to decode policy: %v", err)
 	}
@@ -219,7 +223,7 @@ func parseMutatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregi
 	var out admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	if err := runtime.DefaultUnstructuredConverter.
 		FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		fmt.Println("DEBUG: failed to convert MAP:", err)
+		log.V(3).Info("failed to convert MutatingAdmissionPolicy", "error", err)
 		return nil, fmt.Errorf("failed to decode MutatingAdmissionPolicy: %w", err)
 	}
 	if out.Kind == "" {

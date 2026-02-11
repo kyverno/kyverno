@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -58,7 +59,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -68,7 +69,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", labelValidationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithMetrics(labelLogger, metrics.WebhookValidating).
 			WithAdmission(labelLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
@@ -76,7 +77,7 @@ func NewServer(
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(probes.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: ":" + internal.CleanupServerPort(),
+			Addr: fmt.Sprintf("[%s]:%d", internal.CleanupServerHost(), internal.CleanupServerPort()),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

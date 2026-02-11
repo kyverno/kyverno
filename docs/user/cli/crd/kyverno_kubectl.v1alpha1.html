@@ -25,6 +25,8 @@
             
             <h3>Resource Types:</h3>
             <ul><li>
+                    <a href="#cli-kyverno-io-v1alpha1-ClusterResource">ClusterResource</a>
+                  </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-Context">Context</a>
                   </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>
@@ -36,6 +38,177 @@
 
             
             
+  <H3 id="cli-kyverno-io-v1alpha1-ClusterResource">ClusterResource
+    </H3>
+
+  
+
+  <p><p>ClusterResource declares Kubernetes specific resources to be loaded by the Kyverno CLI</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ClusterResource</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ClusterResourceSpec">
+                <span style="font-family: monospace">ClusterResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>crds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="cli-kyverno-io-v1alpha1-Context">Context
     </H3>
 
@@ -157,7 +330,8 @@
         <td>
           
 
-          
+          <p>deprecate, use ClusterResource to define Kubernetes specific resources</p>
+
 
           
 
@@ -456,6 +630,35 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
+        <td><code>paramResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources that act as parameters for validating/mutating admission policies</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>userinfo</code>
           
           <span style="color:blue;"> *</span>
@@ -624,6 +827,35 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           <p>Context file containing context data for CEL policies</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>clusterResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ClusterResources are the cluster resources to be used in the test</p>
 
 
           
@@ -1099,6 +1331,97 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     </table>
   
 
+  <H3 id="cli-kyverno-io-v1alpha1-ClusterResourceSpec">ClusterResourceSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-ClusterResource">ClusterResource</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>crds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="cli-kyverno-io-v1alpha1-ContextSpec">ContextSpec
     </H3>
 
@@ -1147,7 +1470,8 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
         <td>
           
 
-          
+          <p>deprecate, use ClusterResource to define Kubernetes specific resources</p>
+
 
           
 
@@ -1401,7 +1725,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1429,7 +1753,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1457,7 +1781,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -2608,7 +2932,7 @@ It's required in case the policy is a mutating policy.</p>
           
           
             
-              <span style="font-family: monospace">openreports.io/apis/openreports.io/v1alpha1.Result</span>
+              <span style="font-family: monospace">github.com/openreports/reports-api/apis/openreports.io/v1alpha1.Result</span>
             
           
         </td>

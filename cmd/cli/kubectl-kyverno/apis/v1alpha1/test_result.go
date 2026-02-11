@@ -1,6 +1,6 @@
 package v1alpha1
 
-import openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+import openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 
 // TestResultBase declares a test result base fields
 type TestResultBase struct {

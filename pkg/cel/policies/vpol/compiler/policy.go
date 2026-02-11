@@ -7,7 +7,8 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -24,13 +25,18 @@ import (
 )
 
 type Policy struct {
-	mode             policiesv1alpha1.EvaluationMode
+	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -42,7 +48,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1alpha1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
@@ -78,30 +84,8 @@ func (p *Policy) evaluateWithData(
 	ctx context.Context,
 	data evaluationData,
 ) (*EvaluationResult, error) {
-	// check if the resource matches an exception
-	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
-		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, polex.MatchConditions)
-			if err != nil {
-				return nil, err
-			}
-			if match {
-				matchedExceptions = append(matchedExceptions, polex.Exception)
-			}
-		}
-		if len(matchedExceptions) > 0 {
-			return &EvaluationResult{Exceptions: matchedExceptions}, nil
-		}
-	}
-	match, err := p.match(ctx, data.Namespace, data.Object, data.OldObject, data.Request, p.matchConditions)
-	if err != nil {
-		return nil, err
-	}
-	if !match {
-		return nil, nil
-	}
-	vars := lazy.NewMapValue(compiler.VariablesType)
+	allowedImages := make([]string, 0)
+	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
 		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
 		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
@@ -111,8 +95,40 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
-		compiler.VariablesKey:       vars,
 	}
+	// check if the resource matches an exception
+	if len(p.exceptions) > 0 {
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		for _, polex := range p.exceptions {
+			match, err := p.match(ctx, dataNew, polex.MatchConditions)
+			if err != nil {
+				return nil, err
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+			}
+		}
+		// if there are matched exceptions and no allowed images, no need to evaluate the policy
+		// as the resource is excluded from policy evaluation
+		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
+			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+		}
+	}
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
+		AllowedImages: allowedImages,
+		AllowedValues: allowedValues,
+	}
+	match, err := p.match(ctx, dataNew, p.matchConditions)
+	if err != nil {
+		return nil, err
+	}
+	if !match {
+		return nil, nil
+	}
+	vars := lazy.NewMapValue(compiler.VariablesType)
+	dataNew[compiler.VariablesKey] = vars
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, dataNew)
@@ -172,18 +188,9 @@ func (p *Policy) evaluateWithData(
 
 func (p *Policy) match(
 	ctx context.Context,
-	namespaceVal any,
-	objectVal any,
-	oldObjectVal any,
-	requestVal any,
+	data map[string]any,
 	matchConditions []cel.Program,
 ) (bool, error) {
-	data := map[string]any{
-		compiler.NamespaceObjectKey: namespaceVal,
-		compiler.ObjectKey:          objectVal,
-		compiler.OldObjectKey:       oldObjectVal,
-		compiler.RequestKey:         requestVal,
-	}
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition

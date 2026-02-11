@@ -1,0 +1,99 @@
+{{- if and .Values.admissionController.certManager.enabled (not .Values.admissionController.createSelfSignedCert) -}}
+{{- $ns := include "kyverno.namespace" . -}}
+{{- $svcName := include "kyverno.admission-controller.serviceName" . -}}
+{{- $fullSvcName := printf "%s.%s.svc" $svcName $ns -}}
+{{- $algorithm := .Values.admissionController.certManager.algorithm | default "RSA" -}}
+{{- $size := .Values.admissionController.certManager.size | default 2048 -}}
+{{- $caIssuerName := printf "%s-ca-issuer" (include "kyverno.fullname" .) -}}
+{{- $selfSignedIssuerName := printf "%s-selfsigned-issuer" (include "kyverno.fullname" .) -}}
+---
+# Self-signed ClusterIssuer for generating the CA certificate
+{{- if .Values.admissionController.certManager.createSelfSignedIssuer }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $selfSignedIssuerName }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+{{- end }}
+# CA Certificate for signing Kyverno admission controller TLS certificates
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kyverno.fullname" . }}-admission-controller-ca
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ include "kyverno.fullname" . }}-admission-controller-ca
+  # Use the exact secret name Kyverno expects for admission controller CA
+  secretName: {{ $fullSvcName }}.kyverno-tls-ca
+  duration: {{ .Values.admissionController.certManager.ca.duration | default "87600h" }}
+  renewBefore: {{ .Values.admissionController.certManager.ca.renewBefore | default "720h" }}
+  privateKey:
+    algorithm: {{ $algorithm }}
+    {{- if ne $algorithm "Ed25519" }}
+    size: {{ $size }}
+    {{- end }}
+  issuerRef:
+    {{- if .Values.admissionController.certManager.issuerRef.name }}
+    name: {{ .Values.admissionController.certManager.issuerRef.name }}
+    kind: {{ .Values.admissionController.certManager.issuerRef.kind | default "ClusterIssuer" }}
+    group: {{ .Values.admissionController.certManager.issuerRef.group | default "cert-manager.io" }}
+    {{- else if .Values.admissionController.certManager.createSelfSignedIssuer }}
+    name: {{ $selfSignedIssuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+    {{- else }}
+    {{- fail "Either certManager.issuerRef.name must be specified or certManager.createSelfSignedIssuer must be true" }}
+    {{- end }}
+---
+# CA Issuer using the CA certificate for signing TLS certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $caIssuerName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  ca:
+    # Reference the CA secret created by the CA certificate
+    secretName: {{ $fullSvcName }}.kyverno-tls-ca
+---
+# TLS Certificate for Kyverno Admission Controller
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kyverno.fullname" . }}-admission-controller-tls
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  # Use the exact secret name Kyverno expects for admission controller TLS
+  secretName: {{ $fullSvcName }}.kyverno-tls-pair
+  duration: {{ .Values.admissionController.certManager.tls.duration | default "8760h" }}
+  renewBefore: {{ .Values.admissionController.certManager.tls.renewBefore | default "720h" }}
+  privateKey:
+    algorithm: {{ $algorithm }}
+    {{- if ne $algorithm "Ed25519" }}
+    size: {{ $size }}
+    {{- end }}
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+  dnsNames:
+    - {{ $svcName }}
+    - {{ $svcName }}.{{ $ns }}
+    - {{ $svcName }}.{{ $ns }}.svc
+    - {{ $svcName }}.{{ $ns }}.svc.cluster.local
+  issuerRef:
+    name: {{ $caIssuerName }}
+    kind: Issuer
+    group: cert-manager.io
+{{- end -}}

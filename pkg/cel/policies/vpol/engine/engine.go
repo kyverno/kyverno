@@ -2,9 +2,12 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -12,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,8 +27,8 @@ import (
 type (
 	EngineRequest  = engine.EngineRequest
 	EngineResponse = engine.EngineResponse
-	Engine         = engine.Engine[policiesv1alpha1.ValidatingPolicy]
-	Predicate      = func(policiesv1alpha1.ValidatingPolicy) bool
+	Engine         = engine.Engine[policiesv1beta1.ValidatingPolicyLike]
+	Predicate      = func(policiesv1beta1.ValidatingPolicyLike) bool
 )
 
 type engineImpl struct {
@@ -95,7 +99,14 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		if predicate != nil && !predicate(policy.Policy) {
 			continue
 		}
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context))
+
+		startTime := time.Now()
+		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+		for i, rule := range pol.Rules {
+			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+		}
+
+		response.Policies = append(response.Policies, pol)
 	}
 	return response, nil
 }
@@ -106,7 +117,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		Policy:  policy.Policy,
 	}
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.Policy.Spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(policy.CompiledPolicy.MatchConstraints(), attr, namespace)
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response
@@ -128,17 +139,58 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
-		var keys []string
-		for i := range result.Exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
+		keys := make([]string, 0, len(result.Exceptions))
+
+		var (
+			highestPriority int
+			selectedIndex   int
+		)
+		for i, ex := range result.Exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(ex)
 			if err != nil {
-				response.Rules = handlers.WithResponses(engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil))
+				response.Rules = handlers.WithResponses(
+					engineapi.RuleError(
+						"exception",
+						engineapi.Validation,
+						"failed to compute exception key",
+						err,
+						nil,
+					),
+				)
 				return response
 			}
+
 			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
+			exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
+
+			// evaluate exception priority from label
+			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
+				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
+					highestPriority = p
+					selectedIndex = i
+				}
+			}
 		}
-		response.Rules = handlers.WithResponses(engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions))
+		// determine final result based on highest-priority exception
+		selectedException := result.Exceptions[selectedIndex]
+		reportResult := selectedException.Spec.ReportResult
+
+		joinedKeys := strings.Join(keys, ", ")
+		msgPrefix := "rule is %s due to policy exception: " + joinedKeys
+		switch reportResult {
+		case string(engineapi.RuleStatusPass):
+			response.Rules = handlers.WithResponses(
+				engineapi.RulePass("exception", engineapi.Validation,
+					fmt.Sprintf(msgPrefix, "passed"), nil,
+				).WithExceptions(exceptions),
+			)
+		default:
+			response.Rules = handlers.WithResponses(
+				engineapi.RuleSkip("exception", engineapi.Validation,
+					fmt.Sprintf(msgPrefix, "skipped"), nil,
+				).WithExceptions(exceptions),
+			)
+		}
 	} else {
 		// TODO: do we want to set a rule name?
 		ruleName := ""

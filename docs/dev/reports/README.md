@@ -139,6 +139,19 @@ C(Policy report controller) -->|create/update| R4(Policy report)
 Not shown in this diagram:
 - background scan controller watches resources/policies and maintains an up to date background scan report
 
+### Customizing messages and report properties
+
+Kyverno supports attaching arbitrary key/value properties to rule results via the `spec.rules[].reportProperties` field. These properties are propagated to report results and appear under `results[].properties` in PolicyReports and ClusterPolicyReports.
+
+In addition, specific keys can be used to customize the human-readable message shown in the report for any outcome:
+
+- `message`: generic override applied regardless of outcome
+- `passMessage`: used when result is `pass`
+- `failMessage`: used when result is `fail`
+- `warnMessage`: used when result is `warn`
+- `errorMessage`: used when result is `error`
+- `skipMessage`: used when result is `skip`
+
 ## Storage considerations
 
 The system stores everything in etcd, admission reports (aggregated and short lived ones), background scan reports, and policy reports/cluster policy reports.

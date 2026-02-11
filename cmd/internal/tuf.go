@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/sigstore/cosign/v2/pkg/blob"
+	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 

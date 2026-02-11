@@ -2,7 +2,7 @@ package openreports
 
 import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 )
 
 type WgpolicyReportAdapter struct {

@@ -1,5 +1,5 @@
 {{- $name := "restrict-seccomp-strict" }}
-{{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (ne (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 apiVersion: kyverno.io/v1
 kind: {{ .Values.policyKind }}
 metadata:

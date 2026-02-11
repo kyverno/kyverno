@@ -21,8 +21,23 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time, wg *wait.Group) {
-	wg.Start(func() { h.handleMutateExisting(ctx, logger, request, mutatePolicies, ts) })
-	wg.Start(func() { h.handleGenerate(ctx, logger, request, generatePolicies, ts) })
+	// Create independent contexts for background operations.
+	// The HTTP request context (ctx) is cancelled when the webhook handler returns,
+	// but background generate/mutate operations must complete independently.
+	// Using context.Background() with a timeout ensures these operations are not
+	// prematurely cancelled when the admission response is sent.
+	const backgroundTimeout = 30 * time.Second
+
+	wg.Start(func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), backgroundTimeout)
+		defer cancel()
+		h.handleMutateExisting(bgCtx, logger, request, mutatePolicies, ts)
+	})
+	wg.Start(func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), backgroundTimeout)
+		defer cancel()
+		h.handleGenerate(bgCtx, logger, request, generatePolicies, ts)
+	})
 }
 
 func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
@@ -83,10 +98,15 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 				}
 				policy = pol
 			}
-			resource := policyContext.NewResource()
-			events := event.NewBackgroundFailedEvent(err, policy, "", event.GeneratePolicyController,
-				kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
-			h.eventGen.Add(events...)
+			// Only generate error events if the policy was found.
+			// When policy is nil, we skip event generation to avoid panic
+			// from calling methods on nil embedded metav1.Object interface.
+			if policy != nil {
+				resource := policyContext.NewResource()
+				events := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
+					kyvernov1.ResourceSpec{Kind: resource.GetKind(), Namespace: resource.GetNamespace(), Name: resource.GetName()})
+				h.eventGen.Add(events...)
+			}
 		}
 	}
 }

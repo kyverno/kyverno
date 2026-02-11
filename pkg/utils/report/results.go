@@ -13,11 +13,11 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	openreportsv1alpha1 "openreports.io/apis/openreports.io/v1alpha1"
 )
 
 func SortReportResults(results []openreportsv1alpha1.ReportResult) {
@@ -110,6 +110,37 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		},
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+	}
+
+	// override message from reportProperties if provided
+	if result.Properties != nil {
+		// status-specific overrides
+		switch result.Result {
+		case openreports.StatusPass:
+			if msg, ok := result.Properties["passMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusFail:
+			if msg, ok := result.Properties["failMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusWarn:
+			if msg, ok := result.Properties["warnMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusError:
+			if msg, ok := result.Properties["errorMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		case openreports.StatusSkip:
+			if msg, ok := result.Properties["skipMessage"]; ok && msg != "" {
+				result.Description = msg
+			}
+		}
+		// generic override
+		if msg, ok := result.Properties["message"]; ok && msg != "" {
+			result.Description = msg
+		}
 	}
 
 	var process string
@@ -236,6 +267,9 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
 func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
 	}
@@ -246,6 +280,9 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []openrepo
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
 			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
@@ -261,6 +298,9 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
+			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+				continue
+			}
 			property := make([]string, 0)
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))

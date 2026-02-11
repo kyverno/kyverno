@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -16,7 +16,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		name          string
 		controllers   sets.Set[string]
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			name:        "autogen rule for deployments",
@@ -47,12 +47,12 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -108,13 +108,13 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -176,15 +176,15 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					}
 				]
 			}`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenDefaults: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "apps", Version: "v1", Resource: "daemonsets", Kind: "DaemonSet"},
 						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
 						{Group: "apps", Version: "v1", Resource: "replicasets", Kind: "ReplicaSet"},
 						{Group: "apps", Version: "v1", Resource: "statefulsets", Kind: "StatefulSet"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -220,7 +220,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(test.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, test.controllers)
@@ -233,7 +233,7 @@ func TestGenerateRuleForControllers(t *testing.T) {
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
-		generatedRule map[string]policiesv1alpha1.ValidatingPolicyAutogen
+		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
 			policySpec: []byte(`{
@@ -262,12 +262,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -327,12 +327,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -399,12 +399,12 @@ func TestGenerateCronJobRule(t *testing.T) {
         }
     ]
 }`),
-			generatedRule: map[string]policiesv1alpha1.ValidatingPolicyAutogen{
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
 				autogen.AutogenCronjobs: {
-					Targets: []policiesv1alpha1.Target{
+					Targets: []policiesv1beta1.Target{
 						{Group: "batch", Version: "v1", Resource: "cronjobs", Kind: "CronJob"},
 					},
-					Spec: &policiesv1alpha1.ValidatingPolicySpec{
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -441,7 +441,7 @@ func TestGenerateCronJobRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			var spec policiesv1alpha1.ValidatingPolicySpec
+			var spec policiesv1beta1.ValidatingPolicySpec
 			err := json.Unmarshal(tt.policySpec, &spec)
 			assert.NoError(t, err)
 			genRule, err := generateRuleForControllers(spec, sets.New("cronjobs"))
