@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: sync-delete-policy-with-orphan-downstream
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
@@ -35,7 +36,7 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: policies.kyverno.io/v1alpha1
+          apiVersion: policies.kyverno.io/v1beta1
           kind: GeneratingPolicy
           name: sync-delete-policy-with-orphan-downstream
   - name: sleep

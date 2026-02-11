@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
@@ -23,9 +23,9 @@ type ivfuncs struct {
 
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
-	creds           *v1alpha1.Credentials
+	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestationList map[string]v1alpha1.Attestation
+	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
@@ -33,7 +33,7 @@ type ivfuncs struct {
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
-	ivpol *v1alpha1.ImageValidatingPolicy,
+	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister k8scorev1.SecretInterface,
 	adapter types.Adapter,
 ) (*ivfuncs, error) {
@@ -44,14 +44,15 @@ func ImageVerifyCELFuncs(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
 	}
-	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, ivpol.Spec.MatchImageReferences...)
+	spec := ivpol.GetSpec()
+	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, spec.MatchImageReferences...)
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
 	return &ivfuncs{
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
-		creds:           ivpol.Spec.Credentials,
+		creds:           spec.Credentials,
 		imgRules:        imgRules,
 		attestationList: attestationMap(ivpol),
 		cosignVerifier:  cosign.NewVerifier(lister, logger),
@@ -63,7 +64,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
-	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](attestors); err != nil {
+	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
 		return types.WrapErr(err)
 	} else {
 		count := 0
@@ -81,7 +82,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-					f.logger.Info("failed to verify image cosign: %v", err)
+					f.logger.Info("failed to verify image cosign", "error", err)
 				} else {
 					count += 1
 				}
@@ -94,7 +95,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify image notary: %v", err)
+					f.logger.Info("failed to verify image notary", "error", err)
 				} else {
 					count += 1
 				}
@@ -113,7 +114,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](args[1]); err != nil {
 		return types.WrapErr(err)
-	} else if attestors, err := utils.ConvertToNative[[]v1alpha1.Attestor](args[2]); err != nil {
+	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
 		count := 0
@@ -134,7 +135,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-					f.logger.Info("failed to verify attestation cosign: %v", err)
+					f.logger.Info("failed to verify attestation cosign", "error", err)
 				} else {
 					count += 1
 				}
@@ -150,7 +151,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify attestation notary: %v", err)
+					f.logger.Info("failed to verify attestation notary", "error", err)
 				} else {
 					count += 1
 				}

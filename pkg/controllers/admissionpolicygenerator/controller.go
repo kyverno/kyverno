@@ -11,10 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
-	policiesv1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1alpha1"
+	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -51,10 +51,12 @@ type controller struct {
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
-	vpolLister       policiesv1alpha1listers.ValidatingPolicyLister
-	mpolLister       policiesv1alpha1listers.MutatingPolicyLister
+	vpolLister       policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister      policiesv1beta1listers.NamespacedValidatingPolicyLister
+	mpolLister       policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister      policiesv1beta1listers.NamespacedMutatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexLister   policiesv1alpha1listers.PolicyExceptionLister
+	celpolexLister   policiesv1beta1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -72,10 +74,12 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1alpha1informers.ValidatingPolicyInformer,
-	mpolInformer policiesv1alpha1informers.MutatingPolicyInformer,
+	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	celpolexInformer policiesv1alpha1informers.PolicyExceptionInformer,
+	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
@@ -93,7 +97,9 @@ func NewController(
 		discoveryClient: discoveryClient,
 		cpolLister:      cpolInformer.Lister(),
 		vpolLister:      vpolInformer.Lister(),
+		nvpolLister:     nvpolInformer.Lister(),
 		mpolLister:      mpolInformer.Lister(),
+		nmpolLister:     nmpolInformer.Lister(),
 		polexLister:     polexInformer.Lister(),
 		celpolexLister:  celpolexInformer.Lister(),
 		queue:           queue,
@@ -113,6 +119,11 @@ func NewController(
 
 	// Set up an event handler for when mutating policies change
 	if _, err := controllerutils.AddEventHandlersT(mpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	// Set up an event handler for when namespaced mutating policies change
+	if _, err := controllerutils.AddEventHandlersT(nmpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -210,10 +221,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "MutatingPolicy" {
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-		if !generateMutatingAdmissionPolicy {
-			return nil
-		}
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -221,6 +228,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		if !generateMutatingAdmissionPolicy {
+			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
+				return nil
+			}
+			logger.Info("generating MutatingAdmissionPolicy explicitly enabled in policy", "policy", mpol.GetName())
 		}
 		err = c.handleMAPGeneration(ctx, mpol)
 		if err != nil {
@@ -247,7 +261,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.Generated = generated
 		latest.Status.GetConditionStatus().Message = msg
 
-		new, err := c.kyvernoClient.PoliciesV1alpha1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update validating policy status", vpol.GetName(), "status", new.Status)
 		}
@@ -258,7 +272,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		latest.Status.Generated = generated
 		latest.Status.GetConditionStatus().Message = msg
 
-		new, err := c.kyvernoClient.PoliciesV1alpha1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update mutating policy status", mpol.GetName(), "status", new.Status)
 		}

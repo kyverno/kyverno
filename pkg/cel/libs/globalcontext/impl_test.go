@@ -20,7 +20,7 @@ func Test_impl_get_string(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -102,7 +102,7 @@ func Test_impl_get_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -184,7 +184,7 @@ func Test_impl_get_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -217,7 +217,7 @@ func Test_impl_get_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("globalContext", ContextType),
-		Lib(),
+		Lib(nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)

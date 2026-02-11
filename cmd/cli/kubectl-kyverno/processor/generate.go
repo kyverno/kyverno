@@ -115,7 +115,6 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,
-		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		adapters.Client(client),
 		nil,

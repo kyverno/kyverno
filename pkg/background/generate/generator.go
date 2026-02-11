@@ -129,7 +129,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		targetMeta := response.GetTarget()
 		if response.GetError() != nil {
 			logger.Error(response.GetError(), "failed to generate resource", "mode", response.GetAction())
-			return newGenResources, err
+			return newGenResources, response.GetError()
 		}
 
 		if response.GetAction() == Skip {

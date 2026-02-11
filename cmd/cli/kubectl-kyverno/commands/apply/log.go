@@ -43,7 +43,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					if os.IsNotExist(err) {
 						errDir := os.MkdirAll(folderPath, 0o750)
 						if errDir != nil {
-							return fmt.Errorf("failed to create directory (%w)", err)
+							return fmt.Errorf("failed to create directory (%w)", errDir)
 						}
 					}
 				}
@@ -62,7 +62,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0o750)
 				if errDir != nil {
-					return fmt.Errorf("failed to create directory (%w)", err)
+					return fmt.Errorf("failed to create directory (%w)", errDir)
 				}
 			}
 		} else {

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: different-trigger-target
 spec:
+  concurrent: false
   steps:
   - name: create namespace and configmaps
     try:

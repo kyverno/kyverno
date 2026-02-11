@@ -9,8 +9,9 @@ import (
 
 	cel2 "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -102,7 +103,7 @@ func TestVariables(t *testing.T) {
 		cctx := &compositionContext{
 			ctx:             ctx,
 			evaluator:       evaluator,
-			contextProvider: &fakeContext{},
+			contextProvider: &libs.FakeContextProvider{},
 		}
 
 		act := &fakeActivation{
@@ -157,7 +158,7 @@ func TestVariables(t *testing.T) {
 		cctx := &compositionContext{
 			ctx:             ctx,
 			evaluator:       evaluator,
-			contextProvider: &fakeContext{},
+			contextProvider: &libs.FakeContextProvider{},
 		}
 
 		act := &fakeActivation{
@@ -339,7 +340,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "match error")
 	})
@@ -353,7 +354,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.Nil(t, resp)
 	})
 
@@ -372,7 +373,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "patch failed")
 	})
@@ -393,7 +394,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &fakeContext{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
 	})
@@ -467,8 +468,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					// MatchConditions: []cel2.Program{
 					// 	// Add something here
 					// },
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -494,8 +495,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						&fakeProgram{refVal: types.String("test-ref")},
 					},
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -520,8 +521,8 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						&fakeProgram{refVal: types.String("test-ref"), err: errors.New("test-error")},
 					},
-					Exception: &policiesv1alpha1.PolicyException{
-						Spec: policiesv1alpha1.PolicyExceptionSpec{
+					Exception: &policiesv1beta1.PolicyException{
+						Spec: policiesv1beta1.PolicyExceptionSpec{
 							MatchConditions: []admissionregistrationv1.MatchCondition{
 								{
 									Name:       "test-condition",
@@ -547,7 +548,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 					MatchConditions: []cel2.Program{
 						// Add something
 					},
-					Exception: &policiesv1alpha1.PolicyException{},
+					Exception: &policiesv1beta1.PolicyException{},
 				},
 			},
 		}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
+	"regexp"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -12,12 +14,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
+var namespacePathRegex = regexp.MustCompile(`^/api(s)?/.*?/namespaces/([^/]+)/?.*$`)
+
 type apiCall struct {
-	logger   logr.Logger
-	jp       jmespath.Interface
-	entry    kyvernov1.ContextEntry
-	jsonCtx  enginecontext.Interface
-	executor Executor
+	logger          logr.Logger
+	jp              jmespath.Interface
+	entry           kyvernov1.ContextEntry
+	jsonCtx         enginecontext.Interface
+	executor        Executor
+	policyNamespace string
 }
 
 func New(
@@ -27,6 +32,7 @@ func New(
 	jsonCtx enginecontext.Interface,
 	client ClientInterface,
 	apiCallConfig APICallConfiguration,
+	policyNamespace string,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
@@ -35,11 +41,12 @@ func New(
 	executor := NewExecutor(logger, entry.Name, client, apiCallConfig)
 
 	return &apiCall{
-		logger:   logger,
-		jp:       jp,
-		entry:    entry,
-		jsonCtx:  jsonCtx,
-		executor: executor,
+		logger:          logger,
+		jp:              jp,
+		entry:           entry,
+		jsonCtx:         jsonCtx,
+		executor:        executor,
+		policyNamespace: policyNamespace,
 	}, nil
 }
 
@@ -62,6 +69,19 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
+
+	if a.policyNamespace != "" {
+		cleanPath := path.Clean(call.APICall.URLPath)
+		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
+			ns := matches[2]
+			if ns != a.policyNamespace {
+				return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", cleanPath, ns, a.policyNamespace)
+			}
+		} else {
+			return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", cleanPath)
+		}
+	}
+
 	data, err := a.Execute(ctx, &call.APICall)
 	if err != nil {
 		if data == nil && a.entry.APICall.Default != nil {

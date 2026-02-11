@@ -1,5 +1,6 @@
 {{- if .Values.reportsController.enabled -}}
-{{- if not .Values.templating.debug -}}
+{{- include "kyverno.validateOpenReports" . -}}
+{{- if not .Values.global.templating.debug -}}
 {{- $automountSAToken := .Values.reportsController.rbac.serviceAccount.automountServiceAccountToken }}
 apiVersion: apps/v1
 kind: Deployment
@@ -8,6 +9,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+    {{- with .Values.reportsController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.reportsController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -85,6 +89,10 @@ spec:
       {{- end }}
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       automountServiceAccountToken: {{ $automountSAToken }}
+      {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
+      initContainers:
+        {{- include "kyverno.reportsServer.initContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: controller
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -115,6 +123,11 @@ spec:
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
+            {{- if .Values.reportsController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.reportsController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -201,6 +214,9 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
             {{- end }}
+            {{- with .Values.reportsController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
@@ -236,6 +252,9 @@ spec:
                     fieldRef:
                       apiVersion: v1
                       fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.reportsController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}
 {{- end -}}

@@ -23,10 +23,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validateResourceHandler struct{}
+type validateResourceHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidateResourceHandler() (handlers.Handler, error) {
-	return validateResourceHandler{}, nil
+func NewValidateResourceHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validateResourceHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validateResourceHandler) Process(
@@ -39,7 +45,7 @@ func (h validateResourceHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
@@ -216,6 +222,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
+	var listEvalError error
 	for _, foreach := range v.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
@@ -224,6 +231,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 				continue
 			}
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
+			listEvalError = err
 			continue
 		}
 		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
@@ -233,6 +241,10 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		applyCount += count
 	}
 	if applyCount == 0 {
+		// If no elements were processed and there was a list evaluation error, return error
+		if listEvalError != nil {
+			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to evaluate list", listEvalError, v.rule.ReportProperties)
+		}
 		return nil
 	}
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed", v.rule.ReportProperties)
@@ -393,7 +405,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 			if pe, ok := err.(*validate.PatternError); ok {
 				var patternErr error
-				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
+				v.log.V(3).Info("validation rule failed", "anyPattern", idx, "path", pe.Path)
 
 				if pe.Skip {
 					patternErr = fmt.Errorf("rule %s[%d] skipped: %s", v.rule.Name, idx, err.Error())

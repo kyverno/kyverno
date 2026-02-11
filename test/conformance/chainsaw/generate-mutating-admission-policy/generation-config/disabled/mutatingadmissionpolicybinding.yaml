@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/managed-by: kyverno
   name: mpol-disabled-binding
   ownerReferences:
-  - apiVersion: policies.kyverno.io/v1alpha1
+  - apiVersion: policies.kyverno.io/v1beta1
     kind: MutatingPolicy
     name: disabled
 spec:

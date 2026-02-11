@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,8 +17,8 @@ import (
 )
 
 type CompiledImageValidatingPolicy struct {
-	Policy     *policiesv1alpha1.ImageValidatingPolicy
-	Exceptions []*policiesv1alpha1.PolicyException
+	Policy     policiesv1beta1.ImageValidatingPolicyLike
+	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
@@ -49,7 +49,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 		if err != nil {
 			return nil, err
 		}
-		results[ivpol.Policy.Name] = result
+		results[ivpol.Policy.GetName()] = result
 	}
 	return results, nil
 }
@@ -76,9 +76,9 @@ func filterPolicies(ivpols []*CompiledImageValidatingPolicy, isK8s bool) []*Comp
 		}
 		pol := v.Policy
 
-		if isK8s && pol.Spec.EvaluationMode() == v1alpha1.EvaluationModeKubernetes {
+		if isK8s && pol.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeKubernetes {
 			filteredPolicies = append(filteredPolicies, v)
-		} else if !isK8s && pol.Spec.EvaluationMode() == v1alpha1.EvaluationModeJSON {
+		} else if !isK8s && pol.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
 			filteredPolicies = append(filteredPolicies, v)
 		}
 	}
