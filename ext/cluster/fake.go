@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	"errors"
-	"time"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kdata "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -126,12 +125,11 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	}
 	kclient := kubefake.NewSimpleClientset(resource.ConvertResources(kubeObjects)...)
 
-	dClient, _ := dclient.NewClient(context.Background(), dyn, kclient, time.Hour, false, nil)
 	discoClient := dclient.NewFakeDiscoveryClient(list)
 	for gvr, gvk := range gvrToGVK {
 		discoClient.AddGVRToGVKMapping(gvr, gvk)
 	}
-	dClient.SetDiscovery(discoClient)
+	dClient := dclient.NewFakeClientWithDisco(dyn, kclient, discoClient)
 
 	return dClient, nil
 }
