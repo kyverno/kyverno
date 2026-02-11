@@ -405,7 +405,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 			if pe, ok := err.(*validate.PatternError); ok {
 				var patternErr error
-				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
+				v.log.V(3).Info("validation rule failed", "anyPattern", idx, "path", pe.Path)
 
 				if pe.Skip {
 					patternErr = fmt.Errorf("rule %s[%d] skipped: %s", v.rule.Name, idx, err.Error())
