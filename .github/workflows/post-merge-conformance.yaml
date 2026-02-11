@@ -20,6 +20,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
       - name: Setup Go
         id: setup-go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
@@ -27,25 +36,31 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Set cache variables
+        shell: bash
         run: |
+          set -e
           echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
           echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-      - name: Normalize runner architecture
-        shell: bash
-        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-      - name: Set cache OS suffix for Linux
-        if: runner.os == 'Linux'
-        shell: bash
-        run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
-      - name: Go cache
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+          echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+      - name: Restore gomod cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
-          path: |
-            ${{ env.GO_MOD_CACHE }}
-            ${{ env.GO_BUILD_CACHE }}
-          key: conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+          path: ${{ env.GO_MOD_CACHE }}
+          key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            conformance-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Restore gobuild cache
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ env.GO_BUILD_CACHE }}
+          key: gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+            gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
       - name: Install Ko
         uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
       - name: Ko build
@@ -80,8 +95,7 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.2, v1.35.0]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    needs:
-      - prepare
+    needs: [prepare]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
