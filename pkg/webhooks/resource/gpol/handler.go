@@ -36,6 +36,11 @@ func New(
 }
 
 func (h *handler) Generate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	// Skip background generation for dry-run requests to honor the SideEffects: NoneOnDryRun contract.
+	if admissionutils.IsDryRun(request.AdmissionRequest) {
+		return admissionutils.Response(request.UID, nil)
+	}
+
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
@@ -134,6 +139,10 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	if request.Namespace == "" {
 		return admissionutils.ResponseSuccess(request.UID)
+	}
+	// Skip background generation for dry-run requests to honor the SideEffects: NoneOnDryRun contract.
+	if admissionutils.IsDryRun(request.AdmissionRequest) {
+		return admissionutils.Response(request.UID, nil)
 	}
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
