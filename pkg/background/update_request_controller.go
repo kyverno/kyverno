@@ -268,8 +268,14 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
-		logger.V(3).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
-		new = ur
+		if apierrors.IsNotFound(err) {
+			// UR was already deleted (e.g., by another controller or manually), nothing to do
+			logger.V(4).Info("update request not found, skipping reconciliation", "name", ur.GetName())
+			return kyvernov2.Skip, nil
+		}
+		// Return error to force retry - do NOT fall back to stale data as this can cause
+		// Completed URs to never be deleted if the informer event handler ignores them
+		return "", fmt.Errorf("failed to fetch latest UR status for %s: %w", ur.GetName(), err)
 	}
 
 	var errUpdate error
