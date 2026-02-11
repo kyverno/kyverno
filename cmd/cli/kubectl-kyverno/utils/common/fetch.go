@@ -229,6 +229,7 @@ func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,
 ) {
+
 	restMapper, err := utils.GetRESTMapper(rf.Client)
 	if err != nil {
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
