@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
-func GetRESTMapper(client dclient.Interface, _ bool) (meta.RESTMapper, error) {
+func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 	var restMapper meta.RESTMapper
 
 	// check that it is not a fake client
