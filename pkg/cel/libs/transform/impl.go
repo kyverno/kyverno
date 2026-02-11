@@ -37,18 +37,34 @@ func (c *impl) list_of_objects_to_map(args ...ref.Val) ref.Val {
 	}
 	ret := make(map[string]any)
 	for i, entry := range list1 {
-		entry1, err := refValMapToGoMap(entry.(map[ref.Val]ref.Val))
-		if err != nil {
-			return types.WrapErr(err)
+		var (
+			entry1 map[string]any
+			entry2 map[string]any
+			ok     bool
+		)
+
+		// attempt to handle the entry first as a map string any, if it failed try as a map of ref.Val to ref.Val
+		entry1, ok = entry.(map[string]any)
+		if !ok {
+			entry1, err = refValMapToGoMap(entry.(map[ref.Val]ref.Val))
+			if err != nil {
+				return types.WrapErr(err)
+			}
 		}
+
 		k, ok := entry1[keyName].(string)
 		if !ok {
 			return types.WrapErr(fmt.Errorf("the passed key name cannot be handled as a string in the key object list"))
 		}
-		entry2, err := refValMapToGoMap(list2[i].(map[ref.Val]ref.Val))
-		if err != nil {
-			return types.WrapErr(fmt.Errorf("object cannot be handled as a map string to any in the value object list"))
+
+		entry2, ok = list2[i].(map[string]any)
+		if !ok {
+			entry2, err = refValMapToGoMap(list2[i].(map[ref.Val]ref.Val))
+			if err != nil {
+				return types.WrapErr(fmt.Errorf("object cannot be handled as a map string to any in the value object list"))
+			}
 		}
+
 		ret[k] = entry2[valueName]
 	}
 	return c.NativeToValue(ret)
