@@ -7,8 +7,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/images"
-	notation "github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-core-go/signature"
+	notation "github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 )
 
