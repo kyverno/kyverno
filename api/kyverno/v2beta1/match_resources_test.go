@@ -1,6 +1,7 @@
 package v2beta1
 
 import (
+	"strings"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -53,7 +54,7 @@ func Test_MatchResources(t *testing.T) {
 			}},
 		},
 		errors: []string{
-			`dummy: Invalid value: v2beta1.MatchResources{Any:v1.ResourceFilters{v1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}, All:v1.ResourceFilters{v1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}}: Can't specify any and all together`,
+			"Can't specify any and all together",
 		},
 	}}
 
@@ -62,7 +63,7 @@ func Test_MatchResources(t *testing.T) {
 		errs := testCase.subject.Validate(path, testCase.namespaced, nil)
 		assert.Equal(t, len(errs), len(testCase.errors))
 		for i, err := range errs {
-			assert.Equal(t, err.Error(), testCase.errors[i])
+			assert.Assert(t, strings.Contains(err.Error(), testCase.errors[i]))
 		}
 	}
 }

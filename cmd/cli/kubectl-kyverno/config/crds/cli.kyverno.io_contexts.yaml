@@ -44,7 +44,6 @@ spec:
                     config:
                       description: Any can be any type.
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     digest:
                       type: string
                     image:
@@ -52,11 +51,9 @@ spec:
                     imageIndex:
                       description: Any can be any type.
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     manifest:
                       description: Any can be any type.
                       type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     registry:
                       type: string
                     repository:
@@ -73,6 +70,8 @@ spec:
                   type: object
                 type: array
               resources:
+                description: deprecate, use ClusterResource to define Kubernetes specific
+                  resources
                 items:
                   type: object
                 type: array

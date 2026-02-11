@@ -2,10 +2,10 @@ package admissionpolicy
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
-func ConvertMatchResources(in *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1.MatchResources {
+func ConvertMatchResources(in *admissionregistrationv1beta1.MatchResources) *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
 		NamespaceSelector:    in.NamespaceSelector,
 		ObjectSelector:       in.ObjectSelector,
@@ -15,31 +15,31 @@ func ConvertMatchResources(in *admissionregistrationv1alpha1.MatchResources) *ad
 	}
 }
 
-func convertRules(v1alpha1rules []admissionregistrationv1alpha1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
-	v1rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(v1alpha1rules))
-	for _, r := range v1alpha1rules {
+func convertRules(rules []admissionregistrationv1beta1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
+	v1rules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rules))
+	for _, r := range rules {
 		v1rules = append(v1rules, admissionregistrationv1.NamedRuleWithOperations(r))
 	}
 	return v1rules
 }
 
-func convertMatchConditions(v1alpha1conditions []admissionregistrationv1alpha1.MatchCondition) []admissionregistrationv1.MatchCondition {
-	v1conditions := make([]admissionregistrationv1.MatchCondition, 0, len(v1alpha1conditions))
-	for _, m := range v1alpha1conditions {
+func convertMatchConditions(conditions []admissionregistrationv1beta1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	v1conditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	for _, m := range conditions {
 		v1conditions = append(v1conditions, admissionregistrationv1.MatchCondition(m))
 	}
 	return v1conditions
 }
 
-func convertVariables(v1alpha1variables []admissionregistrationv1alpha1.Variable) []admissionregistrationv1.Variable {
-	v1variables := make([]admissionregistrationv1.Variable, 0, len(v1alpha1variables))
-	for _, v := range v1alpha1variables {
+func convertVariables(variables []admissionregistrationv1beta1.Variable) []admissionregistrationv1.Variable {
+	v1variables := make([]admissionregistrationv1.Variable, 0, len(variables))
+	for _, v := range variables {
 		v1variables = append(v1variables, admissionregistrationv1.Variable(v))
 	}
 	return v1variables
 }
 
-func convertParamRef(ref *admissionregistrationv1alpha1.ParamRef) *admissionregistrationv1.ParamRef {
+func convertParamRef(ref *admissionregistrationv1beta1.ParamRef) *admissionregistrationv1.ParamRef {
 	return &admissionregistrationv1.ParamRef{
 		Name:                    ref.Name,
 		Namespace:               ref.Namespace,
@@ -48,6 +48,6 @@ func convertParamRef(ref *admissionregistrationv1alpha1.ParamRef) *admissionregi
 	}
 }
 
-func convertParamKind(kind *admissionregistrationv1alpha1.ParamKind) *admissionregistrationv1.ParamKind {
+func convertParamKind(kind *admissionregistrationv1beta1.ParamKind) *admissionregistrationv1.ParamKind {
 	return &admissionregistrationv1.ParamKind{APIVersion: kind.APIVersion, Kind: kind.Kind}
 }

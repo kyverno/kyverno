@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
@@ -41,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -81,7 +80,7 @@ func createrLeaderControllers(
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Policies().V1alpha1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -190,6 +189,7 @@ func main() {
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
 			maxQueuedEvents,
+			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
 		eventController := internal.NewController(
@@ -202,7 +202,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,
@@ -253,17 +253,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// temporarily create a fake breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 		}
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -283,10 +283,19 @@ func main() {
 				// create leader factories
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+
+				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+				if err != nil {
+					setup.Logger.Error(err, "failed to create RESTMapper")
+					os.Exit(1)
+				}
+
 				contextProvider, err := libs.NewContextProvider(
 					setup.KyvernoDynamicClient,
 					nil,
 					gcstore,
+					restMapper,
 					false,
 				)
 				if err != nil {
@@ -294,8 +303,8 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(ctx context.Context, name string) *corev1.Namespace {
-					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+				namespaceGetter := func(name string) *corev1.Namespace {
+					ns, err := nsLister.Get(name)
 					if err != nil {
 						return nil
 					}
@@ -307,20 +316,16 @@ func main() {
 				// create provider
 				gpolProvider := gpolengine.NewFetchProvider(
 					compiler,
-					kyvernoInformer.Policies().V1alpha1().GeneratingPolicies().Lister(),
-					kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(),
+					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
+					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
-				gpolEngine := gpolengine.NewEngine(
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(signalCtx, name)
-					},
-					matching.NewMatcher(),
-				)
+				gpolEngine := gpolengine.NewMetricsEngine(gpolengine.NewEngine(namespaceGetter, matching.NewMatcher()))
 
 				scheme := kruntime.NewScheme()
-				if err := policiesv1alpha1.Install(scheme); err != nil {
+				if err := policiesv1beta1.Install(scheme); err != nil {
 					setup.Logger.Error(err, "failed to initialize scheme")
 					os.Exit(1)
 				}
@@ -351,27 +356,19 @@ func main() {
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1alpha1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)
 				}
 
-				mpolEngine := mpolengine.NewEngine(
+				mpolEngine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 					mpolProvider,
-					func(name string) *corev1.Namespace {
-						return namespaceGetter(mgrCtx, name)
-					},
+					namespaceGetter,
 					nil,
 					typeConverter,
 					contextProvider,
-				)
-
-				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
-				if err != nil {
-					setup.Logger.Error(err, "failed to create RESTMapper")
-					os.Exit(1)
-				}
+				), metrics.BackgroundScan)
 
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(
@@ -388,7 +385,7 @@ func main() {
 					bgscanInterval,
 					urGenerator,
 					contextProvider,
-					*gpolEngine,
+					gpolEngine,
 					gpolProvider,
 					mpolEngine,
 					restMapper,
@@ -399,14 +396,15 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,8 +19,8 @@ func GetDeletingMetrics() DeletingMetrics {
 }
 
 type DeletingMetrics interface {
-	RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)
-	RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation)
+	RecordDeletedObject(ctx context.Context, resource, namespace string, policy v1beta1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation)
+	RecordDeletingFailure(ctx context.Context, resource, namespace string, policy v1beta1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation)
 }
 
 type deletingMetrics struct {
@@ -49,7 +49,7 @@ func (m *deletingMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, resource, namespace string, policy v1beta1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation) {
 	if m.deletedObjectsTotal == nil {
 		return
 	}
@@ -58,7 +58,7 @@ func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespa
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
 		attribute.String("policy_name", policy.GetName()),
-		attribute.String("resource_kind", kind),
+		attribute.String("resource", resource),
 	}
 
 	if namespace != "" {
@@ -72,7 +72,7 @@ func (m *deletingMetrics) RecordDeletedObject(ctx context.Context, kind, namespa
 	m.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 }
 
-func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, kind, namespace string, policy v1alpha1.DeletingPolicy, deletionPropagation *metav1.DeletionPropagation) {
+func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, resource, namespace string, policy v1beta1.DeletingPolicyLike, deletionPropagation *metav1.DeletionPropagation) {
 	if m.deletingFailuresTotal == nil {
 		return
 	}
@@ -81,7 +81,7 @@ func (m *deletingMetrics) RecordDeletingFailure(ctx context.Context, kind, names
 		attribute.String("policy_type", policy.GetKind()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
 		attribute.String("policy_name", policy.GetName()),
-		attribute.String("resource_kind", kind),
+		attribute.String("resource", resource),
 	}
 
 	if namespace != "" {

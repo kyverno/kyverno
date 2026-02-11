@@ -35,18 +35,21 @@ const (
 )
 
 type validateManifestHandler struct {
-	client engineapi.Client
+	client    engineapi.Client
+	isCluster bool
 }
 
 func NewValidateManifestHandler(
 	policyContext engineapi.PolicyContext,
 	client engineapi.Client,
+	isCluster bool,
 ) (handlers.Handler, error) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
 	}
 	return validateManifestHandler{
-		client: client,
+		client:    client,
+		isCluster: isCluster,
 	}, nil
 }
 
@@ -60,7 +63,7 @@ func (h validateManifestHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
@@ -367,7 +370,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			}
 		}
 		if a.Certificates.Rekor != nil {
-			vo.RekorURL = a.Keys.Rekor.URL
+			vo.RekorURL = a.Certificates.Rekor.URL
 		}
 	} else if a.Keyless != nil {
 		subPath = subPath + ".keyless"

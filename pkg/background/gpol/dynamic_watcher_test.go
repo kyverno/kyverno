@@ -252,7 +252,7 @@ func TestSyncWatchers(t *testing.T) {
 					log: logging.WithName("test"),
 					client: &MockClient{
 						deleteFn: func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
-							fmt.Printf("Mock delete %s/%s in %s\n", kind, name, namespace)
+							// Mock delete operation - no logging needed for test mock
 							return nil
 						},
 					},
@@ -893,4 +893,79 @@ func TestHandleUpdate(t *testing.T) {
 		obj := makeObj("uid", "pod", "default", nil)
 		wm.handleUpdate(obj, gvr)
 	})
+}
+
+func TestWatchManager_CacheIntegrity(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+	makeObj := func(uid, name, ns, rv string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetAPIVersion("v1")
+		u.SetKind("ConfigMap")
+		u.SetUID(types.UID(uid))
+		u.SetName(name)
+		u.SetNamespace(ns)
+		u.SetResourceVersion(rv)
+		u.SetCreationTimestamp(metav1.Now())
+		return u
+	}
+
+	tests := []struct {
+		name     string
+		testFunc func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured)
+	}{
+		{
+			name: "handleUpdate must not mutate cached object",
+			testFunc: func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured) {
+				wm.handleUpdate(modifiedObj, gvr)
+			},
+		},
+		{
+			name: "handleDelete must not mutate cached object",
+			testFunc: func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured) {
+				deletedObj := cachedObj.DeepCopy()
+				deletedObj.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "kyverno"})
+				wm.handleDelete(deletedObj, gvr)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalUID := types.UID("original-uid-12345")
+			originalRV := "12345"
+			cachedObj := makeObj(string(originalUID), "test-cm", "default", originalRV)
+			originalHash := reportutils.CalculateResourceHash(*cachedObj)
+
+			wm := &WatchManager{
+				log:    logging.WithName("test"),
+				client: &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {
+						metadataCache: map[types.UID]Resource{
+							originalUID: {
+								Name:      cachedObj.GetName(),
+								Namespace: cachedObj.GetNamespace(),
+								Labels:    cachedObj.GetLabels(),
+								Hash:      originalHash,
+								Data:      cachedObj,
+							},
+						},
+					},
+				},
+			}
+
+			modifiedObj := cachedObj.DeepCopy()
+			modifiedObj.SetAnnotations(map[string]string{"modified": "true"})
+
+			tt.testFunc(t, wm, gvr, cachedObj, modifiedObj)
+
+			cached, exists := wm.dynamicWatchers[gvr].metadataCache[originalUID]
+			assert.True(t, exists, "cached resource should still exist in map")
+			assert.Equal(t, originalUID, cached.Data.GetUID(), "cached UID must not be mutated")
+			assert.Equal(t, originalRV, cached.Data.GetResourceVersion(), "cached ResourceVersion must not be mutated")
+			ts := cached.Data.GetCreationTimestamp()
+			assert.False(t, ts.IsZero(), "cached CreationTimestamp must not be zeroed")
+		})
+	}
 }

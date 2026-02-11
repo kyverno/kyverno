@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
 
@@ -13,7 +13,7 @@ type metricWrapper struct {
 	ruleExecutionCause string
 }
 
-func (w *metricWrapper) Handle(ctx context.Context, request EngineRequest, predicate func(v1alpha1.ValidatingPolicy) bool) (EngineResponse, error) {
+func (w *metricWrapper) Handle(ctx context.Context, request EngineRequest, predicate func(v1beta1.ValidatingPolicyLike) bool) (EngineResponse, error) {
 	response, err := w.inner.Handle(ctx, request, predicate)
 	if err != nil {
 		return response, err

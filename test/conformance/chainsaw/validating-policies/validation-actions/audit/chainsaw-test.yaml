@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: audit
 spec:
+  concurrent: false
   steps:
   - name: create policy
     use:
@@ -23,3 +24,7 @@ spec:
     try:
     - create:
         file: deployment.yaml
+  - name: check events
+    try:
+    - assert:
+        file: event-assert.yaml

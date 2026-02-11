@@ -5,7 +5,7 @@ import (
 
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -48,7 +48,7 @@ type RuleResponse struct {
 	// vapbinding is the validatingadmissionpolicybinding (if any)
 	vapBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	// mapbinding is the mutatingadmissionpolicybinding (if any)
-	mapBinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding
+	mapBinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result
@@ -103,7 +103,7 @@ func (r RuleResponse) WithVAPBinding(binding *admissionregistrationv1.Validating
 	return &r
 }
 
-func (r RuleResponse) WithMAPBinding(binding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) *RuleResponse {
+func (r RuleResponse) WithMAPBinding(binding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) *RuleResponse {
 	r.mapBinding = binding
 	return &r
 }
@@ -152,7 +152,7 @@ func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistration
 	return r.vapBinding
 }
 
-func (r *RuleResponse) MutatingAdmissionPolicyBinding() *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding {
+func (r *RuleResponse) MutatingAdmissionPolicyBinding() *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding {
 	return r.mapBinding
 }
 

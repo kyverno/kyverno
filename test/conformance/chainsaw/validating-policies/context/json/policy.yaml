@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: jsonStr
+      expression: "\"{\\\"env\\\":\\\"prod\\\", \\\"foo\\\":\\\"baz\\\"}\""
+    - name: jsonObj
+      expression: json.unmarshal(variables.jsonStr)
+    - name: environment
+      expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.jsonObj['env']
+  validations:
+    - expression: >-
+        variables.environment == true
+      message: >-
+        Deployment labels must be env=prod

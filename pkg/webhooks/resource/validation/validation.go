@@ -9,7 +9,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -22,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -44,9 +44,7 @@ func NewValidationHandler(
 	eventGen event.Interface,
 	admissionReports bool,
 	metrics metrics.MetricsConfigManager,
-	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	reportConfig reportutils.ReportingConfiguration,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -57,9 +55,7 @@ func NewValidationHandler(
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 		metrics:          metrics,
-		cfg:              cfg,
 		nsLister:         nsLister,
-		reportConfig:     reportConfig,
 	}
 }
 
@@ -72,9 +68,7 @@ type validationHandler struct {
 	eventGen         event.Interface
 	admissionReports bool
 	metrics          metrics.MetricsConfigManager
-	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	reportConfig     reportutils.ReportingConfiguration
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -158,8 +152,9 @@ func (v *validationHandler) HandleValidationEnforce(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil, engineResponses
 	}
 
-	go func() {
-		if NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
+	// create the admission report if any of the policies involved doesn't have the report exclusion label
+	if NeedsReports(request, policyContext.NewResource(), v.admissionReports) && hasReportablePolicy(policies) {
+		go func() {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				if reportutils.IsNamespaceTerminationError(err) {
 					// Log namespace termination errors at debug level as they are expected
@@ -168,8 +163,8 @@ func (v *validationHandler) HandleValidationEnforce(
 					v.log.Error(err, "failed to create report")
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	engineResponses = append(engineResponses, auditWarnEngineResponses...)
 	warnings := webhookutils.GetWarningMessages(engineResponses)
@@ -181,7 +176,19 @@ func (v *validationHandler) HandleValidationAudit(
 	request handlers.AdmissionRequest,
 ) []engineapi.EngineResponse {
 	gvr := schema.GroupVersionResource(request.Resource)
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
+
+	// Get namespace object if namespace is specified
+	var namespace *corev1.Namespace
+	if request.Namespace != "" {
+		var err error
+		namespace, err = v.nsLister.Get(request.Namespace)
+		if err != nil {
+			v.log.V(4).Info("failed to get namespace", "namespace", request.Namespace, "error", err)
+			// Continue with nil namespace if we can't get it
+		}
+	}
+
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, namespace)
 	if len(policies) == 0 {
 		return nil
 	}
@@ -193,7 +200,7 @@ func (v *validationHandler) HandleValidationAudit(
 	}
 
 	var responses []engineapi.EngineResponse
-	needsReport := NeedsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
+	needsReport := NeedsReports(request, policyContext.NewResource(), v.admissionReports)
 	tracing.Span(
 		context.Background(),
 		"",
@@ -203,7 +210,8 @@ func (v *validationHandler) HandleValidationAudit(
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
-			if needsReport {
+
+			if needsReport && hasReportablePolicy(policies) {
 				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
 					if reportutils.IsNamespaceTerminationError(err) {
 						// Log namespace termination errors at debug level as they are expected
@@ -274,4 +282,13 @@ func (v *validationHandler) createReports(
 		}
 	}
 	return nil
+}
+
+func hasReportablePolicy(policies []kyvernov1.PolicyInterface) bool {
+	for _, pol := range policies {
+		if reportutils.IsPolicyReportable(pol) {
+			return true
+		}
+	}
+	return false
 }
