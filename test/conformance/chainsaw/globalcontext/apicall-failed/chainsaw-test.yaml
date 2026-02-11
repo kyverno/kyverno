@@ -43,6 +43,7 @@ spec:
                 resource Deployment/test-globalcontext-apicall-failed/new-deployment was blocked due to the following policies 
                 
                 cpol-apicall-failed:
-                  autogen-main-deployment-exists: |-
-                    failed to check deny conditions: failed to substitute variables in condition key: failed to resolve deploymentCount at path : failed to marshal APICall data for context entry deploymentCount: failed to GET resource with raw url
-                    : /apis/apps/v1/namespaces/default/unknown: unknown
+                  autogen-main-deployment-exists: 'failed to check deny conditions: failed to substitute
+                    variables in condition key: failed to resolve deploymentCount at path : failed
+                    to marshal APICall data for context entry deploymentCount: failed to GET resource
+                    with raw url: /apis/apps/v1/namespaces/default/unknown: permission denied: unknown'
