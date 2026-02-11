@@ -168,13 +168,14 @@ func runCheckHTTP() {
 				continue
 			}
 
-			defer resp.Body.Close()
 			fmt.Printf("HTTP Status: %s\n", resp.Status)
 			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
 				fmt.Printf("Endpoint returned non-OK status: %d\n", resp.StatusCode)
 				time.Sleep(time.Second * 5)
 				continue
 			}
+			resp.Body.Close()
 			return
 		}
 	}

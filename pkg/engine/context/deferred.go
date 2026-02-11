@@ -168,6 +168,9 @@ func (d *deferredLoaders) setLevelAndIndex(level, index int) {
 }
 
 func (d *deferredLoaders) match(query string, level, index int) (*leveledLoader, int) {
+	if index > len(d.loaders) {
+		index = len(d.loaders)
+	}
 	for i := 0; i < index; i++ {
 		dl := d.loaders[i]
 		if dl.matched || dl.loader.HasLoaded() {

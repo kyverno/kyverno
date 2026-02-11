@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -22,7 +23,12 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
+var tufMu sync.Mutex
+
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
+	tufMu.Lock()
+	defer tufMu.Unlock()
+
 	if err := initializeTuf(ctx, att.TUF); err != nil {
 		return nil, err
 	}
