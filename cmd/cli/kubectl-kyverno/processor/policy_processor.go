@@ -100,6 +100,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
+	CrdPath                   string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 }
@@ -124,6 +125,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.NewOrDie()
 	}
 	isCluster := false
+	if p.CrdPath != "" {
+		if err := common.LoadCrdFromPath(p.CrdPath); err != nil {
+			return nil, err
+		}
+	}
 	eng := engine.NewEngine(
 		cfg,
 		jmespath.New(cfg),
@@ -956,13 +962,17 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 
 	if p.Cluster {
 		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
+	} else if p.CrdPath != "" {
+		absPath := getAbsPath(p.CrdPath)
+		diskCrds := os.DirFS(absPath)
+		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+	} else {
+		if crds, err := data.Crds(); err == nil {
+			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
+		}
 	}
 
 	clients = append(clients, openapiclient.NewHardcodedBuiltins("1.32"))
-
-	if crds, err := data.Crds(); err == nil {
-		clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
-	}
 
 	return openapiclient.NewComposite(clients...)
 }
@@ -1143,4 +1153,16 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 		return false
 	}
 	return true
+}
+
+func getAbsPath(path string) string {
+	if path[len(path)-1] == '/' {
+		path = path[:len(path)-1]
+	}
+	absPath, _ := filepath.Abs(path)
+	fileInfo, err := os.Stat(absPath)
+	if err == nil && !fileInfo.IsDir() {
+		absPath = filepath.Dir(absPath)
+	}
+	return absPath
 }

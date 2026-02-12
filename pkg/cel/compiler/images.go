@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+var genericImageExtractors []v1beta1.ImageExtractor
 var (
 	podImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -66,8 +67,9 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 		return podControllerImageExtractors
 	case cronjobs:
 		return cronJobImageExtractors
+	default:
+		return genericImageExtractors
 	}
-	return nil
 }
 
 func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
@@ -125,4 +127,8 @@ func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (m
 		}
 	}
 	return result, nil
+}
+
+func SetGenericExtractors(extractors []v1beta1.ImageExtractor) {
+	genericImageExtractors = extractors
 }
