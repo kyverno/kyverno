@@ -243,13 +243,15 @@ func printTestResult(
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
-					var rulesToCheck []engineapi.RuleResponse
+					var (
+						rulesToCheck []engineapi.RuleResponse
+						ruleName     string
+					)
 					if test.Rule == "" {
 						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
 					}
-					ruleName := ""
 					for _, rule := range rulesToCheck {
 						r := response.Resource
 						ruleName = rule.Name()
