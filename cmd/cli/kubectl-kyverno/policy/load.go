@@ -264,48 +264,78 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 			return err
 		}
 		results.VAPBindings = append(results.VAPBindings, *typed)
-	case vpV1alpha1:
+	case vpV1alpha1, vpV1beta1, vpV1:
 		typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
 		if err != nil {
 			return err
 		}
-		results.ValidatingPolicies = append(results.ValidatingPolicies, *typed)
-	case ivpV1alpha1:
+		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+	case nvpV1beta1, nvpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+	case ivpV1alpha1, ivpV1beta1, ivpV1:
 		typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](*untyped)
 		if err != nil {
 			return err
 		}
-		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, *typed)
-	case mapV1alpha1:
-		typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicy](*untyped)
+		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case nivpV1beta1, nivpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case mapV1alpha1, mapV1beta1:
+		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
 		if err != nil {
 			return err
 		}
 		results.MAPs = append(results.MAPs, *typed)
-	case mapBindingV1alpha1:
-		typed, err := convert.To[admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding](*untyped)
+	case mapBindingV1alpha1, mapBindingV1beta1:
+		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
 		if err != nil {
 			return err
 		}
 		results.MAPBindings = append(results.MAPBindings, *typed)
-	case gpsV1alpha1:
+	case gpsV1alpha1, gpsV1beta1, gpsV1:
 		typed, err := convert.To[policiesv1beta1.GeneratingPolicy](*untyped)
 		if err != nil {
 			return err
 		}
-		results.GeneratingPolicies = append(results.GeneratingPolicies, *typed)
-	case dpV1alpha1:
+		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+	case ngpsV1beta1, ngpsV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+	case dpV1alpha1, dpV1beta1, dpV1:
 		typed, err := convert.To[policiesv1beta1.DeletingPolicy](*untyped)
 		if err != nil {
 			return err
 		}
-		results.DeletingPolicies = append(results.DeletingPolicies, *typed)
-	case mpV1alpha1:
+		results.DeletingPolicies = append(results.DeletingPolicies, typed)
+	case ndpV1beta1, ndpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.DeletingPolicies = append(results.DeletingPolicies, typed)
+	case mpV1alpha1, mpV1beta1, mpV1:
 		typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
 		if err != nil {
 			return err
 		}
-		results.MutatingPolicies = append(results.MutatingPolicies, *typed)
+		results.MutatingPolicies = append(results.MutatingPolicies, typed)
+	case nmpV1beta1, nmpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MutatingPolicies = append(results.MutatingPolicies, typed)
 	default:
 		return fmt.Errorf("policy type not supported %s", gvk)
 	}
