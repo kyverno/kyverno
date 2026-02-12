@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/gobwas/glob"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
 

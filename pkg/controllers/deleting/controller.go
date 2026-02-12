@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -165,7 +165,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	restMapper, err := restmapper.GetRESTMapper(c.client)
 	if err != nil {
 		return err
 	}

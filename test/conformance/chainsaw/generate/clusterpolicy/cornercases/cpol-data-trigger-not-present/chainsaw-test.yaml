@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: cpol-data-trigger-not-present
 spec:
+  concurrent: false
   timeouts:
     delete: 2m
   steps:

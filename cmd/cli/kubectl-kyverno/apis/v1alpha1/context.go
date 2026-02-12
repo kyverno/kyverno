@@ -19,6 +19,7 @@ type Context struct {
 }
 
 type ContextSpec struct {
+	// deprecate, use ClusterResource to define Kubernetes specific resources
 	Resources []unstructured.Unstructured `json:"resources,omitempty"`
 	Images    []ImageData                 `json:"images,omitempty"`
 }

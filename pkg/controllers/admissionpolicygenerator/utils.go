@@ -1,9 +1,11 @@
 package admissionpolicygenerator
 
 import (
+	"fmt"
+
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,6 +40,9 @@ func (c *controller) getMutatingPolicy(name string) (*policiesv1beta1.MutatingPo
 
 // getValidatingAdmissionPolicy gets the Kubernetes ValidatingAdmissionPolicy
 func (c *controller) getValidatingAdmissionPolicy(name string) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
+	if c.vapLister == nil {
+		return nil, fmt.Errorf("ValidatingAdmissionPolicy lister is nil")
+	}
 	vap, err := c.vapLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -47,6 +52,9 @@ func (c *controller) getValidatingAdmissionPolicy(name string) (*admissionregist
 
 // getValidatingAdmissionPolicyBinding gets the Kubernetes ValidatingAdmissionPolicyBinding
 func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissionregistrationv1.ValidatingAdmissionPolicyBinding, error) {
+	if c.vapbindingLister == nil {
+		return nil, fmt.Errorf("ValidatingAdmissionPolicyBinding lister is nil")
+	}
 	vapbinding, err := c.vapbindingLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -56,6 +64,9 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 
 // getMutatingAdmissionPolicy gets the Kubernetes MutatingAdmissionPolicy
 func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+	if c.mapLister == nil {
+		return nil, fmt.Errorf("MutatingAdmissionPolicy lister is nil")
+	}
 	mapol, err := c.mapLister.Get(name)
 	if err != nil {
 		return nil, err
@@ -65,6 +76,9 @@ func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistra
 
 // getMutatingAdmissionPolicyBinding gets the Kubernetes MutatingAdmissionPolicyBinding
 func (c *controller) getMutatingAdmissionPolicyBinding(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+	if c.mapbindingLister == nil {
+		return nil, fmt.Errorf("MutatingAdmissionPolicyBinding lister is nil")
+	}
 	mapbinding, err := c.mapbindingLister.Get(name)
 	if err != nil {
 		return nil, err

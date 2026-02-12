@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -101,7 +101,7 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 			observedMAP,
 			c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.MutatingAdmissionPolicy) error {
-				admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions)
+				admissionpolicy.BuildMutatingAdmissionPolicy(observed, mpol, celexceptions)
 				return nil
 			})
 		if err != nil {
@@ -121,7 +121,7 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 			observedMAPbinding,
 			c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings(),
 			func(observed *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding) error {
-				admissionpolicy.BuildMutatingAdmissionPolicyBinding(observedMAPbinding, mpol)
+				admissionpolicy.BuildMutatingAdmissionPolicyBinding(observed, mpol)
 				return nil
 			})
 		if err != nil {

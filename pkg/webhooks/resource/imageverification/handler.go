@@ -38,7 +38,6 @@ type imageVerificationHandler struct {
 	eventGen         event.Interface
 	admissionReports bool
 	nsLister         corev1listers.NamespaceLister
-	reportConfig     reportutils.ReportingConfiguration
 	breaker.Breaker
 }
 
@@ -49,7 +48,6 @@ func NewImageVerificationHandler(
 	eventGen event.Interface,
 	admissionReports bool,
 	nsLister corev1listers.NamespaceLister,
-	reportConfig reportutils.ReportingConfiguration,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -58,7 +56,6 @@ func NewImageVerificationHandler(
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 		nsLister:         nsLister,
-		reportConfig:     reportConfig,
 	}
 }
 
@@ -162,7 +159,7 @@ func (v *imageVerificationHandler) handleAudit(
 	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
-	if !v.reportConfig.ImageVerificationReportsEnabled() {
+	if !reportutils.ReportingCfg.ImageVerificationReportsEnabled() {
 		createReport = false
 	}
 	if admissionutils.IsDryRun(request) {

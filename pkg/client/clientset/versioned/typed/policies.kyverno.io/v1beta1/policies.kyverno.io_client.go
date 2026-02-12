@@ -21,7 +21,7 @@ package v1beta1
 import (
 	http "net/http"
 
-	policieskyvernoiov1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policieskyvernoiov1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )

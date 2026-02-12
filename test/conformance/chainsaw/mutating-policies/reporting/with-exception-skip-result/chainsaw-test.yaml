@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: exception-test-with-skip-result
 spec:
+  concurrent: false
   steps:
   - name: create exception
     try:

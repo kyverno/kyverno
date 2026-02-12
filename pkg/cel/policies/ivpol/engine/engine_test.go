@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -47,7 +48,7 @@ var (
 				},
 			},
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policiesv1beta1.EvaluationModeKubernetes,
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
 			},
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{

@@ -106,6 +106,14 @@ func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Names
 		// Track if an override matched for the namespace
 		overrideMatched := false
 		for _, action := range validationFailureActionOverrides {
+			// Global override: both Namespaces and NamespaceSelector are empty/nil - applies to all namespaces
+			if len(action.Namespaces) == 0 && action.NamespaceSelector == nil {
+				overrideMatched = true
+				if action.Action.Enforce() == enforce {
+					filteredRules = append(filteredRules, *rule)
+				}
+				break // Stop once we find a matching override
+			}
 			if namespace != nil && wildcard.CheckPatterns(action.Namespaces, namespace.Name) {
 				overrideMatched = true
 				if action.Action.Enforce() == enforce {
@@ -124,6 +132,7 @@ func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Names
 					if action.Action.Enforce() == enforce {
 						filteredRules = append(filteredRules, *rule)
 					}
+					break // Stop once we find a matching override
 				}
 			}
 		}
