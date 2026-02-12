@@ -1,13 +1,12 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: v0.0.0
+version: v0.0.0  # VERSION
 appVersion: latest
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
   - kubernetes
-  - nirmata
   - policy agent
   - policy
   - validating webhook
@@ -21,9 +20,6 @@ keywords:
 home: https://kyverno.io/
 sources:
   - https://github.com/kyverno/kyverno
-maintainers:
-  - name: Nirmata
-    url: https://kyverno.io/
 kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
@@ -43,12 +39,20 @@ annotations:
       description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
 dependencies:
   - name: grafana
-    version: v0.0.0
+    version: v0.0.0  # VERSION
     condition: grafana.enabled
   - name: crds
-    version: v0.0.0
+    version: v0.0.0  # VERSION
+    condition: crds.install
+  - name: kyverno-api
+    version: 0.0.1-alpha.2
+    repository: "https://kyverno.github.io/api"
     condition: crds.install
   - name: openreports
-    version: "0.1.0"
+    version: 0.1.0
     repository: "https://openreports.github.io/reports-api"
     condition: openreports.installCrds
+  - name: reports-server
+    version: 0.1.6
+    repository: "https://kyverno.github.io/reports-server/"
+    condition: reportsServer.enabled

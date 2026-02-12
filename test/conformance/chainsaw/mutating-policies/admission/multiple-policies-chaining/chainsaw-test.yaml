@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: multiple-policies-chaining
+spec:
+  concurrent: false
+  description: |
+    This test verifies that multiple MutatingPolicies correctly chain their mutations.
+    When multiple policies match a resource, each policy should receive the output of the
+    previous policy, allowing all mutations to accumulate on the final resource.
+  steps:
+  - name: create first policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-add-run-as-non-root.yaml
+  - name: wait first policy ready
+    use:
+      template: ../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-run-as-non-root
+  - name: create second policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-add-seccomp-profile.yaml
+  - name: wait second policy ready
+    use:
+      template: ../../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-seccomp-profile
+  - name: create pod
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: check both mutations applied
+    try:
+    - assert:
+        file: patched-pod.yaml

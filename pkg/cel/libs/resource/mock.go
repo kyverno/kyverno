@@ -6,14 +6,14 @@ import (
 )
 
 type ContextMock struct {
-	ListResourcesFunc func(string, string, string) (*unstructured.UnstructuredList, error)
+	ListResourcesFunc func(string, string, string, map[string]string) (*unstructured.UnstructuredList, error)
 	GetResourceFunc   func(string, string, string, string) (*unstructured.Unstructured, error)
 	PostResourceFunc  func(string, string, string, map[string]any) (*unstructured.Unstructured, error)
 	ToGVRFunc         func(string, string) (*schema.GroupVersionResource, error)
 }
 
-func (mock *ContextMock) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return mock.ListResourcesFunc(apiVersion, resource, namespace)
+func (mock *ContextMock) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	return mock.ListResourcesFunc(apiVersion, resource, namespace, labels)
 }
 
 func (mock *ContextMock) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {

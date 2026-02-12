@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: context-api-call
 spec:
+  concurrent: false
   steps:
   - name: setup-http-service
     try:

@@ -1,0 +1,99 @@
+{{- if and .Values.cleanupController.enabled .Values.cleanupController.certManager.enabled (not .Values.cleanupController.createSelfSignedCert) -}}
+{{- $ns := include "kyverno.namespace" . -}}
+{{- $name := include "kyverno.cleanup-controller.name" . -}}
+{{- $fullSvcName := printf "%s.%s.svc" $name $ns -}}
+{{- $algorithm := .Values.cleanupController.certManager.algorithm | default "RSA" -}}
+{{- $size := .Values.cleanupController.certManager.size | default 2048 -}}
+{{- $caIssuerName := printf "%s-cleanup-ca-issuer" (include "kyverno.fullname" .) -}}
+{{- $selfSignedIssuerName := printf "%s-cleanup-selfsigned-issuer" (include "kyverno.fullname" .) -}}
+---
+# Self-signed ClusterIssuer for generating the CA certificate
+{{- if .Values.cleanupController.certManager.createSelfSignedIssuer }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $selfSignedIssuerName }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+{{- end }}
+# CA Certificate for signing Kyverno cleanup controller TLS certificates
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kyverno.fullname" . }}-cleanup-controller-ca
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ include "kyverno.fullname" . }}-cleanup-controller-ca
+  # Use the exact secret name Kyverno expects for cleanup controller CA
+  secretName: {{ $fullSvcName }}.kyverno-tls-ca
+  duration: {{ .Values.cleanupController.certManager.ca.duration | default "87600h" }}
+  renewBefore: {{ .Values.cleanupController.certManager.ca.renewBefore | default "720h" }}
+  privateKey:
+    algorithm: {{ $algorithm }}
+    {{- if ne $algorithm "Ed25519" }}
+    size: {{ $size }}
+    {{- end }}
+  issuerRef:
+    {{- if .Values.cleanupController.certManager.issuerRef.name }}
+    name: {{ .Values.cleanupController.certManager.issuerRef.name }}
+    kind: {{ .Values.cleanupController.certManager.issuerRef.kind | default "ClusterIssuer" }}
+    group: {{ .Values.cleanupController.certManager.issuerRef.group | default "cert-manager.io" }}
+    {{- else if .Values.cleanupController.certManager.createSelfSignedIssuer }}
+    name: {{ $selfSignedIssuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+    {{- else }}
+    {{- fail "Either cleanupController.certManager.issuerRef.name must be specified or cleanupController.certManager.createSelfSignedIssuer must be true" }}
+    {{- end }}
+---
+# CA Issuer using the CA certificate for signing TLS certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $caIssuerName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+spec:
+  ca:
+    # Reference the CA secret created by the CA certificate
+    secretName: {{ $fullSvcName }}.kyverno-tls-ca
+---
+# TLS Certificate for Kyverno Cleanup Controller
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kyverno.fullname" . }}-cleanup-controller-tls
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+spec:
+  # Use the exact secret name Kyverno expects for cleanup controller TLS
+  secretName: {{ $fullSvcName }}.kyverno-tls-pair
+  duration: {{ .Values.cleanupController.certManager.tls.duration | default "8760h" }}
+  renewBefore: {{ .Values.cleanupController.certManager.tls.renewBefore | default "720h" }}
+  privateKey:
+    algorithm: {{ $algorithm }}
+    {{- if ne $algorithm "Ed25519" }}
+    size: {{ $size }}
+    {{- end }}
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+  dnsNames:
+    - {{ $name }}
+    - {{ $name }}.{{ $ns }}
+    - {{ $name }}.{{ $ns }}.svc
+    - {{ $name }}.{{ $ns }}.svc.cluster.local
+  issuerRef:
+    name: {{ $caIssuerName }}
+    kind: Issuer
+    group: cert-manager.io
+{{- end -}}

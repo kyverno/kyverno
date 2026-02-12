@@ -11,6 +11,7 @@ import (
 
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
+	images             map[string]map[string]any
 	generatedResources []*unstructured.Unstructured
 	policyName         string
 	triggerName        string
@@ -25,7 +26,12 @@ type FakeContextProvider struct {
 func NewFakeContextProvider() *FakeContextProvider {
 	return &FakeContextProvider{
 		resources: map[string]map[string]map[string]*unstructured.Unstructured{},
+		images:    map[string]map[string]any{},
 	}
+}
+
+func (cp *FakeContextProvider) AddImageData(image string, data map[string]any) {
+	cp.images[image] = data
 }
 
 func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj runtime.Object) error {
@@ -52,15 +58,21 @@ func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) GetImageData(string) (map[string]any, error) {
-	panic("not implemented")
+func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {
+	if cp.images == nil {
+		return nil, fmt.Errorf("image data not found in the context")
+	}
+	if _, found := cp.images[image]; !found {
+		return nil, fmt.Errorf("image data for %s not found in the context", image)
+	}
+	return cp.images[image], nil
 }
 
 func (cp *FakeContextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionResource, error) {
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
+func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err

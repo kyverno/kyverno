@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: vpol-allow-specific-values
   ownerReferences:
-  - apiVersion: policies.kyverno.io/v1alpha1
+  - apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     name: allow-specific-values
 spec:

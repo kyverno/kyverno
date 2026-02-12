@@ -5,7 +5,7 @@ metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/webhooks
   - kyverno.io/exceptionwebhooks
@@ -50,7 +50,7 @@ rules:
       - patch
       - update
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -78,7 +78,7 @@ rules:
     resources:
       - deployments
       {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.templating.enabled }}
+      {{- if not .Values.global.templating.enabled }}
       - deployments/scale
       {{- end }}
       {{- end }}
@@ -87,7 +87,7 @@ rules:
       - list
       - watch
       {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.templating.enabled }}
+      {{- if not .Values.global.templating.enabled }}
       - patch
       - update
       {{- end }}

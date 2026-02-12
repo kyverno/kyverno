@@ -1,12 +1,12 @@
 package dpol
 
 import (
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func Validate(dpol v1alpha1.DeletingPolicyLike) ([]string, error) {
+func Validate(dpol v1beta1.DeletingPolicyLike) ([]string, error) {
 	warnings := make([]string, 0)
 	err := make(field.ErrorList, 0)
 

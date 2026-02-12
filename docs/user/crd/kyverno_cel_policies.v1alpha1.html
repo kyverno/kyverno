@@ -33,8 +33,6 @@
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-MutatingPolicy">MutatingPolicy</a>
                   </li><li>
-                    <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>
-                  </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-PolicyException">PolicyException</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-ValidatingPolicy">ValidatingPolicy</a>
@@ -493,8 +491,6 @@ Required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -886,7 +882,24 @@ required.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -1406,7 +1419,7 @@ image verification functions</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -1435,7 +1448,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -1467,7 +1480,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -1478,8 +1491,6 @@ or mis-configured policy definitions or bindings.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -1510,7 +1521,7 @@ manner as validation expressions.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -1571,7 +1582,9 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <a href="#policies-kyverno-io-v1alpha1-TargetMatchConstraints">
+                <span style="font-family: monospace">TargetMatchConstraints</span>
+              </a>
             
           
         </td>
@@ -1690,7 +1703,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
@@ -1733,304 +1746,6 @@ Required.</p>
             
               <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyStatus">
                 <span style="font-family: monospace">MutatingPolicyStatus</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Status contains policy runtime data.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-
-      </tbody>
-    </table>
-  
-
-  <H3 id="policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy
-    </H3>
-
-  
-
-  <p></p>
-
-  
-    <table class="table table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        
-          
-          <tr>
-            <td><code>apiVersion</code></br>string</td>
-            <td><code>policies.kyverno.io/v1alpha1</code></td>
-          </tr>
-          <tr>
-            <td><code>kind</code></br>string</td>
-            <td><code>NamespacedDeletingPolicy</code></td>
-          </tr>
-        
-
-        
-        
-
-  
-  
-    
-    
-  
-    
-    
-      <tr>
-        <td><code>metadata</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-            Refer to the Kubernetes API documentation for the fields of the
-            <code>metadata</code> field.
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>spec</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicySpec">
-                <span style="font-family: monospace">DeletingPolicySpec</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-
-          
-            <br/>
-            <br/>
-            <table>
-              
-
-  
-  
-    
-    
-      <tr>
-        <td><code>matchConstraints</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>MatchConstraints specifies what resources this policy is designed to validate.
-The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-Required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>conditions</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Conditions is a list of conditions that must be met for a resource to be deleted.
-Conditions filter resources that have already been matched by the match constraints,
-namespaceSelector, and objectSelector. An empty list of conditions matches all resources.
-There are a maximum of 64 conditions allowed.</p>
-<p>The exact matching logic is (in order):</p>
-<ol>
-<li>If ANY condition evaluates to FALSE, the policy is skipped.</li>
-<li>If ALL conditions evaluate to TRUE, the policy is executed.</li>
-</ol>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>variables</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Variables contain definitions of variables that can be used in composition of other expressions.
-Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
-<p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
-Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>schedule</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>The schedule in Cron format
-Required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>deletionPropagationPolicy</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-            </table>
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>status</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">
-                <span style="font-family: monospace">DeletingPolicyStatus</span>
               </a>
             
           
@@ -2262,6 +1977,34 @@ These excluded images can be referenced in CEL expressions via <code>exceptions.
 
           <p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
 These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reportResult</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
 
 
           
@@ -2528,8 +2271,6 @@ required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -2631,7 +2372,24 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -3058,7 +2816,8 @@ Optional. Default value is &quot;true&quot;.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -3916,8 +3675,7 @@ Secrets must live in the Kyverno namespace.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -4108,8 +3866,7 @@ Required.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-NamespacedDeletingPolicy">NamespacedDeletingPolicy</a>)
+        <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>)
     </p>
   
 
@@ -4320,12 +4077,13 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
   
 
   <H3 id="policies-kyverno-io-v1alpha1-EvaluationMode">EvaluationMode
-    (<code>string</code> alias)</p></H3>
+    </H3>
 
   
     <p>
       (<em>Appears in:</em>
-        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
     </p>
   
 
@@ -4633,8 +4391,6 @@ Required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -5524,7 +5280,24 @@ required.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           
@@ -6811,6 +6584,37 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
     
     
       <tr>
+        <td><code>mode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mode is the mode of policy evaluation.
+Allowed values are &quot;Kubernetes&quot; or &quot;JSON&quot;.
+Optional. Default value is &quot;Kubernetes&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>admission</code>
           
           </br>
@@ -6828,6 +6632,35 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
 
           <p>Admission controls policy evaluation during admission.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-BackgroundConfiguration">
+                <span style="font-family: monospace">BackgroundConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls policy evaluation during background scan.</p>
 
 
           
@@ -6915,7 +6748,7 @@ When spec.targetMatchConstraints is not defined, Kyverno mutates existing resour
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
             
           
         </td>
@@ -6944,7 +6777,7 @@ Required.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.FailurePolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.FailurePolicyType</span>
             
           
         </td>
@@ -6976,7 +6809,7 @@ or mis-configured policy definitions or bindings.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
@@ -6987,8 +6820,6 @@ or mis-configured policy definitions or bindings.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -7019,7 +6850,7 @@ manner as validation expressions.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.Variable</span>
             
           
         </td>
@@ -7080,7 +6911,9 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.MatchResources</span>
+              <a href="#policies-kyverno-io-v1alpha1-TargetMatchConstraints">
+                <span style="font-family: monospace">TargetMatchConstraints</span>
+              </a>
             
           
         </td>
@@ -7199,7 +7032,7 @@ and reinvocation of mutations occurs on a per binding basis.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ReinvocationPolicyType</span>
+              <span style="font-family: monospace">admissionregistration/v1.ReinvocationPolicyType</span>
             
           
         </td>
@@ -7706,6 +7539,34 @@ These excluded images can be referenced in CEL expressions via <code>exceptions.
 
           <p>AllowedValues specifies values that can be used in CEL expressions to bypass policy checks.
 These values can be referenced in CEL expressions via <code>exceptions.allowedValues</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>reportResult</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportResult indicates whether the policy exception should be reported in the policy report
+as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
 
 
           
@@ -8487,6 +8348,96 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-TargetMatchConstraints">TargetMatchConstraints
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicySpec">MutatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>MatchResources</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.MatchResources</span>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>MatchResources</code> are embedded into this type.)</p>
+          
+
+          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-ValidatingPolicyAutogen">ValidatingPolicyAutogen
     </H3>
 
@@ -8928,8 +8879,6 @@ required.</p>
 Match conditions filter requests that have already been matched by the rules,
 namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
 There are a maximum of 64 match conditions allowed.</p>
-<p>If a parameter object is provided, it can be accessed via the <code>params</code> handle in the same
-manner as validation expressions.</p>
 <p>The exact matching logic is (in order):</p>
 <ol>
 <li>If ANY matchCondition evaluates to FALSE, the policy is skipped.</li>
@@ -9031,7 +8980,24 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
           
 
           <p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
-Required.</p>
+If a validation evaluates to false it is always enforced according to these actions.</p>
+<p>Failures defined by the ValidatingAdmissionPolicy's FailurePolicy are enforced according
+to these actions only if the FailurePolicy is set to Fail, otherwise the failures are
+ignored. This includes compilation errors, runtime errors and misconfigurations of the policy.</p>
+<p>validationActions is declared as a set of action values. Order does
+not matter. validationActions may not contain duplicates of the same action.</p>
+<p>The supported actions values are:</p>
+<p>&quot;Deny&quot; specifies that a validation failure results in a denied request.</p>
+<p>&quot;Warn&quot; specifies that a validation failure is reported to the request client
+in HTTP Warning headers, with a warning code of 299. Warnings can be sent
+both for allowed or denied admission responses.</p>
+<p>&quot;Audit&quot; specifies that a validation failure is recorded in the created reports.</p>
+<p>Clients should expect to handle additional values by ignoring
+any values not recognized.</p>
+<p>&quot;Deny&quot; and &quot;Warn&quot; may not be used together since this combination
+needlessly duplicates the validation failure both in the
+API response body and the HTTP warning headers.</p>
+<p>Required.</p>
 
 
           

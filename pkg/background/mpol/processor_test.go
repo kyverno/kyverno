@@ -1,28 +1,24 @@
 package mpol
 
 import (
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-
 	"context"
 	"errors"
 	"testing"
 
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
-
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-
+	"github.com/kyverno/kyverno/pkg/event"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -65,7 +61,7 @@ var (
 	}})
 	ctx           = &fakeContext{}
 	statusControl = common.NewStatusControl(&kyvernoClient, nil)
-	reportsConfig = reportutils.NewReportingConfig()
+	reportsConfig = reportutils.NewReportingConfig([]string{})
 )
 
 type fakeStatusControl struct {
@@ -90,12 +86,16 @@ type fakeEngine struct {
 	mock.Mock
 }
 
-func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amdv1 admissionv1.AdmissionRequest, filter func(policiesv1alpha1.MutatingPolicy) bool) (mpolengine.EngineResponse, error) {
+func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amdv1 admissionv1.AdmissionRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
 
-func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter func(policiesv1alpha1.MutatingPolicy) bool) (mpolengine.EngineResponse, error) {
+func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
+	return mpolengine.Policy{}, nil
+}
+
+func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
@@ -107,6 +107,7 @@ func (f *fakeEngine) MatchedMutateExistingPolicies(ctx context.Context, engine e
 
 func TestProcess_NoPolicyFound(t *testing.T) {
 	kyvernoClient := fake.NewSimpleClientset()
+	_ = reportutils.NewReportingConfig([]string{})
 
 	p := NewProcessor(
 		dclient.NewEmptyFakeClient(),
@@ -114,9 +115,8 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		&fakeEngine{},
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
 		&libs.FakeContextProvider{},
-		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
-	)
+		event.NewFake())
 
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,8 +140,8 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 				Name: "mypol",
 			},
 			Spec: policiesv1alpha1.MutatingPolicySpec{
-				MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-					ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
 							Rule: admissionregistrationv1alpha1.Rule{
 								APIGroups:   []string{""},
@@ -157,6 +157,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 
 	engine := &fakeEngine{}
 	engine.On("Evaluate").Return(mpolengine.EngineResponse{}, errors.New("eval failed"))
+	_ = reportutils.NewReportingConfig([]string{})
 
 	p := NewProcessor(
 		dclient.NewEmptyFakeClient(),
@@ -164,8 +165,8 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		engine,
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}}),
 		&libs.FakeContextProvider{},
-		reportutils.NewReportingConfig(),
 		&fakeStatusControl{},
+		event.NewFake(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -199,7 +200,7 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m)
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
 
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))

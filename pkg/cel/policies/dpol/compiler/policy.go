@@ -6,7 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
@@ -28,15 +29,20 @@ type Policy struct {
 	exceptions                []compiler.Exception
 }
 
-func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, context libs.Context) (*EvaluationResult, error) {
+func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, namespace runtime.Object, context libs.Context) (*EvaluationResult, error) {
 	vars := lazy.NewMapValue(compiler.VariablesType)
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	if err != nil {
+		return nil, err
+	}
 	dataNew := map[string]any{
-		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: context},
-		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:     imagedata.Context{ContextInterface: context},
-		compiler.ObjectKey:        object.UnstructuredContent(),
-		compiler.ResourceKey:      resource.Context{ContextInterface: context},
-		compiler.VariablesKey:     vars,
+		compiler.NamespaceObjectKey: namespaceVal,
+		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: context},
+		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
+		compiler.ImageDataKey:       imagedata.Context{ContextInterface: context},
+		compiler.ObjectKey:          object.UnstructuredContent(),
+		compiler.ResourceKey:        resource.Context{ContextInterface: context},
+		compiler.VariablesKey:       vars,
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
@@ -53,7 +59,7 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1alpha1.PolicyException, 0)
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {

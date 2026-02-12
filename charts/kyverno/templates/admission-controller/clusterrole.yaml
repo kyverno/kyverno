@@ -17,7 +17,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/webhooks
   - kyverno.io/exceptionwebhooks
@@ -42,10 +42,12 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
-      {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
+      # Always grant permissions for admission policies to support per-policy generation overrides 
+      # even when global generateValidatingAdmissionPolicy/generateMutatingAdmissionPolicy flags are disabled.
       - validatingadmissionpolicies
       - validatingadmissionpolicybindings
-      {{- end }}
+      - mutatingadmissionpolicies
+      - mutatingadmissionpolicybindings
     verbs:
       - create
       - delete
@@ -102,12 +104,20 @@ rules:
     resources:
       - validatingpolicies
       - validatingpolicies/status
+      - namespacedvalidatingpolicies
+      - namespacedvalidatingpolicies/status
       - imagevalidatingpolicies
       - imagevalidatingpolicies/status
+      - namespacedimagevalidatingpolicies
+      - namespacedimagevalidatingpolicies/status
       - generatingpolicies
       - generatingpolicies/status
+      - namespacedgeneratingpolicies
+      - namespacedgeneratingpolicies/status
       - mutatingpolicies
       - mutatingpolicies/status
+      - namespacedmutatingpolicies
+      - namespacedmutatingpolicies/status
     verbs:
       - create
       - delete
@@ -194,7 +204,7 @@ rules:
       - list
       - watch
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:

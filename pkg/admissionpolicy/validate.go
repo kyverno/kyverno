@@ -56,6 +56,28 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 	return kindList
 }
 
+func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []schema.GroupVersionResource {
+	if matchResources == nil {
+		return nil
+	}
+
+	var gvrList []schema.GroupVersionResource
+	for _, rule := range matchResources.ResourceRules {
+		if len(rule.APIGroups) == 0 || len(rule.APIVersions) == 0 {
+			continue
+		}
+
+		for _, group := range rule.APIGroups {
+			for _, version := range rule.APIVersions {
+				for _, resource := range rule.Resources {
+					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+				}
+			}
+		}
+	}
+	return gvrList
+}
+
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
 	var kinds []string
 
@@ -121,7 +143,7 @@ func Validate(
 		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 		policy        = policyData.GetDefinition()
 		bindings      = policyData.GetBindings()
-		namespace     *corev1.Namespace
+		namespace     = &corev1.Namespace{}
 		namespaceName = resource.GetNamespace()
 	)
 
@@ -137,7 +159,6 @@ func Validate(
 			},
 		}
 	}
-
 	var user UserInfo
 	if userInfo != nil {
 		user = NewUser(*userInfo)
@@ -168,7 +189,7 @@ func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPol
 		return er, nil
 	}
 
-	vapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	vapLogger.V(3).Info("applying validatingadmissionpolicy to resource", "policy", policy.GetName(), "resource", resPath)
 	er, err = validateResource(policy, nil, resource, nil, namespace, a)
 	if err != nil {
 		vapLogger.Error(err, "failed to validate resource with validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
@@ -350,7 +371,7 @@ func validateResource(
 	compiler.CompileVariables(optionalVars)
 
 	var matchPolicy admissionregistrationv1.MatchPolicyType
-	if policy.Spec.MatchConstraints.MatchPolicy == nil {
+	if policy.Spec.MatchConstraints == nil || policy.Spec.MatchConstraints.MatchPolicy == nil {
 		matchPolicy = admissionregistrationv1.Equivalent
 	} else {
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy

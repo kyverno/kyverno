@@ -1,0 +1,62 @@
+{{- $name := "disallow-selinux" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow SELinux
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      Setting custom SELinux options may be used to bypass discretionary access control and
+      should not be allowed. This policy ensures SELinux options are restricted.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.securityContext) || 
+         !has(object.spec.securityContext.seLinuxOptions) || 
+         (!has(object.spec.securityContext.seLinuxOptions.type) || object.spec.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+         (!has(object.spec.securityContext.seLinuxOptions.user) || object.spec.securityContext.seLinuxOptions.user == '') &&
+         (!has(object.spec.securityContext.seLinuxOptions.role) || object.spec.securityContext.seLinuxOptions.role == '')) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.seLinuxOptions) || 
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
+          (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == ''))) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.seLinuxOptions) || 
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
+          (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == ''))) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.seLinuxOptions) || 
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
+          (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == '')))
+      message: >-
+        Setting custom SELinux options is disallowed. The fields
+        spec.securityContext.seLinuxOptions, spec.containers[*].securityContext.seLinuxOptions,
+        spec.initContainers[*].securityContext.seLinuxOptions, and
+        spec.ephemeralContainers[*].securityContext.seLinuxOptions must be unset or restricted.
+      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+      validationActions: {{ $actions | toYaml | nindent 8 }}
+{{- end }}
+

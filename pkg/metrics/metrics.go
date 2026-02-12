@@ -51,6 +51,7 @@ type MetricsConfig struct {
 	vpolMetrics         *validatingMetrics
 	ivpolMetrics        *imageValidatingMetrics
 	mpolMetrics         *mutatingMetrics
+	gpolMetrics         *generatingMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -74,6 +75,7 @@ type MetricsConfigManager interface {
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
 	MPOLMetrics() MutatingMetrics
+	GPOLMetrics() GeneratingMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -132,6 +134,10 @@ func (m *MetricsConfig) MPOLMetrics() MutatingMetrics {
 	return m.mpolMetrics
 }
 
+func (m *MetricsConfig) GPOLMetrics() GeneratingMetrics {
+	return m.gpolMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -170,6 +176,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
 	m.mpolMetrics.init(meter)
+	m.gpolMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -190,7 +197,7 @@ func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func
 		case sdkmetric.InstrumentKindHistogram:
 			return sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: metricsConfiguration.GetBucketBoundaries(),
-				NoMinMax:   false,
+				NoMinMax:   true,
 			}
 		default:
 			return sdkmetric.DefaultAggregationSelector(ik)
@@ -318,6 +325,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		vpolMetrics:         &validatingMetrics{logger: logger.WithName("validating-policy")},
 		ivpolMetrics:        &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 		mpolMetrics:         &mutatingMetrics{logger: logger.WithName("mutating-policy")},
+		gpolMetrics:         &generatingMetrics{logger: logger.WithName("generating-policy")},
 	}
 
 	return config

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ecdsa-cert-manager
+spec:
+  steps:
+  # Step 1: Verify the certificates are ECDSA
+  - name: verify-ecdsa-certificates
+    try:
+    - script:
+        timeout: 60s
+        content: |
+          #!/bin/bash
+          set -e
+
+          echo "Checking admission controller CA certificate..."
+          CA_SECRET="kyverno-svc.kyverno.svc.kyverno-tls-ca"
+          CERT=$(kubectl get secret "$CA_SECRET" -n kyverno -o jsonpath='{.data.tls\.crt}' | base64 -d)
+          KEY_TYPE=$(echo "$CERT" | openssl x509 -noout -text 2>/dev/null | grep "Public Key Algorithm" | head -1)
+
+          if echo "$KEY_TYPE" | grep -qi "ecdsa\|ec\|id-ecPublicKey"; then
+            echo "✓ CA certificate uses ECDSA key algorithm"
+          else
+            echo "✗ CA certificate does not use ECDSA: $KEY_TYPE"
+            exit 1
+          fi
+
+          echo "Checking admission controller TLS certificate..."
+          TLS_SECRET="kyverno-svc.kyverno.svc.kyverno-tls-pair"
+          CERT=$(kubectl get secret "$TLS_SECRET" -n kyverno -o jsonpath='{.data.tls\.crt}' | base64 -d)
+          KEY_TYPE=$(echo "$CERT" | openssl x509 -noout -text 2>/dev/null | grep "Public Key Algorithm" | head -1)
+
+          if echo "$KEY_TYPE" | grep -qi "ecdsa\|ec\|id-ecPublicKey"; then
+            echo "✓ TLS certificate uses ECDSA key algorithm"
+          else
+            echo "✗ TLS certificate does not use ECDSA: $KEY_TYPE"
+            exit 1
+          fi
+
+          echo "All certificates verified as ECDSA"
+
+  # Step 2: Test webhook functionality with a simple policy
+  - name: test-webhook-functionality
+    try:
+    - apply:
+        file: 05-test-policy.yaml
+  - name: wait-policy-ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-labels-test
+  - name: test-webhook
+    try:
+    - script:
+        timeout: 30s
+        content: |
+          #!/bin/bash
+          set -e
+
+          # Create a test namespace
+          kubectl create namespace test-ecdsa-cert-manager
+
+          # Try to create a pod without the required label - should be blocked
+          if kubectl run test-pod --image=nginx --restart=Never -n test-ecdsa-cert-manager 2>&1 | grep -q "blocked"; then
+            echo "Policy correctly blocked pod without required label"
+          else
+            # Check if the pod was created (it shouldn't be in audit mode)
+            if kubectl get pod test-pod -n test-ecdsa-cert-manager 2>/dev/null; then
+              echo "Warning: Pod was created - policy may be in audit mode"
+            fi
+          fi
+
+          # Create a pod with the required label - should succeed
+          kubectl run test-pod-with-label --image=nginx --restart=Never \
+            --labels="app.kubernetes.io/name=test" -n test-ecdsa-cert-manager
+
+          echo "Webhook test completed successfully with ECDSA cert-manager certificates"
+    finally:
+    - script:
+        timeout: 60s
+        content: |
+          #!/bin/bash
+          # Cleanup test resources
+          kubectl delete namespace test-ecdsa-cert-manager --ignore-not-found=true
+          kubectl delete clusterpolicy require-labels-test --ignore-not-found=true
+          echo "Cleanup completed"

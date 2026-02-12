@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -37,6 +39,8 @@ type ResourceFetcher struct {
 	Namespace            string
 	PolicyReport         bool
 	ClusterWideResources bool
+	ResourceOptions      loader.ResourceOptions
+	ShowPerformance      bool
 }
 
 // GetResources gets matched resources by the given policies
@@ -95,10 +99,50 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	}
 	// extract the matched resources from the policies.
 	rf.extractResourcesFromPolicies(info)
+	resourceMap := make(map[string]*unstructured.Unstructured)
+	var err error
 	// fetch the resources from the cluster.
-	resourceMap, err := rf.listResources(info)
-	if err != nil {
-		return nil, err
+	if rf.ResourceOptions.Concurrency > 1 {
+		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
+		// Convert gvkMaps to slice
+		var gvks []schema.GroupVersionKind
+		for gvk := range info.gvkMap {
+			gvks = append(gvks, gvk)
+		}
+		rf.ResourceOptions.ResourceTypes = gvks
+		resourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
+		if err != nil {
+			return nil, err
+		}
+		for _, resource := range resourceList {
+			key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+			resourceMap[key] = resource.DeepCopy()
+		}
+
+		if len(info.subresourceMap) > 0 {
+			var subResourceGvks []schema.GroupVersionKind
+			for subGvk := range info.subresourceMap {
+				subResourceGvks = append(subResourceGvks, subGvk)
+			}
+			rf.ResourceOptions.ResourceTypes = subResourceGvks
+			subResourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
+			log.Log.V(3).Info("Loading sublist concurrently", "count", len(subResourceList))
+			if err != nil {
+				return nil, err
+			}
+			for _, resource := range subResourceList {
+				key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+				resourceMap[key] = resource.DeepCopy()
+			}
+		}
+	} else {
+		start := time.Now()
+		log.Log.V(3).Info("Loading resources sequentially...")
+		resourceMap, err = rf.listResources(info)
+		if err != nil {
+			return nil, err
+		}
+		log.Log.V(3).Info("Loaded resources in", "duration", time.Since(start))
 	}
 	if len(rf.ResourcePaths) == 0 {
 		for _, rr := range resourceMap {
@@ -185,7 +229,7 @@ func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,
 ) {
-	restMapper, err := utils.GetRESTMapper(rf.Client, false)
+	restMapper, err := utils.GetRESTMapper(rf.Client)
 	if err != nil {
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
 		return
@@ -312,6 +356,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
+				defer filep.Close()
 				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = resource.GetFileBytes(resourcePath)

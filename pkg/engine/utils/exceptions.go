@@ -30,12 +30,14 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 	}
 	nsLabels := policyContext.NamespaceLabels()
 	if isCluster {
-		namespace, err := client.GetNamespace(context.TODO(), resource.GetNamespace(), metav1.GetOptions{})
-		if err != nil {
-			logger.Error(err, "failed to get namespace", "name", resource.GetNamespace())
-			return nil
+		if resource.GetNamespace() != "" {
+			namespace, err := client.GetNamespace(context.TODO(), resource.GetNamespace(), metav1.GetOptions{})
+			if err != nil {
+				logger.Error(err, "failed to get namespace", "name", resource.GetNamespace())
+				return nil
+			}
+			nsLabels = namespace.GetLabels()
 		}
-		nsLabels = namespace.GetLabels()
 	}
 	for _, polex := range polexs {
 		match := checkMatchesResources(

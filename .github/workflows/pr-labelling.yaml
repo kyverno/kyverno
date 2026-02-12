@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PR Labelling
+
+on:
+
+  # So that PRs touching the same files as the push are updated
+  push:
+
+  # So that the `dirtyLabel` is removed if conflicts are resolve
+  # We recommend `pull_request_target` so that github secrets are available.
+  # In `pull_request` we wouldn't be able to change labels of fork PRs
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+
+  # ── Area / Kind labels based on changed files ────────────────────────────
+  labeler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR based on changed files
+        uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6.0.1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+  # ── Merge-conflict label ─────────────────────────────────────────────────
+  merge-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check if prs are dirty
+        uses: eps1lon/actions-label-merge-conflict@1df065ebe6e3310545d4f4c4e862e43bdca146f0 # v3.0.3
+        with:
+          dirtyLabel: merge-conflicts
+          repoToken: ${{ secrets.GITHUB_TOKEN }}

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -27,9 +27,10 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,15 +38,14 @@ import (
 )
 
 type scanner struct {
-	logger          logr.Logger
-	engine          engineapi.Engine
-	config          config.Configuration
-	jp              jmespath.Interface
-	client          dclient.Interface
-	reportingConfig reportutils.ReportingConfiguration
-	gctxStore       gctxstore.Store
-	mapper          meta.RESTMapper
-	typeConverter   patch.TypeConverterManager
+	logger        logr.Logger
+	engine        engineapi.Engine
+	config        config.Configuration
+	jp            jmespath.Interface
+	client        dclient.Interface
+	gctxStore     gctxstore.Store
+	mapper        meta.RESTMapper
+	typeConverter patch.TypeConverterManager
 }
 
 type ScanResult struct {
@@ -61,8 +61,8 @@ type Scanner interface {
 		string,
 		*corev1.Namespace,
 		[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-		[]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
-		[]*policiesv1alpha1.PolicyException,
+		[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+		[]*policiesv1beta1.PolicyException,
 		...engineapi.GenericPolicy,
 	) map[*engineapi.GenericPolicy]ScanResult
 }
@@ -73,21 +73,19 @@ func NewScanner(
 	config config.Configuration,
 	jp jmespath.Interface,
 	client dclient.Interface,
-	reportingConfig reportutils.ReportingConfiguration,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
-		logger:          logger,
-		engine:          engine,
-		config:          config,
-		jp:              jp,
-		client:          client,
-		reportingConfig: reportingConfig,
-		gctxStore:       gctxStore,
-		mapper:          mapper,
-		typeConverter:   typeConverter,
+		logger:        logger,
+		engine:        engine,
+		config:        config,
+		jp:            jp,
+		client:        client,
+		gctxStore:     gctxStore,
+		mapper:        mapper,
+		typeConverter: typeConverter,
 	}
 }
 
@@ -98,8 +96,8 @@ func (s *scanner) ScanResource(
 	subResource string,
 	ns *corev1.Namespace,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	mapBindings []admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
-	exceptions []*policiesv1alpha1.PolicyException,
+	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	exceptions []*policiesv1beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -125,7 +123,7 @@ func (s *scanner) ScanResource(
 		} else if pol := policy.AsValidatingPolicy(); pol != nil {
 			vpols = append(vpols, policy)
 		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			ivpols = append(vpols, policy)
+			ivpols = append(ivpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		} else if pol := policy.AsMutatingAdmissionPolicy(); pol != nil {
@@ -140,7 +138,7 @@ func (s *scanner) ScanResource(
 			var errors []error
 			var response *engineapi.EngineResponse
 			var err error
-			if s.reportingConfig.ValidateReportsEnabled() {
+			if reportutils.ReportingCfg.ValidateReportsEnabled() {
 				response, err = s.validateResource(ctx, resource, nsLabels, pol)
 				if err != nil {
 					logger.Error(err, "failed to scan resource")
@@ -148,7 +146,7 @@ func (s *scanner) ScanResource(
 				}
 			}
 			spec := pol.GetSpec()
-			if spec.HasVerifyImages() && len(errors) == 0 && s.reportingConfig.ImageVerificationReportsEnabled() {
+			if spec.HasVerifyImages() && len(errors) == 0 && reportutils.ReportingCfg.ImageVerificationReportsEnabled() {
 				if response != nil {
 					// remove responses of verify image rules
 					ruleResponses := make([]engineapi.RuleResponse, 0, len(response.PolicyResponse.Rules))
@@ -177,7 +175,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicy(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1alpha1.ValidatingPolicy{*pol}, exceptions)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1beta1.ValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -236,7 +234,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range mpols {
 		if pol := policy.AsMutatingPolicy(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1alpha1.MutatingPolicy{*pol}, exceptions)
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -261,7 +259,7 @@ func (s *scanner) ScanResource(
 
 			if err != nil {
 				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
+				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
 			request := celengine.Request(
@@ -279,11 +277,14 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, err := engine.Handle(ctx, request, nil)
+			patched := engineResponse.PatchedResource
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
 				for j, r := range policy.Rules {
-					if r.Status() == engineapi.RuleStatusPass {
-						policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+					if r.Status() == engineapi.RuleStatusPass && len(r.Exceptions()) == 0 {
+						if !equality.Semantic.DeepEqual(resource.DeepCopyObject(), patched.DeepCopyObject()) {
+							policy.Rules[j] = *engineapi.RuleFail("", engineapi.Mutation, "mutation is not applied", nil)
+						}
 					}
 				}
 				rules = append(rules, policy.Rules...)
@@ -301,7 +302,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			provider, err := ivpolengine.NewProvider([]policiesv1alpha1.ImageValidatingPolicy{*pol}, exceptions)
+			provider, err := ivpolengine.NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}

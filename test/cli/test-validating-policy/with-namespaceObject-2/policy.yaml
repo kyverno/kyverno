@@ -1,12 +1,9 @@
-apiVersion: policies.kyverno.io/v1alpha1
+apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
   name: check-deployment-namespace
 spec:
   matchConstraints:
-    objectSelector:
-      matchLabels:
-        app: nginx
     resourceRules:
     - apiGroups:
       - apps
@@ -17,6 +14,9 @@ spec:
       - UPDATE
       resources:
       - deployments
+  matchConditions:
+     - name: check-labels
+       expression: "has(object.metadata.labels) && 'app' in object.metadata.labels && object.metadata.labels['app'] == 'nginx'"
   validations:
   - expression: "namespaceObject.metadata.name != 'default'"
     message: "Using 'default' namespace is not allowed for pod controllers."

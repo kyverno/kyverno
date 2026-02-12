@@ -4,9 +4,14 @@ import (
 	"reflect"
 	"testing"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 func TestGetKinds(t *testing.T) {
@@ -223,7 +228,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			_, policy, _, _, _, _, _, err := yamlutils.GetPolicy(tt.policy)
 			assert.NilError(t, err)
-			restMapper, err := utils.GetRESTMapper(nil, false)
+			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
 			kinds := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
@@ -231,4 +236,57 @@ spec:
 			}
 		})
 	}
+}
+
+func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "name": "test-pod",
+        "namespace": "default"
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "nginx",
+                "image": "nginx:latest"
+            }
+        ]
+    }
+}`)
+
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vap-nil-matchconstraints",
+		},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			// MatchConstraints is omitted, so it's nil by default
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	gvk := resource.GroupVersionKind()
+	restMapper, err := utils.GetRESTMapper(nil)
+	assert.NilError(t, err)
+
+	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	assert.NilError(t, err)
+
+	gvr := mapping.Resource
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resource.GetNamespace(),
+		},
+	}
+
+	response, err := validateResource(policy, nil, *resource, nil, ns, a)
+	assert.NilError(t, err)
+	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
 }
