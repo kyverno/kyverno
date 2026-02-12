@@ -1,0 +1,47 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+  - apiVersion: v1
+    kind: Namespace
+    metadata: 
+      name: test-namespace
+      
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: computeclass-default
+      namespace: default
+    data:
+      name: default
+      spot-values: 'true,false,false'
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: computeclass-mixed-compute-class
+      namespace: default
+    data:
+      name: mixed-compute-class
+      spot-values: 'true,false,false'
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: computeclass-spot-compute-class
+      namespace: default
+    data:
+      name: spot-compute-class
+      spot-values: 'true,true,true'
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: computeclass-non-spot-compute-class
+      namespace: default
+    data:
+      name: non-spot-compute-class
+      spot-values: 'false,false,false'
+
