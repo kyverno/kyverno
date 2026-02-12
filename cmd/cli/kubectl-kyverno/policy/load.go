@@ -170,20 +170,19 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
+			// Check if this is a List object and handle it explicitly
+			if gvk.Kind == "List" && gvk.Version == "v1" {
+				if err := handleListItems(document, path, results); err != nil {
+					results.addError(path, fmt.Errorf("failed to process List: %w", err))
+				}
+				continue
+			}
 			msg := err.Error()
 			if strings.Contains(msg, "Invalid value: value provided for unknown field") {
 				return nil, err
 			}
 			// skip non-Kubernetes YAMLs and invalid types
 			results.addError(path, err)
-			continue
-		}
-
-		// Check if this is a List object and handle it explicitly
-		if gvk.Kind == "List" && gvk.Version == "v1" {
-			if err := handleListItems(document, path, results); err != nil {
-				results.addError(path, fmt.Errorf("failed to process List: %w", err))
-			}
 			continue
 		}
 
