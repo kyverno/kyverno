@@ -124,10 +124,8 @@ func TestNewServer(t *testing.T) {
 	ctx := context.TODO()
 	dummyHandler := &mockHandler{}
 	cfg := config.NewDefaultConfiguration(false)
-
 	metricsMgr := &mockMetricsConfig{}
 	discoveryMock := &mockDiscovery{}
-
 	runtimeMock := &mockRuntime{isGoingDown: false}
 	mwcClient := &mockDeleteCollectionClient{}
 	vwcClient := &mockDeleteCollectionClient{}
@@ -203,7 +201,7 @@ func TestServerStop(t *testing.T) {
 	}
 }
 
-func TestServerStop_WithErrors(t *testing.T) {
+func TestServerStopWithErrors(t *testing.T) {
 	mockRuntime := &mockRuntime{isGoingDown: true}
 	mockLeaseClient := &mockDeleteClient{shouldError: true}
 	mockMWCClient := &mockDeleteCollectionClient{shouldError: true}
