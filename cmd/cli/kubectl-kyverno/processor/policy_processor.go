@@ -98,6 +98,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
+	if p.NamespaceCache == nil {
+		p.NamespaceCache = make(map[string]*unstructured.Unstructured)
+	}
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}
@@ -234,7 +237,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
+	restMapper, err := utils.GetRESTMapper(p.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -771,18 +774,17 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		filename = response.Policy().GetName() + "-generated"
 	}
 
-	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
-	if err != nil {
-		return err
-	}
-
-	if !p.MutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+	if p.MutateLogPathIsDir {
+		file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
 		if err != nil {
 			return err
 		}
-		file = f
+	} else {
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
+		file, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return err
+		}
 	}
 	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
 		return err
