@@ -147,7 +147,9 @@ func createReportControllers(
 					policiesV1beta1.ImageValidatingPolicies(),
 					policiesV1beta1.NamespacedImageValidatingPolicies(),
 					policiesV1beta1.GeneratingPolicies(),
+					policiesV1beta1.NamespacedGeneratingPolicies(),
 					policiesV1beta1.MutatingPolicies(),
+					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
 					mapInformer,
 					mapAlphaInformer,
@@ -168,6 +170,7 @@ func createReportControllers(
 				policiesV1beta1.ValidatingPolicies(),
 				policiesV1beta1.NamespacedValidatingPolicies(),
 				policiesV1beta1.MutatingPolicies(),
+				policiesV1beta1.NamespacedMutatingPolicies(),
 				policiesV1beta1.ImageValidatingPolicies(),
 				policiesV1beta1.NamespacedImageValidatingPolicies(),
 				policiesV1beta1.PolicyExceptions(),
@@ -415,17 +418,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// create a temporary breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background scan reports", ephrCounterFunc(ephrs)))
 		}
 
 		typeConverter := patch.NewTypeConverterManager(nil, setup.KubeClient.Discovery().OpenAPIV3())
