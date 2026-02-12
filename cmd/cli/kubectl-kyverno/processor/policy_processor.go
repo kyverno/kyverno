@@ -305,6 +305,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			var policyNames []string
+			for _, policy := range policies {
+				policyNames = append(policyNames, policy.GetName())
+			}
+			operation := p.getOperation(policyNames, resource)
+			var oldObject, newObject runtime.Object
+			if operation == admissionv1.Delete {
+				oldObject = &resource
+				newObject = &unstructured.Unstructured{}
+			} else {
+				newObject = &resource
+			}
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -312,10 +324,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				"",
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				newObject,
+				oldObject,
 				false,
 				nil,
 			)
@@ -395,7 +407,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		if resource.Object != nil {
 			eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
-			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
@@ -406,6 +417,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			var policyNames []string
+			for _, policy := range policies {
+				policyNames = append(policyNames, policy.GetName())
+			}
+			operation := p.getOperation(policyNames, resource)
+			var oldObject, newObject runtime.Object
+			if operation == admissionv1.Delete {
+				oldObject = &resource
+				newObject = &unstructured.Unstructured{}
+			} else {
+				newObject = &resource
+			}
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -415,10 +438,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				resource.GetName(),
 				resource.GetNamespace(),
 				// TODO: how to manage other operations ?
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				newObject,
+				oldObject,
 				false,
 				nil,
 			)
@@ -798,4 +821,44 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	}
 
 	return openapiclient.NewComposite(clients...)
+}
+
+func (p *PolicyProcessor) getOperation(policyNames []string, resource unstructured.Unstructured) admissionv1.Operation {
+	if p.Variables != nil {
+		// Try global variables first
+		if vals, err := p.Variables.ComputeVariables(p.Store, "", resource.GetName(), resource.GetKind(), nil); err == nil {
+			if val, ok := vals["request.operation"]; ok {
+				if opStr, ok := val.(string); ok && opStr != "CREATE" {
+					switch opStr {
+					case "DELETE":
+						return admissionv1.Delete
+					case "UPDATE":
+						return admissionv1.Update
+					case "CONNECT":
+						return admissionv1.Connect
+					}
+				}
+			}
+		}
+
+		for _, policyName := range policyNames {
+			vals, err := p.Variables.ComputeVariables(p.Store, policyName, resource.GetName(), resource.GetKind(), nil)
+			if err != nil {
+				continue
+			}
+			if val, ok := vals["request.operation"]; ok {
+				if opStr, ok := val.(string); ok && opStr != "CREATE" {
+					switch opStr {
+					case "DELETE":
+						return admissionv1.Delete
+					case "UPDATE":
+						return admissionv1.Update
+					case "CONNECT":
+						return admissionv1.Connect
+					}
+				}
+			}
+		}
+	}
+	return admissionv1.Create
 }

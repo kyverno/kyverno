@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: conditional-delete-test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Pod
+  policy: deny-delete-prod
+  resources:
+  - prod-app
+  result: fail
+  rule: block-prod-deletion
+variables: values.yaml
