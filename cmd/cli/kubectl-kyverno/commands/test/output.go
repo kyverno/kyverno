@@ -276,7 +276,7 @@ func printTestResult(
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 							continue
