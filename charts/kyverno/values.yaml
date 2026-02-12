@@ -241,7 +241,7 @@ crds:
       # -- Toggle automounting of the ServiceAccount.
       # When set to false, a projected service account token is used instead
       # which provides time-limited and audience-bound tokens for improved security.
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
 
       # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
       projectedServiceAccountToken:
@@ -580,7 +580,7 @@ test:
   # -- Toggle automounting of the ServiceAccount.
   # When set to false, a projected service account token is used instead
   # which provides time-limited and audience-bound tokens for improved security.
-  automountServiceAccountToken: false
+  automountServiceAccountToken: true
 
   # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
   projectedServiceAccountToken:
@@ -680,7 +680,7 @@ webhooksCleanup:
     # -- Toggle automounting of the ServiceAccount.
     # When set to false, a projected service account token is used instead
     # which provides time-limited and audience-bound tokens for improved security.
-    automountServiceAccountToken: false
+    automountServiceAccountToken: true
 
     # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
     projectedServiceAccountToken:
@@ -874,7 +874,7 @@ admissionController:
       # -- Toggle automounting of the ServiceAccount.
       # When set to false, a projected service account token is used instead
       # which provides time-limited and audience-bound tokens for improved security.
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
 
       # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
       projectedServiceAccountToken:
@@ -1388,7 +1388,7 @@ backgroundController:
       # -- Toggle automounting of the ServiceAccount.
       # When set to false, a projected service account token is used instead
       # which provides time-limited and audience-bound tokens for improved security.
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
 
       # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
       projectedServiceAccountToken:
@@ -1748,7 +1748,7 @@ cleanupController:
       # -- Toggle automounting of the ServiceAccount.
       # When set to false, a projected service account token is used instead
       # which provides time-limited and audience-bound tokens for improved security.
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
 
       # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
       projectedServiceAccountToken:
@@ -2157,7 +2157,7 @@ reportsController:
       # -- Toggle automounting of the ServiceAccount.
       # When set to false, a projected service account token is used instead
       # which provides time-limited and audience-bound tokens for improved security.
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
 
       # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
       projectedServiceAccountToken:
