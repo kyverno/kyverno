@@ -11,9 +11,26 @@ on:
   # We recommend `pull_request_target` so that github secrets are available.
   # In `pull_request` we wouldn't be able to change labels of fork PRs
   pull_request_target:
-    types: [synchronize]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
+
+  # ── Area / Kind labels based on changed files ────────────────────────────
+  labeler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR based on changed files
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+  # ── Merge-conflict label ─────────────────────────────────────────────────
   merge-conflicts:
     runs-on: ubuntu-latest
     steps:
