@@ -228,7 +228,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			_, policy, _, _, _, _, _, err := yamlutils.GetPolicy(tt.policy)
 			assert.NilError(t, err)
-			restMapper, err := utils.GetRESTMapper(nil, false)
+			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
 			kinds := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
@@ -272,7 +272,7 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 	}
 
 	gvk := resource.GroupVersionKind()
-	restMapper, err := utils.GetRESTMapper(nil, false)
+	restMapper, err := utils.GetRESTMapper(nil)
 	assert.NilError(t, err)
 
 	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
