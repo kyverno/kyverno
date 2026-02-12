@@ -47,10 +47,15 @@ func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, aud
 
 	printReport := func(report interface{}) {
 		var output []byte
+		var err error
 		if outputFormat == "json" {
-			output, _ = json.Marshal(report)
+			output, err = json.Marshal(report)
 		} else {
-			output, _ = yaml.Marshal(report)
+			output, err = yaml.Marshal(report)
+		}
+		if err != nil {
+			fmt.Fprintf(out, "Error marshaling report: %v\n", err)
+			return
 		}
 		fmt.Fprintln(out, string(output))
 	}
