@@ -174,7 +174,7 @@ func printTestResult(
 	rc *resultCounts,
 	resultsTable *table.Table,
 	fs billy.Filesystem,
-	resoucePath string,
+	resourcePath string,
 	removeColor bool,
 ) error {
 	testCount := 1
@@ -251,8 +251,8 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, removeColor)
-							if strings.Contains(message, "not found in manifest") {
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
@@ -265,7 +265,7 @@ func printTestResult(
 						if test.IsGeneratingPolicy {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
+								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
@@ -279,8 +279,8 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, removeColor)
-							if strings.Contains(message, "not found in manifest") {
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
@@ -291,7 +291,7 @@ func printTestResult(
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
+								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
@@ -332,7 +332,7 @@ func printTestResult(
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, removeColor)
+					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
 					success := ok || (!ok && test.Result == openreports.StatusFail)
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))

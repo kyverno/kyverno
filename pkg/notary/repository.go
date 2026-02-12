@@ -115,6 +115,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
+	defer io.Close()
 	SigBlobBuf := new(bytes.Buffer)
 
 	_, err = SigBlobBuf.ReadFrom(io)
