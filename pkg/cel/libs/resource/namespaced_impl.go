@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"google.golang.org/protobuf/types/known/structpb"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -26,7 +27,9 @@ func (c *namespacedImpl) list_resources_string_string(args ...ref.Val) ref.Val {
 	} else {
 		list, err := self.ListResources(apiVersion, resource, c.namespace, nil)
 		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				return types.NewErr("failed to list resource: permission denied: %v", err)
+			}
 			return types.NewErr("failed to list resource: %v", err)
 		}
 		return c.NativeToValue(list.UnstructuredContent())
@@ -48,7 +51,9 @@ func (c *namespacedImpl) list_resources_string_string_map(args ...ref.Val) ref.V
 	} else {
 		list, err := self.ListResources(apiVersion, resource, c.namespace, labels)
 		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				return types.NewErr("failed to list resource: permission denied: %v", err)
+			}
 			return types.NewErr("failed to list resource: %v", err)
 		}
 		return c.NativeToValue(list.UnstructuredContent())
@@ -92,7 +97,9 @@ func (c *namespacedImpl) get_resource_string_string_string(args ...ref.Val) ref.
 	} else {
 		res, err := self.GetResource(apiVersion, resource, c.namespace, name)
 		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				return types.NewErr("failed to get resource: permission denied: %v", err)
+			}
 			return types.NewErr("failed to get resource: %v", err)
 		}
 		return c.NativeToValue(res.UnstructuredContent())
@@ -125,7 +132,9 @@ func (c *namespacedImpl) post_resource_string_string_map(args ...ref.Val) ref.Va
 	} else {
 		res, err := self.PostResource(apiVersion, resource, c.namespace, data.AsMap())
 		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				return types.NewErr("failed to create resource: permission denied: %v", err)
+			}
 			return types.NewErr("failed to create resource: %v", err)
 		}
 		return c.NativeToValue(res.UnstructuredContent())

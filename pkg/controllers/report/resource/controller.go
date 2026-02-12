@@ -339,7 +339,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
 		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 	}
-	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	restMapper, err := restmapper.GetRESTMapper(c.client)
 	if err != nil {
 		return err
 	}

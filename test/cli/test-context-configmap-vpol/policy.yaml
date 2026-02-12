@@ -1,0 +1,63 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+    annotations:
+        policies.kyverno.io/category: GKE Best Practices
+        policies.kyverno.io/description: Blocks workloads from using non-spot GKE ComputeClasses unless they are running in an approved namespace. This prevents unapproved namespaces from consuming higher-cost non-spot compute capacity.
+        policies.kyverno.io/severity: high
+        policies.kyverno.io/title: Enforce Non-Spot ComputeClass Usage
+    name: computeclasses-enforce-non-spot-usage
+spec:
+  evaluation:
+    background:
+        enabled: false
+  matchConditions:
+  - expression: "!(request.namespace in ['kube-system', 'kube-public', 'kube-node-lease', 'istio-system', 'gmp-system', 'balloon-pods', 'gke-managed-system', 'gke-managed-cim', 'config-management-system', 'config-management-monitoring', 'asm-system'])"
+    name: exclude-system-namespaces
+  matchConstraints:
+      resourceRules:
+      - apiGroups:
+        - ''
+        apiVersions:
+        - v1
+        operations:
+        - CREATE
+        - UPDATE
+        resources:
+        - pods
+      - apiGroups:
+        - apps
+        apiVersions:
+        - v1
+        operations:
+         - CREATE
+         - UPDATE
+        resources:
+        - deployments
+        - daemonsets
+      - apiGroups:
+        - batch
+        apiVersions:
+        - v1
+        operations:
+        - CREATE
+        - UPDATE
+        resources:
+        - jobs
+        - cronjobs
+  validationActions:
+  - Deny
+  validations:
+  - expression: variables.isSpotEnabled
+    messageExpression: "'Workloads in namespace ' + request.namespace + ' are not allowed to use non-spot ComputeClass. ComputeClass: ' + variables.computeclassname + ', Spot values: ' + variables.spotvalues.join(', ')"
+  variables:
+      - expression: "request.kind.kind == 'Pod' ? object.spec : (request.kind.kind == 'CronJob' ? object.spec.jobTemplate.spec.template.spec : object.spec.template.spec)"
+        name: podSpec
+      - expression: "has(variables.podSpec.nodeSelector) && 'cloud.google.com/compute-class' in variables.podSpec.nodeSelector ? variables.podSpec.nodeSelector['cloud.google.com/compute-class'] : 'default'"
+        name: computeclassname
+      - expression: "resource.Get('v1', 'configmaps', 'default', 'computeclass-' + variables.computeclassname)"
+        name: computeclassconfig
+      - expression: "has(variables.computeclassconfig.data) && 'spot-values' in variables.computeclassconfig.data ? variables.computeclassconfig.data['spot-values'].split(',') : ['true', 'false', 'false']"
+        name: spotvalues
+      - expression: "variables.spotvalues.exists(v, v.trim() == 'true')"
+        name: isSpotEnabled
