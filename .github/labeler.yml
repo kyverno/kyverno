@@ -1,0 +1,346 @@
+# Configuration for the PR Labeler GitHub Action
+# https://github.com/actions/labeler
+
+##############################################################################
+# Area Labels — based on which part of the codebase a PR touches
+##############################################################################
+
+# ── API & CRDs ──────────────────────────────────────────────────────────────
+"area/api":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "api/**"
+
+"area/crds":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "config/crds/**"
+
+# ── Policy Engine ───────────────────────────────────────────────────────────
+"area/engine":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/engine/**"
+
+"area/validation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/engine/validate/**"
+          - "pkg/engine/validation.go"
+          - "pkg/engine/validation_test.go"
+          - "pkg/validation/**"
+
+"area/mutation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/engine/mutate/**"
+          - "pkg/engine/mutation.go"
+          - "pkg/engine/mutation_test.go"
+          - "pkg/engine/forceMutate.go"
+          - "pkg/engine/forceMutate_test.go"
+
+"area/generation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/engine/generation.go"
+          - "pkg/background/**"
+
+"area/image-verify":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/engine/image_verify.go"
+          - "pkg/engine/image_verify_test.go"
+          - "pkg/imageverification/**"
+          - "pkg/imageverifycache/**"
+          - "pkg/images/**"
+
+"area/cosign":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/cosign/**"
+
+"area/notary":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/notary/**"
+
+# ── CEL ─────────────────────────────────────────────────────────────────────
+"area/cel":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/cel/**"
+
+# ── Webhooks ────────────────────────────────────────────────────────────────
+"area/webhooks":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/webhooks/**"
+          - "cmd/kyverno/**"
+
+# ── Controllers ─────────────────────────────────────────────────────────────
+"area/controllers":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/controllers/**"
+
+"area/background-controller":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/background-controller/**"
+          - "pkg/controllers/report/**"
+
+"area/cleanup-controller":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/cleanup-controller/**"
+          - "pkg/controllers/cleanup/**"
+          - "pkg/controllers/ttl/**"
+
+"area/reports-controller":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/reports-controller/**"
+          - "pkg/openreports/**"
+
+# ── CLI (kubectl-kyverno) ──────────────────────────────────────────────────
+"area/cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/cli/**"
+          - "pkg/cli/**"
+
+# ── Policy & Policy Cache ──────────────────────────────────────────────────
+"area/policy":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/policy/**"
+          - "pkg/policycache/**"
+
+"area/exceptions":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/exceptions/**"
+          - "pkg/controllers/exceptions/**"
+          - "pkg/webhooks/exception/**"
+          - "pkg/webhooks/celexception/**"
+
+"area/admission-policy":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/admissionpolicy/**"
+
+# ── Autogen ─────────────────────────────────────────────────────────────────
+"area/autogen":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/autogen/**"
+          - "pkg/cel/autogen/**"
+
+# ── Global Context ──────────────────────────────────────────────────────────
+"area/global-context":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/globalcontext/**"
+          - "pkg/controllers/globalcontext/**"
+          - "pkg/webhooks/globalcontext/**"
+
+# ── Events ──────────────────────────────────────────────────────────────────
+"area/events":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/event/**"
+
+# ── Auth & UserInfo ─────────────────────────────────────────────────────────
+"area/auth":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/auth/**"
+          - "pkg/userinfo/**"
+
+# ── TLS / Certificates ─────────────────────────────────────────────────────
+"area/tls":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/tls/**"
+          - "pkg/controllers/certmanager/**"
+
+# ── Metrics & Tracing ──────────────────────────────────────────────────────
+"area/metrics":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/metrics/**"
+          - "pkg/controllers/metrics/**"
+          - "cmd/internal/metrics.go"
+
+"area/tracing":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/tracing/**"
+          - "cmd/internal/tracing.go"
+
+# ── Config ──────────────────────────────────────────────────────────────────
+"area/config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/config/**"
+          - "cmd/internal/config.go"
+          - "cmd/internal/configmap.go"
+
+# ── Registry Client ────────────────────────────────────────────────────────
+"area/registry":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/registryclient/**"
+          - "cmd/internal/registry.go"
+
+# ── Clients ─────────────────────────────────────────────────────────────────
+"area/clients":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/client/**"
+          - "pkg/clients/**"
+
+# ── PSS (Pod Security Standards) ───────────────────────────────────────────
+"area/pss":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/pss/**"
+
+# ── Ext (extensions/utilities) ─────────────────────────────────────────────
+"area/ext":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "ext/**"
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+"area/logging":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/logging/**"
+          - "cmd/internal/logging.go"
+
+# ── Toggle / Feature Flags ─────────────────────────────────────────────────
+"area/toggle":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/toggle/**"
+
+# ── Leader Election ────────────────────────────────────────────────────────
+"area/leader-election":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/leaderelection/**"
+
+# ── Circuit Breaker ────────────────────────────────────────────────────────
+"area/breaker":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pkg/breaker/**"
+
+# ── cmd/internal (shared controller setup) ─────────────────────────────────
+"area/cmd-internal":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/internal/**"
+
+# ── Init Container ─────────────────────────────────────────────────────────
+"area/init-container":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/kyverno-init/**"
+
+# ── Readiness Checker ──────────────────────────────────────────────────────
+"area/readiness":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cmd/readiness-checker/**"
+
+##############################################################################
+# Kind Labels — what type of artifact is being changed
+##############################################################################
+
+"kind/helm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "charts/**"
+
+"kind/helm-kyverno":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "charts/kyverno/**"
+
+"kind/helm-policies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "charts/kyverno-policies/**"
+
+"kind/tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "test/**"
+          - "**/*_test.go"
+          - "pkg/**/fuzz_test.go"
+
+"kind/e2e-tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "test/chainsaw/**"
+          - "test/conformance/**"
+          - "config/e2e/**"
+
+"kind/cli-tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "test/cli/**"
+
+"kind/documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+          - "ADOPTERS.md"
+          - "CHANGELOG.md"
+          - "CODE_OF_CONDUCT.md"
+          - "CONTRIBUTING.md"
+          - "CONTRIBUTORS.md"
+          - "DEVELOPMENT.md"
+          - "GOVERNANCE.md"
+          - "LICENSE"
+          - "MAINTAINERS.md"
+          - "OWNERS.md"
+          - "README.md"
+          - "ROADMAP.md"
+          - "SECURITY.md"
+          - "Kyverno_Architecture_Roadmap.md"
+
+"kind/ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "Makefile"
+          - "codecov.yml"
+          - "sonar-project.properties"
+
+"kind/dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "go.mod"
+          - "go.sum"
+
+"kind/security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - "SECURITY-INSIGHTS.yml"
+
+"kind/codegen":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "hack/**"
+          - "scripts/**"
+          - "cmd/tools/**"
+
+"kind/config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "config/**"
