@@ -103,7 +103,7 @@ func TestCustomNamespaceListerList(t *testing.T) {
 
 	t.Run("list namespaces failure", func(t *testing.T) {
 		k8sClient := fake.NewClientset()
-		
+
 		k8sClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			return true, nil, fmt.Errorf("simulated network error")
 		})
