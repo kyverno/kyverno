@@ -25,5 +25,4 @@ spec:
             policy check-deployment-labels -> resource default/Deployment/bad-deployment failed:
             1 - check-deployment-labels Deployment labels must be env=prod
 
-
             pass: 1, fail: 1, warn: 0, error: 0, skip: 0
