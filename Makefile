@@ -333,7 +333,7 @@ ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with k
 		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
