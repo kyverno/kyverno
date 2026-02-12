@@ -14,12 +14,12 @@ import (
 )
 
 type testCaseStruct struct {
-	name           string
-	request        admissionv1.AdmissionRequest
-	roles          []string
-	clusterRoles   []string
-	gvk            schema.GroupVersionKind
-	wantErr        bool
+	name         string
+	request      admissionv1.AdmissionRequest
+	roles        []string
+	clusterRoles []string
+	gvk          schema.GroupVersionKind
+	wantErr      bool
 }
 
 func TestPolicyContextBuilderBuild(t *testing.T) {
