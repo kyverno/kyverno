@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
+	"github.com/kyverno/kyverno/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -14,7 +15,9 @@ import (
 // parseSecretReference parses a secret reference which can be:
 // - "secret-name" -> namespace=defaultNamespace, name=secret-name
 // - "namespace/secret-name" -> namespace=namespace, name=secret-name
-func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
+func ParseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
+	// trim leading "/" if secret is incorrectly defined without namespace
+	secretRef = strings.TrimPrefix(secretRef, "/")
 	parts := strings.SplitN(secretRef, "/", 2)
 	if len(parts) == 2 {
 		return parts[0], parts[1]
@@ -27,12 +30,14 @@ func parseSecretReference(secretRef string, defaultNamespace string) (namespace 
 func generateKeychainForPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) (authn.Keychain, error) {
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
-		namespace, name := parseSecretReference(imagePullSecret, defaultNamespace)
+		namespace, name := ParseSecretReference(imagePullSecret, defaultNamespace)
 		secret, err := lister.Secrets(namespace).Get(name)
 		if err == nil {
 			secrets = append(secrets, *secret)
 		} else if !k8serrors.IsNotFound(err) {
 			return nil, err
+		} else {
+			logging.V(4).Info("secret not found, skipping", "namespace", namespace, "name", name)
 		}
 		// Silently skip NotFound errors to allow flexible secret references
 	}

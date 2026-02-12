@@ -90,8 +90,8 @@ reportsServer:
   # -- Wait for reports-server to be ready before starting Kyverno components
   waitForReady: true
 
-  # -- Timeout for waiting for reports-server readiness (in seconds)
-  readinessTimeout: 300
+  # -- Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m)
+  readinessTimeout: 300s
 
 # CRDs configuration
 crds:
@@ -925,6 +925,9 @@ admissionController:
   podAnnotations: {}
     # example.com/annotation: foo
 
+  # -- Deployment labels.
+  labels: {}
+
   # -- Deployment annotations.
   annotations: {}
 
@@ -1289,6 +1292,11 @@ admissionController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1428,6 +1436,9 @@ backgroundController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -1631,6 +1642,11 @@ backgroundController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1767,6 +1783,9 @@ cleanupController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -2020,6 +2039,11 @@ cleanupController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2112,6 +2136,9 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment labels.
+  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -2340,6 +2367,11 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- Key algorithm for self-signed TLS certificates.
+    # Supported values: RSA, ECDSA, Ed25519
+    tlsKeyAlgorithm: RSA
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials
