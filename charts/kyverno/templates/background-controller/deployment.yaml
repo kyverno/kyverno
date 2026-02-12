@@ -8,6 +8,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+    {{- with .Values.backgroundController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.backgroundController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}

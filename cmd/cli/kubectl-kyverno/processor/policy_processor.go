@@ -97,6 +97,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
+	if p.NamespaceCache == nil {
+		p.NamespaceCache = make(map[string]*unstructured.Unstructured)
+	}
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}
@@ -233,7 +236,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
+	restMapper, err := utils.GetRESTMapper(p.Client)
 	if err != nil {
 		return nil, err
 	}
