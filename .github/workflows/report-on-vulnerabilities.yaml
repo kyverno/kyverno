@@ -16,8 +16,8 @@ env:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    outputs:
-      results: ${{ steps.parse-results.outputs.results }}
+    permissions:
+      issues: write
     steps:    
     - name: Get Branches Name
       id: get-branches
@@ -25,93 +25,145 @@ jobs:
         all_branches=$(curl -s 'https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches?per_page=100' | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
         releasebranch1=$(echo "$all_branches" | sed -n 1p)
         releasebranch2=$(echo "$all_branches" | sed -n 2p)
-
         echo "releasebranch1=$releasebranch1" >> $GITHUB_OUTPUT
         echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
-    
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # v0.33.0
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+      with:
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
         output: scan1.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
       env:
-        # Trivy is returning TOOMANYREQUESTS
-        # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # v0.33.0
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+      with:
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
         output: scan2.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
       env:
-        # Trivy is returning TOOMANYREQUESTS
-        # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808 # v0.33.0
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
-        format: json
-        ignore-unfixed: false
-        severity: HIGH,CRITICAL
-        output: scan3.json
-      env:
-        # Trivy is returning TOOMANYREQUESTS
-        # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
-        TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
-    - name: Merge scan results
-      id: merge-results
-      run: |
-        jq -s add scan1.json scan2.json scan3.json > scan.json
-        cat scan.json
-
-    - name: Parse scan results
-      id: parse-results
-      continue-on-error: true
-      run: |
-        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno").Vulnerabilities | length')
-        if [[ $VULNS -eq 0 ]]
-        then
-          echo "No vulnerabilities found, halting"
-          echo "results=nothing" >> $GITHUB_OUTPUT
-        else
-          echo "Vulnerabilities found, creating issue"
-          echo "results=found" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Upload vulnerability scan report
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if: steps.parse-results.outputs.results == 'found'
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
       with:
-        name: scan.json
-        path: scan.json
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
+        format: json
+        output: scan3.json
+        severity: HIGH,CRITICAL
+        ignore-unfixed: false
+        cache: false
+      env:
+        TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
+    - name: Upload vulnerability scan report
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      with:
+        name: scan1.json
+        path: scan1.json
         if-no-files-found: error
-
-  open-issue:
-    runs-on: ubuntu-latest
-    if: needs.scan.outputs.results == 'found'
-    needs: scan
-    permissions:
-      issues: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Download scan
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: scan.json
-      - name: Set scan output
-        id: set-scan-output
-        run: echo "results=$(cat scan.json | jq -c)" >> $GITHUB_OUTPUT
-      - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RESULTS: ${{ steps.set-scan-output.outputs.results }}
-        with:
-          filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
+    - name: Upload vulnerability scan report
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      with:
+        name: scan2.json
+        path: scan2.json
+        if-no-files-found: error
+    - name: Upload vulnerability scan report
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      with:
+        name: scan3.json
+        path: scan3.json
+        if-no-files-found: error
+    - name: Set scan output
+      id: set-scan-output-1
+      run: |
+        cat scan1.json | jq -r '
+          .Results[] |
+          select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
+          "## Image: `\(.Target)`\n\n" +
+          "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
+          "|--------|---------|----------|------|-----------|-------|-------------|\n" +
+          (.Vulnerabilities | map(
+            "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
+            (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
+            " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
+            ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
+          ) | join("\n")) + "\n"
+        ' > results.md
+        echo "results<<EOF" >> $GITHUB_OUTPUT
+        cat results.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Set scan output
+      id: set-scan-output-2
+      run: |
+        cat scan2.json | jq -r '
+          .Results[] |
+          select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
+          "## Image: `\(.Target)`\n\n" +
+          "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
+          "|--------|---------|----------|------|-----------|-------|-------------|\n" +
+          (.Vulnerabilities | map(
+            "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
+            (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
+            " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
+            ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
+          ) | join("\n")) + "\n"
+        ' > results.md
+        echo "results<<EOF" >> $GITHUB_OUTPUT
+        cat results.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Set scan output
+      id: set-scan-output-3
+      run: |
+        cat scan3.json | jq -r '
+          .Results[] |
+          select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
+          "## Image: `\(.Target)`\n\n" +
+          "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
+          "|--------|---------|----------|------|-----------|-------|-------------|\n" +
+          (.Vulnerabilities | map(
+            "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
+            (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
+            " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
+            ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
+          ) | join("\n")) + "\n"
+        ' > results.md
+        echo "results<<EOF" >> $GITHUB_OUTPUT
+        cat results.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RESULTS: ${{ steps.set-scan-output-1.outputs.results }}
+        IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      with:
+        filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
+        update_existing: true
+        search_existing: open
+    - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RESULTS: ${{ steps.set-scan-output-2.outputs.results }}
+        IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
+      with:
+        filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
+        update_existing: true
+        search_existing: open
+    - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RESULTS: ${{ steps.set-scan-output-3.outputs.results }}
+        IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
+      with:
+        filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
+        update_existing: true
+        search_existing: open

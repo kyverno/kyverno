@@ -18,7 +18,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.cleanup-controller.roleName" . }}:core
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   finalizers:
   - kyverno.io/policywebhooks
   - kyverno.io/ttlwebhooks
@@ -64,6 +64,7 @@ rules:
       - policies.kyverno.io
     resources:
       - deletingpolicies
+      - namespaceddeletingpolicies
     verbs:
       - get
       - list
@@ -72,6 +73,7 @@ rules:
       - policies.kyverno.io
     resources:
       - deletingpolicies/status
+      - namespaceddeletingpolicies/status
     verbs:
       - update
   - apiGroups:
@@ -129,7 +131,7 @@ rules:
     verbs:
       - create
   {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
+  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:

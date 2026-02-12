@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: add-run-as-non-root
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+  - name: is-test-namespace
+    expression: request.namespace == 'test-chaining'
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          !has(object.spec.securityContext) ?
+          [
+            JSONPatch{
+              op: "add",
+              path: "/spec/securityContext",
+              value: { "runAsNonRoot": true }
+            }
+          ] :
+          (
+            !has(object.spec.securityContext.runAsNonRoot) ?
+            [
+              JSONPatch{
+                op: "add",
+                path: "/spec/securityContext/runAsNonRoot",
+                value: true
+              }
+            ] :
+            []
+          )

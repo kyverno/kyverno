@@ -54,4 +54,7 @@ data:
   {{- with .Values.config.matchConditions }}
   matchConditions: {{ toJson . | quote }}
   {{- end }}
+  {{- with .Values.config.maxContextSize }}
+  maxContextSize: {{ . | quote }}
+  {{- end }}
 {{- end -}}

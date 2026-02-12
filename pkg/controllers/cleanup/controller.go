@@ -26,6 +26,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -56,9 +57,10 @@ type controller struct {
 }
 
 const (
-	maxRetries     = 10
-	Workers        = 3
-	ControllerName = "cleanup-controller"
+	maxRetries      = 10
+	Workers         = 3
+	ControllerName  = "cleanup-controller"
+	minRequeueDelay = 1 * time.Second
 )
 
 func NewController(
@@ -111,7 +113,12 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "ClusterCleanupPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "ClusterCleanupPolicy")),
+		// On update, enqueue only when spec changes; skip status-only updates
+		func(oldObj, obj kyvernov2.CleanupPolicyInterface) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "ClusterCleanupPolicy")(obj)
+			}
+		},
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "ClusterCleanupPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -119,7 +126,12 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
 		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "CleanupPolicy")),
-		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "CleanupPolicy")),
+		// On update, enqueue only when spec changes; skip status-only updates
+		func(oldObj, obj kyvernov2.CleanupPolicyInterface) {
+			if oldObj.GetGeneration() != obj.GetGeneration() {
+				_ = enqueueFunc(logger, "updated", "CleanupPolicy")(obj)
+			}
+		},
 		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "CleanupPolicy")),
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -212,12 +224,14 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				if err != nil {
 					debug.Error(err, "failed to get namespace labels")
 					errs = append(errs, err)
+					continue
 				}
 				nsLabels = ns.GetLabels()
 			}
 			// match namespaces
 			if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
 				debug.Info("resource namespace didn't match policy namespace", "result", err)
+				continue
 			}
 			// match resource with match/exclude clause
 			matched := match.CheckMatchesResources(
@@ -283,6 +297,10 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			}
 			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+				if errors.IsNotFound(err) {
+					debug.Info("resource not found")
+					continue
+				}
 				if metrics != nil {
 					metrics.RecordCleanupFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
@@ -325,11 +343,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
-		if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, *executionTime); err != nil {
+		if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, time.Now()); err != nil {
 			logger.Error(err, "failed to update the cleanup policy status")
 			return err
 		}
-		nextExecutionTime, err = policy.GetNextExecutionTime(*executionTime)
+		nextExecutionTime, err = policy.GetNextExecutionTime(time.Now())
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
 			return err
@@ -338,10 +356,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		nextExecutionTime = executionTime
 	}
 
-	// calculate the remaining time until deletion.
-	timeRemaining := time.Until(*nextExecutionTime)
-	// add the item back to the queue after the remaining time.
-	c.queue.AddAfter(key, timeRemaining)
+	// calculate the remaining time until deletion and clamp to a sane minimum
+	// to avoid immediate hot-loops when nextExecutionTime is in the past or now.
+	delay := time.Until(*nextExecutionTime)
+	if delay <= 0 {
+		delay = minRequeueDelay
+	}
+	// add the item back to the queue after the delay
+	c.queue.AddAfter(key, delay)
 	return nil
 }
 

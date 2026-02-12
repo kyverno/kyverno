@@ -10,47 +10,47 @@ var (
 	variablesTypeType = types.NewTypeTypeWithParam(VariablesType)
 )
 
-type variablesProvider struct {
+type VariablesProvider struct {
 	inner  types.Provider
 	fields map[string]*types.Type
 	names  []string
 }
 
-func NewVariablesProvider(inner types.Provider) *variablesProvider {
-	return &variablesProvider{
+func NewVariablesProvider(inner types.Provider) *VariablesProvider {
+	return &VariablesProvider{
 		inner:  inner,
 		fields: make(map[string]*types.Type),
 	}
 }
 
-func (p *variablesProvider) RegisterField(name string, t *types.Type) {
+func (p *VariablesProvider) RegisterField(name string, t *types.Type) {
 	p.fields[name] = t
 	p.names = append(p.names, name)
 }
 
-func (p *variablesProvider) EnumValue(enumName string) ref.Val {
+func (p *VariablesProvider) EnumValue(enumName string) ref.Val {
 	return p.inner.EnumValue(enumName)
 }
 
-func (p *variablesProvider) FindIdent(identName string) (ref.Val, bool) {
+func (p *VariablesProvider) FindIdent(identName string) (ref.Val, bool) {
 	return p.inner.FindIdent(identName)
 }
 
-func (p *variablesProvider) FindStructType(structType string) (*types.Type, bool) {
+func (p *VariablesProvider) FindStructType(structType string) (*types.Type, bool) {
 	if structType == VariablesType.DeclaredTypeName() {
 		return variablesTypeType, true
 	}
 	return p.inner.FindStructType(structType)
 }
 
-func (p *variablesProvider) FindStructFieldNames(structType string) ([]string, bool) {
+func (p *VariablesProvider) FindStructFieldNames(structType string) ([]string, bool) {
 	if structType == VariablesType.DeclaredTypeName() {
 		return p.names, true
 	}
 	return p.inner.FindStructFieldNames(structType)
 }
 
-func (p *variablesProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
+func (p *VariablesProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
 	if structType == VariablesType.DeclaredTypeName() {
 		if t, ok := p.fields[fieldName]; ok {
 			return &types.FieldType{
@@ -62,6 +62,6 @@ func (p *variablesProvider) FindStructFieldType(structType, fieldName string) (*
 	return p.inner.FindStructFieldType(structType, fieldName)
 }
 
-func (p *variablesProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
+func (p *VariablesProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
 	return p.inner.NewValue(structType, fields)
 }

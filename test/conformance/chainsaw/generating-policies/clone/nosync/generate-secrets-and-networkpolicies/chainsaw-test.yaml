@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: generate-secrets-and-networkpolicies
 spec:
+  concurrent: false
   steps:
   - name: create permissions
     try:

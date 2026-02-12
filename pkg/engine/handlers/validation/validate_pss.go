@@ -25,10 +25,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type validatePssHandler struct{}
+type validatePssHandler struct {
+	client    engineapi.Client
+	isCluster bool
+}
 
-func NewValidatePssHandler() (handlers.Handler, error) {
-	return validatePssHandler{}, nil
+func NewValidatePssHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+	return validatePssHandler{
+		client:    client,
+		isCluster: isCluster,
+	}, nil
 }
 
 func (h validatePssHandler) Process(
@@ -59,7 +65,7 @@ func (h validatePssHandler) validate(
 	}
 
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		var polex kyvernov2.PolicyException
 		hasPodSecurity := true
@@ -213,18 +219,27 @@ func (h validatePssHandler) validateOldObject(
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.template.spec")
 			}
 		}
 	} else if kind == "CronJob" {
 		for i := range checks {
+			if checks[i].CheckResult.ErrList == nil {
+				continue
+			}
 			for j := range *checks[i].CheckResult.ErrList {
 				(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "spec", "spec.jobTemplate.spec.template.spec")
 			}
 		}
 	}
 	for i := range checks {
+		if checks[i].CheckResult.ErrList == nil {
+			continue
+		}
 		for j := range *checks[i].CheckResult.ErrList {
 			(*checks[i].CheckResult.ErrList)[j].Field = strings.ReplaceAll((*checks[i].CheckResult.ErrList)[j].Field, "metadata", "spec.template.metadata")
 		}

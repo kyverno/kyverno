@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -20,29 +21,6 @@ var (
 	res    = unstructured.Unstructured{}
 )
 
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
-
 func TestPrepareData(t *testing.T) {
 	t.Run("valid-params", func(t *testing.T) {
 		gvk := schema.GroupVersionKind{
@@ -55,7 +33,7 @@ func TestPrepareData(t *testing.T) {
 		res.SetNamespace("isolated-test")
 
 		request := engine.Request(
-			&fakeContext{},
+			&libs.FakeContextProvider{},
 			res.GroupVersionKind(),
 			schema.GroupVersionResource{},
 			"",
@@ -83,7 +61,7 @@ func TestPrepareData(t *testing.T) {
 			&user.DefaultInfo{},
 		)
 
-		data, err := prepareData(attr, &request.Request, &ns, &fakeContext{})
+		data, err := prepareData(attr, &request.Request, &ns, &libs.FakeContextProvider{})
 		assert.NotNil(t, data)
 		assert.Nil(t, err)
 	})

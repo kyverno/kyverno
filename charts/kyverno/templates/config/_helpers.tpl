@@ -57,7 +57,7 @@
 {{- define "kyverno.config.webhooks" -}}
 {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
 {{- $webhooks := .Values.config.webhooks -}}
-{{- if $webhooks | typeIs "slice" -}}
+{{- if $webhooks | kindIs "slice" -}}
   {{- $newWebhooks := dict -}}
   {{- range $index, $webhook := $webhooks -}}
     {{- if $webhook.namespaceSelector -}}

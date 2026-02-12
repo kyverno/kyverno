@@ -61,6 +61,12 @@ spec:
               - error
               type: object
             type: array
+          clusterResources:
+            description: ClusterResources are the cluster resources to be used in
+              the test
+            items:
+              type: string
+            type: array
           context:
             description: Context file containing context data for CEL policies
             type: string
@@ -114,6 +120,10 @@ spec:
                     CloneSourceResource takes the resource configuration file in yaml format
                     from the user which is meant to be cloned by the generate rule.
                   type: string
+                failOnMissingResources:
+                  description: FailOnMissingResources indicates if the test should
+                    fail if the patched/generated resources are missing.
+                  type: boolean
                 generatedResource:
                   description: |-
                     GeneratedResource takes a resource configuration file in yaml format from

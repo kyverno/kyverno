@@ -3,15 +3,15 @@ package compiler
 import (
 	"testing"
 
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
+	v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func TestCompile(t *testing.T) {
 	t.Run("should_compile_successfully_when_valid_match_condition_provided", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "is-namespace",
@@ -28,8 +28,8 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("should_fail_when_match_condition_is_empty", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "",
@@ -46,8 +46,8 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("should_fail_when_variable_expression_is_invalid", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{
 					{
 						Name:       "invalid-name",
@@ -63,9 +63,9 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("should_fail_when_generation_expression_is_invalid", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{
-				Generation: []v1alpha1.Generation{
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				Generation: []v1beta1.Generation{
 					{
 						Expression: "invalid-generation",
 					},
@@ -79,12 +79,12 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("should_fail_when_match_condition_in_policy_exception_is_invalid", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{},
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{},
 		}
-		polexs := []*v1alpha1.PolicyException{
+		polexs := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-exec",
@@ -101,12 +101,12 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("should_compile_successfully_with_valid_policy_exception_conditions", func(t *testing.T) {
-		pol := &v1alpha1.GeneratingPolicy{
-			Spec: v1alpha1.GeneratingPolicySpec{},
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{},
 		}
-		polexs := []*v1alpha1.PolicyException{
+		polexs := []*v1beta1.PolicyException{
 			{
-				Spec: v1alpha1.PolicyExceptionSpec{
+				Spec: v1beta1.PolicyExceptionSpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "valid-exec",

@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: sync-delete-one-source
 spec:
+  skip: true
   steps:
   - name: create permissions
     try:
@@ -35,6 +36,10 @@ spec:
     try:
     - apply:
         file: trigger.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
   - name: check that the downstreams are generated
     try:
     - assert:

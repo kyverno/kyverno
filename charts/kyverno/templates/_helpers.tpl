@@ -8,8 +8,8 @@
 {{- end -}}
 
 {{- define "kyverno.chartVersion" -}}
-{{- if .Values.templating.enabled -}}
-  {{- required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" -}}
+{{- if .Values.global.templating.enabled -}}
+  {{- required "templating.version is required when templating.enabled is true" .Values.global.templating.version | replace "+" "_" -}}
 {{- else -}}
   {{- .Chart.Version | replace "+" "_" -}}
 {{- end -}}
@@ -110,24 +110,43 @@
     {{- $flags = append $flags (print "--tufRootRaw=" .) -}}
   {{- end -}}
 {{- end -}}
-{{- with .reporting -}}
-  {{- $reportingConfig := list -}}
-  {{- with .validate -}}
-    {{- $reportingConfig = append $reportingConfig "validate" -}}
-  {{- end -}}
-  {{- with .mutate -}}
-    {{- $reportingConfig = append $reportingConfig "mutate" -}}
-  {{- end -}}
-  {{- with .mutateExisting -}}
-    {{- $reportingConfig = append $reportingConfig "mutateExisting" -}}
-  {{- end -}}
-  {{- with .imageVerify -}}
-    {{- $reportingConfig = append $reportingConfig "imageVerify" -}}
-  {{- end -}}
-  {{- with .generate -}}
-    {{- $reportingConfig = append $reportingConfig "generate" -}}
-  {{- end -}}
-  {{- $flags = append $flags (print "--enableReporting=" (join "," $reportingConfig)) -}}
+{{- with .reporting }}
+  {{- $reportingConfig := list }}
+  {{- with .validate }}
+    {{- $reportingConfig = append $reportingConfig "validate" }}
+  {{- end }}
+  {{- with .mutate }}
+    {{- $reportingConfig = append $reportingConfig "mutate" }}
+  {{- end }}
+  {{- with .mutateExisting }}
+    {{- $reportingConfig = append $reportingConfig "mutateExisting" }}
+  {{- end }}
+  {{- with .imageVerify }}
+    {{- $reportingConfig = append $reportingConfig "imageVerify" }}
+  {{- end }}
+  {{- with .generate }}
+    {{- $reportingConfig = append $reportingConfig "generate" }}
+  {{- end }}
+  {{- $flags = append $flags (print "--enableReporting=" (join "," $reportingConfig)) }}
+  {{- with .allowedResults }}
+    {{- $resultsConfig := list }}
+    {{- with .pass }}
+      {{- $resultsConfig = append $resultsConfig "pass" }}
+    {{- end }}
+    {{- with .fail }}
+      {{- $resultsConfig = append $resultsConfig "fail" }}
+    {{- end }}
+    {{- with .error }}
+      {{- $resultsConfig = append $resultsConfig "error" }}
+    {{- end }}
+    {{- with .skip }}
+      {{- $resultsConfig = append $resultsConfig "skip" }}
+    {{- end }}
+    {{- with .warn }}
+      {{- $resultsConfig = append $resultsConfig "warn" }}
+    {{- end }}
+    {{- $flags = append $flags (print "--allowedResults=" (join "," $resultsConfig)) }}
+  {{- end }}
 {{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}

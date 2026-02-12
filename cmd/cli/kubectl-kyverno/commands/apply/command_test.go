@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
@@ -580,9 +581,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/skipped-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/skipped-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -597,9 +598,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/bad-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/bad-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -614,9 +615,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/good-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-cel-exceptions/check-deployment-labels/exception.yaml"},
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/good-deployment.yaml"},
+				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -665,6 +666,41 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/resource.yaml"},
+				ContextPath:   "../../../../../test/cli/test-validating-policy/restrict-image-registries/context.yaml",
+				ValuesFile:    "../../../../../test/cli/test-validating-policy/restrict-image-registries/value.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  3,
+					Fail:  4,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/resource.yaml"},
+				ContextPath:   "../../../../../test/cli/test-validating-policy/allowed-base-images/context.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  3,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
 				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
 
@@ -674,6 +710,38 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  0,
 					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-pass.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
 					Skip:  0,
 					Error: 0,
 					Warn:  0,
@@ -742,6 +810,38 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/good-pod.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -778,6 +878,57 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/resource.yaml"},
+				ValuesFile:    "../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/values.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  2,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/resource.yaml"},
+				ContextPath:   "../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/context.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/resource.yaml"},
+				ContextPath:   "../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/context.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
 					Fail:  1,
 					Skip:  0,
 					Error: 0,
@@ -1054,4 +1205,58 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+
+func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+
+	// Check the responses for the correct message
+	found := false
+	var actualMessage string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if rule.Status() == engineapi.RuleStatusFail {
+				found = true
+				actualMessage = rule.Message()
+				assert.Contains(t, actualMessage, "CEL expression validation failed at index",
+					"ValidatingPolicy should show default message when message field is empty")
+				assert.NotEmpty(t, actualMessage, "Message should not be empty")
+			}
+		}
+	}
+	assert.True(t, found, "Should have at least one failed rule")
+}
+
+func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+
+	// Check the responses for the correct message
+	found := false
+	var actualMessage string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if rule.Status() == engineapi.RuleStatusFail {
+				found = true
+				actualMessage = rule.Message()
+				assert.Contains(t, actualMessage, "CEL expression validation failed at index",
+					"ImageValidatingPolicy should show default message when message field is empty")
+				assert.NotEmpty(t, actualMessage, "Message should not be empty")
+			}
+		}
+	}
+	assert.True(t, found, "Should have at least one failed rule")
 }

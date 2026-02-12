@@ -33,7 +33,16 @@ webhooks:
     name: autogen-defaults-check-prod-label
   matchPolicy: Equivalent
   name: vpol.validate.kyverno.svc-fail-finegrained-disallow-privilege-escalation
-  namespaceSelector: {}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
   objectSelector: {}
   rules:
   - apiGroups:

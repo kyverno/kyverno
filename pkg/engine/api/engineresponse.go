@@ -173,6 +173,16 @@ func (er EngineResponse) GetSuccessRules() []string {
 
 // GetResourceSpec returns resourceSpec of er
 func (er EngineResponse) GetResourceSpec() ResourceSpec {
+	if er.PatchedResource.Object == nil {
+		return ResourceSpec{
+			Kind:       er.Resource.GetKind(),
+			APIVersion: er.Resource.GetAPIVersion(),
+			Namespace:  er.Resource.GetNamespace(),
+			Name:       er.Resource.GetName(),
+			UID:        string(er.Resource.GetUID()),
+		}
+	}
+
 	return ResourceSpec{
 		Kind:       er.PatchedResource.GetKind(),
 		APIVersion: er.PatchedResource.GetAPIVersion(),
@@ -216,6 +226,10 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 					continue
 				}
 				if v.Namespaces == nil {
+					// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
+					if v.NamespaceSelector == nil {
+						return v.Action
+					}
 					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 					if err == nil && hasPass {
 						return v.Action
@@ -248,6 +262,10 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 			continue
 		}
 		if v.Namespaces == nil {
+			// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
+			if v.NamespaceSelector == nil {
+				return v.Action
+			}
 			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 			if err == nil && hasPass {
 				return v.Action

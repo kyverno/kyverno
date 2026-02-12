@@ -22,7 +22,7 @@ func (inner AdmissionHandler) withMetrics(attrs ...attribute.KeyValue) Admission
 
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		metrics.RecordRequest(ctx, response.Allowed, request.Namespace, request.Operation, request.GroupVersionKind, startTime, attrs...)
+		metrics.RecordRequest(ctx, response.Allowed, request.Namespace, request.Operation, request.Kind.Kind, startTime, attrs...)
 		return response
 	}
 }
