@@ -30,6 +30,11 @@ var (
 	otelCollector        string
 	metricsHost          string
 	metricsPort          int
+	metricsCASecretName  string
+	metricsTLSSecretName string
+	metricsKeyAlgorithm  string
+	metricsRenewBefore   time.Duration
+	metricsServerIP      string
 	transportCreds       string
 	disableMetricsExport bool
 	// kubeconfig
@@ -107,6 +112,11 @@ func initMetricsFlags() {
 	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
 	flag.StringVar(&metricsHost, "metricsHost", "", "Expose prometheus metrics at the given host. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
 	flag.IntVar(&metricsPort, "metricsPort", 8000, "Expose prometheus metrics at the given port, default to 8000.")
+	flag.StringVar(&metricsCASecretName, "metricsCASecretName", "", "The secret name which contains the CA certificate for the metrics endpoint.")
+	flag.StringVar(&metricsTLSSecretName, "metricsTLSSecretName", "", "The secret name which contains the TLS certs for the metrics endpoint.")
+	flag.StringVar(&metricsKeyAlgorithm, "metricsKeyAlgorithm", "RSA", "Set this flag to the key algorithm used for self-signed TLS certificates for the metrics endpoint. Supported values: RSA, ECDSA, Ed25519.")
+	flag.DurationVar(&metricsRenewBefore, "metricsRenewBefore", 15*24*time.Hour, "The certificate renewal time before expiration for metrics TLS certificates.")
+	flag.StringVar(&metricsServerIP, "metricsServerIP", "", "IP address where metrics server runs. Used to add IP addresses to the metrics TLS certificate SANs. Only required if accessing metrics endpoint out-of-cluster by IP address.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
