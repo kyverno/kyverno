@@ -42,4 +42,28 @@ spec:
   tolerations:
     {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
+  {{- if not .Values.test.automountServiceAccountToken }}
+  volumes:
+    - name: serviceaccount-token
+      projected:
+        defaultMode: 0444
+        sources:
+          - serviceAccountToken:
+              expirationSeconds: {{ .Values.test.projectedServiceAccountToken.expirationSeconds | default 3600 }}
+              path: token
+              {{- with .Values.test.projectedServiceAccountToken.audience }}
+              audience: {{ . }}
+              {{- end }}
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+                - key: ca.crt
+                  path: ca.crt
+          - downwardAPI:
+              items:
+                - path: namespace
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+  {{- end }}
 {{- end -}}
