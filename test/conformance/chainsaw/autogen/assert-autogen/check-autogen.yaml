@@ -9,7 +9,7 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
+            - apps/v1/Deployment
       name: autogen-disallow-default-sa
       validate:
         message: default ServiceAccount should not be used
@@ -23,7 +23,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-disallow-default-sa
       validate:
         message: default ServiceAccount should not be used
