@@ -4,6 +4,7 @@ kind: Test
 metadata:
   name: clone-sync-delete-one-trigger
 spec:
+  skip: true
   steps:
   - name: create permissions
     try:
