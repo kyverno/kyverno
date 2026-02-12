@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PR Spam Detection
+
+# Runs when a new PR is opened to check if the author already has too many open PRs.
+# If the author has 3 or more open PRs, the new one is labelled as spam.
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-open-pr-limit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count author open PRs and label if spam
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const maxOpenPRs = 3;
+            const author = context.payload.pull_request.user.login;
+            const prNumber = context.payload.pull_request.number;
+
+            // Fetch all open PRs by the same author in this repo
+            const { data: openPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'created',
+              direction: 'desc',
+              per_page: 100,
+            });
+
+            const authorPRs = openPRs.filter(pr => pr.user.login === author);
+
+            core.info(`Author "${author}" has ${authorPRs.length} open PR(s) (limit: ${maxOpenPRs}).`);
+
+            if (authorPRs.length > maxOpenPRs) {
+              core.warning(
+                `PR #${prNumber} by "${author}" exceeds the open-PR limit ` +
+                `(${authorPRs.length}/${maxOpenPRs}). Labelling as spam.`
+              );
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['spam'],
+              });
+            }
