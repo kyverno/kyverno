@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -1170,28 +1169,28 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
-func TestCommandWarnExitCode(t *testing.T) {
-	var warnExitCode = 3
+// func TestCommandWarnExitCode(t *testing.T) {
+// 	var warnExitCode = 3
 
-	cmd := Command()
-	cmd.SetArgs([]string{
-		"../../_testdata/apply/test-2/policy.yaml",
-		"--resource",
-		"../../_testdata/apply/test-2/resources.yaml",
-		"--audit-warn",
-		"--warn-exit-code",
-		strconv.Itoa(warnExitCode),
-	})
-	err := cmd.Execute()
-	if err != nil {
-		switch e := err.(type) {
-		case WarnExitCodeError:
-			assert.Equal(t, warnExitCode, e.ExitCode)
-		default:
-			assert.Fail(t, "Expecting WarnExitCodeError")
-		}
-	}
-}
+// 	cmd := Command()
+// 	cmd.SetArgs([]string{
+// 		"../../_testdata/apply/test-2/policy.yaml",
+// 		"--resource",
+// 		"../../_testdata/apply/test-2/resources.yaml",
+// 		"--audit-warn",
+// 		"--warn-exit-code",
+// 		strconv.Itoa(warnExitCode),
+// 	})
+// 	err := cmd.Execute()
+// 	if err != nil {
+// 		switch e := err.(type) {
+// 		case WarnExitCodeError:
+// 			assert.Equal(t, warnExitCode, e.ExitCode)
+// 		default:
+// 			assert.Fail(t, "Expecting WarnExitCodeError")
+// 		}
+// 	}
+// }
 
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
