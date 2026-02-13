@@ -83,6 +83,58 @@ func Test_Apply(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
+				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
+				exceptionsWithInPolicies: true,
+				PolicyReport:             true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
+				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
+				exceptionsWithInResources: true,
+				PolicyReport:              true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
+				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
+				exceptionsWithInResources: true,
+				exceptionsWithInPolicies:  true,
+				PolicyReport:              true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  2,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
