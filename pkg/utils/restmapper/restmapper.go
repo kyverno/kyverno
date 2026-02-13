@@ -33,6 +33,17 @@ func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 		if err != nil {
 			return nil, err
 		}
+		if processor != nil {
+			// there's an initialized crd processor but it wasn't passed a crd
+			if crdProcessorApiGroupResources := processor.GetResourceGroup(); crdProcessorApiGroupResources != nil {
+				apiGroupResources = append(apiGroupResources, crdProcessorApiGroupResources)
+			}
+		}
+
+		originalApiGroupResources, err := data.APIGroupResources()
+		if err != nil {
+			return nil, err
+		}
 		apiGroupResources1 := processor.GetResourceGroup()
 		if apiGroupResources1 != nil {
 			apiGroupResources = append(apiGroupResources, apiGroupResources1)
@@ -42,6 +53,7 @@ func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 			return nil, err
 		}
 		apiGroupResources = append(apiGroupResources, apiGroupResources2...)
+		apiGroupResources = append(apiGroupResources, originalApiGroupResources...)
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	}
 	return restMapper, nil

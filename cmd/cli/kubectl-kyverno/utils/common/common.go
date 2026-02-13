@@ -394,6 +394,9 @@ func addResourceGroup(resource *restmapper.APIGroupResources) error {
 	if err != nil {
 		return err
 	}
+	if processor == nil {
+		panic("adding a resource group to a nil crd processor. exiting")
+	}
 	processor.AddResourceGroup(resource)
 	return nil
 }
