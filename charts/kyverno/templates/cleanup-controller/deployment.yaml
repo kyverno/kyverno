@@ -15,6 +15,9 @@ metadata:
   {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+    {{- with .Values.cleanupController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.cleanupController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -134,6 +137,11 @@ spec:
             {{- if not .Values.cleanupController.metering.disabled }}
             - --otelConfig={{ .Values.cleanupController.metering.config }}
             - --metricsPort={{ .Values.cleanupController.metering.port }}
+            {{- if .Values.cleanupController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.cleanupController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.cleanupController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -221,8 +229,11 @@ spec:
             defaultMode: 0444
             sources:
               - serviceAccountToken:
-                  expirationSeconds: 3607
+                  expirationSeconds: {{ .Values.cleanupController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                   path: token
+                  {{- with .Values.cleanupController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

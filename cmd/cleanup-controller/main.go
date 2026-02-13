@@ -217,7 +217,7 @@ func main() {
 			nil,
 		)
 
-		restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+		restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create RESTMapper")
 			os.Exit(1)

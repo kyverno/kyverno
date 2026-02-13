@@ -48,6 +48,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -97,6 +98,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
+	if p.NamespaceCache == nil {
+		p.NamespaceCache = make(map[string]*unstructured.Unstructured)
+	}
 	policyExceptionLister := &policyExceptionLister{
 		exceptions: p.PolicyExceptions,
 	}
@@ -233,7 +237,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client, !p.Cluster)
+	restMapper, err := utils.GetRESTMapper(p.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -321,6 +325,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
+				if len(r.Rules) == 0 {
+					continue
+				}
 				patched := *reps.Resource
 				if reps.PatchedResource != nil {
 					patched = *reps.PatchedResource
@@ -395,8 +402,24 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				}
 			}
+
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
@@ -424,6 +447,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
+				if len(r.Rules) == 0 {
+					continue
+				}
 				response := engineapi.EngineResponse{
 					Resource: *reps.Resource,
 					PolicyResponse: engineapi.PolicyResponse{
@@ -754,18 +780,17 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		filename = response.Policy().GetName() + "-generated"
 	}
 
-	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
-	if err != nil {
-		return err
-	}
-
-	if !p.MutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+	if p.MutateLogPathIsDir {
+		file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
 		if err != nil {
 			return err
 		}
-		file = f
+	} else {
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
+		file, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return err
+		}
 	}
 	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
 		return err
@@ -796,4 +821,22 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	}
 
 	return openapiclient.NewComposite(clients...)
+}
+
+func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
+	kindPrefix := strings.ToLower(kind)
+
+	for _, newVp := range p.ValidatingPolicies {
+		resRules := newVp.GetSpec().MatchConstraints.ResourceRules
+		if resRules != nil {
+			for _, r := range resRules {
+				for _, newR := range r.Resources {
+					if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+						return newR, nil
+					}
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to get resource from %s", kind)
 }

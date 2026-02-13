@@ -8,6 +8,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+    {{- with .Values.backgroundController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.backgroundController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -118,6 +121,11 @@ spec:
             {{- if not .Values.backgroundController.metering.disabled }}
             - --otelConfig={{ .Values.backgroundController.metering.config }}
             - --metricsPort={{ .Values.backgroundController.metering.port }}
+            {{- if .Values.backgroundController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.backgroundController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.backgroundController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -138,6 +146,7 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
+              "controllerRuntimeMetrics"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
@@ -216,8 +225,11 @@ spec:
           defaultMode: 0444
           sources:
             - serviceAccountToken:
-                expirationSeconds: 3607
+                expirationSeconds: {{ .Values.backgroundController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                 path: token
+                {{- with .Values.backgroundController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                audience: {{ . }}
+                {{- end }}
             - configMap:
                 name: kube-root-ca.crt
                 items:

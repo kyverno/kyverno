@@ -129,9 +129,8 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
-	spec := policy.Policy.GetValidatingPolicySpec()
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
+		matches, err := e.matchPolicy(policy.CompiledPolicy.MatchConstraints(), attr, namespace)
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
 			return response
