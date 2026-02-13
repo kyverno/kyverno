@@ -7,10 +7,10 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
@@ -27,11 +27,16 @@ import (
 type Policy struct {
 	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -43,7 +48,7 @@ func (p *Policy) Evaluate(
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
-	case policiesv1beta1.EvaluationModeJSON:
+	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
@@ -111,7 +116,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}
@@ -152,6 +157,10 @@ func (p *Policy) evaluateWithData(
 				} else {
 					message = msg
 				}
+			}
+			// Add default message if empty
+			if message == "" {
+				message = fmt.Sprintf("CEL expression validation failed at index %d", index)
 			}
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {
