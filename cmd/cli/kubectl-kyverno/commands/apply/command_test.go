@@ -10,11 +10,64 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// fakeCloner returns a CloneFunc that populates the provided billy.Filesystem
+// with files from a local fixture directory instead of cloning over the network.
+// This allows tests to exercise the full git-URL policy loading code path
+// (URL parsing, branch extraction, filesystem listing, policy loading)
+// without requiring network access.
+func fakeCloner(t *testing.T, fixtureDir string) func(string, billy.Filesystem, string, http.BasicAuth) (*git.Repository, error) {
+	t.Helper()
+	return func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+		return nil, copyFixturesToFS(t, fixtureDir, "/", fs)
+	}
+}
+
+// copyFixturesToFS recursively copies files from a local directory into a billy.Filesystem.
+func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.Filesystem) error {
+	t.Helper()
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return fmt.Errorf("failed to read fixture directory %s: %w", srcDir, err)
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		destPath := filepath.Join(destPrefix, entry.Name())
+		if entry.IsDir() {
+			if err := fs.MkdirAll(destPath, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+			}
+			if err := copyFixturesToFS(t, srcPath, destPath, fs); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return fmt.Errorf("failed to read fixture file %s: %w", srcPath, err)
+			}
+			if err := util.WriteFile(fs, destPath, data, 0o644); err != nil {
+				return fmt.Errorf("failed to write file %s to filesystem: %w", destPath, err)
+			}
+		}
+	}
+	return nil
+}
+
+func TestMain(m *testing.M) {
+	log.SetLogger(logr.Discard())
+	m.Run()
+}
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
@@ -362,6 +415,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
+				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -380,6 +434,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
+				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1062,7 +1117,6 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			}},
 		},
 	}
-
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
