@@ -1,7 +1,6 @@
 package data
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -23,7 +22,7 @@ func GetProcessor() (*crdProcessor, error) {
 	procMu.RLock()
 	defer procMu.RUnlock()
 	if processor == nil {
-		return nil, fmt.Errorf("crdProcessor not initialized.")
+		InjectProcessor(NewCRDProcessor(nil))
 	}
 	return processor, nil
 }
