@@ -231,6 +231,10 @@ func (e *engineImpl) handleMutation(
 				results[pol.Policy.GetName()] = response
 			} else if matches {
 				filteredPolicies = append(filteredPolicies, pol)
+			} else {
+				if !matches {
+					results[pol.Policy.GetName()] = response
+				}
 			}
 		}
 	}
