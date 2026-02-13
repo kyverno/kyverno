@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: allow-specific-values
+spec:
+  policyRefs:
+  - name: "mpol-allow-specific-values"
+    kind: MutatingPolicy
+  images:
+  - nginx:latest
+  - busybox:latest
+  allowedValues:
+  - FOO
+  - BAR

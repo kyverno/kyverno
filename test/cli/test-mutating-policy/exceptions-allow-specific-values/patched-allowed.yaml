@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: test
+    extraCapsAllowed: "true"
+  name: pod-allowed-image-allowed-cap
+  namespace: default
+spec:
+  containers:
+  - image: nginx:latest
+    name: nginx
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - FOO
+        drop:
+        - ALL

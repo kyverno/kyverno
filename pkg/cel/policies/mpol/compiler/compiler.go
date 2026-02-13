@@ -63,6 +63,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 				cel.Variable(compiler.ImagesKey, image.ImageType),
 				cel.Variable(compiler.ResourceKey, resource.ContextType),
+				cel.Variable(compiler.ExceptionsKey, cel.DynType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
 				globalcontext.Lib(image.Latest()),
