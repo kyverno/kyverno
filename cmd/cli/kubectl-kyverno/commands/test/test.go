@@ -203,19 +203,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 		}
 
+		dClient, err = cl.DClient(allObjects)
+		if err != nil {
+			return nil, err
+		}
+
 		cmResolver, err = cluster.NewConfigMapResolver(dClient)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	dClient, err = cl.DClient(allObjects)
-	if err != nil {
-		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
-		if err != nil {
-			return nil, err
-		}
-		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	}
 
 	// exceptions
@@ -341,7 +337,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
@@ -365,6 +361,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				false,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -383,6 +380,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -419,7 +417,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
@@ -442,6 +440,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				false,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
@@ -460,6 +459,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
@@ -495,6 +495,7 @@ func applyImageValidatingPolicies(
 	f billy.Filesystem,
 	contextPath string,
 	continueOnFail bool,
+	isFake bool,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -511,11 +512,11 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
 	if err != nil {
 		return nil, err
 	}
@@ -622,18 +623,19 @@ func applyDeletingPolicies(
 	registryAccess bool,
 	f billy.Filesystem,
 	contextPath string,
+	isFake bool,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
 
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
 
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
 	if err != nil {
 		return nil, err
 	}

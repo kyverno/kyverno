@@ -21,5 +21,4 @@ spec:
             policy ivpol-sample -> resource default/StatefulSet/bad-statefulset failed:
             1 - ivpol-sample failed to verify image with notary cert
 
-
             pass: 1, fail: 1, warn: 0, error: 0, skip: 1

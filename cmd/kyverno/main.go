@@ -308,21 +308,21 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(policystatuscontroller.ControllerName, policyStatusController, policystatuscontroller.Workers))
 
-	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-	generateMAPs := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-	if generateVAPs || generateMAPs {
+	vapsRegistered, _ := admissionpolicy.IsValidatingAdmissionPolicyRegistered(kubeClient)
+	mapsRegistered, _ := admissionpolicy.IsMutatingAdmissionPolicyRegistered(kubeClient)
+	if vapsRegistered || mapsRegistered {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-		if generateVAPs {
+		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 		}
 
 		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
-		if generateMAPs {
+		if mapsRegistered {
 			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
 			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
 		}
@@ -595,10 +595,11 @@ func main() {
 			internal.LeaderElectionRetryPeriod(),
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
-				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
+				// NOTE: We intentionally reuse the outer-scope informer factories (kubeInformer, kyvernoInformer)
+				// rather than creating new ones here. This ensures webhook handlers and webhook controller
+				// share the same informer caches, preventing split-brain policy enforcement gaps.
+				// Controllers still stop on leadership loss because they use ctx (leader context).
 				leaderControllers, warmup, err := createrLeaderControllers(
 					admissionReports,
 					serverIP,
@@ -626,8 +627,11 @@ func main() {
 					logger.Error(err, "failed to create leader controllers")
 					os.Exit(1)
 				}
-				// start informers and wait for cache sync
-				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				// Ensure informers are synced before starting leader controllers.
+				// Informers were already started earlier, but this ensures any newly registered
+				// handlers from leader controller creation have received initial data.
+				// Note: Informers remain running after leadership loss (shared with webhook handlers);
+				// only controllers stop because they use ctx (leader context).
 				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)

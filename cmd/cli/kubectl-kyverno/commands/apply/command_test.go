@@ -10,10 +10,64 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// fakeCloner returns a CloneFunc that populates the provided billy.Filesystem
+// with files from a local fixture directory instead of cloning over the network.
+// This allows tests to exercise the full git-URL policy loading code path
+// (URL parsing, branch extraction, filesystem listing, policy loading)
+// without requiring network access.
+func fakeCloner(t *testing.T, fixtureDir string) func(string, billy.Filesystem, string, http.BasicAuth) (*git.Repository, error) {
+	t.Helper()
+	return func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+		return nil, copyFixturesToFS(t, fixtureDir, "/", fs)
+	}
+}
+
+// copyFixturesToFS recursively copies files from a local directory into a billy.Filesystem.
+func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.Filesystem) error {
+	t.Helper()
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return fmt.Errorf("failed to read fixture directory %s: %w", srcDir, err)
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		destPath := filepath.Join(destPrefix, entry.Name())
+		if entry.IsDir() {
+			if err := fs.MkdirAll(destPath, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+			}
+			if err := copyFixturesToFS(t, srcPath, destPath, fs); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return fmt.Errorf("failed to read fixture file %s: %w", srcPath, err)
+			}
+			if err := util.WriteFile(fs, destPath, data, 0o644); err != nil {
+				return fmt.Errorf("failed to write file %s to filesystem: %w", destPath, err)
+			}
+		}
+	}
+	return nil
+}
+
+func TestMain(m *testing.M) {
+	log.SetLogger(logr.Discard())
+	m.Run()
+}
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
@@ -361,6 +415,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
+				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -379,6 +434,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				GitBranch:     "main",
 				PolicyReport:  true,
+				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -715,6 +771,38 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-pass.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -772,6 +860,38 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 					Pass:  1,
 					Fail:  1,
 					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/good-pod.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
 					Error: 0,
 					Warn:  0,
 				},
@@ -997,7 +1117,6 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			}},
 		},
 	}
-
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
@@ -1140,4 +1259,58 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+
+func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+
+	// Check the responses for the correct message
+	found := false
+	var actualMessage string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if rule.Status() == engineapi.RuleStatusFail {
+				found = true
+				actualMessage = rule.Message()
+				assert.Contains(t, actualMessage, "CEL expression validation failed at index",
+					"ValidatingPolicy should show default message when message field is empty")
+				assert.NotEmpty(t, actualMessage, "Message should not be empty")
+			}
+		}
+	}
+	assert.True(t, found, "Should have at least one failed rule")
+}
+
+func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+
+	// Check the responses for the correct message
+	found := false
+	var actualMessage string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if rule.Status() == engineapi.RuleStatusFail {
+				found = true
+				actualMessage = rule.Message()
+				assert.Contains(t, actualMessage, "CEL expression validation failed at index",
+					"ImageValidatingPolicy should show default message when message field is empty")
+				assert.NotEmpty(t, actualMessage, "Message should not be empty")
+			}
+		}
+	}
+	assert.True(t, found, "Should have at least one failed rule")
 }
