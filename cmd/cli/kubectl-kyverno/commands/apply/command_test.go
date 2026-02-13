@@ -14,10 +14,12 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // fakeCloner returns a CloneFunc that populates the provided billy.Filesystem
@@ -60,6 +62,9 @@ func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.F
 		}
 	}
 	return nil
+func TestMain(m *testing.M) {
+	log.SetLogger(logr.Discard())
+	m.Run()
 }
 
 func Test_Apply(t *testing.T) {
@@ -1110,7 +1115,6 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			}},
 		},
 	}
-
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
