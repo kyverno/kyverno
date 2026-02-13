@@ -800,3 +800,19 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 
 	return openapiclient.NewComposite(clients...)
 }
+
+func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
+	kindPrefix := strings.ToLower(kind)
+
+	for _, newVp := range p.ValidatingPolicies {
+		resRules := newVp.GetSpec().MatchConstraints.ResourceRules
+		for _, r := range resRules {
+			for _, newR := range r.Resources {
+				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+					return newR, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to get resource from %s", kind)
+}
