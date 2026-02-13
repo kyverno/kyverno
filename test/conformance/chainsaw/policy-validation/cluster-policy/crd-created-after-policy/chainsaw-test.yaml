@@ -3,6 +3,7 @@ kind: Test
 metadata:
   name: clusterpolicy
 spec:
+  concurrent: false
   description: >-
     This test verifies that a ClusterPolicy using wildcard resource matching (*/*/*)
     correctly enforces validation rules on custom resources whose CRD is created
