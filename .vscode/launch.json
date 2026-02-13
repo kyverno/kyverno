@@ -51,7 +51,8 @@
             "program": "${workspaceFolder}/cmd/background-controller",
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--controllerRuntimeMetricsAddress=0"
+                "--controllerRuntimeMetricsAddress=0",
+                "--metricsPort=8001"
             ],
             "env": {
                 "KYVERNO_NAMESPACE": "kyverno",

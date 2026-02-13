@@ -1,6 +1,6 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.global.templating.enabled -}}
-{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
+{{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -92,8 +92,11 @@ spec:
             defaultMode: 0444
             sources:
               - serviceAccountToken:
-                  expirationSeconds: 3607
+                  expirationSeconds: {{ .Values.webhooksCleanup.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                   path: token
+                  {{- with .Values.webhooksCleanup.serviceAccount.projectedServiceAccountToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

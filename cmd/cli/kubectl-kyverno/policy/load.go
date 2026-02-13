@@ -26,8 +26,10 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -168,6 +170,13 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
+			// Check if this is a List object and handle it explicitly
+			if gvk.Kind == "List" && gvk.Version == "v1" {
+				if err := handleListItems(document, path, results); err != nil {
+					results.addError(path, fmt.Errorf("failed to process List: %w", err))
+				}
+				continue
+			}
 			msg := err.Error()
 			if strings.Contains(msg, "Invalid value: value provided for unknown field") {
 				return nil, err
@@ -176,108 +185,160 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 			results.addError(path, err)
 			continue
 		}
-		switch gvk {
-		case policyV1, policyV2:
-			typed, err := convert.To[kyvernov1.Policy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.Policies = append(results.Policies, typed)
-		case clusterPolicyV1, clusterPolicyV2:
-			typed, err := convert.To[kyvernov1.ClusterPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.Policies = append(results.Policies, typed)
-		case vapV1:
-			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.VAPs = append(results.VAPs, *typed)
-		case vapBindingV1:
-			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.VAPBindings = append(results.VAPBindings, *typed)
-		case vpV1alpha1, vpV1beta1, vpV1:
-			typed, err := convert.To[policiesv1beta1.ValidatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
-		case nvpV1beta1, nvpV1:
-			typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
-		case ivpV1alpha1, ivpV1beta1, ivpV1:
-			typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
-		case nivpV1beta1, nivpV1:
-			typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
-		case mapV1alpha1, mapV1beta1:
-			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.MAPs = append(results.MAPs, *typed)
-		case mapBindingV1alpha1, mapBindingV1beta1:
-			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.MAPBindings = append(results.MAPBindings, *typed)
-		case gpsV1alpha1, gpsV1beta1, gpsV1:
-			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
-		case ngpsV1beta1, ngpsV1:
-			typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
-		case dpV1alpha1, dpV1beta1, dpV1:
-			typed, err := convert.To[policiesv1beta1.DeletingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.DeletingPolicies = append(results.DeletingPolicies, typed)
-		case ndpV1beta1, ndpV1:
-			typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.DeletingPolicies = append(results.DeletingPolicies, typed)
-		case mpV1alpha1, mpV1beta1, mpV1:
-			typed, err := convert.To[policiesv1beta1.MutatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.MutatingPolicies = append(results.MutatingPolicies, typed)
-		case nmpV1beta1, nmpV1:
-			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](untyped)
-			if err != nil {
-				return nil, err
-			}
-			results.MutatingPolicies = append(results.MutatingPolicies, typed)
-		default:
+
+		// Process regular documents (non-List)
+		if err := processDocumentItem(gvk, &untyped, results); err != nil {
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
 	}
 	return results, nil
+}
+
+// handleListItems processes a v1.List object by extracting and processing its items
+func handleListItems(document []byte, path string, results *LoaderResults) error {
+	var jsonData []byte
+	var parseErr error
+
+	var listUnstructured unstructured.Unstructured
+	if parseErr = listUnstructured.UnmarshalJSON(document); parseErr != nil {
+		if jsonData, parseErr = yaml.YAMLToJSON(document); parseErr == nil {
+			parseErr = listUnstructured.UnmarshalJSON(jsonData)
+		}
+	}
+
+	if parseErr != nil {
+		return parseErr
+	}
+
+	listItems, found, listErr := unstructured.NestedSlice(listUnstructured.Object, "items")
+	if listErr != nil {
+		return listErr
+	}
+	if !found || len(listItems) == 0 {
+		return nil
+	}
+
+	for i, item := range listItems {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			continue
+		}
+
+		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
+		itemGVK := itemUnstructured.GroupVersionKind()
+
+		if err := processDocumentItem(itemGVK, itemUnstructured, results); err != nil {
+			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
+		}
+	}
+
+	return nil
+}
+
+// processDocumentItem handles the processing of individual documents based on their GVK
+func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+	switch gvk {
+	case policyV1, policyV2:
+		typed, err := convert.To[kyvernov1.Policy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.Policies = append(results.Policies, typed)
+	case clusterPolicyV1, clusterPolicyV2:
+		typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.Policies = append(results.Policies, typed)
+	case vapV1:
+		typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.VAPs = append(results.VAPs, *typed)
+	case vapBindingV1:
+		typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](*untyped)
+		if err != nil {
+			return err
+		}
+		results.VAPBindings = append(results.VAPBindings, *typed)
+	case vpV1alpha1, vpV1beta1, vpV1:
+		typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+	case nvpV1beta1, nvpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+	case ivpV1alpha1, ivpV1beta1, ivpV1:
+		typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case nivpV1beta1, nivpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case mapV1alpha1, mapV1beta1:
+		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPs = append(results.MAPs, *typed)
+	case mapBindingV1alpha1, mapBindingV1beta1:
+		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPBindings = append(results.MAPBindings, *typed)
+	case gpsV1alpha1, gpsV1beta1, gpsV1:
+		typed, err := convert.To[policiesv1beta1.GeneratingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+	case ngpsV1beta1, ngpsV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+	case dpV1alpha1, dpV1beta1, dpV1:
+		typed, err := convert.To[policiesv1beta1.DeletingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.DeletingPolicies = append(results.DeletingPolicies, typed)
+	case ndpV1beta1, ndpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.DeletingPolicies = append(results.DeletingPolicies, typed)
+	case mpV1alpha1, mpV1beta1, mpV1:
+		typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MutatingPolicies = append(results.MutatingPolicies, typed)
+	case nmpV1beta1, nmpV1:
+		typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MutatingPolicies = append(results.MutatingPolicies, typed)
+	default:
+		return fmt.Errorf("policy type not supported %s", gvk)
+	}
+	return nil
 }
 
 func fsLoad(loader loader, path string) (*LoaderResults, error) {

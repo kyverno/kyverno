@@ -136,3 +136,76 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestKubectlValidateLoader_ListHandling(t *testing.T) {
+	tests := []struct {
+		name             string
+		path             string
+		expectedPolicies int
+		expectedVAPs     int
+		expectedErrors   int
+		wantErr          bool
+	}{
+		{
+			name:             "list-single-clusterpolicy",
+			path:             "testdata/list-single-clusterpolicy.yaml",
+			expectedPolicies: 1,
+			expectedVAPs:     0,
+			expectedErrors:   0,
+			wantErr:          false,
+		},
+		{
+			name:             "list-multiple-policies",
+			path:             "testdata/list-multiple-policies.yaml",
+			expectedPolicies: 2,
+			expectedVAPs:     0,
+			expectedErrors:   0,
+			wantErr:          false,
+		},
+		{
+			name:             "list-empty",
+			path:             "testdata/list-empty.yaml",
+			expectedPolicies: 0,
+			expectedVAPs:     0,
+			expectedErrors:   0,
+			wantErr:          false,
+		},
+		{
+			name:             "list-mixed-items",
+			path:             "testdata/list-mixed-items.yaml",
+			expectedPolicies: 1,
+			expectedVAPs:     0,
+			expectedErrors:   1,
+			wantErr:          false,
+		},
+		{
+			name:             "list-vaps",
+			path:             "testdata/list-vaps.yaml",
+			expectedPolicies: 0,
+			expectedVAPs:     1,
+			expectedErrors:   0,
+			wantErr:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := Load(nil, "", tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if results != nil {
+				assert.Equal(t, tt.expectedPolicies, len(results.Policies), "policy count mismatch")
+				assert.Equal(t, tt.expectedVAPs, len(results.VAPs), "VAP count mismatch")
+				assert.Equal(t, tt.expectedErrors, len(results.NonFatalErrors), "error count mismatch")
+				for i, policy := range results.Policies {
+					t.Logf("Policy %d: %s/%s", i, policy.GetKind(), policy.GetName())
+				}
+				for i, vap := range results.VAPs {
+					t.Logf("VAP %d: %s", i, vap.Name)
+				}
+			}
+		})
+	}
+}
