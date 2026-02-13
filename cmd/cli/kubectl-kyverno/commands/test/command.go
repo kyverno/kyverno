@@ -200,7 +200,7 @@ func testCommandExecute(
 func checkResult(
 	test v1alpha1.TestResult,
 	fs billy.Filesystem,
-	resoucePath string,
+	resourcePath string,
 	response engineapi.EngineResponse,
 	rule engineapi.RuleResponse,
 	actualResource unstructured.Unstructured,
@@ -209,7 +209,7 @@ func checkResult(
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -224,7 +224,7 @@ func checkResult(
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}

@@ -34,6 +34,9 @@ func (m *mockConfiguration) OnChanged(func())       {}
 func (m *mockConfiguration) GetUpdateRequestThreshold() int64 {
 	return 0
 }
+func (m *mockConfiguration) GetMaxContextSize() int64 {
+	return config.DefaultMaxContextSize
+}
 
 func (m *mockConfiguration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
 	return m.excluded

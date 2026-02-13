@@ -1,5 +1,5 @@
 {{- $name := "disallow-capabilities" }}
-{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (ne (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 {{- include "kyverno-policies.supportedKyvernoCheck" (dict "top" . "ver" ">= 1.6.0-0") }}
 apiVersion: kyverno.io/v1
 kind: {{ .Values.policyKind }}

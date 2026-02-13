@@ -1,17 +1,19 @@
 package webhook
 
 import (
+	"context"
 	"maps"
 	"path"
 	"slices"
 
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -183,7 +185,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			if p.GetTimeoutSeconds() != nil {
 				webhook.TimeoutSeconds = p.GetTimeoutSeconds()
 			}
-			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
+			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
@@ -333,7 +335,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhookRules = append(webhookRules, match.RuleWithOperations)
 				}
 			}
-			if p.GetFailurePolicy() == admissionregistrationv1.Ignore {
+			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhookIgnore.Rules = append(webhookIgnore.Rules, webhookRules...)
 			} else {
 				webhookFail.Rules = append(webhookFail.Rules, webhookRules...)

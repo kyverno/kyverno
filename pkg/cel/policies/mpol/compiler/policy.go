@@ -9,7 +9,7 @@ import (
 	cel "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,8 +32,13 @@ import (
 )
 
 type Policy struct {
-	evaluator  mutating.PolicyEvaluator
-	exceptions []compiler.Exception
+	evaluator        mutating.PolicyEvaluator
+	exceptions       []compiler.Exception
+	matchConstraints *admissionregistrationv1.MatchResources
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 type compositionContext struct {

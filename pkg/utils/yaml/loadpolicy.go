@@ -3,8 +3,8 @@ package yaml
 import (
 	"fmt"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -133,11 +133,15 @@ func parse(obj unstructured.Unstructured) (
 		return nil, nil, nil, nil, out, nil, nil, err
 	case "MutatingAdmissionPolicy":
 		out, err := parseMutatingAdmissionPolicy(obj)
-		fmt.Println("DEBUG: inside parse for MAP, error:", err, "object kind:", obj.GetKind())
+		if err != nil {
+			log.V(3).Info("error parsing MutatingAdmissionPolicy", "error", err, "kind", obj.GetKind())
+		}
 		return nil, nil, nil, nil, nil, out, nil, err
 	case "MutatingAdmissionPolicyBinding":
 		out, err := parseMutatingAdmissionPolicyBinding(obj)
-		fmt.Println("DEBUG: inside parse for MAPBinding, error:", err, "object kind:", obj.GetKind())
+		if err != nil {
+			log.V(3).Info("error parsing MutatingAdmissionPolicyBinding", "error", err, "kind", obj.GetKind())
+		}
 		return nil, nil, nil, nil, nil, nil, out, err
 	}
 	return nil, nil, nil, nil, nil, nil, nil, nil
@@ -219,7 +223,7 @@ func parseMutatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregi
 	var out admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	if err := runtime.DefaultUnstructuredConverter.
 		FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		fmt.Println("DEBUG: failed to convert MAP:", err)
+		log.V(3).Info("failed to convert MutatingAdmissionPolicy", "error", err)
 		return nil, fmt.Errorf("failed to decode MutatingAdmissionPolicy: %w", err)
 	}
 	if out.Kind == "" {

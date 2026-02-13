@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policiesv1beta1 "github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"

@@ -2,7 +2,6 @@ apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedImageValidatingPolicy
 metadata:
   name: ivpol-autogen-sample
-  namespace: test-nivpol
 spec:
   webhookConfiguration:
     timeoutSeconds: 20

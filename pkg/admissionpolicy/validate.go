@@ -189,7 +189,7 @@ func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPol
 		return er, nil
 	}
 
-	vapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	vapLogger.V(3).Info("applying validatingadmissionpolicy to resource", "policy", policy.GetName(), "resource", resPath)
 	er, err = validateResource(policy, nil, resource, nil, namespace, a)
 	if err != nil {
 		vapLogger.Error(err, "failed to validate resource with validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)

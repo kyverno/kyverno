@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -50,8 +50,7 @@ type processor struct {
 	context       libs.Context
 	statusControl common.StatusControlInterface
 
-	reportsConfig reportutils.ReportingConfiguration
-	eventGen      event.Interface
+	eventGen event.Interface
 }
 
 func NewProcessor(client dclient.Interface,
@@ -59,7 +58,6 @@ func NewProcessor(client dclient.Interface,
 	mpolEngine mpolengine.Engine,
 	mapper meta.RESTMapper,
 	context libs.Context,
-	reportsConfig reportutils.ReportingConfiguration,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
 ) *processor {
@@ -70,7 +68,6 @@ func NewProcessor(client dclient.Interface,
 		mapper:        mapper,
 		context:       context,
 		statusControl: statusControl,
-		reportsConfig: reportsConfig,
 		eventGen:      eventGen,
 	}
 }
@@ -185,7 +182,7 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	events := webhookutils.GenerateEvents(allEngineResponses, false)
 	p.eventGen.Add(events...)
 
-	if !p.reportsConfig.MutateExistingReportsEnabled() {
+	if !reportutils.ReportingCfg.MutateExistingReportsEnabled() {
 		return nil
 	}
 

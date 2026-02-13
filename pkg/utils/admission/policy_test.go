@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1beta1"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

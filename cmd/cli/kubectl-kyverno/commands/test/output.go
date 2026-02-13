@@ -174,7 +174,7 @@ func printTestResult(
 	rc *resultCounts,
 	resultsTable *table.Table,
 	fs billy.Filesystem,
-	resoucePath string,
+	resourcePath string,
 	removeColor bool,
 ) error {
 	testCount := 1
@@ -243,21 +243,31 @@ func printTestResult(
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
-					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
+					var (
+						rulesToCheck []engineapi.RuleResponse
+						ruleName     string
+					)
+					if test.Rule == "" {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+					for _, rule := range rulesToCheck {
 						r := response.Resource
+						ruleName = rule.Name()
 
 						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
 							if test.IsMutatingPolicy {
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, removeColor)
-							if strings.Contains(message, "not found in manifest") {
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 							continue
 						}
@@ -265,10 +275,10 @@ func printTestResult(
 						if test.IsGeneratingPolicy {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
+								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 							continue
@@ -279,22 +289,22 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, removeColor)
-							if strings.Contains(message, "not found in manifest") {
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
 							}
 
 							success := ok || (!ok && test.Result == openreports.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
+								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -332,10 +342,10 @@ func printTestResult(
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, removeColor)
+					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
 					success := ok || (!ok && test.Result == openreports.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -386,14 +396,14 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
-			Rule:      color.Rule(test.Rule),
+			Rule:      color.Rule(ruleName),
 			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
@@ -527,8 +537,9 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 				} else {
 					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n   ]]></system-out>\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
 					}
+					b.WriteString("   ]]></system-out>\n")
 				}
 				b.WriteString("  </testcase>\n")
 			}
