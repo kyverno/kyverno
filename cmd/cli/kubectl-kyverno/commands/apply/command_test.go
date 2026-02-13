@@ -1069,7 +1069,6 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 			}},
 		},
 	}
-
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
