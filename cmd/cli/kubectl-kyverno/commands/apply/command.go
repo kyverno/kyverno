@@ -93,8 +93,8 @@ type ApplyCommandConfig struct {
 	Exception                 []string
 	ContinueOnFail            bool
 	inlineExceptions          bool
-	exceptionsWithInResources bool
-	exceptionsWithInPolicies  bool
+	exceptionsWithinResources bool
+	exceptionsWithinPolicies  bool
 	GenerateExceptions        bool
 	GeneratedExceptionTTL     time.Duration
 	JSONPaths                 []string
@@ -223,8 +223,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
-	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithInResources, "exceptions-within-resources", "", false, "Evaluate policy exceptions from the resources path")
-	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithInPolicies, "exceptions-within-policies", "", false, "Evaluate policy exceptions from the policies path")
+	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithinResources, "exceptions-within-resources", "", false, "Evaluate policy exceptions from the resources path")
+	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithinPolicies, "exceptions-within-policies", "", false, "Evaluate policy exceptions from the policies path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
@@ -318,7 +318,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var exceptions []*kyvernov2.PolicyException
 	var celexceptions []*policiesv1beta1.PolicyException
-	if c.exceptionsWithInResources || c.inlineExceptions {
+	if c.exceptionsWithinResources || c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
 		results, err := exception.Load(c.Exception...)
@@ -331,7 +331,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 	}
 
-	if c.exceptionsWithInPolicies {
+	if c.exceptionsWithinPolicies {
 		exceptions = append(exceptions, polexs...)
 		celexceptions = append(celexceptions, celpolexs...)
 	}

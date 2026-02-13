@@ -85,7 +85,7 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
 				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
-				exceptionsWithInPolicies: true,
+				exceptionsWithinPolicies: true,
 				PolicyReport:             true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -102,7 +102,7 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
 				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
-				exceptionsWithInResources: true,
+				exceptionsWithinResources: true,
 				PolicyReport:              true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -119,8 +119,8 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
 				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
-				exceptionsWithInResources: true,
-				exceptionsWithInPolicies:  true,
+				exceptionsWithinResources: true,
+				exceptionsWithinPolicies:  true,
 				PolicyReport:              true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
