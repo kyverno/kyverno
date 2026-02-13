@@ -165,7 +165,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	restMapper, err := restmapper.GetRESTMapper(c.client, false)
+	restMapper, err := restmapper.GetRESTMapper(c.client)
 	if err != nil {
 		return err
 	}
