@@ -229,7 +229,7 @@ func (rf *ResourceFetcher) getKindsFromPolicy(
 	matchResources *admissionregistrationv1.MatchResources,
 	info *resourceTypeInfo,
 ) {
-	restMapper, err := utils.GetRESTMapper(rf.Client, false)
+	restMapper, err := utils.GetRESTMapper(rf.Client)
 	if err != nil {
 		log.Log.V(3).Info("failed to get rest mapper", "error", err)
 		return
@@ -356,6 +356,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
+				defer filep.Close()
 				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = resource.GetFileBytes(resourcePath)

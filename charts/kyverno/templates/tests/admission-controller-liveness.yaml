@@ -27,10 +27,13 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      command:
-        - /bin/sh
-        - -c
-        - sleep {{ .Values.test.sleep }} ; curl -v -k https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.service.port }}/health/liveness
+      args:
+        - check-http
+        - --service-name={{ template "kyverno.admission-controller.serviceName" . }}
+        - --namespace={{ template "kyverno.namespace" . }}
+        - --port={{ .Values.admissionController.service.port }}
+        - --path=health/liveness
+        - --https
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -38,5 +41,29 @@ spec:
   {{- with .Values.test.tolerations | default .Values.global.tolerations}}
   tolerations:
     {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+  {{- if not .Values.test.automountServiceAccountToken }}
+  volumes:
+    - name: serviceaccount-token
+      projected:
+        defaultMode: 0444
+        sources:
+          - serviceAccountToken:
+              expirationSeconds: {{ .Values.test.projectedServiceAccountToken.expirationSeconds | default 3600 }}
+              path: token
+              {{- with .Values.test.projectedServiceAccountToken.audience }}
+              audience: {{ . }}
+              {{- end }}
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+                - key: ca.crt
+                  path: ca.crt
+          - downwardAPI:
+              items:
+                - path: namespace
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
   {{- end }}
 {{- end -}}

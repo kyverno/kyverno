@@ -112,7 +112,7 @@ func (e *engine) Generate(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.generateResponse(logger, policyContext)
+		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -151,7 +151,7 @@ func (e *engine) ApplyBackgroundChecks(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.applyBackgroundChecks(logger, policyContext)
+		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -283,7 +283,7 @@ func (e *engine) invokeRuleHandler(
 				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
 				if err != nil {
 					logger.Error(err, "failed to get exceptions")
-					return resource, nil
+					return resource, handlers.WithError(rule, ruleType, "failed to get exceptions", err)
 				}
 				// process handler
 				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader, exceptions)
