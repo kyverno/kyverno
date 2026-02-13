@@ -62,6 +62,8 @@ func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.F
 		}
 	}
 	return nil
+}
+
 func TestMain(m *testing.M) {
 	log.SetLogger(logr.Discard())
 	m.Run()
