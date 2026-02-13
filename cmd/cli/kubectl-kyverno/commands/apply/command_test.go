@@ -10,11 +10,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func TestMain(m *testing.M) {
+	log.SetLogger(logr.Discard())
+	m.Run()
+}
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
