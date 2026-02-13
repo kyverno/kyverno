@@ -67,7 +67,7 @@ func TestGetClient_NilSecretsLister(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := factory.GetClient(context.Background(), tt.creds)
+			_, err := factory.GetClient(context.Background(), tt.creds, "", []string{})
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
