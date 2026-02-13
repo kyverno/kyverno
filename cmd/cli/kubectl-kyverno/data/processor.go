@@ -16,5 +16,5 @@ func InjectProcessor(p *crdProcessor) {
 }
 
 func GetProcessor() *crdProcessor {
-	return processor 
+	return processor
 }
