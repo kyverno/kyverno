@@ -226,6 +226,10 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 					continue
 				}
 				if v.Namespaces == nil {
+					// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
+					if v.NamespaceSelector == nil {
+						return v.Action
+					}
 					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 					if err == nil && hasPass {
 						return v.Action
@@ -272,6 +276,10 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 			continue
 		}
 		if v.Namespaces == nil {
+			// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
+			if v.NamespaceSelector == nil {
+				return v.Action
+			}
 			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
 			if err == nil && hasPass {
 				return v.Action

@@ -1387,3 +1387,96 @@ func TestEngineResponse_GetResourceSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestGetValidationFailureAction_NoOverrides(t *testing.T) {
+	// Test when spec has ValidationFailureAction but no overrides
+	enforce := kyvernov1.ValidationFailureAction("Enforce")
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: enforce,
+		},
+	}
+
+	er := EngineResponse{}.WithPolicy(NewKyvernoPolicy(policy))
+
+	action := er.GetValidationFailureAction()
+	if action != enforce {
+		t.Errorf("expected %v, got %v", enforce, action)
+	}
+}
+
+func TestGetValidationFailureAction_NilNamespaceLabels(t *testing.T) {
+	// Test behavior when namespace labels are nil
+	enforce := kyvernov1.ValidationFailureAction("Enforce")
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: enforce,
+		},
+	}
+
+	er := EngineResponse{
+		namespaceLabels: nil, // explicitly nil
+	}.WithPolicy(NewKyvernoPolicy(policy))
+
+	// Should not panic and return spec-level action
+	action := er.GetValidationFailureAction()
+	if action != enforce {
+		t.Errorf("expected %v, got %v", enforce, action)
+	}
+}
+
+func TestGetValidationFailureAction_EmptyNamespaceLabels(t *testing.T) {
+	// Test behavior when namespace labels are empty map
+	enforce := kyvernov1.ValidationFailureAction("Enforce")
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: enforce,
+		},
+	}
+
+	er := EngineResponse{
+		namespaceLabels: map[string]string{}, // empty map
+	}.WithPolicy(NewKyvernoPolicy(policy))
+
+	action := er.GetValidationFailureAction()
+	if action != enforce {
+		t.Errorf("expected %v, got %v", enforce, action)
+	}
+}
+
+func TestGetValidationFailureAction_RuleLevelOverride(t *testing.T) {
+	// Test that rule-level FailureAction takes precedence
+	specEnforce := kyvernov1.ValidationFailureAction("Enforce")
+	ruleAudit := kyvernov1.ValidationFailureAction("Audit")
+
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: specEnforce,
+			Rules: []kyvernov1.Rule{{
+				Name: "test-rule",
+				Validation: &kyvernov1.Validation{
+					FailureAction: &ruleAudit,
+				},
+			}},
+		},
+	}
+
+	er := EngineResponse{}.WithPolicy(NewKyvernoPolicy(policy))
+
+	action := er.GetValidationFailureAction()
+	if action != ruleAudit {
+		t.Errorf("expected rule-level %v, got %v", ruleAudit, action)
+	}
+}
