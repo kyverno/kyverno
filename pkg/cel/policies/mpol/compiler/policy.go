@@ -171,6 +171,10 @@ func (p *Policy) Evaluate(
 		ctx:             ctx,
 		evaluator:       &p.evaluator,
 		contextProvider: contextProvider,
+		exceptions: map[string]any{
+			"allowedImages": allowedImages,
+			"allowedValues": allowedValues,
+		},
 	}
 
 	if p.evaluator.Matcher != nil {
