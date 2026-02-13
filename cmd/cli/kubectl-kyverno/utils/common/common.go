@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
