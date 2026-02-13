@@ -828,12 +828,10 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 
 	for _, newVp := range p.ValidatingPolicies {
 		resRules := newVp.GetSpec().MatchConstraints.ResourceRules
-		if resRules != nil {
-			for _, r := range resRules {
-				for _, newR := range r.Resources {
-					if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-						return newR, nil
-					}
+		for _, r := range resRules {
+			for _, newR := range r.Resources {
+				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+					return newR, nil
 				}
 			}
 		}
