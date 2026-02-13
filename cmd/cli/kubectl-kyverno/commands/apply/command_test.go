@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -944,129 +945,129 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
-// func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
-// 	testcases := []*TestCase{
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/resource.yaml"},
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  1,
-// 					Fail:  0,
-// 					Skip:  1,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/resource.yaml"},
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  1,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/resource.yaml"},
-// 				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/values.yaml",
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  2,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/resource.yaml"},
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  1,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/resource.yaml"},
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  1,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/resource.yaml"},
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  1,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 		{
-// 			config: ApplyCommandConfig{
-// 				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/policy.yaml"},
-// 				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/resource.yaml"},
-// 				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/values.yaml",
-// 				PolicyReport:  true,
-// 			},
-// 			expectedReports: []openreportsv1alpha1.Report{{
-// 				Summary: openreportsv1alpha1.ReportSummary{
-// 					Pass:  2,
-// 					Fail:  0,
-// 					Skip:  0,
-// 					Error: 0,
-// 					Warn:  0,
-// 				},
-// 			}},
-// 		},
-// 	}
-// 	for _, tc := range testcases {
-// 		t.Run("", func(t *testing.T) {
-// 			verifyTestcase(t, tc, compareSummary)
-// 		})
-// 	}
-// }
+func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/resource.yaml"},
+				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/values.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/resource.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/resource.yaml"},
+				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/values.yaml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
 
 func compareSummary(t *testing.T, expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
 	assert.Equal(t, actual.Pass, expected.Pass, desc)
@@ -1169,28 +1170,28 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
-// func TestCommandWarnExitCode(t *testing.T) {
-// 	var warnExitCode = 3
+func TestCommandWarnExitCode(t *testing.T) {
+	var warnExitCode = 3
 
-// 	cmd := Command()
-// 	cmd.SetArgs([]string{
-// 		"../../_testdata/apply/test-2/policy.yaml",
-// 		"--resource",
-// 		"../../_testdata/apply/test-2/resources.yaml",
-// 		"--audit-warn",
-// 		"--warn-exit-code",
-// 		strconv.Itoa(warnExitCode),
-// 	})
-// 	err := cmd.Execute()
-// 	if err != nil {
-// 		switch e := err.(type) {
-// 		case WarnExitCodeError:
-// 			assert.Equal(t, warnExitCode, e.ExitCode)
-// 		default:
-// 			assert.Fail(t, "Expecting WarnExitCodeError")
-// 		}
-// 	}
-// }
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--audit-warn",
+		"--warn-exit-code",
+		strconv.Itoa(warnExitCode),
+	})
+	err := cmd.Execute()
+	if err != nil {
+		switch e := err.(type) {
+		case WarnExitCodeError:
+			assert.Equal(t, warnExitCode, e.ExitCode)
+		default:
+			assert.Fail(t, "Expecting WarnExitCodeError")
+		}
+	}
+}
 
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
