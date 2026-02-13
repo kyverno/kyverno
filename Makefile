@@ -869,7 +869,7 @@ test-clean: ## Clean tests cache
 test-unit: ## Run unit tests
 test-unit:
 	@echo Running unit tests... >&2
-	@go test -v -parallel 1 -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
+	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
 #############
 # CLI TESTS #
