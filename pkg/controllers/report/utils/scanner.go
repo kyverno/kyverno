@@ -312,7 +312,7 @@ func (s *scanner) ScanResource(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-				s.client.GetKubeClient().CoreV1().Secrets(""),
+				s.client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.BackgroundScan)
 			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), s.mapper, false)
