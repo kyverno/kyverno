@@ -59,15 +59,6 @@ spec:
           variable:
             default: '["true", "false", "false"]'
             jmesPath: 'computeclass.spec.priorities[*].spot'
-      #   - name: ownerReferences
-      #     variable:
-      #       default: []
-      #       jmesPath: (request.object.metadata.ownerReferences || `[]`)[?kind=='Workflow']
-      # preconditions:
-      #   all:
-      #   - key: "{{ ownerReferences | length(@) }}"
-      #     operator: Equals
-      #     value: 0
       validate:
         message: |-
           Spot values: {{spotvalues}}

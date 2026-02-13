@@ -37,7 +37,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			}
 			registryOptions = append(registryOptions, registryclient.WithCredentialProviders(providers...))
 		}
-		if len(creds.Secrets) > 0 {
+		if f.secretsLister != nil && len(creds.Secrets) > 0 {
 			registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(f.secretsLister, creds.Secrets...))
 		}
 		client, err := registryclient.New(registryOptions...)
