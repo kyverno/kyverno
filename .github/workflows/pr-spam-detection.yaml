@@ -24,6 +24,35 @@ jobs:
             const maxOpenPRs = 3;
             const author = context.payload.pull_request.user.login;
             const prNumber = context.payload.pull_request.number;
+            const authorAssociation = context.payload.pull_request.author_association;
+
+            // 1. Exempt trusted repository members
+            const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            if (trustedAssociations.has(authorAssociation)) {
+              core.info(`Skipping spam check: Author has trusted association "${authorAssociation}"`);
+              return;
+            }
+
+            // 2. Exempt Maintainers/Reviewers from community repo
+            try {
+              const files = ['MAINTAINERS.md', 'REVIEWERS.md'];
+              for (const file of files) {
+                const url = `https://raw.githubusercontent.com/kyverno/community/main/${file}`;
+                const response = await fetch(url);
+                if (response.ok) {
+                  const content = await response.text();
+                  // Extract usernames formatted as @username
+                  const matches = content.match(/@([a-zA-Z0-9-]+)/g) || [];
+                  const users = new Set(matches.map(u => u.substring(1)));
+                  if (users.has(author)) {
+                    core.info(`Skipping spam check: Author "${author}" found in community ${file}`);
+                    return;
+                  }
+                }
+              }
+            } catch (err) {
+              core.warning(`Failed to fetch community files: ${err.message}. Proceeding with standard check.`);
+            }
 
             // Fetch all open PRs by the same author in this repo
             const { data: openPRs } = await github.rest.pulls.list({
