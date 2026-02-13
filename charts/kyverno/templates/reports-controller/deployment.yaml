@@ -239,8 +239,11 @@ spec:
           defaultMode: 0444
           sources:
             - serviceAccountToken:
-                expirationSeconds: 3607
+                expirationSeconds: {{ .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                 path: token
+                {{- with .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                audience: {{ . }}
+                {{- end }}
             - configMap:
                 name: kube-root-ca.crt
                 items:

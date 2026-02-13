@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno-json/pkg/payload"
@@ -99,6 +101,22 @@ type ApplyCommandConfig struct {
 	BatchSize             int
 	ContinueOnError       bool
 	ShowPerformance       bool
+	// Cloner is an optional function for cloning git repositories.
+	// If nil, defaults to gitutils.Clone. Tests can inject a fake
+	// to avoid real network calls while still exercising the git-URL
+	// policy loading code path.
+	Cloner gitutils.CloneFunc
+}
+
+// cloneRepo clones a git repository using the configured Cloner function.
+// If no Cloner is set, it falls back to the default gitutils.Clone which
+// includes a timeout to prevent indefinite hangs.
+func (c *ApplyCommandConfig) cloneRepo(repoURL string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error) {
+	cloneFn := gitutils.CloneFunc(gitutils.Clone)
+	if c.Cloner != nil {
+		cloneFn = c.Cloner
+	}
+	return cloneFn(repoURL, fs, branch, auth)
 }
 
 func Command() *cobra.Command {
@@ -156,9 +174,12 @@ func Command() *cobra.Command {
 							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						}
 						for i, rule := range failedRules {
-							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
+							msg := rule.Message()
+							if msg == "" {
+								msg = "validation failed"
+							}
+							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
 						}
-						fmt.Fprintln(out, "")
 					}
 				}
 				printViolations(out, rc)
@@ -552,7 +573,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 	)
 
-	restMapper, err := utils.GetRESTMapper(dclient, !c.Cluster)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +690,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, err
 	}
 
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
@@ -804,7 +825,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				Username: c.GitUsername,
 				Password: c.GitPassword,
 			}
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
+			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
