@@ -3,7 +3,6 @@ package data
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"sync"
 
@@ -50,12 +49,8 @@ func (p *crdProcessor) AddResourceGroup(resources *restmapper.APIGroupResources)
 	p.apiGroupResource = resources
 }
 
-func (p *crdProcessor) GetResourceGroup() (*restmapper.APIGroupResources, error) {
+func (p *crdProcessor) GetResourceGroup() *restmapper.APIGroupResources {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	if p.apiGroupResource == nil {
-		return nil, fmt.Errorf("CRD API group resources not initialized")
-	}
-
-	return p.apiGroupResource, nil
+	return p.apiGroupResource
 }

@@ -15,9 +15,6 @@ func InjectProcessor(p *crdProcessor) {
 	})
 }
 
-func GetProcessor() (*crdProcessor, error) {
-	if processor == nil {
-		InjectProcessor(NewCRDProcessor(nil))
-	}
-	return processor, nil
+func GetProcessor() *crdProcessor {
+	return processor 
 }

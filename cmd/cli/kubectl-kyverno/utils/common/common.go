@@ -390,9 +390,9 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 }
 
 func addResourceGroup(resource *restmapper.APIGroupResources) error {
-	processor, err := data.GetProcessor()
-	if err != nil {
-		return err
+	processor := data.GetProcessor()
+	if processor == nil {
+		panic("adding a resource group to a nil crd processor. exiting")
 	}
 	processor.AddResourceGroup(resource)
 	return nil
