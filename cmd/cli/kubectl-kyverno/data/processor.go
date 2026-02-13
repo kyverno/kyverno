@@ -1,7 +1,6 @@
 package data
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -18,7 +17,7 @@ func InjectProcessor(p *crdProcessor) {
 
 func GetProcessor() (*crdProcessor, error) {
 	if processor == nil {
-		return nil, fmt.Errorf("crdProcessor not initialized.")
+		InjectProcessor(NewCRDProcessor(nil))
 	}
 	return processor, nil
 }
