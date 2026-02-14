@@ -9,22 +9,22 @@ policies:
 resources:
 - resource.yaml
 results:
-- isImageValidatingPolicy: true
-  kind: Pod
-  policy: ivpol-sample
-  resources:
-  - good-pod-excluded
-  result: pass
 - isValidatingPolicy: true
   kind: Deployment
   policy: check-deployment-namespace
   resources:
   - deployment-excluded
   result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: ivpol-sample
+  resources:
+  - good-pod-excluded
+  result: pass
 - isMutatingPolicy: true
   kind: Deployment
-  policy: test-mpol-jsonpatch
   patchedResources: patchedResource.yaml
+  policy: test-mpol-jsonpatch
   resources:
   - dev-deploy-2
   result: pass
