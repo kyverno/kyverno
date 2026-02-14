@@ -840,7 +840,6 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 }
 
 func canAutoGen(match *admissionregistrationv1.MatchResources) bool {
-
 	if match == nil {
 		return false
 	}
