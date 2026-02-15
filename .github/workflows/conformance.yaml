@@ -8,7 +8,13 @@ on:
   pull_request:
     branches:
       - main
-      - release*
+      - release* 
+    paths:
+      - 'pkg/**'
+      - 'api/**'
+      - 'cmd/**'
+      - 'charts/**'
+      - 'ext/**'
   merge_group:
     types: [checks_requested]
 concurrency:
