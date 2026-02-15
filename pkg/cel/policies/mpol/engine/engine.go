@@ -19,6 +19,7 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -120,25 +121,51 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	var response EngineResponse
 	mpols := e.provider.Fetch(ctx, false)
 
-	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
-	if err != nil {
-		return response, err
+	var object, oldObject unstructured.Unstructured
+	var admissionRequest admissionv1.AdmissionRequest
+	var dryRun bool
+	var namespaceName string
+
+	// Handle JSON payload vs Kubernetes admission request
+	if request.JsonPayload != nil {
+		// Handle non-K8s JSON payload
+		object = *request.JsonPayload
+		oldObject = unstructured.Unstructured{} // Empty for JSON payloads
+
+		// Create minimal admission request for JSON payload
+		admissionRequest = admissionv1.AdmissionRequest{
+			Kind:      metav1.GroupVersionKind{Kind: "JSONPayload"},
+			Resource:  metav1.GroupVersionResource{Resource: "jsonpayloads"},
+			Name:      "json-payload",
+			Namespace: "",
+			Operation: admissionv1.Create,
+			DryRun:    &dryRun,
+		}
+		namespaceName = ""
+	} else {
+		// Handle Kubernetes admission request
+		object, oldObject, err = admissionutils.ExtractResources(nil, request.Request)
+		if err != nil {
+			return response, err
+		}
+		admissionRequest = request.Request
+		if request.Request.DryRun != nil {
+			dryRun = *request.Request.DryRun
+		}
+		namespaceName = request.Request.Namespace
 	}
+
 	response.Resource = &object
-	dryRun := false
-	if request.Request.DryRun != nil {
-		dryRun = *request.Request.DryRun
-	}
 
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
-		schema.GroupVersionKind(request.Request.Kind),
-		request.Request.Namespace,
-		request.Request.Name,
-		schema.GroupVersionResource(request.Request.Resource),
-		request.Request.SubResource,
-		admission.Operation(request.Request.Operation),
+		schema.GroupVersionKind(admissionRequest.Kind),
+		admissionRequest.Namespace,
+		admissionRequest.Name,
+		schema.GroupVersionResource(admissionRequest.Resource),
+		admissionRequest.SubResource,
+		admission.Operation(admissionRequest.Operation),
 		nil,
 		dryRun,
 		// TODO
@@ -146,15 +173,15 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	)
 
 	var namespace *corev1.Namespace
-	if ns := request.Request.Namespace; ns != "" {
-		namespace = e.nsResolver(ns)
+	if namespaceName != "" {
+		namespace = e.nsResolver(namespaceName)
 	}
 
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, admissionRequest, namespace)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -272,10 +299,18 @@ func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
+	// For JSON payloads, there's no concept of "mutate existing" since these aren't Kubernetes resources
+	// that exist in a cluster. JSON payloads are evaluated via CLI and don't have admission/existing resources.
+	if request.JsonPayload != nil {
+		return nil
+	}
+
+	// Handle Kubernetes admission request
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
 		return nil
 	}
+
 	dryRun := false
 	if request.Request.DryRun != nil {
 		dryRun = *request.Request.DryRun
