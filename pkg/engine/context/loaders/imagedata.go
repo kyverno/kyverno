@@ -86,7 +86,10 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
-	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials)
+	resourceNamespace := getNamespaceFromContext(idl.enginectx)
+	// For ConfigMap context entries, imagePullSecrets are not available from image extraction
+	// They must be specified explicitly in ImageRegistryCredentials
+	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}
@@ -104,6 +107,20 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	}
 
 	return imageData, nil
+}
+
+func getNamespaceFromContext(ctx enginecontext.Interface) string {
+	if ctx == nil {
+		return ""
+	}
+	val, err := ctx.Query("request.namespace")
+	if err != nil || val == nil {
+		return ""
+	}
+	if s, ok := val.(string); ok {
+		return s
+	}
+	return ""
 }
 
 // FetchImageDataMap fetches image information from the remote registry.
