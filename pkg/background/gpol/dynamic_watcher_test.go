@@ -57,6 +57,9 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 
 type MockClient struct {
 	deleted  []string
+	updated  int
+	applied  int
+	created  int
 	err      error
 	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
 }
@@ -103,9 +106,11 @@ func (m *MockClient) DeleteResource(ctx context.Context, apiVersion string, kind
 	return m.err
 }
 func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
-	return nil, nil
+	m.created++
+	return makeUnstructured("", "", "", "", "", "", "", nil), nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
+	m.updated++
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -115,7 +120,8 @@ func (m *MockClient) UpdateStatusResource(ctx context.Context, apiVersion string
 	return nil, nil
 }
 func (m *MockClient) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
-	return nil, nil
+	m.applied++
+	return makeUnstructured("", "", "", "", "", "", "", nil), nil
 }
 func (m *MockClient) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error) {
 	return nil, nil
@@ -881,6 +887,35 @@ func TestHandleUpdate(t *testing.T) {
 		}
 
 		wm.handleUpdate(downstreamModified, gvr)
+		assert.Equal(t, 1, mockClient.updated)
+		assert.Equal(t, 0, mockClient.applied)
+	})
+
+	t.Run("downstream changed by user with SSA uses apply", func(t *testing.T) {
+		mockClient := &MockClient{}
+		downstream := makeObj("down-uid", "down-pod", "default", map[string]string{common.GenerateUseServerSideApplyLabel: "true"})
+		hashOld := reportutils.CalculateResourceHash(*downstream)
+		downstreamModified := downstream.DeepCopy()
+		downstreamModified.SetAnnotations(map[string]string{"changed": "true"})
+
+		wm := &WatchManager{
+			client: mockClient,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{
+					"down-uid": {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+						Hash:      hashOld,
+						Data:      downstream,
+					},
+				}},
+			},
+		}
+
+		wm.handleUpdate(downstreamModified, gvr)
+		assert.Equal(t, 0, mockClient.updated)
+		assert.Equal(t, 1, mockClient.applied)
 	})
 
 	t.Run("object not in watchers - no action", func(t *testing.T) {
