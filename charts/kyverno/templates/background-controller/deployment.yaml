@@ -192,6 +192,11 @@ spec:
               mountPath: /etc/ssl/certs/ca-certificates.crt
               {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
               subPath: ca-certificates.crt
+              {{- else }}
+              {{- $caVolume := .Values.backgroundController.caCertificates.volume | default .Values.global.caCertificates.volume }}
+              {{- if $caVolume.subPath }}
+              subPath: {{ $caVolume.subPath }}
+              {{- end }}
               {{- end }}
             {{- end }}
             {{- if not $automountSAToken }}
@@ -215,7 +220,10 @@ spec:
       {{- else if or .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
       {{- with (.Values.backgroundController.caCertificates.volume | default .Values.global.caCertificates.volume) }}
       - name: ca-certificates
-        {{- toYaml . | nindent 8 }}
+        {{- $v := omit . "subPath" }}
+        {{- if $v }}
+        {{- toYaml $v | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- end }}
       {{- end }}
