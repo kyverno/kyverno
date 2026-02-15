@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/go-git/go-billy/v5"
 	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
@@ -150,12 +151,7 @@ func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, pat
 	return aggregateResults, nil
 }
 
-func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) {
-	documents, err := extyaml.SplitDocuments(content)
-	if err != nil {
-		return nil, err
-	}
-	results := &LoaderResults{}
+var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	crds, err := data.Crds()
 	if err != nil {
 		return nil, err
@@ -164,6 +160,16 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		openapiclient.NewHardcodedBuiltins("1.32"),
 		openapiclient.NewLocalCRDFiles(crds),
 	))
+	return factory, err
+})
+
+func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) {
+	documents, err := extyaml.SplitDocuments(content)
+	if err != nil {
+		return nil, err
+	}
+	results := &LoaderResults{}
+	factory, err := loaderDelegate()
 	if err != nil {
 		return nil, err
 	}
