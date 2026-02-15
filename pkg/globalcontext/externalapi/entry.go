@@ -43,6 +43,7 @@ func New(
 	call kyvernov1.APICall,
 	period time.Duration,
 	maxResponseLength int64,
+	apiCallTimeout time.Duration,
 	shouldUpdateStatus bool,
 	jp jmespath.Interface,
 ) (store.Entry, error) {
@@ -74,7 +75,7 @@ func New(
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
-		config := apicall.NewAPICallConfiguration(maxResponseLength)
+		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout)
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {

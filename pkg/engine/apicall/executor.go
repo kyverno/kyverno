@@ -174,8 +174,11 @@ func (a *executor) getToken() string {
 }
 
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
-		return http.DefaultClient, nil
+		return &http.Client{
+			Timeout: timeout,
+		}, nil
 	}
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
@@ -189,6 +192,7 @@ func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client
 	}
 	return &http.Client{
 		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+		Timeout:   timeout,
 	}, nil
 }
 
