@@ -565,7 +565,11 @@ func applyImageValidatingPolicies(
 		}
 
 		for _, r := range engineResponse.Policies {
-			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			if reflect.DeepEqual(r.Result, engineapi.RuleResponse{}) {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{}
+			} else {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
