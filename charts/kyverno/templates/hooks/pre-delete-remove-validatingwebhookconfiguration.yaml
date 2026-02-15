@@ -39,9 +39,15 @@ spec:
         {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
-        - name: webhook-cleanup
+        - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
+          command:
+            - kubectl
+            - delete
+            - validatingwebhookconfiguration
+            - -l
+            - webhook.kyverno.io/managed-by=kyverno
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
