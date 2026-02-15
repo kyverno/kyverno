@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -238,49 +240,59 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
+	// evaluate policies concurrently — each goroutine gets its own compiler
+	// ictx (ImageContext) is already thread-safe (uses sync.RWMutex)
+	var mu sync.Mutex
+	g, gctx := errgroup.WithContext(ctx)
 	for _, ivpol := range filteredPolicies {
-		response := eval.ImageVerifyPolicyResponse{
-			Policy:     ivpol.Policy,
-			Actions:    ivpol.Actions,
-			Exceptions: ivpol.Exceptions,
-		}
-		startTime := time.Now()
-		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
-		} else {
-			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
-			if err != nil {
-				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
-				results[ivpol.Policy.GetName()] = response
-			} else if result != nil {
-				if len(result.Exceptions) > 0 {
-					exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
-					var keys []string
-					for i := range result.Exceptions {
-						key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
-						if err != nil {
-							response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+		g.Go(func() error {
+			c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
+			response := eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+			}
+			startTime := time.Now()
+			if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
+				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
+			} else {
+				result, err := p.Evaluate(gctx, ictx, attr, request, namespace, true, context)
+				if err != nil {
+					response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
+				} else if result != nil {
+					if len(result.Exceptions) > 0 {
+						exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+						var keys []string
+						for i := range result.Exceptions {
+							key, err := cache.MetaNamespaceKeyFunc(&result.Exceptions[i])
+							if err != nil {
+								response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+							}
+							keys = append(keys, key)
+							exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 						}
-						keys = append(keys, key)
-						exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
-					}
-					response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
-				} else {
-					ruleName := ivpol.Policy.GetName()
-					if result.Error != nil {
-						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
-					} else if result.Result {
-						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+						response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 					} else {
-						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
+						ruleName := ivpol.Policy.GetName()
+						if result.Error != nil {
+							response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+						} else if result.Result {
+							response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+						} else {
+							response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
+						}
 					}
 				}
-
-				results[ivpol.Policy.GetName()] = response
 			}
-		}
-		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+			mu.Lock()
+			results[ivpol.Policy.GetName()] = response
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
 	}
 	ann, err := objectAnnotations(attr)
 	if err != nil {

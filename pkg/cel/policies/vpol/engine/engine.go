@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"golang.org/x/sync/errgroup"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,20 +95,32 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
-	// evaluate policies
+	// filter policies by predicate
+	var filtered []Policy
 	for _, policy := range policies {
 		if predicate != nil && !predicate(policy.Policy) {
 			continue
 		}
-
-		startTime := time.Now()
-		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
-		for i, rule := range pol.Rules {
-			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-		}
-
-		response.Policies = append(response.Policies, pol)
+		filtered = append(filtered, policy)
 	}
+	// evaluate policies concurrently
+	results := make([]engine.ValidatingPolicyResponse, len(filtered))
+	g, gctx := errgroup.WithContext(ctx)
+	for i, policy := range filtered {
+		g.Go(func() error {
+			startTime := time.Now()
+			pol := e.handlePolicy(gctx, policy, nil, attr, &request.Request, namespace, request.Context)
+			for j, rule := range pol.Rules {
+				pol.Rules[j] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+			}
+			results[i] = pol
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return response, err
+	}
+	response.Policies = results
 	return response, nil
 }
 
