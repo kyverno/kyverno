@@ -65,7 +65,7 @@ func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool
 }
 
 func getSignature(sp cosign.SignedPayload) (oci.Signature, error) {
-	chain := make([]byte, 0)
+	var chain []byte //nolint:prealloc
 	for _, cert := range sp.Chain {
 		chain = append(chain, cert.Raw...)
 	}
