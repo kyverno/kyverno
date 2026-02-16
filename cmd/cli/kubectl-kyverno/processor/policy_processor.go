@@ -49,9 +49,11 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
@@ -66,6 +68,7 @@ type PolicyProcessor struct {
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicyLike
 	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
+	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
@@ -350,6 +353,62 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 
 				responses = append(responses, response)
 				resource = response.PatchedResource
+			}
+			// mutateExisting MutatingPolicies - process target resources
+			if len(p.TargetResources) > 0 {
+				// Create engine with nil matcher to skip MatchConstraints check
+				// (targets are explicitly provided, not matched by MatchConstraints which matches triggers)
+				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				for _, target := range p.TargetResources {
+					targetGVK := target.GroupVersionKind()
+					targetMapping, err := restMapper.RESTMapping(targetGVK.GroupKind(), targetGVK.Version)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map target gvk to gvr %s (%v)\n", targetGVK, err)
+					}
+					targetGVR := targetMapping.Resource
+					attr := admission.NewAttributesRecord(
+						target,
+						nil,
+						targetGVK,
+						target.GetNamespace(),
+						target.GetName(),
+						targetGVR,
+						"",
+						admission.Operation(""),
+						nil,
+						false,
+						nil,
+					)
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, func(_ policiesv1beta1.MutatingPolicyLike) bool { return true })
+					if err != nil {
+						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
+					}
+					for _, r := range evalResponse.Policies {
+						if len(r.Rules) == 0 {
+							continue
+						}
+						patched := *evalResponse.Resource
+						if evalResponse.PatchedResource != nil {
+							patched = *evalResponse.PatchedResource
+						}
+						rules := make([]engineapi.RuleResponse, 0, len(r.Rules))
+						for _, rule := range r.Rules {
+							if rule.Status() == engineapi.RuleStatusPass {
+								rules = append(rules, *rule.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+							} else {
+								rules = append(rules, rule)
+							}
+						}
+						resp := engineapi.EngineResponse{
+							Resource: resource,
+							PolicyResponse: engineapi.PolicyResponse{
+								Rules: rules,
+							},
+						}
+						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+						responses = append(responses, resp)
+					}
+				}
 			}
 		}
 	}
