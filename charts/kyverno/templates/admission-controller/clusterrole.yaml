@@ -187,8 +187,7 @@ rules:
       - ''
     resources:
       - configmaps
-      - namespaces
-      - secrets
+      - namespaces   
     verbs:
       - get
       - list
