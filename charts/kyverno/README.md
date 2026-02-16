@@ -826,7 +826,7 @@ The chart values are organised per component.
 | webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
 | webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
 | webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
-| webhooksCleanup.image.tag | string | `"latest"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `"latest"` | Image tag Defaults to latest tag if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
