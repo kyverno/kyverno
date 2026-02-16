@@ -155,20 +155,20 @@ func (p *Policy) Evaluate(
 		}
 	}
 
+	compositionCtx := &compositionContext{
+		ctx:             ctx,
+		evaluator:       &p.evaluator,
+		contextProvider: contextProvider,
+	}
+
 	if p.evaluator.Matcher != nil {
-		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
+		matchResult := p.evaluator.Matcher.Match(compositionCtx, versionedAttributes, namespace, nil)
 		if matchResult.Error != nil {
 			return &EvaluationResult{Error: matchResult.Error}
 		}
 		if !matchResult.Matches {
 			return nil
 		}
-	}
-
-	compositionCtx := &compositionContext{
-		ctx:             ctx,
-		evaluator:       &p.evaluator,
-		contextProvider: contextProvider,
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
