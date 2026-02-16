@@ -14,4 +14,3 @@ cmd/reports-controller/reports-controller
 cmd/background-controller/background-controller
 coverage.out
 kyverno.tar
-/kyverno
