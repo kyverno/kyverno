@@ -59,6 +59,6 @@ spec:
         spec.initContainers[*].securityContext.appArmorProfile.type, and
         spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset or set to allowed values.
       {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-  validationActions: {{ $actions | toYaml | nindent 8 }}
+  validationActions: {{ $actions | toYaml | nindent 4 }}
 {{- end }}
 

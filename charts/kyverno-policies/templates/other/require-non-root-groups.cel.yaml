@@ -50,6 +50,6 @@ spec:
         spec.initContainers[*].securityContext.runAsGroup, and
         spec.ephemeralContainers[*].securityContext.runAsGroup must not be set to `0`.
       {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-  validationActions: {{ $actions | toYaml | nindent 8 }}
+  validationActions: {{ $actions | toYaml | nindent 4 }}
 {{- end }}
 
