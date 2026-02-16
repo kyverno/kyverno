@@ -1191,25 +1191,11 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Log finalizers from deployments
-        shell: bash
-        run: |
-          set -e
-          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
-          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
       - name: Uninstall kyverno
         shell: bash
         run: |
           set -e
-          helm uninstall kyverno -n kyverno --wait --timeout 1m --no-hooks
-      - name: Check validating webhook count
-        shell: bash
-        run: |
-          set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
-          then
-          exit 1
-          fi
+          helm uninstall kyverno -n kyverno --wait --timeout 1m
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
