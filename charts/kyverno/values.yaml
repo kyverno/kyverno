@@ -90,8 +90,8 @@ reportsServer:
   # -- Wait for reports-server to be ready before starting Kyverno components
   waitForReady: true
 
-  # -- Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m)
-  readinessTimeout: 300s
+  # -- Timeout for waiting for reports-server readiness (in seconds)
+  readinessTimeout: 300
 
 # CRDs configuration
 crds:
@@ -238,19 +238,8 @@ crds:
         memory: 64Mi
 
     serviceAccount:
-      # -- Toggle automounting of the ServiceAccount.
-      # When set to false, a projected service account token is used instead
-      # which provides time-limited and audience-bound tokens for improved security.
+      # -- Toggle automounting of the ServiceAccount
       automountServiceAccountToken: true
-
-      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-      projectedServiceAccountToken:
-        # -- Token expiration time in seconds.
-        # The kubelet will request a new token before the token expires.
-        expirationSeconds: 3600
-        # -- Audience for the projected service account token.
-        # If not set, the token will have no audience restriction.
-        audience: ""
 
 # Configuration
 config:
@@ -577,19 +566,8 @@ test:
     seccompProfile:
       type: RuntimeDefault
 
-  # -- Toggle automounting of the ServiceAccount.
-  # When set to false, a projected service account token is used instead
-  # which provides time-limited and audience-bound tokens for improved security.
+  # -- Toggle automounting of the ServiceAccount
   automountServiceAccountToken: true
-
-  # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-  projectedServiceAccountToken:
-    # -- Token expiration time in seconds.
-    # The kubelet will request a new token before the token expires.
-    expirationSeconds: 3600
-    # -- Audience for the projected service account token.
-    # If not set, the token will have no audience restriction.
-    audience: ""
 
   # -- Node labels for pod assignment
   nodeSelector: {}
@@ -610,12 +588,12 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: docker.io
     # -- Image repository
-    repository: kyverno/readiness-checker
+    repository: aerosouund/readiness-checker
     # -- Image tag
-    # Defaults to latest tag if omitted
-    tag: 'latest'
+    # Defaults to `latest` if omitted
+    tag: 'v0.2.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -672,19 +650,8 @@ webhooksCleanup:
       memory: 64Mi
 
   serviceAccount:
-    # -- Toggle automounting of the ServiceAccount.
-    # When set to false, a projected service account token is used instead
-    # which provides time-limited and audience-bound tokens for improved security.
+    # -- Toggle automounting of the ServiceAccount
     automountServiceAccountToken: true
-
-    # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-    projectedServiceAccountToken:
-      # -- Token expiration time in seconds.
-      # The kubelet will request a new token before the token expires.
-      expirationSeconds: 3600
-      # -- Audience for the projected service account token.
-      # If not set, the token will have no audience restriction.
-      audience: ""
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -866,19 +833,8 @@ admissionController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount.
-      # When set to false, a projected service account token is used instead
-      # which provides time-limited and audience-bound tokens for improved security.
+      # -- Toggle automounting of the ServiceAccount
       automountServiceAccountToken: true
-
-      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-      projectedServiceAccountToken:
-        # -- Token expiration time in seconds.
-        # The kubelet will request a new token before the token expires.
-        expirationSeconds: 3600
-        # -- Audience for the projected service account token.
-        # If not set, the token will have no audience restriction.
-        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -964,9 +920,6 @@ admissionController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
     # example.com/annotation: foo
-
-  # -- Deployment labels.
-  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -1168,8 +1121,6 @@ admissionController:
 
     # -- Container security context
     securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1215,8 +1166,6 @@ admissionController:
 
     # -- Container security context
     securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1336,11 +1285,6 @@ admissionController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- Key algorithm for self-signed TLS certificates.
-    # Supported values: RSA, ECDSA, Ed25519
-    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1384,19 +1328,8 @@ backgroundController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount.
-      # When set to false, a projected service account token is used instead
-      # which provides time-limited and audience-bound tokens for improved security.
+      # -- Toggle automounting of the ServiceAccount
       automountServiceAccountToken: true
-
-      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-      projectedServiceAccountToken:
-        # -- Token expiration time in seconds.
-        # The kubelet will request a new token before the token expires.
-        expirationSeconds: 3600
-        # -- Audience for the projected service account token.
-        # If not set, the token will have no audience restriction.
-        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1492,9 +1425,6 @@ backgroundController:
   podAnnotations: {}
   # example.com/annotation: foo
 
-  # -- Deployment labels.
-  labels: {}
-
   # -- Deployment annotations.
   annotations: {}
 
@@ -1586,8 +1516,6 @@ backgroundController:
 
   # -- Security context for the containers
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -1699,11 +1627,6 @@ backgroundController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- Key algorithm for self-signed TLS certificates.
-    # Supported values: RSA, ECDSA, Ed25519
-    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -1746,19 +1669,8 @@ cleanupController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount.
-      # When set to false, a projected service account token is used instead
-      # which provides time-limited and audience-bound tokens for improved security.
+      # -- Toggle automounting of the ServiceAccount
       automountServiceAccountToken: true
-
-      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-      projectedServiceAccountToken:
-        # -- Token expiration time in seconds.
-        # The kubelet will request a new token before the token expires.
-        expirationSeconds: 3600
-        # -- Audience for the projected service account token.
-        # If not set, the token will have no audience restriction.
-        audience: ""
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1851,9 +1763,6 @@ cleanupController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
-
-  # -- Deployment labels.
-  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -1994,8 +1903,6 @@ cleanupController:
 
   # -- Security context for the containers
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2109,11 +2016,6 @@ cleanupController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- Key algorithm for self-signed TLS certificates.
-    # Supported values: RSA, ECDSA, Ed25519
-    tlsKeyAlgorithm: RSA
     # -- Otel collector endpoint
     collector: ''
     # -- Otel collector credentials
@@ -2157,19 +2059,8 @@ reportsController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount.
-      # When set to false, a projected service account token is used instead
-      # which provides time-limited and audience-bound tokens for improved security.
+      # -- Toggle automounting of the ServiceAccount
       automountServiceAccountToken: true
-
-      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
-      projectedServiceAccountToken:
-        # -- Token expiration time in seconds.
-        # The kubelet will request a new token before the token expires.
-        expirationSeconds: 3600
-        # -- Audience for the projected service account token.
-        # If not set, the token will have no audience restriction.
-        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -2217,9 +2108,6 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
-
-  # -- Deployment labels.
-  labels: {}
 
   # -- Deployment annotations.
   annotations: {}
@@ -2330,8 +2218,6 @@ reportsController:
 
   # -- Security context for the containers
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2450,11 +2336,6 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- Key algorithm for self-signed TLS certificates.
-    # Supported values: RSA, ECDSA, Ed25519
-    tlsKeyAlgorithm: RSA
     # -- (string) Otel collector endpoint
     collector: ~
     # -- (string) Otel collector credentials
