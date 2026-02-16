@@ -614,13 +614,12 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup
+    repository: kyverno/readiness-checker
     # -- Image tag
-    # Defaults to current release tag if omitted
-    tag: ~
-    # Defaults to `latest` if omitted
+    # Defaults to latest tag if omitted
+    tag: 'latest'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
