@@ -35,6 +35,6 @@ spec:
         Sysctls must be restricted to safe values. The field spec.securityContext.sysctls[*].name
         must be one of the allowed safe sysctls.
       {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  validationActions: {{ $actions | toYaml | nindent 8 }}
 {{- end }}
 

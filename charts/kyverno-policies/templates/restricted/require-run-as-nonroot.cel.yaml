@@ -51,6 +51,6 @@ spec:
         spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
         must be set to `true`.
       {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  validationActions: {{ $actions | toYaml | nindent 8 }}
 {{- end }}
 

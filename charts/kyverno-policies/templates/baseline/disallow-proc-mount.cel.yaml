@@ -46,6 +46,6 @@ spec:
         spec.initContainers[*].securityContext.procMount, and
         spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`.
       {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  validationActions: {{ $actions | toYaml | nindent 8 }}
 {{- end }}
 
