@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: add-env-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  variables:
+    - name: cm
+      expression: >-
+        resource.Get("v1", "configmaps", object.metadata.namespace, "data-cm")
+    - name: envLabel
+      expression: >-
+        has(variables.cm) && 'env' in variables.cm.data ? variables.cm.data.env : 'unknown'
+  matchConditions:
+  - name: is-prod
+    expression: variables.envLabel == "production"
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            metadata: Object.metadata{
+              labels: Object.metadata.labels{
+                env: variables.envLabel
+              }
+            }
+          }
