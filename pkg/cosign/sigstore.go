@@ -210,6 +210,12 @@ func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
 }
 
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
+	manager := GetGlobalTUFConfigManager()
+	if manager != nil {
+		return manager.GetTrustedRootWithFallback(ctx)
+	}
+
+	logger.V(2).Info("No TUF configuration manager found, using public Sigstore TUF")
 	tufClient, err := tuf.NewFromEnv(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("initializing tuf: %w", err)
