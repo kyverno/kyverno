@@ -1201,7 +1201,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          helm uninstall kyverno -n kyverno --wait --timeout 1m --no-hooks
+          helm uninstall kyverno -n kyverno --wait --timeout 3m
       - name: Check validating webhook count
         shell: bash
         run: |
