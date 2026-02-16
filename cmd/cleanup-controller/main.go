@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	extcertmanager "github.com/kyverno/pkg/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
@@ -268,16 +268,15 @@ func main() {
 					keyAlgorithm,
 				)
 				certController := internal.NewController(
-					certmanager.ControllerName,
-					certmanager.NewController(
-						caSecret,
-						tlsSecret,
+					extcertmanager.ControllerName,
+					internal.NewCertManagerController(
+						setup.RestConfig,
 						renewer,
 						caSecretName,
 						tlsSecretName,
 						config.KyvernoNamespace(),
 					),
-					certmanager.Workers,
+					extcertmanager.Workers,
 				)
 				policyValidatingWebhookController := internal.NewController(
 					policyWebhookControllerName,

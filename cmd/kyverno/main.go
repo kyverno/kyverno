@@ -28,7 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -61,6 +60,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	extcertmanager "github.com/kyverno/pkg/certmanager"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -73,6 +73,7 @@ import (
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -150,11 +151,11 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	eventGenerator event.Interface,
 	stateRecorder webhookcontroller.StateRecorder,
+	restConfig *rest.Config,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
-	certManager := certmanager.NewController(
-		caInformer,
-		tlsInformer,
+	certManager := internal.NewCertManagerController(
+		restConfig,
 		certRenewer,
 		caSecretName,
 		tlsSecretName,
@@ -301,7 +302,7 @@ func createrLeaderControllers(
 		reportsServiceAccountName,
 		stateRecorder,
 	)
-	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
+	leaderControllers = append(leaderControllers, internal.NewController(extcertmanager.ControllerName, certManager, extcertmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
@@ -622,6 +623,7 @@ func main() {
 					setup.Configuration,
 					eventGenerator,
 					stateRecorder,
+					setup.RestConfig,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
