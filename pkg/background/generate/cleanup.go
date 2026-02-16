@@ -108,8 +108,22 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
 	selector[common.GenerateTriggerVersionLabel] = gv.Version
 
-	for _, g := range rule.Generation.ForEachGeneration {
-		return c.fetch(g.GeneratePattern, selector, ruleContext)
+	if len(rule.Generation.ForEachGeneration) > 0 {
+		var allDownstreams []unstructured.Unstructured
+		for _, g := range rule.Generation.ForEachGeneration {
+			// fetch() may mutate selector during UID->Name fallback.
+			// Use a copy so iterations don't affect each other.
+			selectorCopy := make(map[string]string, len(selector))
+			for k, v := range selector {
+				selectorCopy[k] = v
+			}
+			downstreams, err := c.fetch(g.GeneratePattern, selectorCopy, ruleContext)
+			if err != nil {
+				return nil, err
+			}
+			allDownstreams = append(allDownstreams, downstreams...)
+		}
+		return allDownstreams, nil
 	}
 
 	return c.fetch(rule.Generation.GeneratePattern, selector, ruleContext)
