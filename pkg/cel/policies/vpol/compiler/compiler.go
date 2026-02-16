@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	vpolCompilerVersion = version.MajorMinor(2, 0)
+	vpolCompilerVersion = version.MajorMinor(1, 0)
 	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
 )
 
@@ -125,6 +125,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	return &Policy{
 		mode:             policieskyvernoio.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConstraints: spec.MatchConstraints,
 		matchConditions:  matchConditions,
 		variables:        variables,
 		validations:      validations,

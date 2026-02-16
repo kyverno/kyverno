@@ -76,7 +76,7 @@ jobs:
           if-no-files-found: error
 
   old-load-test:
-    if: github.event_name == 'merge_group'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
     outputs:
@@ -179,7 +179,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   load-test:
-    if: github.event_name == 'merge_group'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
       - old-load-test
@@ -288,7 +288,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   scale-test:
-    if: github.event_name == 'merge_group'
+    # if: github.event_name == 'merge_group'
     needs:
       - define-matrix
       - prepare-images
