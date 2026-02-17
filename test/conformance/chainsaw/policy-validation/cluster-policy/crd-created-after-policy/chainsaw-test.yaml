@@ -50,3 +50,7 @@ spec:
             expect:
               - check:
                   ($error != null): true
+      finally:
+        - script:
+            content: |
+              kubectl label testresource test-custom-resource kyverno.io/critical- -n "${NAMESPACE}" || true

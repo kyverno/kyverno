@@ -34,6 +34,10 @@ spec:
             file: crd.yaml
         - assert:
             file: crd-ready.yaml
+      finally:
+        - script:
+            content: |
+              kubectl label crd testresources.test.kyverno.io kyverno.io/critical- || true
     - name: wait-for-discovery-cache
       try:
         - sleep:
