@@ -93,7 +93,7 @@ func processMAPNoBindings(policy *admissionregistrationv1beta1.MutatingAdmission
 		return engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil), nil
 	}
 
-	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	mapLogger.V(3).Info("applying mutatingadmissionpolicy to resource", "policy", policy.GetName(), "resource", resPath)
 	er, err = mutateResource(policy, nil, resource, nil, gvr, namespace, a, backgroundScan)
 	if err != nil {
 		mapLogger.Error(err, "failed to mutate resource with mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)

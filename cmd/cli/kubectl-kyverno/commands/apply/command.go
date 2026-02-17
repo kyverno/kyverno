@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno-json/pkg/payload"
@@ -65,40 +67,58 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig            string
-	Context               string
-	Namespace             string
-	MutateLogPath         string
-	Variables             []string
-	ValuesFile            string
-	UserInfoPath          string
-	ContextPath           string
-	Cluster               bool
-	PolicyReport          bool
-	OutputFormat          string
-	Stdin                 bool
-	RegistryAccess        bool
-	AuditWarn             bool
-	ResourcePaths         []string
-	PolicyPaths           []string
-	TargetResourcePaths   []string
-	ParamResources        []string
-	GitBranch             string
-	GitUsername           string
-	GitPassword           string
-	warnExitCode          int
-	warnNoPassed          bool
-	Exception             []string
-	ContinueOnFail        bool
-	inlineExceptions      bool
-	GenerateExceptions    bool
-	GeneratedExceptionTTL time.Duration
-	JSONPaths             []string
-	ClusterWideResources  bool
-	Concurrent            int
-	BatchSize             int
-	ContinueOnError       bool
-	ShowPerformance       bool
+	KubeConfig                string
+	Context                   string
+	Namespace                 string
+	MutateLogPath             string
+	Variables                 []string
+	ValuesFile                string
+	UserInfoPath              string
+	ContextPath               string
+	Cluster                   bool
+	PolicyReport              bool
+	OutputFormat              string
+	Stdin                     bool
+	RegistryAccess            bool
+	AuditWarn                 bool
+	ResourcePaths             []string
+	PolicyPaths               []string
+	TargetResourcePaths       []string
+	ParamResources            []string
+	GitBranch                 string
+	GitUsername               string
+	GitPassword               string
+	warnExitCode              int
+	warnNoPassed              bool
+	Exception                 []string
+	ContinueOnFail            bool
+	inlineExceptions          bool
+	exceptionsWithinResources bool
+	exceptionsWithinPolicies  bool
+	GenerateExceptions        bool
+	GeneratedExceptionTTL     time.Duration
+	JSONPaths                 []string
+	ClusterWideResources      bool
+	Concurrent                int
+	BatchSize                 int
+	ContinueOnError           bool
+	ShowPerformance           bool
+	// Cloner is an optional function for cloning git repositories.
+	// If nil, defaults to gitutils.Clone. Tests can inject a fake
+	// to avoid real network calls while still exercising the git-URL
+	// policy loading code path.
+	Cloner gitutils.CloneFunc
+}
+
+// cloneRepo clones a git repository using the configured Cloner function.
+// If no Cloner is set, it falls back to the default gitutils.Clone which
+// includes a timeout to prevent indefinite hangs.
+func (c *ApplyCommandConfig) cloneRepo(repoURL string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error) {
+	cloneFn := gitutils.CloneFunc(gitutils.Clone)
+	if c.Cloner != nil {
+		cloneFn = c.Cloner
+	}
+	return cloneFn(repoURL, fs, branch, auth)
 }
 
 func Command() *cobra.Command {
@@ -156,9 +176,12 @@ func Command() *cobra.Command {
 							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						}
 						for i, rule := range failedRules {
-							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
+							msg := rule.Message()
+							if msg == "" {
+								msg = "validation failed"
+							}
+							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
 						}
-						fmt.Fprintln(out, "")
 					}
 				}
 				printViolations(out, rc)
@@ -200,6 +223,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
+	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithinResources, "exceptions-within-resources", "", false, "Evaluate policy exceptions from the resources path")
+	cmd.Flags().BoolVarP(&applyCommandConfig.exceptionsWithinPolicies, "exceptions-within-policies", "", false, "Evaluate policy exceptions from the policies path")
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
@@ -238,11 +263,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, nivps, gps, dps, ndps, mps, nmps, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(nivps)+len(gps)+len(dps)+len(ndps))
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
 	for _, pol := range kpols {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
 	}
@@ -253,31 +278,19 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
 	}
 	for _, pol := range vps {
-		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicy(&pol))
-	}
-	for _, pol := range nvps {
-		genericPolicies = append(genericPolicies, engineapi.NewNamespacedValidatingPolicy(&pol))
+		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicyFromLike(pol))
 	}
 	for _, pol := range ivps {
-		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicy(&pol))
-	}
-	for i := range nivps {
-		genericPolicies = append(genericPolicies, engineapi.NewNamespacedImageValidatingPolicy(&nivps[i]))
+		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicyFromLike(pol))
 	}
 	for _, pol := range gps {
-		genericPolicies = append(genericPolicies, engineapi.NewGeneratingPolicy(&pol))
+		genericPolicies = append(genericPolicies, engineapi.NewGeneratingPolicyFromLike(pol))
 	}
 	for i := range dps {
-		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicy(&dps[i]))
-	}
-	for i := range ndps {
-		genericPolicies = append(genericPolicies, engineapi.NewNamespacedDeletingPolicy(&ndps[i]))
+		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicyFromLike(dps[i]))
 	}
 	for i := range mps {
-		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicy(&mps[i]))
-	}
-	for i := range nmps {
-		genericPolicies = append(genericPolicies, engineapi.NewNamespacedMutatingPolicy(&nmps[i]))
+		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicyFromLike(mps[i]))
 	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
@@ -305,7 +318,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var exceptions []*kyvernov2.PolicyException
 	var celexceptions []*policiesv1beta1.PolicyException
-	if c.inlineExceptions {
+	if c.exceptionsWithinResources || c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
 	} else {
 		results, err := exception.Load(c.Exception...)
@@ -317,6 +330,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			celexceptions = results.CELExceptions
 		}
 	}
+
+	if c.exceptionsWithinPolicies {
+		exceptions = append(exceptions, polexs...)
+		celexceptions = append(celexceptions, celpolexs...)
+	}
+
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
 		for _, policy := range kpols {
@@ -325,11 +344,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
 		policyRulesCount += len(ivps)
-		policyRulesCount += len(nivps)
 		policyRulesCount += len(maps)
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
-		policyRulesCount += len(ndps)
 		policyRulesCount += len(mps)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
@@ -348,10 +365,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		vaps,
 		vapBindings,
 		vps,
-		nvps,
 		gps,
 		mps,
-		nmps,
 		maps,
 		mapBindings,
 		resources,
@@ -367,34 +382,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	// Convert both cluster-scoped and namespaced IVPs to the common ImageValidatingPolicyLike interface
-	allImageValidatingPolicies := make([]policiesv1beta1.ImageValidatingPolicyLike, 0, len(ivps)+len(nivps))
-	for i := range ivps {
-		allImageValidatingPolicies = append(allImageValidatingPolicies, &ivps[i])
-	}
-	for i := range nivps {
-		allImageValidatingPolicies = append(allImageValidatingPolicies, &nivps[i])
-	}
-
-	responses4, err := c.applyImageValidatingPolicies(allImageValidatingPolicies, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	allDeletingPolicies := make([]policiesv1beta1.DeletingPolicyLike, 0, len(dps)+len(ndps))
-	for i := range dps {
-		allDeletingPolicies = append(allDeletingPolicies, &dps[i])
-	}
-	for i := range ndps {
-		allDeletingPolicies = append(allDeletingPolicies, &ndps[i])
-	}
-
-	responses5, err := c.applyDeletingPolicies(allDeletingPolicies, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(dps, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(allDeletingPolicies, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -422,11 +420,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 	policies []kyvernov1.PolicyInterface,
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	vpols []policiesv1beta1.ValidatingPolicy,
-	nvpols []policiesv1beta1.NamespacedValidatingPolicy,
-	gpols []policiesv1beta1.GeneratingPolicy,
-	mpols []policiesv1beta1.MutatingPolicy,
-	nmpols []policiesv1beta1.NamespacedMutatingPolicy,
+	vpols []policiesv1beta1.ValidatingPolicyLike,
+	gpols []policiesv1beta1.GeneratingPolicyLike,
+	mpols []policiesv1beta1.MutatingPolicyLike,
 	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
@@ -475,7 +471,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
-			NamespacedValidatingPolicies:      nvpols,
 			GeneratingPolicies:                gpols,
 			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
@@ -588,7 +583,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 	)
 
-	restMapper, err := utils.GetRESTMapper(dclient, !c.Cluster)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
@@ -705,7 +700,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, err
 	}
 
-	restMapper, err := utils.GetRESTMapper(dclient, true)
+	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
@@ -797,47 +792,43 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 
 func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
+	[]*kyvernov2.PolicyException,
+	[]*policiesv1beta1.PolicyException,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	[]policiesv1beta1.ValidatingPolicy,
-	[]policiesv1beta1.NamespacedValidatingPolicy,
-	[]policiesv1beta1.ImageValidatingPolicy,
-	[]policiesv1beta1.NamespacedImageValidatingPolicy,
-	[]policiesv1beta1.GeneratingPolicy,
-	[]policiesv1beta1.DeletingPolicy,
-	[]policiesv1beta1.NamespacedDeletingPolicy,
-	[]policiesv1beta1.MutatingPolicy,
-	[]policiesv1beta1.NamespacedMutatingPolicy,
+	[]policiesv1beta1.ValidatingPolicyLike,
+	[]policiesv1beta1.ImageValidatingPolicyLike,
+	[]policiesv1beta1.GeneratingPolicyLike,
+	[]policiesv1beta1.DeletingPolicyLike,
+	[]policiesv1beta1.MutatingPolicyLike,
 	error,
 ) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
+	var exceptions []*kyvernov2.PolicyException
+	var celExceptions []*policiesv1beta1.PolicyException
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	var vps []policiesv1beta1.ValidatingPolicy
-	var nvps []policiesv1beta1.NamespacedValidatingPolicy
+	var vps []policiesv1beta1.ValidatingPolicyLike
 	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
-	var ivps []policiesv1beta1.ImageValidatingPolicy
-	var nivps []policiesv1beta1.NamespacedImageValidatingPolicy
-	var gps []policiesv1beta1.GeneratingPolicy
-	var dps []policiesv1beta1.DeletingPolicy
-	var ndps []policiesv1beta1.NamespacedDeletingPolicy
-	var mps []policiesv1beta1.MutatingPolicy
-	var nmps []policiesv1beta1.NamespacedMutatingPolicy
+	var ivps []policiesv1beta1.ImageValidatingPolicyLike
+	var gps []policiesv1beta1.GeneratingPolicyLike
+	var dps []policiesv1beta1.DeletingPolicyLike
+	var mps []policiesv1beta1.MutatingPolicyLike
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -848,13 +839,13 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				Username: c.GitUsername,
 				Password: c.GitPassword,
 			}
-			if _, err := gitutils.Clone(repoURL, fs, c.GitBranch, *auth); err != nil {
+			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -870,15 +861,13 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				nvps = append(nvps, loaderResults.NamespacedValidatingPolicies...)
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				nivps = append(nivps, loaderResults.NamespacedImageValidatingPolicies...)
+				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
+				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
-				ndps = append(ndps, loaderResults.NamespacedDeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
-				nmps = append(nmps, loaderResults.NamespacedMutatingPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -894,14 +883,13 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
-				nvps = append(nvps, loaderResults.NamespacedValidatingPolicies...)
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				nivps = append(nivps, loaderResults.NamespacedImageValidatingPolicies...)
+				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
+				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
-				ndps = append(ndps, loaderResults.NamespacedDeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 			}
 		}
@@ -911,7 +899,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, vaps, vapBindings, maps, mapBindings, vps, nvps, ivps, nivps, gps, dps, ndps, mps, nmps, nil
+	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -964,10 +952,11 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error
 	if !mutateLogPathIsDir && c.MutateLogPath != "" {
 		c.MutateLogPath = filepath.Clean(c.MutateLogPath)
 		// Necessary for us to include the file via variable as it is part of the CLI.
-		_, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
+		f, err := os.OpenFile(c.MutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
 		if err != nil {
 			return fmt.Errorf("failed to truncate the existing file at %s (%w)", c.MutateLogPath, err)
 		}
+		f.Close()
 	}
 	return nil
 }

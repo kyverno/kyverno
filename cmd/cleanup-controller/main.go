@@ -27,7 +27,6 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
-	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
@@ -37,7 +36,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,11 +46,9 @@ import (
 )
 
 const (
-	webhookWorkers                       = 2
-	policyWebhookControllerName          = "policy-webhook-controller"
-	ttlWebhookControllerName             = "ttl-webhook-controller"
-	policyWebhookControllerFinalizerName = "kyverno.io/policywebhooks"
-	ttlWebhookControllerFinalizerName    = "kyverno.io/ttlwebhooks"
+	webhookWorkers              = 2
+	policyWebhookControllerName = "policy-webhook-controller"
+	ttlWebhookControllerName    = "ttl-webhook-controller"
 )
 
 var (
@@ -213,14 +209,7 @@ func main() {
 		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 			os.Exit(1)
 		}
-		runtime := runtimeutils.NewRuntime(
-			setup.Logger.WithName("runtime-checks"),
-			serverIP,
-			kyvernoDeployment,
-			nil,
-		)
-
-		restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+		restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create RESTMapper")
 			os.Exit(1)
@@ -289,7 +278,6 @@ func main() {
 						setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 						kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 						caSecret,
-						kyvernoDeployment,
 						config.CleanupValidatingWebhookConfigurationName,
 						config.CleanupValidatingWebhookServicePath,
 						serverIP,
@@ -315,10 +303,6 @@ func main() {
 						genericwebhookcontroller.None,
 						setup.Configuration,
 						caSecretName,
-						runtime,
-						autoDeleteWebhooks,
-						webhookcontroller.WebhookCleanupSetup(setup.KubeClient, policyWebhookControllerFinalizerName),
-						webhookcontroller.WebhookCleanupHandler(setup.KubeClient, policyWebhookControllerFinalizerName),
 					),
 					webhookWorkers,
 				)
@@ -329,7 +313,6 @@ func main() {
 						setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 						kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 						caSecret,
-						kyvernoDeployment,
 						config.TtlValidatingWebhookConfigurationName,
 						config.TtlValidatingWebhookServicePath,
 						serverIP,
@@ -359,10 +342,6 @@ func main() {
 						genericwebhookcontroller.None,
 						setup.Configuration,
 						caSecretName,
-						runtime,
-						autoDeleteWebhooks,
-						webhookcontroller.WebhookCleanupSetup(setup.KubeClient, ttlWebhookControllerFinalizerName),
-						webhookcontroller.WebhookCleanupHandler(setup.KubeClient, ttlWebhookControllerFinalizerName),
 					),
 					webhookWorkers,
 				)
