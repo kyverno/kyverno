@@ -10,6 +10,8 @@ import (
 
 	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -20,7 +22,14 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	mpol "github.com/kyverno/kyverno/pkg/background/mpol"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
+	celhttp "github.com/kyverno/kyverno/pkg/cel/libs/http"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	celresource "github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
@@ -28,6 +37,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	celutils "github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -54,6 +64,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
@@ -360,6 +371,21 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				// (targets are explicitly provided, not matched by MatchConstraints which matches triggers)
 				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
 				targetMatcher := matching.NewMatcher()
+				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
+				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
+					for _, target := range p.TargetResources {
+						tGVK := target.GroupVersionKind()
+						tMapping, err := restMapper.RESTMapping(tGVK.GroupKind(), tGVK.Version)
+						if err != nil {
+							continue
+						}
+						_ = fakeCtx.AddResource(tMapping.Resource, target)
+					}
+				}
+				celTargets, err := discoverCELTargets(provider, contextProvider, &resource)
+				if err != nil {
+					return nil, fmt.Errorf("failed to discover CEL targets: %w", err)
+				}
 				for _, target := range p.TargetResources {
 					targetGVK := target.GroupVersionKind()
 					targetMapping, err := restMapper.RESTMapping(targetGVK.GroupKind(), targetGVK.Version)
@@ -380,7 +406,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr))
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -903,12 +929,24 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // matches a MutatingPolicy's targetMatchConstraints. This filters out policies
 // whose target constraints don't match the given target, mirroring the filtering
 // the background controller does via API list calls before calling Evaluate.
-func targetMatchPredicate(m matching.Matcher, attr admission.Attributes) func(policiesv1beta1.MutatingPolicyLike) bool {
+// celTargets maps policy names to the set of target keys (namespace/name) discovered
+// by evaluating CEL expressions.
+func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
 		tc := mpol.GetTargetMatchConstraints()
-		// CEL expression target selection is not supported in CLI tests
 		if tc.Expression != "" {
-			return true
+			// CEL expression target selection — check pre-computed targets
+			targets, ok := celTargets[mpol.GetName()]
+			if !ok {
+				return false
+			}
+			ns := attr.GetNamespace()
+			name := attr.GetName()
+			key := name
+			if ns != "" {
+				key = ns + "/" + name
+			}
+			return targets[key]
 		}
 		// Mirror background controller logic: use targetMatchConstraints if set,
 		// otherwise fall back to matchConstraints
@@ -930,4 +968,91 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes) func(po
 		}
 		return matches
 	}
+}
+
+// discoverCELTargets evaluates CEL targetMatchConstraints expressions for mutateExisting
+// policies and returns a map of policy name → set of target keys (namespace/name).
+func discoverCELTargets(
+	provider mpolengine.Provider,
+	contextProvider libs.Context,
+	resource *unstructured.Unstructured,
+) (map[string]map[string]bool, error) {
+	result := make(map[string]map[string]bool)
+	pols := provider.Fetch(context.TODO(), true)
+	for _, pol := range pols {
+		tc := pol.Policy.GetTargetMatchConstraints()
+		if tc.Expression == "" {
+			continue
+		}
+
+		compiledVars := pol.CompiledPolicy.GetCompiledVariables()
+		data := map[string]any{
+			compiler.ObjectKey:        resource.Object,
+			compiler.ResourceKey:      celresource.Context{ContextInterface: contextProvider},
+			compiler.GlobalContextKey: globalcontext.Context{ContextInterface: contextProvider},
+			compiler.HttpKey:          celhttp.Context{ContextInterface: celhttp.NewHTTP(nil)},
+			compiler.ImageDataKey:     imagedata.Context{ContextInterface: contextProvider},
+		}
+		vars := lazy.NewMapValue(compiler.VariablesType)
+		data[compiler.VariablesKey] = vars
+		for name, variable := range compiledVars {
+			vars.Append(name, func(*lazy.MapValue) ref.Val {
+				out, _, err := variable.ContextEval(context.TODO(), data)
+				if out != nil {
+					return out
+				}
+				if err != nil {
+					return types.WrapErr(err)
+				}
+				return nil
+			})
+		}
+
+		policyNs := pol.Policy.GetNamespace()
+		env, err := mpol.BuildMpolTargetEvalEnv(policyNs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build CEL env for policy %s: %w", pol.Policy.GetName(), err)
+		}
+		ast, issues := env.Compile(tc.Expression)
+		if err := issues.Err(); err != nil {
+			return nil, fmt.Errorf("failed to compile CEL expression for policy %s: %w", pol.Policy.GetName(), err)
+		}
+		prog, err := env.Program(ast)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create CEL program for policy %s: %w", pol.Policy.GetName(), err)
+		}
+		out, _, err := prog.ContextEval(context.TODO(), data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate CEL expression for policy %s: %w", pol.Policy.GetName(), err)
+		}
+		unstructuredResources, err := celutils.ConvertToNative[map[string]interface{}](out)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert CEL result for policy %s: %w", pol.Policy.GetName(), err)
+		}
+
+		targetKeys := make(map[string]bool)
+		if items, ok := unstructuredResources["items"].([]interface{}); ok {
+			for _, item := range items {
+				m, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				obj := unstructured.Unstructured{Object: m}
+				key := obj.GetName()
+				if ns := obj.GetNamespace(); ns != "" {
+					key = ns + "/" + key
+				}
+				targetKeys[key] = true
+			}
+		} else {
+			obj := unstructured.Unstructured{Object: unstructuredResources}
+			key := obj.GetName()
+			if ns := obj.GetNamespace(); ns != "" {
+				key = ns + "/" + key
+			}
+			targetKeys[key] = true
+		}
+		result[pol.Policy.GetName()] = targetKeys
+	}
+	return result, nil
 }
