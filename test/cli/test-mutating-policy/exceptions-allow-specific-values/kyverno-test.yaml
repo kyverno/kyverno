@@ -1,4 +1,6 @@
 apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
 kind: Test
 metadata:
   name: mpol-exceptions-allow-specific-values
@@ -6,8 +8,6 @@ policies:
 - policy.yaml
 resources:
 - resource.yaml
-exceptions:
-- exception.yaml
 results:
 - isMutatingPolicy: true
   kind: Pod
