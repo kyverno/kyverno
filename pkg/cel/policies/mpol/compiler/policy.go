@@ -187,16 +187,6 @@ func (p *Policy) Evaluate(
 		}
 	}
 
-	compositionCtx := &compositionContext{
-		ctx:             ctx,
-		evaluator:       &p.evaluator,
-		contextProvider: contextProvider,
-		exceptions: map[string]any{
-			"allowedImages": allowedImages,
-			"allowedValues": allowedValues,
-		},
-	}
-
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for _, patcher := range p.evaluator.Mutators {
 		patchRequest := patch.Request{
