@@ -24,6 +24,15 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      with:
+        android: true
+        docker-images: false
+        dotnet: false
+        haskell: false
+        large-packages: false
+        swap-storage: false
+        tool-cache: false
     - name: Setup Go
       id: setup-go
       uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
