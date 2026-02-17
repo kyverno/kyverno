@@ -102,6 +102,12 @@ rules:
   {{- end }}
   {{- end }}
   - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - list
+  - apiGroups:
       - apps
     resources:
       - deployments
