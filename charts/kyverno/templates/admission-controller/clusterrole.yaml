@@ -179,7 +179,7 @@ rules:
       - ''
     resources:
       - configmaps
-      - namespaces
+      - namespaces   
     verbs:
       - get
       - list
