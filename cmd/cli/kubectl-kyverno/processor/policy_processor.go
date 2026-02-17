@@ -359,6 +359,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				// Create engine with nil matcher to skip MatchConstraints check
 				// (targets are explicitly provided, not matched by MatchConstraints which matches triggers)
 				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				targetMatcher := matching.NewMatcher()
 				for _, target := range p.TargetResources {
 					targetGVK := target.GroupVersionKind()
 					targetMapping, err := restMapper.RESTMapping(targetGVK.GroupKind(), targetGVK.Version)
@@ -379,7 +380,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, func(_ policiesv1beta1.MutatingPolicyLike) bool { return true })
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -896,4 +897,37 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("failed to get resource from %s", kind)
+}
+
+// targetMatchPredicate returns a predicate that checks whether a target resource
+// matches a MutatingPolicy's targetMatchConstraints. This filters out policies
+// whose target constraints don't match the given target, mirroring the filtering
+// the background controller does via API list calls before calling Evaluate.
+func targetMatchPredicate(m matching.Matcher, attr admission.Attributes) func(policiesv1beta1.MutatingPolicyLike) bool {
+	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
+		tc := mpol.GetTargetMatchConstraints()
+		// CEL expression target selection is not supported in CLI tests
+		if tc.Expression != "" {
+			return true
+		}
+		// Mirror background controller logic: use targetMatchConstraints if set,
+		// otherwise fall back to matchConstraints
+		constraints := mpol.GetMatchConstraints()
+		if len(tc.ResourceRules) != 0 {
+			constraints = tc.MatchResources
+		}
+		// Override operations to wildcard — operations are irrelevant for target matching
+		// (the background controller doesn't check operations either)
+		rules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
+		for i, r := range constraints.ResourceRules {
+			rules[i] = r
+			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+		}
+		constraints.ResourceRules = rules
+		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, nil)
+		if err != nil {
+			return false
+		}
+		return matches
+	}
 }
