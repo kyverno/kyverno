@@ -125,7 +125,7 @@ func getNamespaceFromContext(ctx enginecontext.Interface) string {
 
 // FetchImageDataMap fetches image information from the remote registry.
 func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, ref string) (interface{}, error) {
-	desc, err := client.ForRef(context.Background(), ref)
+	desc, err := client.ForRef(idl.ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
