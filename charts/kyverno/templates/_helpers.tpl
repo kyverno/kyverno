@@ -70,6 +70,7 @@
 {{- end -}}
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
+  {{- $flags = append $flags (print "--apiCallTimeout=" .apiCallTimeout) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
