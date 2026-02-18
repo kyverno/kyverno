@@ -36,7 +36,7 @@ spec:
       message: >-
         Sharing the host namespaces is disallowed. The fields spec.hostNetwork,
         spec.hostIPC, and spec.hostPID must be unset or set to `false`.
-      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 
