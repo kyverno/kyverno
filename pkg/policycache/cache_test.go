@@ -1433,3 +1433,110 @@ func Test_Get_Policies_Overlapping_NamespaceSelector_Overrides(t *testing.T) {
 		require.Equal(t, 1, len(auditPolicies), "rule should be in Audit (first match)")
 	})
 }
+
+func Test_NamespacedPolicy_MixedEnforceAudit_Rules(t *testing.T) {
+	cache := NewCache()
+
+	// Create a namespace-scoped policy with mixed enforce/audit rules.
+	// The per-rule field is "failureAction" (not "validationFailureAction" which is spec-level).
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "mixed-policy",
+		  "namespace": "production"
+		},
+		"spec": {
+		  "validationFailureAction": "Enforce",
+		  "rules": [
+			{
+			  "name": "enforce-no-root",
+			  "match": {
+				"resources": {
+				  "kinds": ["Pod"]
+				}
+			  },
+			  "validate": {
+				"failureAction": "Enforce",
+				"deny": {
+				  "conditions": {
+					"all": [
+					  {
+						"key": "a",
+						"operator": "Equals",
+						"value": "a"
+					  }
+					]
+				  }
+				}
+			  }
+			},
+			{
+			  "name": "audit-missing-labels",
+			  "match": {
+				"resources": {
+				  "kinds": ["Pod"]
+				}
+			  },
+			  "validate": {
+				"failureAction": "Audit",
+				"pattern": {
+				  "metadata": {
+					"labels": {
+					  "team": "?*"
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy *kyvernov1.Policy
+	err := json.Unmarshal(rawPolicy, &policy)
+	require.NoError(t, err)
+
+	finder := TestResourceFinder{}
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	err = cache.Set(key, policy, finder)
+	require.NoError(t, err)
+
+	productionNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "production",
+		},
+	}
+
+	t.Run("Enforce policies should contain policy with enforce rule", func(t *testing.T) {
+		enforcePolicies := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", productionNS)
+		require.Equal(t, 1, len(enforcePolicies), "should find policy in enforce category")
+		require.Equal(t, "mixed-policy", enforcePolicies[0].GetName())
+
+		// Verify that the filtered policy contains only the enforce rule
+		require.Equal(t, 1, len(enforcePolicies[0].GetSpec().Rules), "should contain only enforce rule after filtering")
+		require.Equal(t, "enforce-no-root", enforcePolicies[0].GetSpec().Rules[0].Name)
+	})
+
+	t.Run("Audit policies should contain policy with audit rule", func(t *testing.T) {
+		auditPolicies := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", productionNS)
+		require.Equal(t, 1, len(auditPolicies), "should find policy in audit category")
+		require.Equal(t, "mixed-policy", auditPolicies[0].GetName())
+
+		// Verify that the filtered policy contains only the audit rule
+		require.Equal(t, 1, len(auditPolicies[0].GetSpec().Rules), "should contain only audit rule after filtering")
+		require.Equal(t, "audit-missing-labels", auditPolicies[0].GetSpec().Rules[0].Name)
+	})
+
+	t.Run("Different namespace should not return the policy", func(t *testing.T) {
+		otherNS := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "staging",
+			},
+		}
+
+		enforcePolicies := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", otherNS)
+		require.Equal(t, 0, len(enforcePolicies), "should not find policy in different namespace")
+
+		auditPolicies := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", otherNS)
+		require.Equal(t, 0, len(auditPolicies), "should not find policy in different namespace")
+	})
+}
