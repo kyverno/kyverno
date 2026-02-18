@@ -44,20 +44,20 @@ validationFailureAction: Audit
 # -- Define validationFailureActionByPolicy for specific policies.
 # Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
 validationFailureActionByPolicy: {}
-#  disallow-capabilities-strict: enforce
-#  disallow-host-path: enforce
-#  disallow-host-ports: enforce
+#  disallow-capabilities-strict: Enforce
+#  disallow-host-path: Enforce
+#  disallow-host-ports: Enforce
 
 # -- Define validationFailureActionOverrides for specific policies.
 # The overrides for `all` will apply to all policies.
 validationFailureActionOverrides:
   all: []
   # all:
-  #   - action: audit
+  #   - action: Audit
   #     namespaces:
   #       - ingress-nginx
   # disallow-host-path:
-  #   - action: audit
+  #   - action: Audit
   #     namespaces:
   #       - fluent
 
@@ -84,6 +84,7 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
+
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.
 policyPreconditions: {}

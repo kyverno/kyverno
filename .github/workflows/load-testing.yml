@@ -12,6 +12,8 @@ on:
     paths:
       - "cmd/**"
       - "pkg/**"
+  merge_group:
+    types: [checks_requested]
   schedule:
     - cron: "27 0 * * 0"
 
@@ -74,7 +76,7 @@ jobs:
           if-no-files-found: error
 
   old-load-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
     outputs:
@@ -98,7 +100,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -177,7 +179,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   load-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - prepare-images
       - old-load-test
@@ -200,7 +202,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -286,7 +288,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   scale-test:
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'merge_group'
     needs:
       - define-matrix
       - prepare-images
@@ -319,7 +321,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create Kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind

@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: issue-14556
+spec:
+  steps:
+  - name: create namespaces
+    try:
+    - apply:
+        file: namespaces.yaml
+  - name: create policies
+    try:
+    - apply:
+        file: policies.yaml
+  - name: verify isolation (create valid resources)
+    try:
+    - apply:
+        file: resources.yaml
+  - name: cleanup
+    try:
+    - delete:
+        file: namespaces.yaml
