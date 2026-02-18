@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -25,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+var errOpenResourceFile = errors.New("open resource file")
 
 type resourceTypeInfo struct {
 	gvkMap         map[schema.GroupVersionKind]bool
@@ -351,13 +354,11 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 			var resourceBytes []byte
 			var err error
 			if fs != nil {
-				filep, err := fs.Open(filepath.Join(policyResourcePath, resourcePath))
-				if err != nil {
-					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, err)
+				resourceBytes, err = readResourceBytes(fs, filepath.Join(policyResourcePath, resourcePath))
+				if errors.Is(err, errOpenResourceFile) {
+					fmt.Fprintf(out, "Unable to open resource file: %s. error: %s", resourcePath, errors.Unwrap(err))
 					continue
 				}
-				defer filep.Close()
-				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = resource.GetFileBytes(resourcePath)
 			}
@@ -375,4 +376,16 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 		}
 	}
 	return resources, nil
+}
+
+func readResourceBytes(fs billy.Filesystem, path string) ([]byte, error) {
+	filep, err := fs.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errOpenResourceFile, err)
+	}
+	resourceBytes, err := io.ReadAll(filep)
+	if closeErr := filep.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	return resourceBytes, err
 }

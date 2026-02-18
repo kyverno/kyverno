@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	valid "github.com/asaskevich/govalidator"
@@ -410,7 +411,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.V(2).Info("defaultRegistry not set")
 	} else {
 		logger := logger.WithValues("defaultRegistry", defaultRegistry)
-		if valid.IsDNSName(defaultRegistry) {
+		defaultRegistryHost := strings.Split(defaultRegistry, "/")[0]
+		if valid.IsDNSName(defaultRegistryHost) {
 			cd.defaultRegistry = defaultRegistry
 			logger.V(2).Info("defaultRegistry configured")
 		} else {
