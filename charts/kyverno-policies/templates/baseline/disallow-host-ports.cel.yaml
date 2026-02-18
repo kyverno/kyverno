@@ -40,6 +40,6 @@ spec:
         , spec.initContainers[*].ports[*].hostPort, and spec.ephemeralContainers[*].ports[*].hostPort
         must either be unset or set to `0`.
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-  validationActions: {{ $actions | toYaml | nindent 4 }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 

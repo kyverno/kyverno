@@ -35,6 +35,6 @@ spec:
         Privileged mode is disallowed. The fields spec.containers[*].securityContext.privileged
         and spec.initContainers[*].securityContext.privileged must be unset or set to `false`.
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-  validationActions: {{ $actions | toYaml | nindent 4 }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 

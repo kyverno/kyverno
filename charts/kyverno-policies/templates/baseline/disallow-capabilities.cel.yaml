@@ -48,6 +48,5 @@ spec:
         FSETID, KILL, MKNOD, NET_BIND_SERVICE, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT)
         are disallowed.
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-  validationActions: {{ $actions | toYaml | nindent 4 }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
-
