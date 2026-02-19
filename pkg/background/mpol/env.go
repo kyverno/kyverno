@@ -17,6 +17,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
+	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
@@ -28,7 +30,6 @@ func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
@@ -60,7 +61,7 @@ func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 			EnvOptions: []cel.EnvOption{
 				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				globalcontext.Lib(
-					libsctx,
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
@@ -71,11 +72,11 @@ func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 					image.Latest(),
 				),
 				imagedata.Lib(
-					libsctx,
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				resource.Lib(
-					libsctx,
+					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
 				),
@@ -92,6 +93,10 @@ func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 					&json.JsonImpl{},
 					json.Latest(),
 				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
 				random.Lib(
 					random.Latest(),
 				),
@@ -100,6 +105,9 @@ func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 				),
 				transform.Lib(
 					transform.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
 				),
 			},
 		},
