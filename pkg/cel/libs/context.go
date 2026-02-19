@@ -27,6 +27,17 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+// a global store for the libaries context, gets initialized when NewContextProvider gets called
+// in the controller main functions
+var LibraryContext Context
+
+func GetLibsCtx() Context {
+	if LibraryContext == nil {
+		panic("library context is nil")
+	}
+	return LibraryContext
+}
+
 type Context interface {
 	globalcontext.ContextInterface
 	imagedata.ContextInterface
@@ -70,14 +81,16 @@ func NewContextProvider(
 	if err != nil {
 		return nil, err
 	}
-	return &contextProvider{
+	ctx := &contextProvider{
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
 		cliEvaluation:      cliEvaluation,
 		restMapper:         restMapper,
 		generatedResources: make([]*unstructured.Unstructured, 0),
-	}, nil
+	}
+	LibraryContext = ctx
+	return ctx, nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
