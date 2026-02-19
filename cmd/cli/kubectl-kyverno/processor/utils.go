@@ -62,8 +62,9 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 			}
 			fakeContextProvider.AddImageData(imgData.Image, asMap)
 		}
-		// this is getting a bit bad because what if we are applying different types of policies concurrently ?
-		libs.LibraryContext = fakeContextProvider
 	}
+
+	// this is getting a bit bad because what if we are applying different types of policies concurrently ?
+	libs.LibraryContext = fakeContextProvider
 	return fakeContextProvider, nil
 }
