@@ -282,13 +282,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompiler()
-
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
 
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -389,11 +388,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		for i := range p.ValidatingPolicies {
 			policies = append(policies, p.ValidatingPolicies[i])
 		}
-		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
