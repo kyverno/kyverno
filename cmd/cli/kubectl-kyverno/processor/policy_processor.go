@@ -483,6 +483,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
+		// initialize the context provider before compiling to make it globally available
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		if err != nil {
+			return nil, err
+		}
+
 		compiler := gpolcompiler.NewCompiler()
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
@@ -494,10 +500,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
 				CompiledPolicy: compiled,
 			})
-		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
-		if err != nil {
-			return nil, err
 		}
 		if resource.Object != nil {
 			engine := gpolengine.NewEngine(p.Variables.Namespace, matching.NewMatcher())
