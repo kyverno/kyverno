@@ -32,8 +32,7 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		cel.Variable("imagedata", ContextType),
-		cel.Constant("mylib_version", types.StringType, types.String("")),
+		cel.Variable("image", ContextType),
 		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
