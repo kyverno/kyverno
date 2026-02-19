@@ -16,7 +16,7 @@ spec:
         spec:
           containers:
           - name: secure-container
-            image: ubuntu:latest
+            image: public.ecr.aws/docker/library/ubuntu:latest
             command: ["echo", "Hello, world"]
             securityContext:
               seccompProfile:
