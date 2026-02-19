@@ -207,7 +207,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			IntroducedVersion: ivpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
 				globalcontext.Lib(
-					libsctx,
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
@@ -218,14 +218,14 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 					image.Latest(),
 				),
 				imagedata.Lib(
-					libsctx,
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				imageverify.Lib(
 					imageverify.Latest(), c.ictx, ivpol, c.lister,
 				),
 				resource.Lib(
-					libsctx,
+					resource.Context{ContextInterface: libsctx},
 					ivpol.GetNamespace(),
 					resource.Latest(),
 				),

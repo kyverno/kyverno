@@ -249,7 +249,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 				ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
 				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				globalcontext.Lib(
-					libsctx,
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
@@ -257,7 +257,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 					http.Latest(),
 				),
 				resource.Lib(
-					libs.GetLibsCtx(),
+					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
 				),
@@ -265,7 +265,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 					image.Latest(),
 				),
 				imagedata.Lib(
-					libsctx,
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				user.Lib(

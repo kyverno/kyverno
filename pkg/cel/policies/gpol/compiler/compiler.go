@@ -89,11 +89,11 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 				ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
 				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				generator.Lib(
-					libsctx,
+					generator.Context{ContextInterface: libsctx},
 					generator.Latest(),
 				),
 				globalcontext.Lib(
-					libsctx,
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
@@ -101,7 +101,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 					http.Latest(),
 				),
 				resource.Lib(
-					libsctx,
+					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
 				),
@@ -109,7 +109,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 					image.Latest(),
 				),
 				imagedata.Lib(
-					libsctx,
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				hash.Lib(

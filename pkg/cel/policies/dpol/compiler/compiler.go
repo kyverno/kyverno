@@ -139,7 +139,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 			IntroducedVersion: dpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
 				globalcontext.Lib(
-					libsctx,
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
@@ -150,11 +150,11 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 					image.Latest(),
 				),
 				imagedata.Lib(
-					libsctx,
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				resource.Lib(
-					libsctx,
+					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
 				),
