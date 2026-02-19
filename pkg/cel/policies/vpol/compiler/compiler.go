@@ -300,9 +300,9 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 			},
 		},
 	)
-
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return extendedBase, variablesProvider, nil
 }
