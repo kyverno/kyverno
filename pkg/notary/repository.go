@@ -29,11 +29,11 @@ func NewRepository(remoteOpts []remote.Option, ref name.Reference) notationregis
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
 	if err != nil {
-		return ocispec.Descriptor{}, nil
+		return ocispec.Descriptor{}, err
 	}
 	head, err := remote.Head(nameRef, c.remoteOpts...)
 	if err != nil {
-		return ocispec.Descriptor{}, nil
+		return ocispec.Descriptor{}, err
 	}
 	descriptor := v1ToOciSpecDescriptor(*head)
 	return descriptor, nil

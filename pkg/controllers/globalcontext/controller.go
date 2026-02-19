@@ -47,6 +47,7 @@ type controller struct {
 	store              store.Store
 	eventGen           event.Interface
 	maxResponseLength  int64
+	apiCallTimeout     time.Duration
 	shouldUpdateStatus bool
 	jp                 jmespath.Interface
 }
@@ -59,6 +60,7 @@ func NewController(
 	storage store.Store,
 	eventGen event.Interface,
 	maxResponseLength int64,
+	apiCallTimeout time.Duration,
 	shouldUpdateStatus bool,
 	jp jmespath.Interface,
 ) controllers.Controller {
@@ -75,6 +77,7 @@ func NewController(
 		store:              storage,
 		eventGen:           eventGen,
 		maxResponseLength:  maxResponseLength,
+		apiCallTimeout:     apiCallTimeout,
 		shouldUpdateStatus: shouldUpdateStatus,
 		jp:                 jp,
 	}
@@ -170,6 +173,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2beta1.Glo
 		gce.Spec.APICall.APICall,
 		gce.Spec.APICall.RefreshInterval.Duration,
 		c.maxResponseLength,
+		c.apiCallTimeout,
 		c.shouldUpdateStatus,
 		c.jp,
 	)
