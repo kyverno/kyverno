@@ -117,6 +117,7 @@ We’re here to help:
 Thank you for your interest in contributing to Kyverno!
 
 - ✅ Read the [Contribution Guidelines](/CONTRIBUTING.md)
+- 🤖 Read The [AI_Usage_Policy](https://github.com/kyverno/community/blob/main/AI_USAGE_POLICY.md)
 - 🧵 Join [GitHub Discussions](https://github.com/kyverno/kyverno/discussions)
 - 📖 Read the [Development Guide](/DEVELOPMENT.md)
 - 🏁 Check [Good First Issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) and request with `/assign`
