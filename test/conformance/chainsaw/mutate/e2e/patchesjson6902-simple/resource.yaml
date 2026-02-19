@@ -10,7 +10,7 @@ spec:
     env:
     - name: FOO
       value: bar
-    image: busybox:1.11
+    image: public.ecr.aws/docker/library/busybox:1.11
     name: busybox
     securityContext:
       capabilities:
