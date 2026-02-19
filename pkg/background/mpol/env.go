@@ -4,6 +4,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
@@ -23,14 +24,11 @@ import (
 
 var targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
 
-func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
+func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.ObjectKey, cel.DynType),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
@@ -62,18 +60,22 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 			EnvOptions: []cel.EnvOption{
 				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 				globalcontext.Lib(
+					libsctx,
 					globalcontext.Latest(),
 				),
 				http.Lib(
+					http.Context{ContextInterface: http.NewHTTP(nil)},
 					http.Latest(),
 				),
 				image.Lib(
 					image.Latest(),
 				),
 				imagedata.Lib(
+					libsctx,
 					imagedata.Latest(),
 				),
 				resource.Lib(
+					libsctx,
 					namespace,
 					resource.Latest(),
 				),
