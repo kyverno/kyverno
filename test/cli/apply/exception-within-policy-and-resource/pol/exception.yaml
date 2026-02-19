@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: delta-exception-1
+  namespace: delta
+spec:
+  exceptions:
+  - policyName: disallow-latest-tag
+    ruleNames:
+    - validate-image-tag
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+        namespaces:
+        - delta
+        names:
+        - test-res-2
+  conditions:
+    any:
+    - key: "{{ request.object.metadata.labels.app || '' }}"
+      operator: Equals
+      value: busybox

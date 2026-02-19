@@ -1,0 +1,173 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Conformance tests
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - name: Setup Go
+        id: setup-go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Set cache variables
+        shell: bash
+        run: |
+          set -e
+          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+          echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+      - name: Restore gomod cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ env.GO_MOD_CACHE }}
+          key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Restore gobuild cache
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ env.GO_BUILD_CACHE }}
+          key: gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
+            gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
+      - name: Install Ko
+        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+      - name: Ko build
+        shell: bash
+        run: |
+          set -e
+          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload images archive
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          retention-days: 1
+          if-no-files-found: error
+      - name: Build CLI
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: Upload binary
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          retention-days: 1
+          if-no-files-found: error
+
+  policy-library:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.2, v1.35.0]
+        shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    needs: [prepare]
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout kyverno/policies
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: kyverno/policies
+          path: policies
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+      - name: Install ORAS
+        uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+        with:
+          verify: true
+      - name: Download kyverno CLI archive
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: kubectl-kyverno
+      - name: Install Kyverno CLI
+        shell: bash
+        run: |
+          set -e
+          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=standard
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      # run tests
+      - name: Install CRDs
+        run: |
+          set -e
+          kubectl apply -f ./policies/.chainsaw/crds
+      - name: Test with Chainsaw
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd policies
+          chainsaw test . \
+            --shard-index ${{ matrix.shard-index }} \
+            --shard-count 12 \
+            --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
+            --no-color=false
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs

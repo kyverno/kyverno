@@ -2599,7 +2599,8 @@ It can be of one of these values: default,google,azure,amazon,github.</p>
 </td>
 <td>
 <p>Secrets specifies a list of secrets that are provided for credentials.
-Secrets must live in the Kyverno namespace.</p>
+Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+imagePullSecrets from the resource namespace are also used.</p>
 </td>
 </tr>
 </tbody>

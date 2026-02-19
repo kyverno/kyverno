@@ -1,0 +1,61 @@
+{{- $name := "restrict-seccomp-strict" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Restrict Seccomp (Strict)
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      The seccomp profile must be explicitly set to `RuntimeDefault` or `Localhost`.
+      This policy ensures that seccomp is set to one of these allowed values.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        ((has(object.spec.securityContext) && 
+         has(object.spec.securityContext.seccompProfile) && 
+         has(object.spec.securityContext.seccompProfile.type) && 
+         object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']) ||
+        (!has(object.spec.securityContext) || !has(object.spec.securityContext.seccompProfile))) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.seccompProfile) && 
+          has(c.securityContext.seccompProfile.type) && 
+          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.seccompProfile) && 
+          has(c.securityContext.seccompProfile.type) && 
+          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.seccompProfile) && 
+          has(c.securityContext.seccompProfile.type) && 
+          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']))
+      message: >-
+        Seccomp profile must be explicitly set. The fields
+        spec.securityContext.seccompProfile.type,
+        spec.containers[*].securityContext.seccompProfile.type,
+        spec.initContainers[*].securityContext.seccompProfile.type, and
+        spec.ephemeralContainers[*].securityContext.seccompProfile.type
+        must be set to `RuntimeDefault` or `Localhost`.
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
+{{- end }}
+

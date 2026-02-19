@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	mpolCompilerVersion = version.MajorMinor(1, 0)
+	mpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "mutating policy compiler " + mpolCompilerVersion.String() + " error: %s"
 )
 
@@ -109,7 +109,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
 
-		evaluator := compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
+		evaluator := compositedCompiler.ConditionCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
 		for _, err := range evaluator.CompilationErrors() {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("matchConditions"),
@@ -173,7 +173,8 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		}
 	}
 	return &Policy{
-		evaluator:  mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
-		exceptions: compiledExceptions,
+		evaluator:        mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
+		exceptions:       compiledExceptions,
+		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, allErrs
 }

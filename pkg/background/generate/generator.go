@@ -96,7 +96,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		return newGenResources, fmt.Errorf("failed to parse preconditions: %v", err)
 	}
 
-	preconditionsPassed, msg, err := variables.EvaluateConditions(g.logger, g.policyContext.JSONContext(), typeConditions)
+	preconditionsPassed, msg, err := variables.EvaluateConditionsWithContext(g.logger, g.policyContext.JSONContext(), typeConditions, "generate.preconditions")
 	if err != nil {
 		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %v", err)
 	}
@@ -129,7 +129,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		targetMeta := response.GetTarget()
 		if response.GetError() != nil {
 			logger.Error(response.GetError(), "failed to generate resource", "mode", response.GetAction())
-			return newGenResources, err
+			return newGenResources, response.GetError()
 		}
 
 		if response.GetAction() == Skip {

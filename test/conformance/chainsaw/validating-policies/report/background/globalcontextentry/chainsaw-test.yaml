@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -49,7 +50,7 @@ spec:
           spec:
             containers:
             - name: test
-              image: nginx:latest
+              image: public.ecr.aws/docker/library/nginx:latest
     
   - name: verify-policy-report-with-debug-message
     description: Verify policy report contains debug=1 message (1 deployment found)

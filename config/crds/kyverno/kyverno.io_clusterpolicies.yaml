@@ -350,7 +350,8 @@ spec:
                                   secrets:
                                     description: |-
                                       Secrets specifies a list of secrets that are provided for credentials.
-                                      Secrets must live in the Kyverno namespace.
+                                      Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                      imagePullSecrets from the resource namespace are also used.
                                     items:
                                       type: string
                                     type: array
@@ -1390,7 +1391,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -2475,7 +2477,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -2858,7 +2861,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -3615,7 +3619,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -4956,7 +4961,8 @@ spec:
                               secrets:
                                 description: |-
                                   Secrets specifies a list of secrets that are provided for credentials.
-                                  Secrets must live in the Kyverno namespace.
+                                  Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                  imagePullSecrets from the resource namespace are also used.
                                 items:
                                   type: string
                                 type: array
@@ -5434,7 +5440,8 @@ spec:
                                       secrets:
                                         description: |-
                                           Secrets specifies a list of secrets that are provided for credentials.
-                                          Secrets must live in the Kyverno namespace.
+                                          Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                          imagePullSecrets from the resource namespace are also used.
                                         items:
                                           type: string
                                         type: array
@@ -6485,7 +6492,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -7582,7 +7590,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -7974,7 +7983,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -8744,7 +8754,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -10109,7 +10120,8 @@ spec:
                                   secrets:
                                     description: |-
                                       Secrets specifies a list of secrets that are provided for credentials.
-                                      Secrets must live in the Kyverno namespace.
+                                      Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                      imagePullSecrets from the resource namespace are also used.
                                     items:
                                       type: string
                                     type: array
@@ -10640,7 +10652,8 @@ spec:
                                   secrets:
                                     description: |-
                                       Secrets specifies a list of secrets that are provided for credentials.
-                                      Secrets must live in the Kyverno namespace.
+                                      Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                      imagePullSecrets from the resource namespace are also used.
                                     items:
                                       type: string
                                     type: array
@@ -11474,7 +11487,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -12353,7 +12367,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -12736,7 +12751,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -13658,7 +13674,8 @@ spec:
                                             secrets:
                                               description: |-
                                                 Secrets specifies a list of secrets that are provided for credentials.
-                                                Secrets must live in the Kyverno namespace.
+                                                Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                imagePullSecrets from the resource namespace are also used.
                                               items:
                                                 type: string
                                               type: array
@@ -14980,7 +14997,8 @@ spec:
                               secrets:
                                 description: |-
                                   Secrets specifies a list of secrets that are provided for credentials.
-                                  Secrets must live in the Kyverno namespace.
+                                  Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                  imagePullSecrets from the resource namespace are also used.
                                 items:
                                   type: string
                                 type: array
@@ -15446,7 +15464,8 @@ spec:
                                       secrets:
                                         description: |-
                                           Secrets specifies a list of secrets that are provided for credentials.
-                                          Secrets must live in the Kyverno namespace.
+                                          Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                          imagePullSecrets from the resource namespace are also used.
                                         items:
                                           type: string
                                         type: array
@@ -16497,7 +16516,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -17594,7 +17614,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -17986,7 +18007,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -18756,7 +18778,8 @@ spec:
                                                 secrets:
                                                   description: |-
                                                     Secrets specifies a list of secrets that are provided for credentials.
-                                                    Secrets must live in the Kyverno namespace.
+                                                    Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                                    imagePullSecrets from the resource namespace are also used.
                                                   items:
                                                     type: string
                                                   type: array
@@ -20121,7 +20144,8 @@ spec:
                                   secrets:
                                     description: |-
                                       Secrets specifies a list of secrets that are provided for credentials.
-                                      Secrets must live in the Kyverno namespace.
+                                      Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+                                      imagePullSecrets from the resource namespace are also used.
                                     items:
                                       type: string
                                     type: array

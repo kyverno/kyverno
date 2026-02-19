@@ -1,0 +1,56 @@
+{{- $name := "require-run-as-nonroot" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Require runAsNonRoot
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      Containers must be required to run as non-root users. This policy ensures
+      `runAsNonRoot` is set to `true`. A known issue prevents a policy such as this
+      using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        ((has(object.spec.securityContext) && 
+         has(object.spec.securityContext.runAsNonRoot) && 
+         object.spec.securityContext.runAsNonRoot == true) ||
+        (!has(object.spec.securityContext) || !has(object.spec.securityContext.runAsNonRoot))) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.runAsNonRoot) && 
+          c.securityContext.runAsNonRoot == true)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.runAsNonRoot) && 
+          c.securityContext.runAsNonRoot == true)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.runAsNonRoot) && 
+          c.securityContext.runAsNonRoot == true))
+      message: >-
+        Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
+        must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
+        spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
+        must be set to `true`.
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
+{{- end }}
+

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
@@ -127,6 +126,7 @@ func main() {
 		maxQueuedEvents                 int
 		omitEvents                      string
 		maxAPICallResponseLength        int64
+		apiCallTimeout                  time.Duration
 		maxBackgroundReports            int
 		controllerRuntimeMetricsAddress string
 	)
@@ -135,6 +135,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 
@@ -210,6 +211,7 @@ func main() {
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
+				apiCallTimeout,
 				false,
 				setup.Jp,
 			),
@@ -231,7 +233,7 @@ func main() {
 			setup.KubeClient,
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
 			polexCache,
 			gcstore,
 		)
@@ -254,17 +256,17 @@ func main() {
 						time.Sleep(2 * time.Second)
 						continue
 					}
-					breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+					breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 					return
 				}
 			}()
 			// temporarily create a fake breaker until the retrying goroutine succeeds
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", func(context.Context) bool {
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", func(context.Context) bool {
 				return true
-			})
+			}))
 			// no error occurred, create a normal breaker
 		} else {
-			breaker.ReportsBreaker = breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs))
+			breaker.SetReportsBreaker(breaker.NewBreaker("background-scan reports", ephrCounterFunc(ephrs)))
 		}
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -286,7 +288,7 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 
-				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient)
 				if err != nil {
 					setup.Logger.Error(err, "failed to create RESTMapper")
 					os.Exit(1)
@@ -326,10 +328,6 @@ func main() {
 				gpolEngine := gpolengine.NewMetricsEngine(gpolengine.NewEngine(namespaceGetter, matching.NewMatcher()))
 
 				scheme := kruntime.NewScheme()
-				if err := policiesv1alpha1.Install(scheme); err != nil {
-					setup.Logger.Error(err, "failed to initialize scheme")
-					os.Exit(1)
-				}
 				if err := policiesv1beta1.Install(scheme); err != nil {
 					setup.Logger.Error(err, "failed to initialize scheme")
 					os.Exit(1)
@@ -401,14 +399,15 @@ func main() {
 					os.Exit(1)
 				}
 				// start informers and wait for cache sync
-				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer) {
+				// Use ctx (leader election context) so informers/controllers stop when leadership is lost
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
 				}
 				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
-					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
 				// wait all controllers shut down
 				wg.Wait()

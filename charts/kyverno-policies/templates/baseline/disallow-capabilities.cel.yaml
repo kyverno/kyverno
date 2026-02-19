@@ -1,0 +1,52 @@
+{{- $name := "disallow-capabilities" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow Capabilities
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Adding capabilities beyond those listed in the policy must be disallowed.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          !has(c.securityContext.capabilities.add) || 
+          c.securityContext.capabilities.add.all(cap, cap in ['AUDIT_WRITE', 'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'MKNOD', 'NET_BIND_SERVICE', 'SETFCAP', 'SETGID', 'SETPCAP', 'SETUID', 'SYS_CHROOT']))) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          !has(c.securityContext.capabilities.add) || 
+          c.securityContext.capabilities.add.all(cap, cap in ['AUDIT_WRITE', 'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'MKNOD', 'NET_BIND_SERVICE', 'SETFCAP', 'SETGID', 'SETPCAP', 'SETUID', 'SYS_CHROOT']))) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          !has(c.securityContext) || 
+          !has(c.securityContext.capabilities) || 
+          !has(c.securityContext.capabilities.add) || 
+          c.securityContext.capabilities.add.all(cap, cap in ['AUDIT_WRITE', 'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'MKNOD', 'NET_BIND_SERVICE', 'SETFCAP', 'SETGID', 'SETPCAP', 'SETUID', 'SYS_CHROOT'])))
+      message: >-
+        Any capabilities added beyond the allowed list (AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER,
+        FSETID, KILL, MKNOD, NET_BIND_SERVICE, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT)
+        are disallowed.
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
+{{- end }}

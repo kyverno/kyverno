@@ -45,7 +45,7 @@ type SetupResult struct {
 	LeaderElectionClient   kubeclient.UpstreamInterface
 	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
-	RegistrySecretLister   corev1listers.SecretNamespaceLister
+	RegistrySecretLister   corev1listers.SecretLister
 	KyvernoClient          kyvernoclient.UpstreamInterface
 	DynamicClient          dynamicclient.UpstreamInterface
 	ApiServerClient        apiserverclient.UpstreamInterface
@@ -64,6 +64,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	showWarnings(config, logger)
 	check(logger)
 	sdownMaxProcs := setupMaxProcs(logger)
+	setupMemLimit(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())
@@ -73,7 +74,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
 	var registryClient registryclient.Client
-	var registrySecretLister corev1listers.SecretNamespaceLister
+	var registrySecretLister corev1listers.SecretLister
 	if config.UsesRegistryClient() {
 		registryClient, registrySecretLister = setupRegistryClient(ctx, logger, client)
 	}

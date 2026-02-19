@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	gpolCompilerVersion = version.MajorMinor(1, 0)
+	gpolCompilerVersion = version.MajorMinor(2, 0)
 	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + " error: %s"
 )
 
@@ -198,9 +198,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		})
 	}
 	return &Policy{
-		matchConditions: matchConditions,
-		variables:       variables,
-		generations:     generations,
-		exceptions:      compiledExceptions,
+		matchConditions:  matchConditions,
+		variables:        variables,
+		generations:      generations,
+		exceptions:       compiledExceptions,
+		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, nil
 }

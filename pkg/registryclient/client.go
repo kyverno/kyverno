@@ -94,9 +94,9 @@ func NewOrDie(options ...Option) Client {
 }
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
-func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
+func WithKeychainPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) Option {
 	return func(c *config) error {
-		kc, err := NewAutoRefreshSecretsKeychain(lister, imagePullSecrets...)
+		kc, err := NewAutoRefreshSecretsKeychain(lister, defaultNamespace, imagePullSecrets...)
 		if err != nil {
 			return err
 		}
@@ -180,15 +180,15 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	nameOpts := c.NameOptions()
 	parsedRef, err := name.ParseReference(imageRef, nameOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %w", imageRef, err)
 	}
 	remoteOpts, err := c.Options(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %w", imageRef, err)
 	}
 	desc, err := gcrremote.Get(parsedRef, remoteOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
+		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %w", imageRef, err)
 	}
 	if _, ok := parsedRef.(name.Digest); ok && parsedRef.Identifier() != desc.Digest.String() {
 		return nil, fmt.Errorf("digest mismatch, expected: %s, received: %s", parsedRef.Identifier(), desc.Digest.String())

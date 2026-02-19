@@ -1,0 +1,52 @@
+{{- $name := "disallow-privilege-escalation" }}
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow Privilege Escalation
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      Privilege escalation, such as via set-user-ID or set-group-ID file mode, should not be allowed.
+      This policy ensures the `allowPrivilegeEscalation` field is set to `false`.
+    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.containers) || object.spec.containers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.allowPrivilegeEscalation) && 
+          c.securityContext.allowPrivilegeEscalation == false)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.allowPrivilegeEscalation) && 
+          c.securityContext.allowPrivilegeEscalation == false)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
+          has(c.securityContext) && 
+          has(c.securityContext.allowPrivilegeEscalation) && 
+          c.securityContext.allowPrivilegeEscalation == false))
+      message: >-
+        Privilege escalation is disallowed. The fields
+        spec.containers[*].securityContext.allowPrivilegeEscalation,
+        spec.initContainers[*].securityContext.allowPrivilegeEscalation,
+        and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
+        must be set to `false`.
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
+{{- end }}
+
