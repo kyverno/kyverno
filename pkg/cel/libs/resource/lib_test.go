@@ -14,7 +14,7 @@ func TestLib(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(nil, "", nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -27,7 +27,7 @@ func TestNamespaceLib(t *testing.T) {
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
