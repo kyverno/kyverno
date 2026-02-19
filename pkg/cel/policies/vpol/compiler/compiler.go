@@ -137,27 +137,14 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	base, err := compiler.NewBaseEnv()
+	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
-	variablesProvider := compiler.NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider()
-	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	env, err := vpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	options := []cel.EnvOption{
-		cel.Variable(compiler.ObjectKey, cel.DynType),
-	}
-
-	options = append(options, declOptions...)
-	options = append(options, http.Lib(http.Latest()), image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()), x509.Lib(x509.Latest()))
-	env, err := base.Extend(options...)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
 
 	path := field.NewPath("spec")
