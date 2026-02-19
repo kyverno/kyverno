@@ -42,7 +42,7 @@ func (l *lib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{
 		cel.Globals(
 			map[string]any{
-				"imagedata": l.imagedataIface,
+				"image": l.imagedataIface,
 			},
 		),
 	}
