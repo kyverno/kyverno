@@ -380,7 +380,6 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		gcstore := store.New()
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
