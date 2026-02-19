@@ -187,22 +187,8 @@ func (s *scanner) ScanResource(
 				matching.NewMatcher(),
 			), metrics.BackgroundScan)
 
-			context, err := libs.NewContextProvider(
-				s.client,
-				nil,
-				// TODO
-				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-				s.gctxStore,
-				s.mapper,
-				false,
-			)
-			if err != nil {
-				logger.Error(err, "failed to create cel context provider")
-				results[&vpols[i]] = ScanResult{nil, err}
-				continue
-			}
 			request := celengine.Request(
-				context,
+				libs.GetLibsCtx(),
 				resource.GroupVersionKind(),
 				gvr,
 				subResource,
@@ -240,30 +226,17 @@ func (s *scanner) ScanResource(
 				results[&mpols[i]] = ScanResult{nil, err}
 				continue
 			}
-			context, err := libs.NewContextProvider(
-				s.client,
-				nil,
-				// TODO
-				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-				s.gctxStore,
-				s.mapper,
-				false,
-			)
+
 			engine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 				s.typeConverter,
-				context,
+				libs.GetLibsCtx(),
 			), metrics.BackgroundScan)
 
-			if err != nil {
-				logger.Error(err, "failed to create cel context provider")
-				results[&mpols[i]] = ScanResult{nil, err}
-				continue
-			}
 			request := celengine.Request(
-				context,
+				libs.GetLibsCtx(),
 				resource.GroupVersionKind(),
 				gvr,
 				subResource,
@@ -315,14 +288,8 @@ func (s *scanner) ScanResource(
 				s.client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
 			), metrics.BackgroundScan)
-			context, err := libs.NewContextProvider(s.client, nil, gctxstore.New(), s.mapper, false)
-			if err != nil {
-				logger.Error(err, "failed to create cel context provider")
-				results[&ivpols[i]] = ScanResult{nil, err}
-				continue
-			}
 			request := celengine.Request(
-				context,
+				libs.GetLibsCtx(),
 				resource.GroupVersionKind(),
 				gvr,
 				subResource,
