@@ -82,6 +82,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 			opts.TSAIntermediateCertificates = intermediates
 			opts.TSARootCertificates = roots
+			opts.UseSignedTimestamps = true
 		}
 	}
 
