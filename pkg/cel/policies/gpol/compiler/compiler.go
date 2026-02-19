@@ -55,8 +55,6 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 		cel.Types(compiler.NamespaceType.CelType()),
 		cel.Types(compiler.RequestType.CelType()),
-		cel.Variable(compiler.GeneratorKey, generator.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
