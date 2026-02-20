@@ -41,6 +41,24 @@ type CompiledPolicy interface {
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
 }
 
+// imageDataContextWrapper wraps a libs.Context to check matchImageReferences before fetching image data
+type imageDataContextWrapper struct {
+	inner          libs.Context
+	matchImageRefs []engine.MatchImageReference
+}
+
+func (w *imageDataContextWrapper) GetImageData(image string) (map[string]any, error) {
+	// Check if image matches matchImageReferences before fetching
+	if match, err := matching.MatchImage(image, w.matchImageRefs...); err != nil {
+		return nil, err
+	} else if !match {
+		// Return nil (which becomes null in CEL) when image doesn't match
+		return nil, nil
+	}
+	// Image matches, proceed with fetching
+	return w.inner.GetImageData(image)
+}
+
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
@@ -116,7 +134,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		// Wrap imagedata context to check matchImageReferences before fetching
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: &imageDataContextWrapper{
+			inner:          context,
+			matchImageRefs: c.matchImageReferences,
+		}}
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[engine.ObjectKey] = request

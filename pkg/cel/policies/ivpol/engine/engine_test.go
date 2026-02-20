@@ -186,3 +186,58 @@ func Test_ImageVerifyEngine(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, v.Status, engineapi.RuleStatusPass)
 }
+
+func Test_ImageVerifyEngine_SkippedWhenNoImagesMatch(t *testing.T) {
+	nonMatchingPod := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "test-pod",
+		   "namespace": ""
+		},
+		"spec": {
+		   "containers": [
+			  {apiservercel "k8s.io/apiserver/pkg/cel"
+				 "name": "nginx",
+				 "image": "docker.io/library/nginx:latest"
+			  }
+		   ]
+		}
+	 }`
+
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(nonMatchingPod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, len(resp.Policies), 1)
+
+	response := resp.Policies[0]
+	assert.Equal(t, response.Result.Name(), "ivpol-notary")
+	assert.Equal(t, response.Result.Status(), engineapi.RuleStatusSkip, "policy should be skipped when no images match matchImageReferences")
+	assert.Contains(t, response.Result.Message(), "no images matched matchImageReferences")
+
+	assert.Equal(t, len(patches), 2)
+	outcomePatch := patches[1]
+	data, ok := outcomePatch.Value.(string)
+	assert.True(t, ok)
+
+	var outcomes map[string]eval.ImageVerificationOutcome
+	err = json.Unmarshal([]byte(data), &outcomes)
+	assert.NoError(t, err)
+
+	v, ok := outcomes["ivpol-notary"]
+	assert.True(t, ok)
+	assert.Equal(t, v.Status, engineapi.RuleStatusSkip, "outcome annotation should show skip status")
+}
