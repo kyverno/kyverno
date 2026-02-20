@@ -18,6 +18,6 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: busybox:latest
+    image: public.ecr.aws/docker/library/busybox:latest
     securityContext:
       allowPrivilegeEscalation: true
