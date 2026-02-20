@@ -5,6 +5,6 @@ metadata:
   namespace: ndpol-test
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: example
 

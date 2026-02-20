@@ -608,19 +608,14 @@ webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
 
-  autoDeleteWebhooks:
-    # -- Allow webhooks controller to delete webhooks using finalizers
-    enabled: false
-
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: registry.k8s.io
     # -- Image repository
-    repository: ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup
+    repository: kubectl
     # -- Image tag
-    # Defaults to current release tag if omitted
-    tag: ~
     # Defaults to `latest` if omitted
+    tag: 'v1.34.3'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -785,6 +780,8 @@ features:
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
+    # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
+    apiCallTimeout: 30s
   logging:
     # -- Logging format
     format: text
