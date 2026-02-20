@@ -19,5 +19,5 @@ spec:
         exclude:
         - controlName: "/proc Mount Type"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.procMount"

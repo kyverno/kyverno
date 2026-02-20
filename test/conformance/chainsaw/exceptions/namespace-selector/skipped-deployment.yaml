@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nginx-container
-          image: nginx:latest
+          image: public.ecr.aws/docker/library/nginx:latest
           ports:
             - containerPort: 80
           resources:
