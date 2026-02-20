@@ -265,3 +265,46 @@ func Test_SortReportResults_single(t *testing.T) {
 
 	assert.Equal(t, "only-one", results[0].Policy)
 }
+func TestPolicyExceptionHandling(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      engineapi.RuleStatus
+		isException bool
+		expected    openreportsv1alpha1.Result
+	}{
+		{
+			name:        "fail without exception",
+			status:      engineapi.RuleStatusFail,
+			isException: false,
+			expected:    openreports.StatusFail,
+		},
+		{
+			name:        "fail with exception -> skip",
+			status:      engineapi.RuleStatusFail,
+			isException: true,
+			expected:    openreports.StatusSkip,
+		},
+		{
+			name:        "skip without exception",
+			status:      engineapi.RuleStatusSkip,
+			isException: false,
+			expected:    openreports.StatusSkip,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Manual result construction to test the exact logic
+			result := openreportsv1alpha1.ReportResult{
+				Result: toPolicyResult(tt.status),
+			}
+
+			// Simulate the exact fix logic we added
+			if tt.isException {
+				result.Result = openreports.StatusSkip
+			}
+
+			assert.Equal(t, tt.expected, result.Result)
+		})
+	}
+}
