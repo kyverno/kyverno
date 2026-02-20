@@ -6,13 +6,6 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.cleanup-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.global.templating.enabled }}
-  finalizers:
-  - kyverno.io/policywebhooks
-  - kyverno.io/ttlwebhooks
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
     {{- with .Values.cleanupController.labels }}
@@ -122,9 +115,6 @@ spec:
             - --servicePort={{ .Values.cleanupController.service.port }}
             - --resyncPeriod={{ .Values.cleanupController.resyncPeriod | default .Values.global.resyncPeriod }}
             - --cleanupServerPort={{ .Values.cleanupController.server.port }}
-            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-            - --autoDeleteWebhooks
-            {{- end }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.cleanupController.tracing.address }}

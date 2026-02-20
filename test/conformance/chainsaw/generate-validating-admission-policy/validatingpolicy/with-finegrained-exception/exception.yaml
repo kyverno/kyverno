@@ -8,7 +8,7 @@ spec:
       kind: ValidatingPolicy
   # list of image names to exclude
   images:
-  - busybox:latest
+  - public.ecr.aws/docker/library/busybox:latest
   - nginx:latest
   # list of values to allow
   allowedValues:
