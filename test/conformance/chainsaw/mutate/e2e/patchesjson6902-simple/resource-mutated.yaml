@@ -21,7 +21,7 @@ spec:
   initContainers:
   - command:
     - sleep infinity
-    image: nginx:1.14
+    image: public.ecr.aws/docker/library/nginx:1.14
     name: nginx
     securityContext:
       capabilities:

@@ -4,7 +4,7 @@ metadata:
   name: pod-latest-tag
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: pod
 ---
 apiVersion: v1
@@ -14,5 +14,5 @@ metadata:
   namespace: match-conditions-userinfo-ns
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: pod
