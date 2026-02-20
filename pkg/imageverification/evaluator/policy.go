@@ -186,7 +186,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		if err != nil {
 			return nil, err
 		}
-		// Check if the result is an error value before conversion
 		if out != nil && out.Type() == types.ErrType {
 			if errVal, ok := out.(*types.Err); ok {
 				return &EvaluationResult{Error: fmt.Errorf("validation error: %s", errVal.Error())}, nil

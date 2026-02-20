@@ -197,7 +197,7 @@ func Test_ImageVerifyEngine_SkippedWhenNoImagesMatch(t *testing.T) {
 		},
 		"spec": {
 		   "containers": [
-			  {apiservercel "k8s.io/apiserver/pkg/cel"
+			  {
 				 "name": "nginx",
 				 "image": "docker.io/library/nginx:latest"
 			  }
