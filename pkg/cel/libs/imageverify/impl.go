@@ -168,6 +168,11 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
 		return types.WrapErr(err)
 	} else {
+		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
+			return types.WrapErr(err)
+		} else if !match {
+			return types.NewErr("image does not match matchImageReferences: %s", image)
+		}
 		attest, ok := f.attestationList[attestation]
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
@@ -190,6 +195,11 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
+		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
+			return types.WrapErr(err)
+		} else if !match {
+			return types.NewErr("image does not match matchImageReferences: %s", image)
+		}
 		opts := GetRemoteOptsFromPolicy(f.creds)
 		img, err := f.imgCtx.Get(ctx, image, opts...)
 		if err != nil {
