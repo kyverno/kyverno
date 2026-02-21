@@ -23,7 +23,7 @@ spec:
           - "0"
         - controlName: "Running as Non-root user"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.runAsUser"
           values:
           - "0"

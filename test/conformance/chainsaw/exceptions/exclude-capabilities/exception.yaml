@@ -16,5 +16,5 @@ spec:
   podSecurity:
     - controlName: Capabilities
       images:
-          - nginx*
+          - public.ecr.aws/docker/library/nginx*
           - redis*

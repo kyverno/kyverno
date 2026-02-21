@@ -25,7 +25,7 @@ spec:
   variables:
   - expression: '[''AUDIT_WRITE'',''CHOWN'',''DAC_OVERRIDE'',''FOWNER'',''FSETID'',''KILL'',''MKNOD'',''NET_BIND_SERVICE'',''SETFCAP'',''SETGID'',''SETPCAP'',''SETUID'',''SYS_CHROOT'']'
     name: allowedCapabilities
-  - expression: '[''busybox:latest'', ''nginx:latest'']'
+  - expression: '[''public.ecr.aws/docker/library/busybox:latest'', ''public.ecr.aws/docker/library/nginx:latest'']'
     name: allowedImages
   - expression: '[''FOO'', ''BAR'']'
     name: allowedValues
