@@ -243,31 +243,6 @@ func printTestResult(
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
-					matchedRules := lookupRuleResponses(test, response.PolicyResponse.Rules...)
-
-					// If a rule is specified but no matching rules found, report an error
-					if test.Rule != "" && len(matchedRules) == 0 && len(response.PolicyResponse.Rules) > 0 {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
-
-						message := fmt.Sprintf("rule '%s' not found in policy '%s'", test.Rule, test.Policy)
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultFail(),
-								Reason:    "Rule not found",
-								IsFailure: true,
-							},
-							Message: message,
-						}
-						rows = append(rows, row)
-						rc.Fail++
-						testCount++
-						continue
-					}
 
 					var (
 						rulesToCheck []engineapi.RuleResponse
