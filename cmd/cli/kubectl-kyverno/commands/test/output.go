@@ -269,7 +269,6 @@ func printTestResult(
 						continue
 					}
 
-					for _, rule := range matchedRules {
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
