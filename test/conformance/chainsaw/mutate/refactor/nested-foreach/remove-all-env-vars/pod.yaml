@@ -5,14 +5,14 @@ metadata:
 spec:
   containers:
   - name: busybox-1
-    image: busybox:1.35
+    image: public.ecr.aws/docker/library/busybox:1.35
     env:
     - name: ONE
       value: "one"
     - name: TWO
       value: "two"
   - name: busybox-2
-    image: busybox:1.35
+    image: public.ecr.aws/docker/library/busybox:1.35
     env:
     - name: THREE
       value: "three"
