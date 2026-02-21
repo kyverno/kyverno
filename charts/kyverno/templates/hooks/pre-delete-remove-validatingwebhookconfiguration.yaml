@@ -1,6 +1,6 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.global.templating.enabled -}}
-{{- $automountSAToken := .Values.admissionController.rbac.serviceAccount.automountServiceAccountToken }}
+{{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -39,9 +39,15 @@ spec:
         {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
       {{- end }}
       containers:
-        - name: webhook-cleanup
+        - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
+          command:
+            - kubectl
+            - delete
+            - validatingwebhookconfiguration
+            - -l
+            - webhook.kyverno.io/managed-by=kyverno
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
@@ -86,8 +92,11 @@ spec:
             defaultMode: 0444
             sources:
               - serviceAccountToken:
-                  expirationSeconds: 3607
+                  expirationSeconds: {{ .Values.webhooksCleanup.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                   path: token
+                  {{- with .Values.webhooksCleanup.serviceAccount.projectedServiceAccountToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

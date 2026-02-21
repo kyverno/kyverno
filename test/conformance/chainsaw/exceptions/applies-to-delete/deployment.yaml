@@ -17,7 +17,7 @@ spec:
           type: Unconfined
       containers:
       - name: test-dpl1
-        image: busybox:1.35.0
+        image: public.ecr.aws/docker/library/busybox:1.35.0
         command:
         - sleep
         - "infinity"

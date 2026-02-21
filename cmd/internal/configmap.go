@@ -11,6 +11,9 @@ import (
 )
 
 func startConfigController(ctx context.Context, logger logr.Logger, client kubernetes.Interface, skipResourceFilters bool) config.Configuration {
+	logger = logger.WithName("config-controller")
+	logger.V(2).Info("create config-controller...")
+	defer logger.V(2).Info("done creating config-controller")
 	configuration := config.NewDefaultConfiguration(skipResourceFilters)
 	configurationController := genericconfigmapcontroller.NewController(
 		"config-controller",
@@ -29,6 +32,9 @@ func startConfigController(ctx context.Context, logger logr.Logger, client kuber
 }
 
 func startMetricsConfigController(ctx context.Context, logger logr.Logger, client kubernetes.Interface) config.MetricsConfiguration {
+	logger = logger.WithName("metrics-config-controller")
+	logger.V(2).Info("create metrics-config-controller...")
+	defer logger.V(2).Info("done creating metrics-config-controller")
 	configuration := config.NewDefaultMetricsConfiguration()
 	configurationController := genericconfigmapcontroller.NewController(
 		"metrics-config-controller",

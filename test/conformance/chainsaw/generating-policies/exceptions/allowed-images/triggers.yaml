@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: nginx:latest
+    image: public.ecr.aws/docker/library/nginx:latest
     securityContext:
       allowPrivilegeEscalation: true
   - name: container02
