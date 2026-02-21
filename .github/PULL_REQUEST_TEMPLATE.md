@@ -100,6 +100,7 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 -->
 
 - [ ] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+- [ ] I have read the [AI Usage Policy](https://github.com/kyverno/community/blob/main/AI_USAGE_POLICY.md). If I used AI assistance, I have disclosed it in my commit(s) (e.g., via `Co-authored-by` or `Assisted-by` trailer).
 - [ ] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
 - [ ] This is a bug fix and I have added unit tests that prove my fix is effective.
 - [ ] This is a feature and I have added CLI tests that are applicable.
