@@ -44,7 +44,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`imagedata.GetMetadata("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
+	ast, issues := env.Compile(`image.GetMetadata("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
