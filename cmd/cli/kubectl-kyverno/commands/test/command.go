@@ -252,7 +252,15 @@ func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleRe
 		return responses
 	}
 
-	// Filter responses by rule name for all policy types
+	// For certain policy types, don't filter by rule name if specified
+	// Maintaining backward compatibility for policies that may not have traditional rule structures
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy ||
+		test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy ||
+		test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
+		return responses
+	}
+
+	// Filter responses by rule name for Kyverno policies
 	for _, response := range responses {
 		rule := response.Name()
 		if rule == test.Rule || rule == "autogen-"+test.Rule || rule == "autogen-cronjob-"+test.Rule {
