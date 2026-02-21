@@ -533,7 +533,7 @@ test:
     repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v0.1.0'
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~

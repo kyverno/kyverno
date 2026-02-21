@@ -37,7 +37,7 @@ spec:
       runAsUser: 10001
       seccompProfile:
         type: RuntimeDefault
-  - image: busybox:latest
+  - image: public.ecr.aws/docker/library/busybox:latest
     imagePullPolicy: IfNotPresent
     name: init2
     securityContext:
