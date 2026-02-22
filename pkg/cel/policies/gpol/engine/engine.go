@@ -124,7 +124,17 @@ func (e *engineImpl) generate(
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "policy has not been compiled", errNilCompiledPolicy, nil)
 		return response
 	}
-	context.SetGenerateContext(policy.Policy.GetName(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
+	context.SetGenerateContext(
+		policy.Policy.GetName(),
+		request.Name,
+		attr.GetNamespace(),
+		request.Kind.Version,
+		request.Kind.Group,
+		request.Kind.Kind,
+		triggerUID,
+		cacheRestore,
+		policy.Policy.GetSpec().UseServerSideApply,
+	)
 	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
