@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-name-k8s-mode
+spec:
+  # No evaluation.mode set — defaults to Kubernetes mode.
+  # When applied against a JSON payload, this policy should be
+  # gracefully skipped rather than causing a segfault.
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  validations:
+  - expression: "object.metadata.name == 'test'"
+    message: "name must be test"
