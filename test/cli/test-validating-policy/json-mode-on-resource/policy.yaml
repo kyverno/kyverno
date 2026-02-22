@@ -1,0 +1,10 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: json-mode-on-resource
+spec:
+  evaluation:
+    mode: JSON
+  validations:
+  - expression: "object.metadata.name == 'should-not-match'"
+    message: "name must be should-not-match"

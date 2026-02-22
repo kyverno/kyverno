@@ -73,6 +73,9 @@ func (p *Policy) evaluateKubernetes(
 	namespace runtime.Object,
 	context libs.Context,
 ) (*EvaluationResult, error) {
+	if attr == nil {
+		return nil, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: set spec.evaluation.mode to JSON for non-Kubernetes payloads)")
+	}
 	data, err := prepareK8sData(attr, request, namespace, context)
 	if err != nil {
 		return nil, err
