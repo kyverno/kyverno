@@ -539,6 +539,25 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 		assert.NotNil(t, res)
 	})
 
+	t.Run("empty match conditions matches", func(t *testing.T) {
+		attr := &mockAttributes{obj: validObj}
+		req := admissionv1.AdmissionRequest{UID: "non-empty"}
+		polex := &policiesv1beta1.PolicyException{}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{
+					MatchConditions: []cel2.Program{},
+					Exception:       polex,
+				},
+			},
+		}
+		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		assert.NoError(t, err)
+		// Empty matchConditions means "always match", consistent with vpol behavior
+		assert.Len(t, res, 1)
+		assert.Equal(t, polex, res[0])
+	})
+
 	t.Run("false breaks loop", func(t *testing.T) {
 		attr := &mockAttributes{obj: validObj}
 		req := admissionv1.AdmissionRequest{UID: "non-empty"}
@@ -546,7 +565,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 			exceptions: []compiler.Exception{
 				{
 					MatchConditions: []cel2.Program{
-						// Add something
+						&fakeProgram{refVal: types.Bool(false)},
 					},
 					Exception: &policiesv1beta1.PolicyException{},
 				},

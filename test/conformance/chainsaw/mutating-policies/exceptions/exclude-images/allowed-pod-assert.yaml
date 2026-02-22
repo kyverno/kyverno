@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: allowed-pod
+  labels:
+    app: test
+    imageExcluded: "true"
+spec:
+  containers:
+  - name: container01
+    image: nginx:latest
