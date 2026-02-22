@@ -15,7 +15,7 @@ spec:
   podSecurity:
   - controlName: Capabilities
     images:
-    - 'alpine:latest'
+    - 'public.ecr.aws/docker/library/alpine:latest'
     restrictedField: spec.initContainers[*].securityContext.capabilities.add
     values:
     - NET_ADMIN
@@ -38,7 +38,7 @@ spec:
   podSecurity:
   - controlName: Capabilities
     images:
-    - 'busybox:latest'
+    - public.ecr.aws/docker/library/busybox:latest
     restrictedField: spec.initContainers[*].securityContext.capabilities.add
     values:
     - SYS_TIME

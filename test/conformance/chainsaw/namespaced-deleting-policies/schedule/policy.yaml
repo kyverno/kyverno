@@ -13,5 +13,5 @@ spec:
   conditions:
     - name: is-nginx
       expression: >
-        object.spec.containers.all(c, c.image.startsWith("nginx"))
+        object.spec.containers.all(c, c.image.startsWith("public.ecr.aws/docker/library/nginx"))
 
