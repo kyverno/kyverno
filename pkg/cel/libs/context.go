@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 )
 
 // a global store for the libaries context, gets initialized when NewContextProvider gets called
@@ -33,7 +34,8 @@ var LibraryContext Context
 
 func GetLibsCtx() Context {
 	if LibraryContext == nil {
-		panic("library context is nil")
+		klog.V(2).Info("global library context was nil, setting to a fake context. If a real context is needed ensure that the variable is set")
+		LibraryContext = NewFakeContextProvider()
 	}
 	return LibraryContext
 }
