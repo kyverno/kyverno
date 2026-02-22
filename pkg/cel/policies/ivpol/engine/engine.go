@@ -269,7 +269,9 @@ func (e *engineImpl) handleMutation(
 				} else {
 					ruleName := ivpol.Policy.GetName()
 					if result.Error != nil {
-						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
+					} else if result.Skipped {
+						response.Result = *engineapi.RuleSkip(ruleName, engineapi.ImageVerify, "no images matched matchImageReferences", nil)
 					} else if result.Result {
 						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
 					} else {

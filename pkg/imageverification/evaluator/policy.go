@@ -32,12 +32,31 @@ type EvaluationResult struct {
 	Message          string
 	Index            int
 	Result           bool
+	Skipped          bool // true when no images matched matchImageReferences (policy not applied)
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
 }
 
 type CompiledPolicy interface {
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
+}
+
+// imageDataContextWrapper wraps a libs.Context to check matchImageReferences before fetching image data
+type imageDataContextWrapper struct {
+	inner          libs.Context
+	matchImageRefs []engine.MatchImageReference
+}
+
+func (w *imageDataContextWrapper) GetImageData(image string) (map[string]any, error) {
+	// Check if image matches matchImageReferences before fetching
+	if match, err := matching.MatchImage(image, w.matchImageRefs...); err != nil {
+		return nil, err
+	} else if !match {
+		// Return nil (which becomes null in CEL) when image doesn't match
+		return nil, nil
+	}
+	// Image matches, proceed with fetching
+	return w.inner.GetImageData(image)
 }
 
 type compiledPolicy struct {
@@ -115,7 +134,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		// Wrap imagedata context to check matchImageReferences before fetching
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: &imageDataContextWrapper{
+			inner:          context,
+			matchImageRefs: c.matchImageReferences,
+		}}
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[engine.ObjectKey] = request
@@ -124,7 +147,21 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImagesKey] = images
+	filteredImages := make(map[string][]string, len(images))
+	imgList := []string{}
+	for key, imageList := range images {
+		filteredList := []string{}
+		for _, img := range imageList {
+			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+				return nil, err
+			} else if apply {
+				filteredList = append(filteredList, img)
+				imgList = append(imgList, img)
+			}
+		}
+		filteredImages[key] = filteredList
+	}
+	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
@@ -137,24 +174,23 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		})
 	}
 	data[engine.AttestorsKey] = attestors
-
-	imgList := []string{}
-	for _, v := range images {
-		for _, img := range v {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
-				return nil, err
-			} else if apply {
-				imgList = append(imgList, img)
-			}
+	if len(imgList) > 0 {
+		if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+			return nil, err
 		}
-	}
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
-		return nil, err
+	} else {
+		return &EvaluationResult{Result: true, Skipped: true}, nil
 	}
 	for i, v := range c.validations {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
 			return nil, err
+		}
+		if out != nil && out.Type() == types.ErrType {
+			if errVal, ok := out.(*types.Err); ok {
+				return &EvaluationResult{Error: fmt.Errorf("validation error: %s", errVal.Error())}, nil
+			}
+			return &EvaluationResult{Error: fmt.Errorf("validation error: %v", out)}, nil
 		}
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
