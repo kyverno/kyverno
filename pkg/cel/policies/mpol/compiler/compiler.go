@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
 	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
 	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	mpolpatch "github.com/kyverno/kyverno/pkg/cel/policies/mpol/patch"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -168,13 +169,12 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 						err.Error(),
 					))
 				}
-				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
+				patchers = append(patchers, mpolpatch.NewApplyConfigurationPatcher(compileResult))
 			}
 		}
 	}
 	return &Policy{
-		evaluator:        mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
-		exceptions:       compiledExceptions,
-		matchConstraints: policy.GetSpec().MatchConstraints,
+		evaluator:  mutating.PolicyEvaluator{Matcher: matcher, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
+		exceptions: compiledExceptions,
 	}, allErrs
 }
