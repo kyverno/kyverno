@@ -188,6 +188,10 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: {{ .Values.reportsController.tufRootMountPath }}
+          {{- if .Values.features.tuf.configs }}
+          - name: TUF_CONFIGS
+            value: {{ .Values.features.tuf.configs | toJson | quote }}
+          {{- end }}
           {{- with (concat .Values.global.extraEnvVars .Values.reportsController.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
