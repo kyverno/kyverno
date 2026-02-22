@@ -3,7 +3,6 @@ package generator
 import (
 	"testing"
 
-	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -14,9 +13,21 @@ func Test_apply_generator_string_list(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
+	ctx := Context{&ContextMock{
+		GenerateResourcesFunc: func(namespace string, dataList []map[string]any) error {
+			assert.Equal(t, "default", namespace)
+			assert.Len(t, dataList, 1)
+			assert.Equal(t, dataList[0]["apiVersion"].(string), "apps/v1")
+			assert.Equal(t, dataList[0]["kind"].(string), "Deployment")
+			assert.Equal(t, dataList[0]["metadata"].(map[string]any)["name"], "name")
+			assert.Equal(t, dataList[0]["metadata"].(map[string]any)["namespace"], "namespace")
+			return nil
+		},
+	}}
+
 	env, err := base.Extend(
-		cel.Variable("generator", ContextType),
-		Lib(nil),
+		Lib(&ctx, nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -39,20 +50,8 @@ generator.Apply(
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"generator": Context{&ContextMock{
-			GenerateResourcesFunc: func(namespace string, dataList []map[string]any) error {
-				assert.Equal(t, "default", namespace)
-				assert.Len(t, dataList, 1)
-				assert.Equal(t, dataList[0]["apiVersion"].(string), "apps/v1")
-				assert.Equal(t, dataList[0]["kind"].(string), "Deployment")
-				assert.Equal(t, dataList[0]["metadata"].(map[string]any)["name"], "name")
-				assert.Equal(t, dataList[0]["metadata"].(map[string]any)["namespace"], "namespace")
-				return nil
-			},
-		},
-		}}
-	_, _, err = prog.Eval(data)
+
+	_, _, err = prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 }
 
@@ -60,9 +59,9 @@ func Test_apply_generator_string_list_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
 	env, err := base.Extend(
-		cel.Variable("generator", ContextType),
-		Lib(nil),
+		Lib(nil, nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)

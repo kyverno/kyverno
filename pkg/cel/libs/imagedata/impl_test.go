@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -18,11 +17,31 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("image", ContextType),
-		Lib(nil),
-	}
-	env, err := base.Extend(options...)
+
+	ctx := Context{&ContextMock{
+		GetImageDataFunc: func(image string) (map[string]any, error) {
+			idl, err := imagedataloader.New(nil)
+			assert.NoError(t, err)
+			data, err := idl.FetchImageData(context.TODO(), image)
+			if err != nil {
+				return nil, err
+			}
+			raw, err := json.Marshal(data.Data())
+			if err != nil {
+				return nil, err
+			}
+			var apiData map[string]any
+			err = json.Unmarshal(raw, &apiData)
+			if err != nil {
+				return nil, err
+			}
+			return apiData, nil
+		},
+	}}
+
+	env, err := base.Extend(
+		Lib(&ctx, nil),
+	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 	ast, issues := env.Compile(`image.GetMetadata("ghcr.io/kyverno/kyverno:latest").resolvedImage`)
@@ -31,29 +50,8 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"image": Context{&ContextMock{
-			GetImageDataFunc: func(image string) (map[string]any, error) {
-				idl, err := imagedataloader.New(nil)
-				assert.NoError(t, err)
-				data, err := idl.FetchImageData(context.TODO(), image)
-				if err != nil {
-					return nil, err
-				}
-				raw, err := json.Marshal(data.Data())
-				if err != nil {
-					return nil, err
-				}
-				var apiData map[string]any
-				err = json.Unmarshal(raw, &apiData)
-				if err != nil {
-					return nil, err
-				}
-				return apiData, nil
-			},
-		},
-		}}
-	out, _, err := prog.Eval(data)
+
+	out, _, err := prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 	resolvedImg := out.Value().(string)
 	assert.True(t, strings.HasPrefix(resolvedImg, "ghcr.io/kyverno/kyverno:latest@sha256:"))
@@ -63,11 +61,10 @@ func Test_impl_get_imagedata_string_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("image", ContextType),
-		Lib(nil),
-	}
-	env, err := base.Extend(options...)
+
+	env, err := base.Extend(
+		Lib(nil, nil),
+	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 	tests := []struct {

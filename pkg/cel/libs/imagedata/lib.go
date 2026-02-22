@@ -13,12 +13,13 @@ import (
 const libraryName = "kyverno.imagedata"
 
 type lib struct {
-	version *version.Version
+	imagedataIface ContextInterface
+	version        *version.Version
 }
 
-func Lib(v *version.Version) cel.EnvOption {
+func Lib(imagedataCtx ContextInterface, v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{version: v})
+	return cel.Lib(&lib{imagedataIface: imagedataCtx, version: v})
 }
 
 func Latest() *version.Version {
@@ -31,14 +32,20 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		cel.Constant("mylib_version", types.StringType, types.String("")),
+		cel.Variable("image", ContextType),
 		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
 }
 
-func (*lib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+func (l *lib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{
+		cel.Globals(
+			map[string]any{
+				"image": l.imagedataIface,
+			},
+		),
+	}
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {

@@ -282,13 +282,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompiler()
-
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
 
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -389,11 +388,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		for i := range p.ValidatingPolicies {
 			policies = append(policies, p.ValidatingPolicies[i])
 		}
-		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
 			return nil, err
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		provider, err := vpolengine.NewProvider(compiler, policies, p.CELExceptions)
 		if err != nil {
 			return nil, err
 		}
@@ -483,6 +482,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
+		// initialize the context provider before compiling to make it globally available
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		if err != nil {
+			return nil, err
+		}
+
 		compiler := gpolcompiler.NewCompiler()
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
@@ -494,10 +499,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
 				CompiledPolicy: compiled,
 			})
-		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
-		if err != nil {
-			return nil, err
 		}
 		if resource.Object != nil {
 			engine := gpolengine.NewEngine(p.Variables.Namespace, matching.NewMatcher())

@@ -625,17 +625,15 @@ func applyDeletingPolicies(
 	contextPath string,
 	isFake bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
