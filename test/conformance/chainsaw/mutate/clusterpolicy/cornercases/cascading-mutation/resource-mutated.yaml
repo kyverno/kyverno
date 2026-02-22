@@ -8,6 +8,6 @@ metadata:
   namespace: default
 spec:
   containers:
-  - image: cassandra:latest
+  - image: public.ecr.aws/docker/library/cassandra:latest
     imagePullPolicy: Always
     name: cassandra

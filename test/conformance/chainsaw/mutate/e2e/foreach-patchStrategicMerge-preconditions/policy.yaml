@@ -24,7 +24,7 @@ spec:
           all:
             - key: '{{images.containers."{{element.name}}".registry}}'
               operator: Equals
-              value: 'docker.io'
+              value: 'public.ecr.aws'
         patchStrategicMerge:
           spec:
             containers:

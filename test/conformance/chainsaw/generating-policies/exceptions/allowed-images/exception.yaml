@@ -8,5 +8,5 @@ spec:
       kind: GeneratingPolicy
   # list of image names to exclude
   images:
-  - busybox:latest
-  - nginx:latest
+  - public.ecr.aws/docker/library/busybox:latest
+  - public.ecr.aws/docker/library/nginx:latest
