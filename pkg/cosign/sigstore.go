@@ -18,7 +18,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
-	"github.com/sigstore/sigstore/pkg/tuf"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 )
 
 var (
@@ -210,17 +210,14 @@ func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
 }
 
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
-	tufClient, err := tuf.NewFromEnv(ctx)
+	opts := tuf.DefaultOptions()
+	client, err := tuf.New(opts)
 	if err != nil {
 		return nil, fmt.Errorf("initializing tuf: %w", err)
 	}
-	targetBytes, err := tufClient.GetTarget("trusted_root.json")
+	trustedRoot, err := root.GetTrustedRoot(client)
 	if err != nil {
-		return nil, fmt.Errorf("error getting targets: %w", err)
-	}
-	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error creating trusted root: %w", err)
+		return nil, fmt.Errorf("error getting trusted root: %w", err)
 	}
 
 	return trustedRoot, nil
