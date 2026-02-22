@@ -1731,7 +1731,13 @@ backgroundController:
 cleanupController:
 
   # -- Overrides features defined at the root level
-  featuresOverride: {}
+  featuresOverride:
+    # -- Configure event omission for the cleanup controller
+    # omitEvents:
+    #   enabled: true
+    #   eventTypes:
+    #     - PolicyApplied
+    #     - PolicySkipped
 
   # -- Enable cleanup controller.
   enabled: true

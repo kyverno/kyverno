@@ -184,6 +184,12 @@ func initOpenreportsFlagSet() *flag.FlagSet {
 	return flagset
 }
 
+func initOmitEventsFlagSet() *flag.FlagSet {
+	flagset := flag.NewFlagSet("omitevents", flag.ExitOnError)
+	flagset.String("omit-events", "", "Set this flag to a comma separated list of event types to omit.")
+	return flagset
+}
+
 func lookupKubeconfigFlag() {
 	if f := flag.Lookup("kubeconfig"); f != nil {
 		kubeconfig = f.Value.String()
@@ -282,6 +288,10 @@ func initFlags(config Configuration, opts ...Option) {
 
 	if config.UsesOpenreports() {
 		config.AddFlagSet(initOpenreportsFlagSet())
+	}
+
+	if config.UsesOmitEvents() {
+		config.AddFlagSet(initOmitEventsFlagSet())
 	}
 
 	initCleanupFlags()

@@ -26,6 +26,7 @@ type Configuration interface {
 	UsesReporting() bool
 	UsesRestConfig() bool
 	UsesOpenreports() bool
+	UsesOmitEvents() bool
 	GetFlagValue(string) (string, error)
 	AddFlagSet(*flag.FlagSet)
 	FlagSets() []*flag.FlagSet
@@ -151,6 +152,12 @@ func WithOpenreports() ConfigurationOption {
 	}
 }
 
+func WithOmitEvents() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesOmitEvents = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -189,6 +196,7 @@ type configuration struct {
 	usesEventsClient         bool
 	usesOpenreports          bool
 	usesReporting            bool
+	usesOmitEvents           bool
 	usesRestConfig           bool
 	flagSets                 []*flag.FlagSet
 }
@@ -211,6 +219,10 @@ func (c *configuration) UsesKubeconfig() bool {
 
 func (c *configuration) UsesOpenreports() bool {
 	return c.usesOpenreports
+}
+
+func (c *configuration) UsesOmitEvents() bool {
+	return c.usesOmitEvents
 }
 
 func (c *configuration) UsesPolicyExceptions() bool {
