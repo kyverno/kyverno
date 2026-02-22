@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/stretchr/testify/assert"
 	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -740,6 +741,55 @@ func Test_Context_Variable_Substitution(t *testing.T) {
 
 	err = ValidateVariables(policy, true)
 	assert.Nil(t, err)
+}
+
+func Test_ValidateVariables_JMESPathMultiSelectExpression(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-names-mapper
+spec:
+  generateExistingOnPolicyUpdate: true
+  background: true
+  rules:
+    - name: generate-pod-mapping
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      context:
+        - name: allPods
+          apiCall:
+            urlPath: "/api/v1/pods"
+            jmesPath: "items[].metadata.name"
+        - name: static
+          variable:
+            value:
+              - "pod-name-1"
+              - "pod-name-2"
+      generate:
+        apiVersion: auth.example.local/v1
+        kind: SomeKind
+        name: all-pods-mapping
+        namespace: "default"
+        synchronize: true
+        data:
+          spec:
+            pods: "{{ [allPods, static] [] }}"
+`)
+	policy, _, _, _, _, _, _, err := yamlutils.GetPolicy(rawPolicy)
+	golangassert.NilError(t, err)
+
+	err = ValidateVariables(policy[0], true)
+	golangassert.NilError(t, err)
 }
 
 func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
