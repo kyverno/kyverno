@@ -363,33 +363,21 @@ func TestEntry_SetData_OverwritesPreviousData(t *testing.T) {
 }
 
 func TestEntry_SetData_ClearsErrorOnSuccess(t *testing.T) {
-	// Note: In the current implementation (entry.go), e.err is only cleared
-	// inside the `if len(e.projections) > 0` block at line 160.
-	// When projections are empty, the previous error persists - this is intentional
-	// as the error may still be relevant if no data transformation occurred.
+	// Verify that a successful API call clears any previous error,
+	// even when there are no projections configured.
 	e := &entry{
-		dataMap: make(map[string]any),
-		err:     fmt.Errorf("previous error"),
-		projections: []store.Projection{
-			{Name: "test", JP: nil}, // Need at least one projection for error to be cleared
-		},
-	}
-
-	// Use simple JSON that doesn't need projection evaluation
-	jsonData := []byte(`{"key": "value"}`)
-
-	// Since we have a nil JP that will fail, let's test with empty projections instead
-	// and verify the current behavior (error NOT cleared)
-	e2 := &entry{
 		dataMap:     make(map[string]any),
 		err:         fmt.Errorf("previous error"),
 		projections: []store.Projection{},
 	}
-	e2.setData(jsonData, nil)
 
-	// With no projections, error is NOT cleared per current implementation
-	assert.NotNil(t, e2.err, "error is not cleared when there are no projections")
-	_ = e
+	jsonData := []byte(`{"key": "value"}`)
+	e.setData(jsonData, nil)
+
+	// After a successful call, the error must be cleared so that
+	// Get() returns the fresh data instead of the stale error.
+	assert.Nil(t, e.err, "error should be cleared after successful data fetch with no projections")
+	assert.NotNil(t, e.dataMap[""], "data should be set after successful fetch")
 }
 
 func TestEntry_SetData_MultipleScenarios(t *testing.T) {

@@ -30,7 +30,7 @@ spec:
   podSecurity:
   - controlName: Capabilities
     images:
-    - 'busybox:latest'
+    - public.ecr.aws/docker/library/busybox:latest
     restrictedField: spec.initContainers[*].securityContext.capabilities.add
     values:
     - SYS_TIME

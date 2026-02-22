@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: ubuntu:latest
+    image: public.ecr.aws/docker/library/ubuntu:latest
     args:
     - sleep
     - 1d
