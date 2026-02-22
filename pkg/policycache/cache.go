@@ -60,7 +60,7 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 			result = append(result, c.store.get(ValidateEnforce, gvr, subresource, namespace.Name)...)
 		}
 	}
-	if pkey == ValidateAudit || pkey == ValidateEnforce {
+	if pkey == ValidateAudit || pkey == ValidateEnforce || pkey == ValidateAuditWarn {
 		result = filterPolicies(pkey, result, namespace)
 	}
 	return result
@@ -73,7 +73,7 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, namespa
 		var filteredPolicy kyvernov1.PolicyInterface
 		keepPolicy := true
 		switch pkey {
-		case ValidateAudit:
+		case ValidateAudit, ValidateAuditWarn:
 			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, namespace, policy)
 		case ValidateEnforce:
 			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, namespace, policy)
