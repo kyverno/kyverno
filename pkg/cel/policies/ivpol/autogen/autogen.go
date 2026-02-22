@@ -10,45 +10,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func Autogen(policy *policiesv1beta1.ImageValidatingPolicy) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
+func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
 	}
-	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
+	spec := policy.GetSpec()
+	if !autogen.CanAutoGen(spec.MatchConstraints) {
 		return nil, nil
 	}
 	actualControllers := autogen.AllConfigs
-	if policy.Spec.AutogenConfiguration != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
+	if spec.AutogenConfiguration != nil &&
+		spec.AutogenConfiguration.PodControllers != nil &&
+		spec.AutogenConfiguration.PodControllers.Controllers != nil {
+		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
-	return autogenIvPols(&policiesv1beta1.ImageValidatingPolicy{
-		ObjectMeta: policy.ObjectMeta,
-		Spec:       policy.Spec,
-	}, actualControllers)
+	return autogenIvPols(*spec, actualControllers)
 }
 
-func AutogenNamespaced(policy *policiesv1beta1.NamespacedImageValidatingPolicy) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
-	if policy == nil {
-		return nil, nil
-	}
-	if !autogen.CanAutoGen(policy.Spec.MatchConstraints) {
-		return nil, nil
-	}
-	actualControllers := autogen.AllConfigs
-	if policy.Spec.AutogenConfiguration != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers != nil &&
-		policy.Spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.Spec.AutogenConfiguration.PodControllers.Controllers...)
-	}
-	return autogenIvPols(&policiesv1beta1.ImageValidatingPolicy{
-		ObjectMeta: policy.ObjectMeta,
-		Spec:       policy.Spec,
-	}, actualControllers)
-}
-
-func autogenIvPols(ivpol *policiesv1beta1.ImageValidatingPolicy, configs sets.Set[string]) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
+func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
 		if config := autogen.ConfigsMap[config]; config != nil {
@@ -57,7 +36,6 @@ func autogenIvPols(ivpol *policiesv1beta1.ImageValidatingPolicy, configs sets.Se
 			mapping[config.ReplacementsRef] = targets
 		}
 	}
-	spec := ivpol.Spec
 	rules := map[string]policiesv1beta1.ImageValidatingPolicyAutogen{}
 	for _, config := range slices.Sorted(maps.Keys(mapping)) {
 		targets := mapping[config]
