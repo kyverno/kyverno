@@ -146,7 +146,6 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		if err = v.substitutePatterns(); err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "variable substitution failed", err, v.rule.ReportProperties)
 		}
-
 		ruleResponse = v.validateResourceWithRule()
 	} else if v.forEach != nil {
 		ruleResponse = v.validateForEach(ctx)
@@ -313,6 +312,14 @@ func (v *validator) loadContext(ctx context.Context) error {
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
+	// if the admission operation is indeed a DELETE operation,
+	// verify if the rule has DELETE specified explicitly in its
+	// list of operations. If it has not been specified explicitly
+	// then we can skip over deny\
+	if !(engineutils.IsDeleteRequest(v.policyContext) && engineutils.CheckOperation(v.rule, kyvernov1.Delete)) {
+		v.log.V(2).Info("skipping deny check since the delete operation is missing from the rule")
+		return nil
+	}
 	if deny, msg, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
 		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to check deny conditions", err, v.rule.ReportProperties)
 	} else {
