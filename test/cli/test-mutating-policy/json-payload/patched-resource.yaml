@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  key1: value1
+  key2: value2
+kind: ConfigMap
+metadata:
+  labels:
+    source: kyverno
+  mutated: "true"
+  name: test-config
+  namespace: default

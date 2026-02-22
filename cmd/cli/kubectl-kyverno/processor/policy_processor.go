@@ -352,6 +352,39 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				resource = response.PatchedResource
 			}
 		}
+		// Handle JSON payload for MutatingPolicies
+		if p.JsonPayload.Object != nil {
+			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
+			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
+			request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
+			reps, err := eng.Handle(context.TODO(), request, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply mutating policies on JSON payload (%w)", err)
+			}
+			for _, r := range reps.Policies {
+				patched := *reps.Resource
+				if reps.PatchedResource != nil {
+					patched = *reps.PatchedResource
+				}
+
+				response := engineapi.EngineResponse{
+					Resource:        *reps.Resource,
+					PatchedResource: patched,
+					PolicyResponse: engineapi.PolicyResponse{
+						Rules: r.Rules,
+					},
+				}
+				response = response.WithPolicy(engineapi.NewMutatingPolicy(r.Policy))
+				p.Rc.addMutateResponse(response)
+
+				err = p.processMutateEngineResponse(response, resPath)
+				if err != nil {
+					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				}
+
+				responses = append(responses, response)
+			}
+		}
 	}
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))

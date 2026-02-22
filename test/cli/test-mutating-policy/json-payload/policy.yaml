@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: test-json-payload-mutation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["*"]
+      operations: ["CREATE"]
+      resources: ["*"]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/mutated",
+            value: "true"
+          },
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {"source": "kyverno"}
+          }
+        ]
