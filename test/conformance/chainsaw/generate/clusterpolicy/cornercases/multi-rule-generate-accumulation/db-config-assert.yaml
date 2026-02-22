@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: multi-rule-test-ns
+data:
+  DB_HOST: localhost
+  DB_PORT: "5432"
+  DB_NAME: mydb

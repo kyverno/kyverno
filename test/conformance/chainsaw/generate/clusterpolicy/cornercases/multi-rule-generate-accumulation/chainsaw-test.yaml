@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: multi-rule-generate-accumulation
+spec:
+  concurrent: false
+  description: |
+    This test verifies that generated resources from ALL rules in a multi-rule
+    generate policy are correctly accumulated and tracked in the UpdateRequest
+    status. Previously, a bug caused only the last rule's resources to be tracked,
+    leading to orphaned resources from earlier rules.
+
+    The test:
+    1. Creates a ClusterPolicy with 2 generate rules (app-config and db-config)
+    2. Creates a namespace trigger
+    3. Verifies both ConfigMaps are created
+    4. Verifies the UpdateRequest.status.generatedResources contains BOTH resources
+
+    This test will FAIL on the old buggy behavior where genResources was reassigned
+    instead of accumulated.
+  steps:
+  # Step 1: Create the policy
+  - name: create-policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  # Step 2: Wait for policy to be ready
+  - name: wait-policy-ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multi-rule-generate-accumulation
+  # Step 3: Create the trigger namespace
+  - name: create-trigger
+    try:
+    - apply:
+        file: trigger.yaml
+  # Step 4: Wait for generation to complete
+  - name: wait-for-generation
+    try:
+    - sleep:
+        duration: 5s
+  # Step 5: Assert both generated ConfigMaps exist
+  - name: assert-generated-resources
+    try:
+    - assert:
+        file: app-config-assert.yaml
+    - assert:
+        file: db-config-assert.yaml
+  # Step 6: Assert UpdateRequest tracks ALL generated resources
+  # This is the critical assertion - it verifies the bug fix
+  - name: assert-ur-status
+    try:
+    - assert:
+        timeout: 30s
+        resource:
+          apiVersion: kyverno.io/v2
+          kind: UpdateRequest
+          metadata:
+            namespace: kyverno
+            labels:
+              kyverno.io/policy-name: multi-rule-generate-accumulation
+          status:
+            state: Completed
+            # Verify that generatedResources has exactly 2 entries
+            (length(generatedResources)): 2

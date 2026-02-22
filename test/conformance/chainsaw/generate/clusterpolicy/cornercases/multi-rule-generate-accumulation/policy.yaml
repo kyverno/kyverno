@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: multi-rule-generate-accumulation
+spec:
+  background: true
+  rules:
+  # Rule 1: Generate a ConfigMap with app config
+  - name: generate-app-config
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              test-generate: "multi-rule"
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: app-config
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      data:
+        data:
+          APP_NAME: myapp
+          APP_VERSION: "1.0.0"
+          LOG_LEVEL: info
+  # Rule 2: Generate a ConfigMap with database config
+  - name: generate-db-config
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              test-generate: "multi-rule"
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: db-config
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      data:
+        data:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: mydb
