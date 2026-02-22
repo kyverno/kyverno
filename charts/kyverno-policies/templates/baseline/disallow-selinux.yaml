@@ -39,6 +39,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "selinux-type") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
@@ -88,6 +89,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "selinux-user-role") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}

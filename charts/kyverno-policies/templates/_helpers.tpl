@@ -127,3 +127,15 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $action := default $defaultAction $policyAction -}}
 {{- include "kyverno-policies.validationActions" $action -}}
 {{- end -}}
+
+{{/* Generate namespaceSelector or namespaces for match.any[].resources */}}
+{{- define "kyverno-policies.namespaceMatch" -}}
+{{- if and .Values.namespaceMatch .Values.namespaceMatch.labels (ne (len .Values.namespaceMatch.labels) 0) }}
+namespaceSelector:
+  matchLabels:
+{{- toYaml .Values.namespaceMatch.labels | nindent 4 }}
+{{- else if and .Values.namespaceMatch .Values.namespaceMatch.namespaces (ne (len .Values.namespaceMatch.namespaces) 0) }}
+namespaces:
+{{- toYaml .Values.namespaceMatch.namespaces | nindent 2 }}
+{{- end -}}
+{{- end -}}

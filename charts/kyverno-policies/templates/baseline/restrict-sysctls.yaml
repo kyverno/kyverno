@@ -43,6 +43,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "check-sysctls") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
