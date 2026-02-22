@@ -93,6 +93,22 @@ reportsServer:
   # -- Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m)
   readinessTimeout: 300s
 
+# Generate Permissions configuration
+# These settings control which additional resource types the background controller
+# can create/update/delete when processing generate rules in policies.
+# By default, permissions are minimal to align with least-privilege principles.
+# Enable specific categories as needed for your generate policies.
+generatePermissions:
+  # -- Enable permissions for generating RBAC resources (roles, rolebindings)
+  rbac: false
+  # -- Enable permissions for generating networking resources (ingresses, ingressclasses, networkpolicies)
+  networking: false
+  # -- Enable permissions for generating resource management resources (configmaps, resourcequotas, limitranges)
+  resourceManagement: false
+  # -- Enable permissions for generating dynamic resource allocation resources (resourceclaims, resourceclaimtemplates)
+  dynamicResources: false
+
+
 # CRDs configuration
 crds:
 
@@ -1402,52 +1418,11 @@ backgroundController:
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
-      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
-      # @default -- See [values.yaml](values.yaml)
-      extraResources:
-        - apiGroups:
-            - networking.k8s.io
-          resources:
-            - ingresses
-            - ingressclasses
-            - networkpolicies
-          verbs:
-            - create
-            - update
-            - patch
-            - delete
-        - apiGroups:
-            - rbac.authorization.k8s.io
-          resources:
-            - rolebindings
-            - roles
-          verbs:
-            - create
-            - update
-            - patch
-            - delete
-        - apiGroups:
-            - ''
-          resources:
-            - configmaps
-            - resourcequotas
-            - limitranges
-          verbs:
-            - create
-            - update
-            - patch
-            - delete
-        - apiGroups:
-            - resource.k8s.io
-          resources:
-            - resourceclaims
-            - resourceclaimtemplates
-          verbs:
-            - create
-            - delete
-            - update
-            - patch
-            - deletecollection
+      # Note: Generate permissions for RBAC, networking, and other resource types are now
+      # controlled via the top-level `generatePermissions` section for opt-in behavior.
+      # @default -- []
+      extraResources: []
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []

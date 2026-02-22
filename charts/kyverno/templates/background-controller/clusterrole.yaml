@@ -113,6 +113,57 @@ rules:
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
+{{- if .Values.generatePermissions.rbac }}
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+{{- end }}
+{{- if .Values.generatePermissions.networking }}
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+{{- end }}
+{{- if .Values.generatePermissions.resourceManagement }}
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+      - resourcequotas
+      - limitranges
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+{{- end }}
+{{- if .Values.generatePermissions.dynamicResources }}
+  - apiGroups:
+      - resource.k8s.io
+    resources:
+      - resourceclaims
+      - resourceclaimtemplates
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+{{- end }}
 {{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
