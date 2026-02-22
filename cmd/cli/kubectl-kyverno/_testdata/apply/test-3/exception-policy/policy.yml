@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: require-foo-container-resources
+  # namespace: default  # ValidatingPolicy is namespaced, specify target namespace
+spec:
+  validations:
+    - message: "Resource limits and requests are required for all containers in Foo"
+      expression: >
+        object.spec.containers.all(c, 
+          has(c.resources) && 
+          has(c.resources.limits) &&
+          has(c.resources.limits.memory) && 
+          has(c.resources.limits.cpu) && 
+          has(c.resources.requests) &&
+          has(c.resources.requests.memory) && 
+          has(c.resources.requests.cpu)
+        )
+  matchConstraints:
+    resourceRules:
+      - operations: ["CREATE", "UPDATE"]  # Specify operations
+        apiGroups: ["example.com"]
+        apiVersions: ["v1"]
+        resources: ["foos"]

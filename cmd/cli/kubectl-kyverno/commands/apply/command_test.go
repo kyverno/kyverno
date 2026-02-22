@@ -528,7 +528,6 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Warn, expected.Warn, desc)
 		assert.Equal(t, actual.Error, expected.Error, desc)
 		assert.Equal(t, actual.Pass, expected.Pass, desc)
-
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(openreportsv1alpha1.ReportSummary, openreportsv1alpha1.ReportSummary, string)) {
@@ -869,8 +868,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -886,8 +887,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
+				JSONPaths: []string{
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1278,7 +1281,7 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 }
 
 func TestCommandWarnExitCode(t *testing.T) {
-	var warnExitCode = 3
+	warnExitCode := 3
 
 	cmd := Command()
 	cmd.SetArgs([]string{
@@ -1365,4 +1368,199 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "Should have at least one failed rule")
+}
+
+func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_ImageVerificationPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/image-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource2.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_MutatingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/mutating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource3.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_DeletingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/deleting-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource4.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_GeneratingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../_testdata/apply/test-3/generating-policy/policy.yml"},
+				ResourcePaths: []string{
+					// "../../_testdata/apply/test-3/resources/resource6.yml",
+					"../../_testdata/apply/test-3/resources/resource5.yml",
+				},
+				CrdPath:      "../../_testdata/apply/test-3/crd/crd.yml",
+				ContextPath:  "../../_testdata/apply/test-3/generating-policy/context.yml",
+				PolicyReport: true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_ExceptionPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/exception-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource5.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				Exception:     []string{"../../_testdata/apply/test-3/exception-policy/exception.yml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandCRDKubeEnable(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--crdpath",
+		"./crd.yml",
+		"--kubeconfig",
+		"./kubeconfig.yaml",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }

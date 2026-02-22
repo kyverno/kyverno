@@ -10,8 +10,10 @@ import (
 )
 
 func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
-	var restMapper meta.RESTMapper
-
+	var (
+		restMapper        meta.RESTMapper
+		apiGroupResources []*restmapper.APIGroupResources
+	)
 	// check that it is not a fake client
 	isFake := false
 	if client != nil {
@@ -27,10 +29,19 @@ func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 		cachedDiscovery := memory.NewMemCacheClient(dc)
 		restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscovery)
 	} else {
-		apiGroupResources, err := data.APIGroupResources()
+		processor := data.GetProcessor()
+		if processor != nil {
+			// there's an initialized crd processor but it wasn't passed a crd
+			if crdProcessorApiGroupResources := processor.GetResourceGroup(); crdProcessorApiGroupResources != nil {
+				apiGroupResources = append(apiGroupResources, crdProcessorApiGroupResources)
+			}
+		}
+
+		originalApiGroupResources, err := data.APIGroupResources()
 		if err != nil {
 			return nil, err
 		}
+		apiGroupResources = append(apiGroupResources, originalApiGroupResources...)
 		restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
 	}
 	return restMapper, nil

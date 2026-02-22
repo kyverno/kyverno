@@ -1,0 +1,16 @@
+apiVersion: example.com/v1
+kind: Foo
+metadata:
+  name: example-foo
+  namespace: dev
+spec:
+  containers:
+    - name: my-container
+      image: nginx:latest
+      resources:
+        limits:
+          memory: "256Mi"
+          cpu: "500m"
+        requests:
+          memory: "128Mi"
+          cpu: "250m"

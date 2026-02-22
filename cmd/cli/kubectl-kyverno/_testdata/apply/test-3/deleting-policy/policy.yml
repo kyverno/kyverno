@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: deleting-foo
+spec:
+  conditions:
+    - expression: object.metadata.namespace == "default"
+      name: check-foo-ns
+    - expression: object.metadata.name == "example"
+      name: foo-name
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - example.com
+        apiVersions:
+          - v1
+        resources:
+          - foos
+  schedule: '*/1 * * * *'  # every minute
