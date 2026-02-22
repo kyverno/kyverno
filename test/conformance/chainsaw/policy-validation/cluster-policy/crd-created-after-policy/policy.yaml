@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-delete-test-resources
+spec:
+  background: false
+  rules:
+    - name: deny-delete
+      match:
+        all:
+          - resources:
+              kinds:
+                - "*/*/*"
+              operations:
+                - DELETE
+              selector:
+                matchLabels:
+                  kyverno.io/critical: "true"
+      exclude:
+        any:
+          - resources:
+              kinds:
+                - "/v1/*"
+                - "apps/*/*"
+                - "apiextensions.k8s.io/*/*"
+      validate:
+        failureAction: Enforce
+        message: "Deleting resources with critical label is not allowed."
+        deny: {}

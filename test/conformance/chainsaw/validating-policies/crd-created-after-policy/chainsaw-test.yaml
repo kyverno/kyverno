@@ -1,0 +1,64 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: validatingpolicy
+spec:
+  concurrent: false
+  description: >-
+    This test verifies that a ValidatingPolicy using wildcard resource matching (*)
+    correctly enforces validation rules on custom resources whose CRD is created
+    after the policy. The policy should deny deletion of resources with the label
+    kyverno.io/critical: "true".
+  steps:
+    - name: setup-rbac
+      try:
+        - apply:
+            file: rbac.yaml
+    - name: create-policy
+      use:
+        template: ../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy.yaml
+    - name: wait-policy-ready
+      use:
+        template: ../../_step-templates/validating-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: deny-delete-test-resources
+    - name: create-crd
+      try:
+        - apply:
+            file: crd.yaml
+        - assert:
+            file: crd-ready.yaml
+      finally:
+        - script:
+            content: |
+              kubectl label crd testresources.test.kyverno.io kyverno.io/critical- || true
+    - name: wait-for-discovery-cache
+      try:
+        - sleep:
+            duration: 3s
+    - name: create-cr
+      try:
+        - apply:
+            file: custom-resource.yaml
+        - assert:
+            file: custom-resource-ready.yaml
+    - name: delete-cr
+      try:
+        - delete:
+            ref:
+              apiVersion: test.kyverno.io/v1
+              kind: TestResource
+              name: test-custom-resource
+            expect:
+              - check:
+                  ($error != null): true
+      finally:
+        - script:
+            content: |
+              kubectl label testresource test-custom-resource kyverno.io/critical- -n "${NAMESPACE}" || true
