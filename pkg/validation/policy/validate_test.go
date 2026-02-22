@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -227,9 +228,6 @@ func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t 
 
 	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
-	assert.Nil(t, err)
-
-	_, err = validateConditions(pcs, "preconditions")
 	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
@@ -2063,39 +2061,6 @@ func Test_ValidateNamespace(t *testing.T) {
 	}
 }
 
-func testResourceList() []*metav1.APIResourceList {
-	return []*metav1.APIResourceList{
-		{
-			GroupVersion: "v1",
-			APIResources: []metav1.APIResource{
-				{Name: "pods", Namespaced: true, Kind: "Pod"},
-				{Name: "services", Namespaced: true, Kind: "Service"},
-				{Name: "replicationcontrollers", Namespaced: true, Kind: "ReplicationController"},
-				{Name: "componentstatuses", Namespaced: false, Kind: "ComponentStatus"},
-				{Name: "nodes", Namespaced: false, Kind: "Node"},
-				{Name: "secrets", Namespaced: true, Kind: "Secret"},
-				{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
-				{Name: "namespacedtype", Namespaced: true, Kind: "NamespacedType"},
-				{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
-				{Name: "resourcequotas", Namespaced: true, Kind: "ResourceQuota"},
-			},
-		},
-		{
-			GroupVersion: "apps/v1",
-			APIResources: []metav1.APIResource{
-				{Name: "deployments", Namespaced: true, Kind: "Deployment"},
-				{Name: "replicasets", Namespaced: true, Kind: "ReplicaSet"},
-			},
-		},
-		{
-			GroupVersion: "storage.k8s.io/v1",
-			APIResources: []metav1.APIResource{
-				{Name: "storageclasses", Namespaced: false, Kind: "StorageClass"},
-			},
-		},
-	}
-}
-
 func Test_Any_wildcard_policy(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`{
@@ -3566,4 +3531,188 @@ func Test_Shallow_Variable_Substitution(t *testing.T) {
 
 	err = ValidateVariables(policy, true)
 	assert.Nil(t, err)
+}
+
+func Test_Validate_InvalidConditionPolicy(t *testing.T) {
+	rawPolicy := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "check-configmaps",
+    "annotations": {}
+  },
+  "spec": {
+    "validationFailureAction": "enforce",
+    "background": true,
+    "rules": [
+      {
+        "name": "validate-configmap-exists",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Deployment",
+              "StatefulSet",
+              "Job"
+            ]
+          }
+        },
+        "validate": {
+          "message": "Referenced ConfigMap must exist",
+          "foreach": [
+            {
+              "list": "request.object.spec.template.spec.volumes[*].configMap.name",
+              "deny": {
+                "conditions": [
+                  {
+                    "key": "configMap",
+                    "operator": "Equals",
+                    "value": null,
+                    "apiCall": {
+                      "apiVersion": "v1",
+                      "kind": "ConfigMap",
+                      "name": "{{ element }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Error(t, err, "json: unknown field \"apiCall\"")
+}
+
+func Test_Validate_InvalidConditions(t *testing.T) {
+
+	testCases := []struct {
+		name                  string
+		rule                  []byte
+		expectedParseError    string
+		expectedValidateError string
+	}{
+		{
+			name: "missing key",
+			rule: []byte(`
+				{
+					"name": "test",
+					"match": {
+						"resources": {
+							"kinds": ["*"]
+						}
+					},
+					"validate": {
+						"deny": {
+							"conditions": [
+								{
+									"operator": "Equals",
+									"value": "test"
+								}
+							]
+						}
+					}
+				}
+			`),
+			expectedParseError:    "",
+			expectedValidateError: "key is required",
+		},
+		{
+			name: "missing operator",
+			rule: []byte(`
+				{
+					"name": "test",
+					"match": {
+						"resources": {
+							"kinds": ["*"]
+						}
+					},
+					"validate": {
+						"deny": {
+							"conditions": [
+								{
+									"key": "test",
+									"value": "test"
+								}
+							]
+						}
+					}
+				}
+			`),
+			expectedParseError:    "",
+			expectedValidateError: "operator is required",
+		},
+		{
+			name: "missing value",
+			rule: []byte(`
+				{
+					"name": "test",
+					"match": {
+						"resources": {
+							"kinds": ["*"]
+						}
+					},
+					"validate": {
+						"deny": {
+							"conditions": [
+								{
+									"key": "test",
+									"operator": "Equals"
+								}
+							]
+						}
+					}
+				}
+			`),
+			expectedParseError:    "",
+			expectedValidateError: "value is required",
+		},
+		{
+			name: "invalid operator",
+			rule: []byte(`
+				{
+					"name": "test",
+					"match": {
+						"resources": {
+							"kinds": ["*"]
+						}
+					},
+					"validate": {
+						"deny": {
+						"conditions": [
+							{
+								"key": "test",
+								"operator": "BAD_OPERATOR",
+								"value": "test"
+							}
+							]
+						}
+					}
+				}
+			`),
+			expectedParseError:    "",
+			expectedValidateError: "invalid operator:",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var rule v1.Rule
+			err := json.Unmarshal(testCase.rule, &rule)
+			if testCase.expectedParseError != "" {
+				assert.ErrorContains(t, err, testCase.expectedParseError)
+			} else {
+				_, err = validateResources(field.NewPath(""), rule)
+				if testCase.expectedValidateError != "" {
+					assert.ErrorContains(t, err, testCase.expectedValidateError)
+				} else {
+					assert.Nil(t, err)
+				}
+			}
+		})
+	}
 }
