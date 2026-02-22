@@ -17,6 +17,7 @@ import (
 	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	exceptioncontroller "github.com/kyverno/kyverno/pkg/controllers/exception"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
@@ -199,6 +200,23 @@ func createReportControllers(
 			))
 		}
 	}
+	// Exception controller: auto-generates PolicyExceptions for existing violations
+	exceptionCtrl := exceptioncontroller.NewController(
+		client,
+		kyvernoClient,
+		eng,
+		kyvernoV1.Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV2.PolicyExceptions(),
+		configuration,
+		jp,
+	)
+	ctrls = append(ctrls, internal.NewController(
+		exceptioncontroller.ControllerName,
+		exceptionCtrl,
+		exceptioncontroller.Workers,
+	))
+
 	return ctrls, func(ctx context.Context) error {
 		for _, warmup := range warmups {
 			if err := warmup(ctx); err != nil {
