@@ -22,6 +22,7 @@ jobs:
       cleanup-controller-digest: ${{ steps.release-cleanup-controller.outputs.digest }}
       cli-digest: ${{ steps.release-cli.outputs.digest }}
       reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
+      readiness-checker-digest: ${{ steps.release-readiness-checker.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -144,6 +145,21 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
+      - name: Publish readiness-checker
+        id: release-readiness-checker
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-readiness-checker
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
+          sign-image: true
+          sbom-name: readiness-checker
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/readiness-checker
 
   generate-kyverno-provenance:
     needs: release-images
@@ -231,6 +247,21 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  generate-readiness-checker-provenance:
+    needs: release-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/readiness-checker
+      digest: "${{ needs.release-images.outputs.readiness-checker-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
