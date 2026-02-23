@@ -13,12 +13,13 @@ import (
 const libraryName = "kyverno.globalcontext"
 
 type lib struct {
-	version *version.Version
+	globalcontextIface ContextInterface
+	version            *version.Version
 }
 
-func Lib(v *version.Version) cel.EnvOption {
+func Lib(globalcontextCtx ContextInterface, v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{version: v})
+	return cel.Lib(&lib{globalcontextIface: globalcontextCtx, version: v})
 }
 
 func Latest() *version.Version {
@@ -31,13 +32,20 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
+		cel.Variable("globalContext", ContextType),
 		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
 }
 
-func (*lib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+func (l *lib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{
+		cel.Globals(
+			map[string]any{
+				"globalContext": l.globalcontextIface,
+			},
+		),
+	}
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {

@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -349,6 +350,21 @@ func main() {
 			}
 		}
 		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
+
+		// call NewContextProvider to initialize the libraries context globally, needed during background scan
+		gcstore := store.New()
+		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
+		_, err := libs.NewContextProvider(
+			setup.KyvernoDynamicClient,
+			nil,
+			gcstore,
+			restMapper,
+			false,
+		)
+		if err != nil {
+			setup.Logger.Error(err, "failed to create cel context provider")
+			os.Exit(1)
+		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -364,7 +380,6 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		gcstore := store.New()
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(

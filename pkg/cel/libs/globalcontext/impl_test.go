@@ -18,19 +18,7 @@ func Test_impl_get_string(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("globalContext", ContextType),
-		Lib(nil),
-	}
-	env, err := base.Extend(options...)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`globalContext.Get("foo")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
+
 	tests := []struct {
 		name          string
 		gctxStoreData map[string]store.Entry
@@ -62,18 +50,30 @@ func Test_impl_get_string(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := &MockGctxStore{Data: tt.gctxStoreData}
-			data := map[string]any{
-				"globalContext": Context{&ContextMock{
-					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
-						ent, ok := mockStore.Get(name)
-						if !ok {
-							return nil, nil
-						}
-						return ent.Get(path)
-					},
-				}},
+			ctx := &Context{&ContextMock{
+				GetGlobalReferenceFunc: func(name string, path string) (any, error) {
+					ent, ok := mockStore.Get(name)
+					if !ok {
+						return nil, nil
+					}
+					return ent.Get(path)
+				},
+			}}
+
+			options := []cel.EnvOption{
+				Lib(ctx, nil),
 			}
-			out, _, err := prog.Eval(data)
+			env, err := base.Extend(options...)
+			assert.NoError(t, err)
+			assert.NotNil(t, env)
+
+			ast, issues := env.Compile(`globalContext.Get("foo")`)
+			assert.Nil(t, issues)
+			assert.NotNil(t, ast)
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+			assert.NotNil(t, prog)
+			out, _, err := prog.Eval(map[string]any{})
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
@@ -100,19 +100,7 @@ func Test_impl_get_string_string(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("globalContext", ContextType),
-		Lib(nil),
-	}
-	env, err := base.Extend(options...)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`globalContext.Get("foo", "bar")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
+
 	tests := []struct {
 		name          string
 		gctxStoreData map[string]store.Entry
@@ -144,18 +132,28 @@ func Test_impl_get_string_string(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStore := &MockGctxStore{Data: tt.gctxStoreData}
-			data := map[string]any{
-				"globalContext": Context{&ContextMock{
-					GetGlobalReferenceFunc: func(name string, path string) (any, error) {
-						ent, ok := mockStore.Get(name)
-						if !ok {
-							return nil, nil
-						}
-						return ent.Get(path)
-					},
-				}},
+			ctx := &Context{&ContextMock{
+				GetGlobalReferenceFunc: func(name string, path string) (any, error) {
+					ent, ok := mockStore.Get(name)
+					if !ok {
+						return nil, nil
+					}
+					return ent.Get(path)
+				},
+			}}
+			options := []cel.EnvOption{
+				Lib(ctx, nil),
 			}
-			out, _, err := prog.Eval(data)
+			env, err := base.Extend(options...)
+			assert.NoError(t, err)
+			assert.NotNil(t, env)
+			ast, issues := env.Compile(`globalContext.Get("foo", "bar")`)
+			assert.Nil(t, issues)
+			assert.NotNil(t, ast)
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+			assert.NotNil(t, prog)
+			out, _, err := prog.Eval(map[string]any{})
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
@@ -183,8 +181,7 @@ func Test_impl_get_string_error(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("globalContext", ContextType),
-		Lib(nil),
+		Lib(nil, nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
@@ -216,8 +213,7 @@ func Test_impl_get_string_string_error(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	options := []cel.EnvOption{
-		cel.Variable("globalContext", ContextType),
-		Lib(nil),
+		Lib(nil, nil),
 	}
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)

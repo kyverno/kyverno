@@ -7,6 +7,7 @@ import (
 	cel "github.com/google/cel-go/cel"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
 	"github.com/kyverno/kyverno/pkg/cel/libs/http"
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
@@ -48,6 +49,7 @@ type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
+	libCtx := libs.GetLibsCtx()
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -58,19 +60,15 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				cel.Variable(compiler.ObjectKey, cel.DynType),
 				cel.Variable(compiler.OldObjectKey, cel.DynType),
 				cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-				cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-				cel.Variable(compiler.HttpKey, http.ContextType),
-				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 				cel.Variable(compiler.ImagesKey, image.ImageType),
-				cel.Variable(compiler.ResourceKey, resource.ContextType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(image.Latest()),
-				http.Lib(image.Latest()),
+				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
+				http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()),
 				image.Lib(image.Latest()),
-				imagedata.Lib(imagedata.Latest()),
+				imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
 				math.Lib(math.Latest()),
-				resource.Lib(policy.GetNamespace(), resource.Latest()),
+				resource.Lib(resource.Context{ContextInterface: libCtx}, policy.GetNamespace(), resource.Latest()),
 				user.Lib(user.Latest()),
 				json.Lib(&json.JsonImpl{}, json.Latest()),
 				yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),

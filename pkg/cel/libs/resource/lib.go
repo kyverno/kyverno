@@ -13,45 +13,53 @@ import (
 const libraryName = "kyverno.resource"
 
 type lib struct {
-	namespace string
-	version   *version.Version
+	resourceIface ContextInterface
+	namespace     string
+	version       *version.Version
 }
 
 func Latest() *version.Version {
 	return versions.ResourceVersion
 }
 
-func Lib(namespace string, v *version.Version) cel.EnvOption {
+func Lib(resourceCtx ContextInterface, namespace string, v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{namespace: namespace, version: v})
+	return cel.Lib(&lib{resourceIface: resourceCtx, namespace: namespace, version: v})
 }
 
 func (*lib) LibraryName() string {
 	return libraryName
 }
 
-func (c *lib) CompileOptions() []cel.EnvOption {
+func (l *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
+		cel.Variable("resource", ContextType),
 		ext.NativeTypes(reflect.TypeFor[Context]()),
-		c.extendEnv,
+		l.extendEnv,
 	}
 }
 
-func (*lib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+func (l *lib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{
+		cel.Globals(
+			map[string]any{
+				"resource": l.resourceIface,
+			},
+		),
+	}
 }
 
-func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	if c.namespace != "" {
-		return c.namespacedEnv(env)
+func (l *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
+	if l.namespace != "" {
+		return l.namespacedEnv(env)
 	}
 
-	return c.clusterEnv(env)
+	return l.clusterEnv(env)
 }
 
-func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
+func (l *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
 	impl := namespacedImpl{
-		namespace: c.namespace,
+		namespace: l.namespace,
 		Adapter:   env.CELTypeAdapter(),
 	}
 	// build our function overloads
@@ -122,7 +130,7 @@ func (c *lib) namespacedEnv(env *cel.Env) (*cel.Env, error) {
 	return env.Extend(options...)
 }
 
-func (c *lib) clusterEnv(env *cel.Env) (*cel.Env, error) {
+func (l *lib) clusterEnv(env *cel.Env) (*cel.Env, error) {
 	impl := impl{
 		Adapter: env.CELTypeAdapter(),
 	}
