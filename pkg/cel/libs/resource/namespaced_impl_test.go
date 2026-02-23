@@ -20,7 +20,7 @@ func Test_namespaced_impl_get_resource_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -61,7 +61,7 @@ func Test_namespaced_impl_get_resource_string_string_string_error(t *testing.T) 
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -105,7 +105,7 @@ func Test_namespaced_impl_list_resources_string_string_string(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -149,7 +149,7 @@ func Test_namespaced_impl_list_resources_string_string_map(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -196,7 +196,7 @@ func Test_namespaced_impl_list_resources_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -236,7 +236,7 @@ func Test_namespaced_post_resource_string_string_map(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -287,7 +287,7 @@ func Test_namespaced_impl_post_resource_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -331,7 +331,7 @@ func Test_namespaced_impl_list_resources_forbidden_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -363,7 +363,7 @@ func Test_namespaced_impl_get_resource_forbidden_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -395,7 +395,7 @@ func Test_namespaced_impl_post_resource_forbidden_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("default", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
