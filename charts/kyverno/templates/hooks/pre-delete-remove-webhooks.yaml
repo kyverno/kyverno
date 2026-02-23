@@ -4,7 +4,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-rm-mutatingwhconfig
+  name: {{ template "kyverno.fullname" . }}-rm-webhooks
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
@@ -42,12 +42,8 @@ spec:
         - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
-          command:
-            - kubectl
-            - delete
-            - mutatingwebhookconfiguration
-            - -l
-            - webhook.kyverno.io/managed-by=kyverno
+          args:
+            - delete-webhooks
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
