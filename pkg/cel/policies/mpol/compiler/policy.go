@@ -12,10 +12,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -66,14 +62,10 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 	}
 
 	// Set up context data for variable evaluation
-	ctxData := map[string]interface{}{
-		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: c.contextProvider},
-		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:     imagedata.Context{ContextInterface: c.contextProvider},
-		compiler.ResourceKey:      resource.Context{ContextInterface: c.contextProvider},
-		compiler.VariablesKey:     lazyMap,
-		compiler.ObjectKey:        objectVal,
-		compiler.OldObjectKey:     oldObjectVal,
+	ctxData := map[string]any{
+		compiler.VariablesKey: lazyMap,
+		compiler.ObjectKey:    objectVal,
+		compiler.OldObjectKey: oldObjectVal,
 	}
 
 	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {

@@ -16,4 +16,4 @@ spec:
           type: RuntimeDefault
       containers:
       - name: test-container
-        image: nginx:1.25.1
+        image: public.ecr.aws/docker/library/nginx:1.25.1

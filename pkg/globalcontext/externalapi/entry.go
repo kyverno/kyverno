@@ -149,17 +149,15 @@ func (e *entry) setData(data any, err error) {
 			return
 		}
 		e.dataMap[""] = jsonData
-		if len(e.projections) > 0 {
-			for _, projection := range e.projections {
-				result, err := projection.JP.Search(jsonData)
-				if err != nil {
-					e.err = err
-					return
-				}
-				e.dataMap[projection.Name] = result
+		for _, projection := range e.projections {
+			result, err := projection.JP.Search(jsonData)
+			if err != nil {
+				e.err = err
+				return
 			}
-			e.err = nil
+			e.dataMap[projection.Name] = result
 		}
+		e.err = nil
 	}
 }
 

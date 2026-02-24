@@ -18,20 +18,9 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`resource.Get("apps/v1", "deployments", "default", "nginx")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
+
+	ctx := Context{
+		&ContextMock{
 			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 				return &unstructured.Unstructured{
 					Object: map[string]any{
@@ -45,9 +34,21 @@ func Test_impl_get_resource_string_string_string_string(t *testing.T) {
 				}, nil
 			},
 		},
-		},
 	}
-	out, _, err := prog.Eval(data)
+
+	env, err := base.Extend(
+		Lib(&ctx, "", nil),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`resource.Get("apps/v1", "deployments", "default", "nginx")`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+
+	out, _, err := prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["apiVersion"].(string), "apps/v1")
@@ -59,8 +60,7 @@ func Test_impl_get_resource_string_string_string_string_error(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
 	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -106,20 +106,9 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default")`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
+
+	ctx := Context{
+		&ContextMock{
 			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
@@ -137,8 +126,21 @@ func Test_impl_list_resources_string_string_string(t *testing.T) {
 				}, nil
 			},
 		},
-		}}
-	out, _, err := prog.Eval(data)
+	}
+
+	env, err := base.Extend(
+		Lib(&ctx, "", nil),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default")`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+
+	out, _, err := prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
@@ -149,20 +151,9 @@ func Test_impl_list_resources_string_string_string_map(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default", {"app": "nginx"})`)
-	assert.Nil(t, issues)
-	assert.NotNil(t, ast)
-	prog, err := env.Program(ast)
-	assert.NoError(t, err)
-	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
+
+	ctx := Context{
+		&ContextMock{
 			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{
 					Items: []unstructured.Unstructured{
@@ -183,8 +174,21 @@ func Test_impl_list_resources_string_string_string_map(t *testing.T) {
 				}, nil
 			},
 		},
-		}}
-	out, _, err := prog.Eval(data)
+	}
+
+	env, err := base.Extend(
+		Lib(&ctx, "", nil),
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, env)
+	ast, issues := env.Compile(`resource.List("apps/v1", "deployments", "default", {"app": "nginx"})`)
+	assert.Nil(t, issues)
+	assert.NotNil(t, ast)
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+
+	out, _, err := prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["items"].([]any)[0].(map[string]any)["apiVersion"].(string), "apps/v1")
@@ -197,7 +201,7 @@ func Test_impl_list_resources_string_string_string_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -239,9 +243,23 @@ func Test_post_resource_string_string_string_map(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
+	ctx := Context{
+		&ContextMock{
+			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
+				assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
+				assert.Equal(t, payload["kind"].(string), "Deployment")
+				assert.Equal(t, payload["metadata"].(map[string]any)["name"], "name")
+				assert.Equal(t, payload["metadata"].(map[string]any)["namespace"], "namespace")
+				return &unstructured.Unstructured{
+					Object: payload,
+				}, nil
+			},
+		},
+	}
+
 	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(&ctx, "", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -264,20 +282,8 @@ resource.Post(
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
-			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
-				assert.Equal(t, payload["apiVersion"].(string), "apps/v1")
-				assert.Equal(t, payload["kind"].(string), "Deployment")
-				assert.Equal(t, payload["metadata"].(map[string]any)["name"], "name")
-				assert.Equal(t, payload["metadata"].(map[string]any)["namespace"], "namespace")
-				return &unstructured.Unstructured{
-					Object: payload,
-				}, nil
-			},
-		},
-		}}
-	out, _, err := prog.Eval(data)
+
+	out, _, err := prog.Eval(map[string]any{})
 	assert.NoError(t, err)
 	object := out.Value().(map[string]any)
 	assert.Equal(t, object["apiVersion"].(string), "apps/v1")
@@ -292,7 +298,7 @@ func Test_impl_post_resource_string_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -340,7 +346,7 @@ func Test_impl_post_resource_string_string_map_error(t *testing.T) {
 	assert.NotNil(t, base)
 	env, err := base.Extend(
 		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(nil, "default", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -366,9 +372,21 @@ func Test_impl_list_resources_forbidden_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
+	ctx := Context{
+		&ContextMock{
+			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+				return nil, apierrors.NewForbidden(
+					schema.GroupResource{Group: "apps", Resource: "deployments"},
+					"",
+					errors.New("User cannot list resource"),
+				)
+			},
+		},
+	}
+
 	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(&ctx, "", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -378,18 +396,8 @@ func Test_impl_list_resources_forbidden_error(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
-			ListResourcesFunc: func(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
-				return nil, apierrors.NewForbidden(
-					schema.GroupResource{Group: "apps", Resource: "deployments"},
-					"",
-					errors.New("User cannot list resource"),
-				)
-			},
-		}},
-	}
-	_, _, err = prog.Eval(data)
+
+	_, _, err = prog.Eval(map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
 }
@@ -398,9 +406,21 @@ func Test_impl_get_resource_forbidden_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
+	ctx := Context{
+		&ContextMock{
+			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+				return nil, apierrors.NewForbidden(
+					schema.GroupResource{Group: "apps", Resource: "deployments"},
+					"nginx",
+					errors.New("User cannot get resource"),
+				)
+			},
+		},
+	}
+
 	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(&ctx, "", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -410,18 +430,8 @@ func Test_impl_get_resource_forbidden_error(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
-			GetResourceFunc: func(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-				return nil, apierrors.NewForbidden(
-					schema.GroupResource{Group: "apps", Resource: "deployments"},
-					"nginx",
-					errors.New("User cannot get resource"),
-				)
-			},
-		}},
-	}
-	_, _, err = prog.Eval(data)
+
+	_, _, err = prog.Eval(map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
 }
@@ -430,9 +440,21 @@ func Test_impl_post_resource_forbidden_error(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
+
+	ctx := Context{
+		&ContextMock{
+			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
+				return nil, apierrors.NewForbidden(
+					schema.GroupResource{Group: "apps", Resource: "deployments"},
+					"",
+					errors.New("User cannot create resource"),
+				)
+			},
+		},
+	}
+
 	env, err := base.Extend(
-		cel.Variable("resource", ContextType),
-		Lib("", nil),
+		Lib(&ctx, "", nil),
 	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
@@ -455,18 +477,8 @@ resource.Post(
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	data := map[string]any{
-		"resource": Context{&ContextMock{
-			PostResourceFunc: func(apiVersion, resource, namespace string, payload map[string]any) (*unstructured.Unstructured, error) {
-				return nil, apierrors.NewForbidden(
-					schema.GroupResource{Group: "apps", Resource: "deployments"},
-					"",
-					errors.New("User cannot create resource"),
-				)
-			},
-		}},
-	}
-	_, _, err = prog.Eval(data)
+
+	_, _, err = prog.Eval(map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
 }

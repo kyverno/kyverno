@@ -9,7 +9,7 @@ spec:
   # list of image names to exclude
   images:
   - public.ecr.aws/docker/library/busybox:latest
-  - nginx:latest
+  - public.ecr.aws/docker/library/nginx:latest
   # list of values to allow
   allowedValues:
   - FOO
