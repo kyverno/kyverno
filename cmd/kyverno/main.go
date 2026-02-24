@@ -372,6 +372,7 @@ func main() {
 		maxAdmissionReports             int
 		controllerRuntimeMetricsAddress string
 		tlsKeyAlgorithm                 string
+		maxGlobalContextEntries         int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -405,6 +406,7 @@ func main() {
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 1000, "Maximum number of global context entries allowed.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -509,7 +511,7 @@ func main() {
 			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 
 		gceController := internal.NewController(

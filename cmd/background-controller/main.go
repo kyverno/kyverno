@@ -133,6 +133,7 @@ func main() {
 		apiCallTimeout                  time.Duration
 		maxBackgroundReports            int
 		controllerRuntimeMetricsAddress string
+		maxGlobalContextEntries         int
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
@@ -145,6 +146,7 @@ func main() {
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 1000, "Maximum number of global context entries allowed.")
 
 	// config
 	appConfig := internal.NewConfiguration(
@@ -213,7 +215,7 @@ func main() {
 			event.Workers,
 		)
 		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(

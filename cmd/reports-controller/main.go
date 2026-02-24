@@ -293,6 +293,7 @@ func main() {
 		maxAPICallResponseLength         int64
 		apiCallTimeout                   time.Duration
 		maxBackgroundReports             int
+		maxGlobalContextEntries          int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -309,6 +310,7 @@ func main() {
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 1000, "Maximum number of global context entries allowed.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
@@ -374,7 +376,7 @@ func main() {
 		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 
 		// call NewContextProvider to initialize the libraries context globally, needed during background scan
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 		_, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
