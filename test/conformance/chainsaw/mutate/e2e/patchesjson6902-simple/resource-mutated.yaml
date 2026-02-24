@@ -11,8 +11,8 @@ spec:
     - name: FOO
       value: bar
     - name: K8S_IMAGE
-      value: busybox:1.11
-    image: busybox:1.11
+      value: public.ecr.aws/docker/library/busybox:1.11
+    image: public.ecr.aws/docker/library/busybox:1.11
     name: busybox
     securityContext:
       capabilities:
@@ -21,7 +21,7 @@ spec:
   initContainers:
   - command:
     - sleep infinity
-    image: nginx:1.14
+    image: public.ecr.aws/docker/library/nginx:1.14
     name: nginx
     securityContext:
       capabilities:

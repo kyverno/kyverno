@@ -3,7 +3,6 @@ package generator
 import (
 	"testing"
 
-	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,11 +11,10 @@ func TestLib(t *testing.T) {
 	base, err := compiler.NewBaseEnv()
 	assert.NoError(t, err)
 	assert.NotNil(t, base)
-	options := []cel.EnvOption{
-		cel.Variable("generator", ContextType),
-		Lib(nil),
-	}
-	env, err := base.Extend(options...)
+
+	env, err := base.Extend(
+		Lib(nil, nil),
+	)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
 }

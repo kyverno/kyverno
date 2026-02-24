@@ -195,8 +195,7 @@ func (c controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
-	notifyChan := c.polStateRecorder.(*webhook.Recorder).NotifyChan
-	for key := range notifyChan {
+	for key := range c.polStateRecorder.NotifyChannel() {
 		c.queue.Add(key)
 	}
 }

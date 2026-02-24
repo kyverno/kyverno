@@ -66,7 +66,7 @@ spec:
           spec:
             containers:
               - name: container
-                image: nginx
+                image: public.ecr.aws/docker/library/nginx
                 volumeMounts:
                 - name: shared-volume
                   mountPath: /data

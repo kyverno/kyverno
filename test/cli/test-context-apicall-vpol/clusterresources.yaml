@@ -1,0 +1,54 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  
+  crds:
+  - crds/computeclass-crd.yaml
+
+  resources:
+  - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: test-namespace
+      
+  - apiVersion: cloud.google.com/v1
+    kind: ComputeClass
+    metadata:
+      name: default
+    spec:
+      priorities:
+        - spot: true
+        - spot: false
+        - spot: false
+
+  - apiVersion: cloud.google.com/v1
+    kind: ComputeClass
+    metadata:
+      name: spot-compute-class
+    spec:
+      priorities:
+        - spot: true
+        - spot: true
+        - spot: true
+
+  - apiVersion: cloud.google.com/v1
+    kind: ComputeClass
+    metadata:
+      name: non-spot-compute-class
+    spec:
+      priorities:
+        - spot: false
+        - spot: false
+        - spot: false
+        
+  - apiVersion: cloud.google.com/v1
+    kind: ComputeClass
+    metadata:
+      name: mixed-compute-class
+    spec:
+      priorities:
+        - spot: true
+        - spot: false
+        - spot: false

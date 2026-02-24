@@ -187,16 +187,14 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 		targetDesc, err := verifyAttestators(ctx, v, ref, opts, referrer)
 		if err != nil {
-			msg := err.Error()
-			v.log.V(4).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
+			v.log.V(4).Info("failed to verify referrer", "digest", targetDesc.Digest.String(), "error", err.Error())
 			return nil, err
 		}
 
 		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
 		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
 		if err != nil {
-			msg := err.Error()
-			v.log.V(4).Info("failed to extract statements %s", "err", msg)
+			v.log.V(4).Info("failed to extract statements", "error", err.Error())
 			return nil, err
 		}
 
@@ -209,7 +207,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
-	return nil, fmt.Errorf("failed to fetch attestations %s", err)
+	return nil, fmt.Errorf("no matching attestations found for image %s with type %s", opts.ImageRef, opts.Type)
 }
 
 func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts images.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
@@ -338,6 +336,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	if err != nil {
 		return nil, err
 	}
+	defer ioPredicate.Close()
 
 	predicateBytes := new(bytes.Buffer)
 	_, err = predicateBytes.ReadFrom(ioPredicate)

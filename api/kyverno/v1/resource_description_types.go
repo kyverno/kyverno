@@ -65,7 +65,8 @@ func (r ResourceDescription) IsEmpty() bool {
 		len(r.Namespaces) == 0 &&
 		len(r.Annotations) == 0 &&
 		r.Selector == nil &&
-		r.NamespaceSelector == nil
+		r.NamespaceSelector == nil &&
+		len(r.Operations) == 0
 }
 
 func (r ResourceDescription) GetOperations() []string {

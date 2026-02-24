@@ -50,6 +50,8 @@ kyverno apply [flags]
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
       --exceptions strings                 Policy exception to be considered when evaluating policies against resources
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
+      --exceptions-within-policies         Evaluate policy exceptions from the policies path
+      --exceptions-within-resources        Evaluate policy exceptions from the resources path
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch

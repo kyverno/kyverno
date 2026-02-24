@@ -11,11 +11,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -28,11 +23,16 @@ import (
 type Policy struct {
 	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConstraints *admissionregistrationv1.MatchResources
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -83,14 +83,10 @@ func (p *Policy) evaluateWithData(
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
-		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		compiler.NamespaceObjectKey: data.Namespace,
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
-		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
@@ -112,7 +108,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}
@@ -153,6 +149,10 @@ func (p *Policy) evaluateWithData(
 				} else {
 					message = msg
 				}
+			}
+			// Add default message if empty
+			if message == "" {
+				message = fmt.Sprintf("CEL expression validation failed at index %d", index)
 			}
 			auditAnnotations := make(map[string]string, 0)
 			for key, annotation := range p.auditAnnotations {

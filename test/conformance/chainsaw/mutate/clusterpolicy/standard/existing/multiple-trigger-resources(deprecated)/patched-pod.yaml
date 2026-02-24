@@ -7,5 +7,5 @@ metadata:
     org: kyverno-test-1
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: test-org

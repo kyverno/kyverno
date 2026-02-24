@@ -65,6 +65,9 @@ func splitCertChain(pem []byte) (leaves, intermediates, roots []*x509.Certificat
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots = append(roots, cert)
 			} else {
+				if len(cert.ExtKeyUsage) == 0 {
+					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
+				}
 				intermediates = append(intermediates, cert)
 			}
 		}

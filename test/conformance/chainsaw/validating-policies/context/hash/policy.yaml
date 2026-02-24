@@ -12,7 +12,7 @@ spec:
   variables:
     - name: expectedHash
       expression: >-
-        "403554a5dfea78d1ca4a8ff5830ac2ae"
+        "48729939c9129e8aa42540ba4b5e6100"
     - name: md5sum
       expression: >-
         md5(object.spec.template.spec.containers[0].image)

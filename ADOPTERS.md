@@ -60,6 +60,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Finastra](https://www.finastra.com/) | Currently exploring and leveraging Kyverno to enforce our security and compliance for our K8s deployments in a financial context. |
 | [Okteto](https://www.okteto.com/) | Our managed service users Kyverno to ensure that our customer's clusters remain complaint with our internal devops and security policies. |
 | [Miro](https://www.miro.com/) | Miro Compute platform leverages Kyverno as the backbone of our Policy as a Code strategy. Beyond standard compliance validation during admission, we utilize Kyverno’s mutating policies to shift critical platform logic directly into the control plane. |
+| [Akamai Technologies](https://www.akamai.com/) | Kyverno is a default one-click add on for policy enforcement in the Akamai App Platform ― a fully cloud native Internal Developer Platform (IDP) built on CNCF projects. |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

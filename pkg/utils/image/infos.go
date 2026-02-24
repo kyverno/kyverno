@@ -91,6 +91,11 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	}
 
 	imageInfo.Reference = imageInfo.String()
+	parts := strings.Split(path, "/")
+	if len(parts) > 1 && registry == "" && strings.Contains(parts[0], "_") {
+		imageInfo.Registry = parts[0]
+		imageInfo.Path = strings.Join(parts[1:], "/")
+	}
 	return imageInfo, nil
 }
 

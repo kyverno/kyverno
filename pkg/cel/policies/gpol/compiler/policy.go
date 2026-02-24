@@ -9,15 +9,12 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -25,10 +22,15 @@ import (
 )
 
 type Policy struct {
-	matchConditions []cel.Program
-	variables       map[string]cel.Program
-	generations     []cel.Program
-	exceptions      []compiler.Exception
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
+	generations      []cel.Program
+	exceptions       []compiler.Exception
+	matchConstraints *admissionregistrationv1.MatchResources
+}
+
+func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
+	return p.matchConstraints
 }
 
 func (p *Policy) Evaluate(
@@ -45,14 +47,11 @@ func (p *Policy) Evaluate(
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
-		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
 		compiler.NamespaceObjectKey: data.Namespace,
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
-		compiler.ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
@@ -72,7 +71,7 @@ func (p *Policy) Evaluate(
 			return nil, matchedExceptions, nil
 		}
 	}
-	dataNew[compiler.ExceptionsKey] = cellibs.Exception{
+	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}

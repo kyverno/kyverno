@@ -1,0 +1,21 @@
+name: require-labels
+version: 1.0.0
+displayName: Require Labels
+createdAt: "2023-04-10T19:47:15.000Z"
+description: >-
+  Define and use labels that identify semantic attributes of your application or Deployment. A common set of labels allows tools to work collaboratively, describing objects in a common manner that all tools can understand. The recommended labels describe applications in a way that can be queried. This policy validates that the label `app.kubernetes.io/name` is specified with some value.
+install: |-
+  ```shell
+  kubectl apply -f https://raw.githubusercontent.com/kyverno/policies/main/best-practices/require-labels/require-labels.yaml
+  ```
+keywords:
+  - kyverno
+  - Best Practices
+readme: |
+  Define and use labels that identify semantic attributes of your application or Deployment. A common set of labels allows tools to work collaboratively, describing objects in a common manner that all tools can understand. The recommended labels describe applications in a way that can be queried. This policy validates that the label `app.kubernetes.io/name` is specified with some value.
+
+  Refer to the documentation for more details on Kyverno annotations: https://artifacthub.io/docs/topics/annotations/kyverno/
+annotations:
+  kyverno/category: "Best Practices"
+  kyverno/subject: "Pod, Label"
+digest: f5dde85236dc3b3361c5ca9ee753dfc02b07e67e3e224cebf42f4b0f7a0b81d4

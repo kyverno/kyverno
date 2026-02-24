@@ -46,6 +46,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 				Err:  err,
 			}}
 		}
+		defer file.Close()
 		data, err := io.ReadAll(file)
 		if err != nil {
 			return TestCases{{

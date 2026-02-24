@@ -9,6 +9,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+    {{- with .Values.reportsController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.reportsController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -120,6 +123,11 @@ spec:
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
+            {{- if .Values.reportsController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.reportsController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -231,8 +239,11 @@ spec:
           defaultMode: 0444
           sources:
             - serviceAccountToken:
-                expirationSeconds: 3607
+                expirationSeconds: {{ .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                 path: token
+                {{- with .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                audience: {{ . }}
+                {{- end }}
             - configMap:
                 name: kube-root-ca.crt
                 items:

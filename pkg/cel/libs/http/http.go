@@ -34,7 +34,7 @@ func NewHTTP(client ClientInterface) ContextInterface {
 func (r *contextImpl) Get(url string, headers map[string]string) (any, error) {
 	req, err := http.NewRequestWithContext(context.TODO(), "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	for h, v := range headers {
 		req.Header.Add(h, v)
@@ -45,11 +45,11 @@ func (r *contextImpl) Get(url string, headers map[string]string) (any, error) {
 func (r *contextImpl) Post(url string, data any, headers map[string]string) (any, error) {
 	body, err := buildRequestData(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode request data: %v", err)
+		return nil, fmt.Errorf("failed to encode request data: %w", err)
 	}
 	req, err := http.NewRequestWithContext(context.TODO(), "POST", url, body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	for h, v := range headers {
 		req.Header.Add(h, v)
@@ -60,7 +60,7 @@ func (r *contextImpl) Post(url string, data any, headers map[string]string) (any
 func (r *contextImpl) executeRequest(client ClientInterface, req *http.Request) (any, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %v", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -68,7 +68,7 @@ func (r *contextImpl) executeRequest(client ClientInterface, req *http.Request) 
 	}
 	var body any
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("Unable to decode JSON body %v", err)
+		return nil, fmt.Errorf("unable to decode JSON body: %w", err)
 	}
 	return body, nil
 }
