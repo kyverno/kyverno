@@ -124,6 +124,10 @@ func (e *entry) Get(projection string) (any, error) {
 	return data, nil
 }
 
+func (e *entry) IsAllowed(_ string) bool {
+	return true
+}
+
 func (e *entry) Stop() {
 	e.Lock()
 	defer e.Unlock()
