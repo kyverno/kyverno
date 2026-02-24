@@ -38,6 +38,9 @@ func prepareK8sData(
 	namespace runtime.Object,
 	context libs.Context,
 ) (evaluationData, error) {
+	if attr == nil {
+		return evaluationData{}, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
+	}
 	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)

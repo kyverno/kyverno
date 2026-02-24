@@ -6,4 +6,4 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: nginx:1.14.2
+    image: public.ecr.aws/docker/library/nginx:1.14.2

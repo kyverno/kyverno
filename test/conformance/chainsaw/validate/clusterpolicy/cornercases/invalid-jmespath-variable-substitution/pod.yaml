@@ -6,7 +6,7 @@ metadata:
   name: test
 spec:
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     name: test
     resources: {}
   dnsPolicy: ClusterFirst

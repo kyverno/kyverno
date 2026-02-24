@@ -13,16 +13,17 @@ import (
 const libraryName = "kyverno.http"
 
 type lib struct {
-	version *version.Version
+	httpIface ContextInterface
+	version   *version.Version
 }
 
 func Latest() *version.Version {
 	return versions.HttpVersion
 }
 
-func Lib(v *version.Version) cel.EnvOption {
+func Lib(httpCtx ContextInterface, v *version.Version) cel.EnvOption {
 	// create the cel lib env option
-	return cel.Lib(&lib{version: v})
+	return cel.Lib(&lib{httpIface: httpCtx, version: v})
 }
 
 func (*lib) LibraryName() string {
@@ -31,13 +32,20 @@ func (*lib) LibraryName() string {
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[struct{}]()), // register an empty struct type since the library depends on the ext native types provider to resolve the context type
+		cel.Variable("http", ContextType),
+		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
 }
 
-func (*lib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+func (l *lib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{
+		cel.Globals(
+			map[string]any{
+				"http": l.httpIface,
+			},
+		),
+	}
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
