@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	libs "github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"

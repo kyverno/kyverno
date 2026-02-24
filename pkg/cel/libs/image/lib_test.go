@@ -9,7 +9,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/image"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
