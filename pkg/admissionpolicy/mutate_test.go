@@ -195,6 +195,100 @@ func Test_MutateResource(t *testing.T) {
 }`),
 		},
 		{
+			name: "MAP ApplyConfiguration with sidecar initContainer command and args",
+			rawPolicy: []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "sidecar-policy.example.com"
+    },
+    "spec": {
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [
+                        ""
+                    ],
+                    "apiVersions": [
+                        "v1"
+                    ],
+                    "operations": [
+                        "CREATE"
+                    ],
+                    "resources": [
+                        "pods"
+                    ]
+                }
+            ]
+        },
+        "matchConditions": [
+            {
+                "name": "check-annotation",
+                "expression": "object.metadata.annotations['inject-sidecar'] == 'enabled'"
+            }
+        ],
+        "failurePolicy": "Fail",
+        "reinvocationPolicy": "IfNeeded",
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{\n  spec: Object.spec{\n    initContainers: [\n      Object.spec.initContainers{\n        name: \"mesh-proxy\",\n        image: \"mesh/proxy:v1.0.0\",\n        command: [\"proxy\"],\n        args: [\"sidecar\"]\n      }\n    ]\n  }\n}\n"
+                }
+            }
+        ]
+    }
+}`),
+			rawResource: []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "name": "sample-pod",
+        "annotations": {
+            "inject-sidecar": "enabled"
+        }
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "app",
+                "image": "nginx:1.14.2"
+            }
+        ]
+    }
+}`),
+			expectedRawResource: []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "name": "sample-pod",
+        "annotations": {
+            "inject-sidecar": "enabled"
+        }
+    },
+    "spec": {
+        "containers": [
+            {
+                "name": "app",
+                "image": "nginx:1.14.2"
+            }
+        ],
+        "initContainers": [
+            {
+                "name": "mesh-proxy",
+                "image": "mesh/proxy:v1.0.0",
+                "command": [
+                    "proxy"
+                ],
+                "args": [
+                    "sidecar"
+                ]
+            }
+        ]
+    }
+}`),
+		},
+		{
 			name: "MAP JSONPatch and ApplyConfiguration",
 			rawPolicy: []byte(`{
     "apiVersion": "admissionregistration.k8s.io/v1alpha1",
