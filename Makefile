@@ -489,8 +489,6 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--input kyverno/api/kyverno/v2beta1 \
 		--input kyverno/api/reports/v1 \
 		--input kyverno/api/policyreport/v1alpha2 \
-		--input api/api/policies.kyverno.io/v1 \
-		--input api/api/policies.kyverno.io/v1alpha1 \
 		--input api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-listers
@@ -508,8 +506,6 @@ codegen-client-listers: $(LISTER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
 		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-informers
@@ -529,8 +525,6 @@ codegen-client-informers: $(INFORMER_GEN)
 		./api/kyverno/v2beta1 \
 		./api/reports/v1 \
 		./api/policyreport/v1alpha2 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1 \
-		github.com/kyverno/api/api/policies.kyverno.io/v1alpha1 \
 		github.com/kyverno/api/api/policies.kyverno.io/v1beta1
 
 .PHONY: codegen-client-wrappers
