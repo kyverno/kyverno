@@ -93,6 +93,7 @@ type controller struct {
 	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -115,6 +116,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -148,6 +150,12 @@ func NewController(
 	if mpolInformer != nil {
 		c.mpolLister = mpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nmpolInformer != nil {
+		c.nmpolLister = nmpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, nmpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -412,6 +420,25 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.nvpolLister != nil {
+		vpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, "")
+		if err != nil {
+			return err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range vpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	if c.mpolLister != nil {
 		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
 		if err != nil {
@@ -433,8 +460,43 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.nmpolLister != nil {
+		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, "")
+		if err != nil {
+			return err
+		}
+		for _, policy := range mpols {
+			matchConstraints := policy.Spec.MatchConstraints
+			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+			for _, policy := range policy.Status.Autogen.Configs {
+				matchConstraints := policy.Spec.MatchConstraints
+				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	if c.ivpolLister != nil {
 		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range ivpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.nivpolLister != nil {
+		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, "")
 		if err != nil {
 			return err
 		}

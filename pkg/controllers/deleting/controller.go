@@ -210,7 +210,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 			namespace := resource.GetNamespace()
 			name := resource.GetName()
-			debug := logger.WithValues("name", name, "namespace", namespace)
+			debug := debug.WithValues("name", name, "namespace", namespace)
 			gvk := resource.GroupVersionKind()
 			// Skip if resource matches resourceFilters from config
 			if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
@@ -230,7 +230,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			}
 
 			if !engineResult.Match {
-				debug.Error(err, "policy did not match match")
+				debug.Info("policy did not match match")
 				errs = append(errs, err)
 				continue
 			}

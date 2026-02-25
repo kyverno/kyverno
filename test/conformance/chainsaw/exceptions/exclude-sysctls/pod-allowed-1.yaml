@@ -9,7 +9,7 @@ spec:
     - name: net.ipv4.ip_unprivileged_port_start
   containers:
   - name: nginx
-    image: nginx
+    image: public.ecr.aws/docker/library/nginx
     args:
     - sleep
     - 1d
