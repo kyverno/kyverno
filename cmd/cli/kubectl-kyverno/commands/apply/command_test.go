@@ -83,6 +83,58 @@ func Test_Apply(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
+				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
+				exceptionsWithinPolicies: true,
+				PolicyReport:             true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
+				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
+				exceptionsWithinResources: true,
+				PolicyReport:              true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  1,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
+				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
+				exceptionsWithinResources: true,
+				exceptionsWithinPolicies:  true,
+				PolicyReport:              true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  2,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
@@ -803,6 +855,23 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
+		// JSON-mode policy applied to a K8s resource should evaluate via JSON path
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-mode-on-resource/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -810,6 +879,21 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
+}
+
+// Test_Apply_JsonPayload_K8sMode_NoSegfault verifies that applying a
+// Kubernetes-mode policy against a JSON payload does not panic (segfault).
+// The K8s-mode policy should be gracefully skipped with zero results.
+func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
+		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
+		PolicyReport: true,
+	}
+	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	assert.NoError(t, err, "should not crash with segfault")
+	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
+	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
 }
 
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {

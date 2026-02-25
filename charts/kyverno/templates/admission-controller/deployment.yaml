@@ -5,14 +5,6 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.global.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhooks
-  - kyverno.io/exceptionwebhooks
-  - kyverno.io/globalcontextwebhooks
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
     {{- with .Values.admissionController.labels }}
@@ -176,9 +168,6 @@ spec:
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
             - --resyncPeriod={{ .Values.admissionController.resyncPeriod | default .Values.global.resyncPeriod }}
             - --crdWatcher={{ .Values.admissionController.crdWatcher | default .Values.global.crdWatcher }}
-            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-            - --autoDeleteWebhooks
-            {{- end }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}

@@ -5,7 +5,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"github.com/kyverno/sdk/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +38,9 @@ func prepareK8sData(
 	namespace runtime.Object,
 	context libs.Context,
 ) (evaluationData, error) {
+	if attr == nil {
+		return evaluationData{}, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
+	}
 	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)

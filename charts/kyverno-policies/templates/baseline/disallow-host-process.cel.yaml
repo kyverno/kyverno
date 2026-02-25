@@ -52,7 +52,7 @@ spec:
         spec.containers[*].securityContext.windowsOptions.hostProcess,
         spec.initContainers[*].securityContext.windowsOptions.hostProcess, and
         spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess must be unset or set to `false`.
-      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 

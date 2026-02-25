@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
+	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -699,7 +699,7 @@ generator.Apply(
 			assert.NoError(t, err)
 			env, err := base.Extend(
 				cel.Variable(GeneratorKey, generator.ContextType),
-				generator.Lib(nil),
+				generator.Lib(nil, nil),
 			)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)

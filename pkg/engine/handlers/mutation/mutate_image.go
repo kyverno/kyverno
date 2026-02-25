@@ -103,11 +103,18 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
 		)
 	}
+	newResource := policyContext.NewResource()
+	resourceNamespace := newResource.GetNamespace()
+	// Get imagePullSecrets from the first image (all images from same resource share the same secrets)
+	var imagePullSecrets []string
+	if len(h.images) > 0 {
+		imagePullSecrets = h.images[0].ImagePullSecrets
+	}
 
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
 	for _, imageVerify := range ruleCopy.VerifyImages {
-		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
+		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
 		if err != nil {
 			return resource, handlers.WithResponses(
 				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err, rule.ReportProperties),

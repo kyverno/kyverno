@@ -1017,7 +1017,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -1077,7 +1077,7 @@ jobs:
           release: v0.2.15-beta.3
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:v1.33.1
           cluster_name: kind
@@ -1115,7 +1115,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -1168,7 +1168,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -1191,25 +1191,11 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
-      - name: Log finalizers from deployments
-        shell: bash
-        run: |
-          set -e
-          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
-          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
       - name: Uninstall kyverno
         shell: bash
         run: |
           set -e
-          helm uninstall kyverno -n kyverno --wait --timeout 1m --no-hooks
-      - name: Check validating webhook count
-        shell: bash
-        run: |
-          set -e
-          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ]
-          then
-          exit 1
-          fi
+          helm uninstall kyverno -n kyverno --wait --timeout 1m
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -1232,7 +1218,7 @@ jobs:
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind

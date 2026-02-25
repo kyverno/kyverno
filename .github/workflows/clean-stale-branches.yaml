@@ -1,5 +1,8 @@
 name: Cleanup Stale Branches
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   schedule:

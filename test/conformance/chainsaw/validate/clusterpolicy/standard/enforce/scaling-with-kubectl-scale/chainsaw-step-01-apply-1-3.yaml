@@ -16,5 +16,5 @@ spec:
         app: nginx-test
     spec:
       containers:
-      - image: nginx
+      - image: public.ecr.aws/docker/library/nginx
         name: nginx

@@ -16,6 +16,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -61,6 +62,9 @@ var (
 	ndpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedDeletingPolicy")
 	ndpV1              = schema.GroupVersion(policiesv1.GroupVersion).WithKind("NamespacedDeletingPolicy")
 	mpV1alpha1         = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("MutatingPolicy")
+	polexv2            = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
+	polexv1beta1       = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
+	polexcelv1beta1    = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("PolicyException")
 	mpV1beta1          = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("MutatingPolicy")
 	mpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("MutatingPolicy")
 	nmpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedMutatingPolicy")
@@ -79,6 +83,8 @@ type LoaderError struct {
 
 type LoaderResults struct {
 	Policies                []kyvernov1.PolicyInterface
+	PolicyExceptions        []*kyvernov2.PolicyException
+	PolicyCELExceptions     []*policiesv1beta1.PolicyException
 	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
@@ -88,6 +94,7 @@ type LoaderResults struct {
 	GeneratingPolicies      []policiesv1beta1.GeneratingPolicyLike
 	DeletingPolicies        []policiesv1beta1.DeletingPolicyLike
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
+	PolicyCelExceptions     []*policiesv1beta1.PolicyException
 	NonFatalErrors          []LoaderError
 }
 
@@ -105,6 +112,8 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
+	l.PolicyCelExceptions = append(l.PolicyCelExceptions, results.PolicyCelExceptions...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
 }
 
@@ -269,6 +278,18 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 			return err
 		}
 		results.VAPBindings = append(results.VAPBindings, *typed)
+	case polexv2, polexv1beta1:
+		typed, err := convert.To[*kyvernov2.PolicyException](*untyped)
+		if err != nil {
+			return err
+		}
+		results.PolicyExceptions = append(results.PolicyExceptions, *typed)
+	case polexcelv1beta1:
+		typed, err := convert.To[*policiesv1beta1.PolicyException](*untyped)
+		if err != nil {
+			return err
+		}
+		results.PolicyCelExceptions = append(results.PolicyCelExceptions, *typed)
 	case vpV1alpha1, vpV1beta1, vpV1:
 		typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
 		if err != nil {
