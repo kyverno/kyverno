@@ -21,7 +21,6 @@ type maps struct {
 	vap    sets.Set[string]
 	mappol sets.Set[string]
 	vpol   sets.Set[string]
-	nvpol  sets.Set[string]
 	ivpol  sets.Set[string]
 	gpol   sets.Set[string]
 	mpol   sets.Set[string]

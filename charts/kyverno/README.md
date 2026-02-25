@@ -357,6 +357,7 @@ The chart values are organised per component.
 | features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
+| features.globalContext.apiCallTimeout | string | `"30s"` | Timeout for HTTP API calls made by policies. A value of 0s means no timeout. |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
 | features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
@@ -379,6 +380,7 @@ The chart values are organised per component.
 | admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
 | admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
 | admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
+| admissionController.autoscaling.targetMemoryUtilizationPercentage | int | `nil` | Target memory utilization percentage |
 | admissionController.autoscaling.behavior | object | `{}` | Configurable scaling behavior |
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
@@ -823,10 +825,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
-| webhooksCleanup.autoDeleteWebhooks.enabled | bool | `false` | Allow webhooks controller to delete webhooks using finalizers |
-| webhooksCleanup.image.registry | string | `nil` | Image registry |
-| webhooksCleanup.image.repository | string | `"ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup"` | Image repository |
-| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to current release tag if omitted |
+| webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
+| webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
+| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -852,7 +853,7 @@ The chart values are organised per component.
 | test.sleep | int | `20` | Sleep time before running test |
 | test.image.registry | string | `"ghcr.io"` | Image registry |
 | test.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
-| test.image.tag | string | `"v0.1.0"` | Image tag Defaults to `latest` if omitted |
+| test.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |

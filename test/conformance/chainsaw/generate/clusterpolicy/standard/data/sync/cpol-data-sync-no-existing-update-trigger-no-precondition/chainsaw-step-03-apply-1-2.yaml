@@ -16,7 +16,7 @@ spec:
         app.kubernetes.io/name: nginx
     spec:
       containers:
-      - image: nginx:1.14.2
+      - image: public.ecr.aws/docker/library/nginx:1.14.2
         name: nginx
         ports:
         - containerPort: 80

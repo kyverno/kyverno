@@ -544,7 +544,7 @@ test:
     repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v0.1.0'
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -608,19 +608,14 @@ webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
 
-  autoDeleteWebhooks:
-    # -- Allow webhooks controller to delete webhooks using finalizers
-    enabled: false
-
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup
+    repository: kyverno/readiness-checker
     # -- Image tag
-    # Defaults to current release tag if omitted
-    tag: ~
     # Defaults to `latest` if omitted
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -785,6 +780,8 @@ features:
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
+    # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
+    apiCallTimeout: 30s
   logging:
     # -- Logging format
     format: text
@@ -843,6 +840,9 @@ admissionController:
 
     # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 80
+
+    # -- (int) Target memory utilization percentage
+    targetMemoryUtilizationPercentage: ~
 
     # -- Configurable scaling behavior
     behavior: {}

@@ -1,5 +1,8 @@
 name: Cherry-pick on PR merge
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     types: [closed]

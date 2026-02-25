@@ -142,24 +142,21 @@ clean-tools: ## Remove installed tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR            := cmd
-KYVERNO_DIR        := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR     := $(CMD_DIR)/kyverno-init
-CLI_DIR            := $(CMD_DIR)/cli/kubectl-kyverno
-CLEANUP_DIR        := $(CMD_DIR)/cleanup-controller
-REPORTS_DIR        := $(CMD_DIR)/reports-controller
-BACKGROUND_DIR     := $(CMD_DIR)/background-controller
-READINESS_DIR      := $(CMD_DIR)/readiness-checker
-WEBHOOK_CLEANUP_DIR := $(CMD_DIR)/tools/webhook-cleanup
-KYVERNO_BIN        := $(KYVERNO_DIR)/kyverno
-KYVERNOPRE_BIN     := $(KYVERNOPRE_DIR)/kyvernopre
-CLI_BIN            := $(CLI_DIR)/kubectl-kyverno
-CLEANUP_BIN        := $(CLEANUP_DIR)/cleanup-controller
-REPORTS_BIN        := $(REPORTS_DIR)/reports-controller
-BACKGROUND_BIN     := $(BACKGROUND_DIR)/background-controller
-READINESS_BIN      := $(READINESS_DIR)/readiness-checker
-WEBHOOK_CLEANUP_BIN := $(WEBHOOK_CLEANUP_DIR)/webhook-cleanup
-
+CMD_DIR        := cmd
+KYVERNO_DIR    := $(CMD_DIR)/kyverno
+KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
+CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
+CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR    := $(CMD_DIR)/reports-controller
+BACKGROUND_DIR := $(CMD_DIR)/background-controller
+READINESS_DIR  := $(CMD_DIR)/readiness-checker
+KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
+CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
+CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
+BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
+READINESS_BIN  := $(READINESS_DIR)/readiness-checker
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -230,9 +227,6 @@ $(REPORTS_BIN): fmt
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
-$(WEBHOOK_CLEANUP_BIN): fmt
-	@echo Build webhook cleanup binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(WEBHOOK_CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(WEBHOOK_CLEANUP_DIR)
 $(READINESS_BIN): fmt vet
 	@echo Build readiness-checker binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(READINESS_BIN) -ldflags=$(LD_FLAGS) ./$(READINESS_DIR)
@@ -261,9 +255,6 @@ build-kyverno-init: $(KYVERNOPRE_BIN)
 build-reports-controller: ## Build reports controller binary
 build-reports-controller: $(REPORTS_BIN)
 
-.PHONY: build-webhook-cleanup
-build-webhook-cleanup: ## Build webhook cleanup binary
-build-webhook-cleanup: $(WEBHOOK_CLEANUP_BIN)
 .PHONY: build-readiness-checker
 build-readiness-checker: ## Build readiness-checker binary
 build-readiness-checker: $(READINESS_BIN)
@@ -275,7 +266,6 @@ build-all: build-cli
 build-all: build-kyverno
 build-all: build-kyverno-init
 build-all: build-reports-controller
-build-all: build-webhook-cleanup
 build-all: build-readiness-checker
 
 ##############
@@ -298,7 +288,6 @@ KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
-KO_WEBHOOK_CLEANUP_REPO := $(PACKAGE)/$(WEBHOOK_CLEANUP_DIR)
 KO_READINESS_REPO   := $(PACKAGE)/$(READINESS_DIR)
 
 .PHONY: ko-build-kyverno-init
@@ -337,12 +326,6 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
-.PHONY: ko-build-webhook-cleanup
-ko-build-webhook-cleanup: $(KO) ## Build webhook cleanup local image (with ko)
-	@echo Build webhook cleanup local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(WEBHOOK_CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
-
 .PHONY: ko-build-readiness-checker
 ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
 	@echo Build readiness-checker local image with ko... >&2
@@ -350,7 +333,7 @@ ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with k
 		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
