@@ -167,10 +167,13 @@ func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 }
 
 func (p *genericPolicy) AsValidatingPolicyLike() policiesv1beta1.ValidatingPolicyLike {
-	if p.NamespacedValidatingPolicy != nil {
-		return p.NamespacedValidatingPolicy
+	if v := p.AsValidatingPolicy(); v != nil {
+		return v
 	}
-	return p.ValidatingPolicy
+	if v := p.AsNamespacedValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
@@ -182,10 +185,13 @@ func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1beta1.Namespac
 }
 
 func (p *genericPolicy) AsImageValidatingPolicyLike() policiesv1beta1.ImageValidatingPolicyLike {
-	if p.NamespacedImageValidatingPolicy != nil {
-		return p.NamespacedImageValidatingPolicy
+	if v := p.AsImageValidatingPolicy(); v != nil {
+		return v
 	}
-	return p.ImageValidatingPolicy
+	if v := p.AsNamespacedImageValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1beta1.ImageValidatingPolicy {
@@ -197,10 +203,13 @@ func (p *genericPolicy) AsNamespacedImageValidatingPolicy() *policiesv1beta1.Nam
 }
 
 func (p *genericPolicy) AsMutatingPolicyLike() policiesv1beta1.MutatingPolicyLike {
-	if p.NamespacedMutatingPolicy != nil {
-		return p.NamespacedMutatingPolicy
+	if m := p.AsMutatingPolicy(); m != nil {
+		return m
 	}
-	return p.MutatingPolicy
+	if m := p.AsNamespacedMutatingPolicy(); m != nil {
+		return m
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsMutatingPolicy() *policiesv1beta1.MutatingPolicy {
@@ -212,10 +221,13 @@ func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.Namespaced
 }
 
 func (p *genericPolicy) AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike {
-	if p.NamespacedGeneratingPolicy != nil {
-		return p.NamespacedGeneratingPolicy
+	if g := p.AsGeneratingPolicy(); g != nil {
+		return g
 	}
-	return p.GeneratingPolicy
+	if g := p.AsNamespacedGeneratingPolicy(); g != nil {
+		return g
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
