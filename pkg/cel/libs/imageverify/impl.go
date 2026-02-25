@@ -10,10 +10,10 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/cosign"
 	"github.com/kyverno/kyverno/pkg/imageverification/imageverifiers/notary"
+	"github.com/kyverno/sdk/cel/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
