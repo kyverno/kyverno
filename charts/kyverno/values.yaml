@@ -610,12 +610,12 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: registry.k8s.io
+    registry: ghcr.io
     # -- Image repository
-    repository: kubectl
+    repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v1.34.3'
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
