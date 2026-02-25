@@ -6,7 +6,6 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -17,6 +16,7 @@ import (
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/imagedata"
 	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
