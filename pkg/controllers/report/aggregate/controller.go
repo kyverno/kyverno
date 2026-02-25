@@ -506,18 +506,13 @@ func (c *controller) createVPolMap() (sets.Set[string], error) {
 			results.Insert(cache.MetaObjectToName(&vpol).String())
 		}
 	}
-	return results, nil
-}
-
-func (c *controller) createNVPolMap() (sets.Set[string], error) {
-	results := sets.New[string]()
 	if c.nvpolLister != nil {
-		nvpols, err := c.nvpolLister.List(labels.Everything())
+		vpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, "")
 		if err != nil {
 			return nil, err
 		}
-		for _, nvpol := range nvpols {
-			results.Insert(cache.MetaObjectToName(nvpol).String())
+		for _, vpol := range vpols {
+			results.Insert(cache.MetaObjectToName(&vpol).String())
 		}
 	}
 	return results, nil
@@ -527,6 +522,15 @@ func (c *controller) createIVPolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.ivpolLister != nil {
 		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, ivpol := range ivpols {
+			results.Insert(cache.MetaObjectToName(&ivpol).String())
+		}
+	}
+	if c.nivpolLister != nil {
+		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, "")
 		if err != nil {
 			return nil, err
 		}
@@ -548,6 +552,15 @@ func (c *controller) createGPOLMap() (sets.Set[string], error) {
 			results.Insert(cache.MetaObjectToName(&gpol).String())
 		}
 	}
+	if c.ngpolLister != nil {
+		gpols, err := utils.FetchNamespacedGeneratingPolicies(c.ngpolLister, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, gpol := range gpols {
+			results.Insert(cache.MetaObjectToName(&gpol).String())
+		}
+	}
 	return results, nil
 }
 
@@ -555,6 +568,15 @@ func (c *controller) createMPOLMap() (sets.Set[string], error) {
 	results := sets.New[string]()
 	if c.mpolLister != nil {
 		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, mpol := range mpols {
+			results.Insert(cache.MetaObjectToName(&mpol).String())
+		}
+	}
+	if c.nmpolLister != nil {
+		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, "")
 		if err != nil {
 			return nil, err
 		}
@@ -815,10 +837,6 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
-	nvpolMap, err := c.createNVPolMap()
-	if err != nil {
-		return err
-	}
 	ivpolMap, err := c.createIVPolMap()
 	if err != nil {
 		return err
@@ -836,7 +854,6 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		vap:    vapMap,
 		mappol: mappolMap,
 		vpol:   vpolMap,
-		nvpol:  nvpolMap,
 		ivpol:  ivpolMap,
 		gpol:   gpolMap,
 		mpol:   mpolMap,
