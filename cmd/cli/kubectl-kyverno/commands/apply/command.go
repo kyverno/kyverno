@@ -866,6 +866,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
 				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
 				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
+				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 			}
@@ -938,10 +939,10 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 			targets = append(targets, t)
 		}
 		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
-		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 		if err != nil {
 			return nil, err
 		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	}
 	return dClient, err
 }
@@ -994,12 +995,12 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 	} else if rc.Error > 0 {
 		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn > 0 && warnExitCode != 0 {
-		fmt.Printf("exit as warnExitCode is %d", warnExitCode)
+		fmt.Fprintf(out, "exit as warnExitCode is %d", warnExitCode)
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
 	} else if rc.Pass == 0 && warnNoPassed {
-		fmt.Println(out, "exit as no objects satisfied policy")
+		fmt.Fprintln(out, "exit as no objects satisfied policy")
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}

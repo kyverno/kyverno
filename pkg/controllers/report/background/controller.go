@@ -602,12 +602,12 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy().GetDefinition()).String()
 			} else if policy.AsMutatingAdmissionPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsMutatingAdmissionPolicy().GetDefinition()).String()
-			} else if policy.AsValidatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
-			} else if policy.AsImageValidatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
-			} else if policy.AsMutatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsMutatingPolicy()).String()
+			} else if policy.AsValidatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsValidatingPolicyLike()).String()
+			} else if policy.AsImageValidatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicyLike()).String()
+			} else if policy.AsMutatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsMutatingPolicyLike()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -816,6 +816,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewMutatingPolicy(&mpol))
 		}
 	}
+	if c.nmpolLister != nil {
+		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, mpol := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
+			policies = append(policies, engineapi.NewNamespacedMutatingPolicy(&mpol))
+		}
+	}
 	if c.ivpolLister != nil {
 		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
 		if err != nil {
@@ -823,6 +832,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
 			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
+		}
+	}
+	if c.nivpolLister != nil {
+		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			policies = append(policies, engineapi.NewNamespacedImageValidatingPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {
