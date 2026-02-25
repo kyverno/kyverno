@@ -118,6 +118,7 @@ func createReportControllers(
 			policiesV1beta1.ValidatingPolicies(),
 			policiesV1beta1.NamespacedValidatingPolicies(),
 			policiesV1beta1.MutatingPolicies(),
+			policiesV1beta1.NamespacedMutatingPolicies(),
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,

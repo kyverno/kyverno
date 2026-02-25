@@ -282,6 +282,27 @@ func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyListe
 	return policies, nil
 }
 
+func FetchNamespacedMutatingPolicies(nmpolLister policiesv1beta1listers.NamespacedMutatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedMutatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedMutatingPolicy
+	if namespace != "" {
+		pols, err = nmpolLister.NamespacedMutatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nmpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedMutatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
 func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
 	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
@@ -331,6 +352,27 @@ func FetchGeneratingPolicy(gpolLister policiesv1beta1listers.GeneratingPolicyLis
 		for _, pol := range pols {
 			policies = append(policies, *pol)
 		}
+	}
+	return policies, nil
+}
+
+func FetchNamespacedGeneratingPolicies(ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedGeneratingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var gpols []*policiesv1beta1.NamespacedGeneratingPolicy
+	if namespace != "" {
+		gpols, err = ngpolLister.NamespacedGeneratingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		gpols, err = ngpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedGeneratingPolicy, 0, len(gpols))
+	for _, pol := range gpols {
+		policies = append(policies, *pol)
 	}
 	return policies, nil
 }
