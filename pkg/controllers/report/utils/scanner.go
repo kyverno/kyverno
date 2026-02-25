@@ -120,15 +120,15 @@ func (s *scanner) ScanResource(
 	for _, policy := range policies {
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			kpols = append(kpols, policy)
-		} else if pol := policy.AsValidatingPolicy(); pol != nil {
+		} else if pol := policy.AsValidatingPolicyLike(); pol != nil {
 			vpols = append(vpols, policy)
-		} else if pol := policy.AsImageValidatingPolicy(); pol != nil {
+		} else if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
 			ivpols = append(ivpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		} else if pol := policy.AsMutatingAdmissionPolicy(); pol != nil {
 			maps = append(maps, policy)
-		} else if pol := policy.AsMutatingPolicy(); pol != nil {
+		} else if pol := policy.AsMutatingPolicyLike(); pol != nil {
 			mpols = append(mpols, policy)
 		}
 	}
@@ -173,7 +173,7 @@ func (s *scanner) ScanResource(
 	}
 
 	for i, policy := range vpols {
-		if pol := policy.AsValidatingPolicy(); pol != nil {
+		if pol := policy.AsValidatingPolicyLike(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
 			provider, err := vpolengine.NewProvider(compiler, []policiesv1beta1.ValidatingPolicyLike{pol}, exceptions)
 			if err != nil {

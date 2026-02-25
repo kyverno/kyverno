@@ -167,8 +167,18 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceValidatingPolicy
 		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
 
+	case pol.AsNamespacedValidatingPolicy() != nil:
+		vp := pol.AsNamespacedValidatingPolicy()
+		result.Source = SourceValidatingPolicy
+		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
+
 	case pol.AsMutatingPolicy() != nil:
 		mpol := pol.AsMutatingPolicy()
+		result.Source = SourceMutatingPolicy
+		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
+
+	case pol.AsNamespacedMutatingPolicy() != nil:
+		mpol := pol.AsNamespacedMutatingPolicy()
 		result.Source = SourceMutatingPolicy
 		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
 
@@ -177,7 +187,16 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceImageValidatingPolicy
 		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
 
+	case pol.AsNamespacedImageValidatingPolicy() != nil:
+		ivp := pol.AsNamespacedImageValidatingPolicy()
+		result.Source = SourceImageValidatingPolicy
+		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
+
 	case pol.AsGeneratingPolicy() != nil:
+		result.Source = SourceGeneratingPolicy
+		process = "admission review"
+
+	case pol.AsNamespacedGeneratingPolicy() != nil:
 		result.Source = SourceGeneratingPolicy
 		process = "admission review"
 
