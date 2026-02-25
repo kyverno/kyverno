@@ -78,24 +78,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 				}
 			}
-			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
+			if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
 				policies, err := vpolautogen.Autogen(vpol)
-				if err != nil {
-					continue
-				}
-				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					policy := policies[config]
-					webhook.MatchConditions = append(
-						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
-					)
-					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
-						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
-					}
-				}
-			}
-			if nvpol, ok := p.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
-				policies, err := vpolautogen.Autogen(nvpol)
 				if err != nil {
 					continue
 				}
@@ -127,44 +111,10 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 
-			if nivpol, ok := p.(*policiesv1beta1.NamespacedImageValidatingPolicy); ok {
-				policies, err := ivpolautogen.AutogenNamespaced(nivpol)
-				if err != nil {
-					continue
-				}
-				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					policy := policies[config]
-					webhook.MatchConditions = append(
-						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
-					)
-					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
-						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
-					}
-				}
-			}
-
-			if mpol := policy.AsMutatingPolicy(); mpol != nil {
+			if mpol := policy.AsMutatingPolicyLike(); mpol != nil {
 				policies, err := mpolautogen.Autogen(mpol)
 				if err != nil {
 					logger.Error(err, "failed to auto-generate mutating policy", "policy", mpol.GetName())
-					continue
-				}
-				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					autogenPolicy := policies[config]
-					webhook.MatchConditions = append(
-						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
-					)
-					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
-						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
-					}
-				}
-			}
-
-			if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
-				policies, err := mpolautogen.Autogen(nmpol)
-				if err != nil {
 					continue
 				}
 				for _, config := range slices.Sorted(maps.Keys(policies)) {

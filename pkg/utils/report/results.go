@@ -162,22 +162,22 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 			addProperty("mapBinding", binding.Name, &result)
 		}
 
-	case pol.AsValidatingPolicy() != nil:
-		vp := pol.AsValidatingPolicy()
+	case pol.AsValidatingPolicyLike() != nil:
+		vp := pol.AsValidatingPolicyLike()
 		result.Source = SourceValidatingPolicy
-		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
+		process = selectProcess(vp.GetSpec().BackgroundEnabled(), vp.GetSpec().AdmissionEnabled())
 
-	case pol.AsMutatingPolicy() != nil:
-		mpol := pol.AsMutatingPolicy()
+	case pol.AsMutatingPolicyLike() != nil:
+		mpol := pol.AsMutatingPolicyLike()
 		result.Source = SourceMutatingPolicy
-		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
+		process = selectProcess(mpol.GetSpec().BackgroundEnabled(), mpol.GetSpec().AdmissionEnabled())
 
-	case pol.AsImageValidatingPolicy() != nil:
-		ivp := pol.AsImageValidatingPolicy()
+	case pol.AsImageValidatingPolicyLike() != nil:
+		ivp := pol.AsImageValidatingPolicyLike()
 		result.Source = SourceImageValidatingPolicy
-		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
+		process = selectProcess(ivp.GetSpec().BackgroundEnabled(), ivp.GetSpec().AdmissionEnabled())
 
-	case pol.AsGeneratingPolicy() != nil:
+	case pol.AsGeneratingPolicyLike() != nil:
 		result.Source = SourceGeneratingPolicy
 		process = "admission review"
 
