@@ -25,10 +25,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -59,8 +59,8 @@ type controller struct {
 	celpolexLister   policiesv1beta1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	mapbindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
+	mapLister        admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapbindingLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -82,8 +82,8 @@ func NewController(
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	mapbindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
+	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapbindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {

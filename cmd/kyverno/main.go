@@ -69,7 +69,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregsitrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -297,11 +297,12 @@ func createrLeaderControllers(
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 		}
 
-		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+		// TODO: move mutating admission to v1 for kyverno 1.18+ (where k8s >= 1.33+)
+		var mapInformer admissionregsitrationv1beta1informers.MutatingAdmissionPolicyInformer
+		var mapBindingInformer admissionregsitrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
-			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
 		}
 
 		admissionpolicyController := admissionpolicygenerator.NewController(

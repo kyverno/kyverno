@@ -61,15 +61,15 @@ func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
 // IsMutatingAdmissionPolicyRegistered checks if MutatingAdmissionPolicies are registered in the API Server.
 // It checks for v1beta1 first, then falls back to v1alpha1.
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
-	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}
+	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
 	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err == nil {
 		return true, nil
 	}
-	groupVersion = schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
+	groupVersion = schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}
 	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
-		return false, err
+		return true, err
 	}
-	return true, nil
+	return false, nil
 }
 
 // IsValidatingAdmissionPolicyRegistered checks if ValidatingAdmissionPolicies are registered in the API Server.

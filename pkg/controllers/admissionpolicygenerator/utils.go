@@ -7,7 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -63,7 +63,7 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 }
 
 // getMutatingAdmissionPolicy gets the Kubernetes MutatingAdmissionPolicy
-func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
+func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	if c.mapLister == nil {
 		return nil, fmt.Errorf("MutatingAdmissionPolicy lister is nil")
 	}
@@ -75,7 +75,7 @@ func (c *controller) getMutatingAdmissionPolicy(name string) (*admissionregistra
 }
 
 // getMutatingAdmissionPolicyBinding gets the Kubernetes MutatingAdmissionPolicyBinding
-func (c *controller) getMutatingAdmissionPolicyBinding(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
+func (c *controller) getMutatingAdmissionPolicyBinding(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
 	if c.mapbindingLister == nil {
 		return nil, fmt.Errorf("MutatingAdmissionPolicyBinding lister is nil")
 	}
