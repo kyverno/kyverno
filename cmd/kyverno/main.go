@@ -70,6 +70,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -297,11 +298,21 @@ func createrLeaderControllers(
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 		}
 
-		var mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-		var mapBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
+		var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+		var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+		var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+		var mapBindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
-			mapInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			// Use v1beta1 for Kubernetes >= 1.35, v1alpha1 for older versions
+			if kubeutils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 35, 0) {
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1beta1")
+				mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+				mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+			} else {
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1alpha1")
+				mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+				mapBindingAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			}
 		}
 
 		admissionpolicyController := admissionpolicygenerator.NewController(
@@ -319,6 +330,8 @@ func createrLeaderControllers(
 			vapBindingInformer,
 			mapInformer,
 			mapBindingInformer,
+			mapAlphaInformer,
+			mapBindingAlphaInformer,
 			eventGenerator,
 			checker,
 		)
