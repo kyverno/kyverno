@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mutate-existing-cel-expression-test
+policies:
+- policy.yaml
+resources:
+- trigger.yaml
+results:
+- isMutatingPolicy: true
+  kind: ConfigMap
+  patchedResources: patched-target.yaml
+  policy: mutate-existing-cel-expr
+  resources:
+  - test-ns/target-cm
+  result: pass
+targetResources:
+- target.yaml
