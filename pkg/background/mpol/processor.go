@@ -321,11 +321,17 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	unstructuredResources, err := p.getResourcesFromExpression(ctx, mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
 	if err != nil {
 		return nil, err
+	} else if unstructuredResources == nil {
+		return nil, nil
 	}
 
 	targets := &unstructured.UnstructuredList{}
 
 	if items, ok := unstructuredResources["items"].([]interface{}); ok {
+		if len(items) == 0 {
+			return nil, nil
+		}
+
 		for _, o := range items {
 			m, ok := o.(map[string]interface{})
 			if !ok {
