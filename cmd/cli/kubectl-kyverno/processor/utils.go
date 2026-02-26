@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
@@ -23,7 +24,7 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 	return false
 }
 
-func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool) (libs.Context, error) {
+func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, crds ...*apiextensionsv1.CustomResourceDefinition) (libs.Context, error) {
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
 			dclient,

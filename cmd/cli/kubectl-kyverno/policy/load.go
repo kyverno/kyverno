@@ -28,6 +28,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -95,6 +96,7 @@ type LoaderResults struct {
 	DeletingPolicies        []policiesv1beta1.DeletingPolicyLike
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
 	PolicyCelExceptions     []*policiesv1beta1.PolicyException
+	CustomResources         []*apiextensionsv1.CustomResourceDefinition
 	NonFatalErrors          []LoaderError
 }
 
@@ -115,6 +117,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
 	l.PolicyCelExceptions = append(l.PolicyCelExceptions, results.PolicyCelExceptions...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
+	l.CustomResources = append(l.CustomResources, results.CustomResources...)
 }
 
 func (l *LoaderResults) addError(path string, err error) {
