@@ -841,6 +841,9 @@ admissionController:
     # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 80
 
+    # -- (int) Target memory utilization percentage
+    targetMemoryUtilizationPercentage: ~
+
     # -- Configurable scaling behavior
     behavior: {}
 
