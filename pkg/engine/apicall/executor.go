@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Executor interface {
@@ -23,10 +25,11 @@ type Executor interface {
 }
 
 type executor struct {
-	logger logr.Logger
-	name   string
-	client ClientInterface
-	config APICallConfiguration
+	logger          logr.Logger
+	name            string
+	client          ClientInterface
+	config          APICallConfiguration
+	policyNamespace string
 }
 
 func NewExecutor(
@@ -34,12 +37,14 @@ func NewExecutor(
 	name string,
 	client ClientInterface,
 	apiCallConfig APICallConfiguration,
+	policyNamespace string,
 ) *executor {
 	return &executor{
-		logger: logger,
-		name:   name,
-		client: client,
-		config: apiCallConfig,
+		logger:          logger,
+		name:            name,
+		client:          client,
+		config:          apiCallConfig,
+		policyNamespace: policyNamespace,
 	}
 }
 
@@ -74,7 +79,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
 
-	client, err := a.buildHTTPClient(apiCall.Service)
+	client, err := a.buildHTTPClient(ctx, apiCall.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -140,16 +145,24 @@ func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APIC
 		return nil, fmt.Errorf("failed to build request for APICall %s: %w", a.name, err)
 	}
 
-	if err := a.addHTTPHeaders(req, apiCall.Service.Headers); err != nil {
+	if err := a.addHTTPHeaders(ctx, req, apiCall.Service.Headers); err != nil {
 		return nil, fmt.Errorf("failed to add headers for APICall %s: %w", a.name, err)
 	}
 
 	return req, nil
 }
 
-func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHeader) error {
+func (a *executor) addHTTPHeaders(ctx context.Context, req *http.Request, headers []kyvernov1.HTTPHeader) error {
 	for _, header := range headers {
-		req.Header.Add(header.Key, header.Value)
+		val := header.Value
+		if header.ValueFrom != nil {
+			resolved, err := a.resolveValueFrom(ctx, header.ValueFrom)
+			if err != nil {
+				return err
+			}
+			val = resolved
+		}
+		req.Header.Add(header.Key, val)
 	}
 
 	if req.Header.Get("Authorization") == "" {
@@ -173,15 +186,29 @@ func (a *executor) getToken() string {
 	return string(b)
 }
 
-func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+func (a *executor) buildHTTPClient(ctx context.Context, service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
-	if service == nil || service.CABundle == "" {
+	if service == nil {
+		return &http.Client{
+			Timeout: timeout,
+		}, nil
+	}
+	caBundle := service.CABundle
+	if service.CABundleFrom != nil {
+		resolved, err := a.resolveValueFrom(ctx, service.CABundleFrom)
+		if err != nil {
+			return nil, err
+		}
+		caBundle = resolved
+	}
+
+	if caBundle == "" {
 		return &http.Client{
 			Timeout: timeout,
 		}, nil
 	}
 	caCertPool := x509.NewCertPool()
-	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
+	if ok := caCertPool.AppendCertsFromPEM([]byte(caBundle)); !ok {
 		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
 	}
 	transport := &http.Transport{
@@ -208,4 +235,51 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 	}
 
 	return buffer, nil
+}
+
+func (a *executor) resolveValueFrom(ctx context.Context, valueFrom *kyvernov1.HeaderValueFrom) (string, error) {
+	if valueFrom == nil {
+		return "", nil
+	}
+	if valueFrom.SecretKeyRef != nil {
+		if a.policyNamespace != "" && valueFrom.SecretKeyRef.Namespace != "" && valueFrom.SecretKeyRef.Namespace != a.policyNamespace {
+			return "", fmt.Errorf("secret namespace %s is different from policy namespace %s", valueFrom.SecretKeyRef.Namespace, a.policyNamespace)
+		}
+		obj, err := a.client.GetResource(ctx, "v1", "Secret", valueFrom.SecretKeyRef.Namespace, valueFrom.SecretKeyRef.Name)
+		if err != nil {
+			return "", fmt.Errorf("failed to get secret %s/%s: %v", valueFrom.SecretKeyRef.Namespace, valueFrom.SecretKeyRef.Name, err)
+		}
+		data, ok, err := unstructured.NestedStringMap(obj.Object, "data")
+		if err != nil || !ok {
+			return "", fmt.Errorf("failed to get data from secret %s/%s", valueFrom.SecretKeyRef.Namespace, valueFrom.SecretKeyRef.Name)
+		}
+		val, ok := data[valueFrom.SecretKeyRef.Key]
+		if !ok {
+			return "", fmt.Errorf("key %s not found in secret %s/%s", valueFrom.SecretKeyRef.Key, valueFrom.SecretKeyRef.Namespace, valueFrom.SecretKeyRef.Name)
+		}
+		decoded, err := base64.StdEncoding.DecodeString(val)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode secret value: %v", err)
+		}
+		return string(decoded), nil
+	}
+	if valueFrom.ConfigMapKeyRef != nil {
+		if a.policyNamespace != "" && valueFrom.ConfigMapKeyRef.Namespace != "" && valueFrom.ConfigMapKeyRef.Namespace != a.policyNamespace {
+			return "", fmt.Errorf("configmap namespace %s is different from policy namespace %s", valueFrom.ConfigMapKeyRef.Namespace, a.policyNamespace)
+		}
+		obj, err := a.client.GetResource(ctx, "v1", "ConfigMap", valueFrom.ConfigMapKeyRef.Namespace, valueFrom.ConfigMapKeyRef.Name)
+		if err != nil {
+			return "", fmt.Errorf("failed to get configmap %s/%s: %v", valueFrom.ConfigMapKeyRef.Namespace, valueFrom.ConfigMapKeyRef.Name, err)
+		}
+		data, ok, err := unstructured.NestedStringMap(obj.Object, "data")
+		if err != nil || !ok {
+			return "", fmt.Errorf("failed to get data from configmap %s/%s", valueFrom.ConfigMapKeyRef.Namespace, valueFrom.ConfigMapKeyRef.Name)
+		}
+		val, ok := data[valueFrom.ConfigMapKeyRef.Key]
+		if !ok {
+			return "", fmt.Errorf("key %s not found in configmap %s/%s", valueFrom.ConfigMapKeyRef.Key, valueFrom.ConfigMapKeyRef.Namespace, valueFrom.ConfigMapKeyRef.Name)
+		}
+		return val, nil
+	}
+	return "", nil
 }
