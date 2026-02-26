@@ -27,7 +27,7 @@ require (
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/gnostic-models v0.7.1
-	github.com/google/go-containerregistry v0.21.0
+	github.com/google/go-containerregistry v0.21.1
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20251124222020-e075f209120b
 	github.com/in-toto/in-toto-golang v0.10.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
