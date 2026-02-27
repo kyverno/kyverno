@@ -68,7 +68,7 @@ jobs:
           set -e
           KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -279,7 +279,7 @@ jobs:
             exit 1
           fi
       - name: Archive Report
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: load-test-report.html
           path: report
@@ -407,7 +407,7 @@ jobs:
           sleep 60
           ./test/load/k6/reports-size-in-etcd.sh > report/reports-size-in-etcd.txt
       - name: Archive Report
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
           path: report
