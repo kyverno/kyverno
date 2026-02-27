@@ -1,0 +1,39 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-images
+spec:
+  rules:
+  - name: check-images
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Enforce
+      foreach:
+      - list: request.object.spec.containers
+        context:
+        - name: registryData
+          imageRegistry:
+            reference: "{{ element.image }}"
+        deny:
+          conditions:
+            any:
+            - key: "{{ registryData }}"
+              operator: Equals
+              value: "blocked"
+      - list: request.object.spec.initContainers
+        context:
+        - name: initRegistryData
+          imageRegistry:
+            reference: "{{ element.image }}"
+        deny:
+          conditions:
+            any:
+            - key: "{{ initRegistryData }}"
+              operator: Equals
+              value: "blocked"
+      message: "Image is blocked by policy."

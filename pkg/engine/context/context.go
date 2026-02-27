@@ -24,7 +24,7 @@ import (
 var (
 	logger       = logging.WithName("context")
 	json         = jsoniter.ConfigCompatibleWithStandardLibrary
-	ReservedKeys = regexp.MustCompile(`request|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|image|([a-z_0-9]+\()[^{}]`)
+	ReservedKeys = regexp.MustCompile(`request|serviceAccountName|serviceAccountNamespace|element|elementIndex|foreachBlockIndex|@|images|image|([a-z_0-9]+\()[^{}]`)
 )
 
 // EvalInterface is used to query and inspect context data

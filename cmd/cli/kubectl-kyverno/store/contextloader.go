@@ -26,18 +26,47 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
-			rule := s.GetPolicyRule(policy.GetName(), rule.Name)
-			if rule != nil && len(rule.Values) > 0 {
-				variables := rule.Values
-				for key, value := range variables {
+			storeRule := s.GetPolicyRule(policy.GetName(), rule.Name)
+			if storeRule == nil {
+				return nil
+			}
+			if len(storeRule.Values) > 0 {
+				for key, value := range storeRule.Values {
 					if err := jsonContext.AddVariable(key, value); err != nil {
 						return err
 					}
 				}
 			}
-			if rule != nil && len(rule.ForEachValues) > 0 {
-				for key, value := range rule.ForEachValues {
-					if err := jsonContext.AddVariable(key, value[s.GetForeachElement()]); err != nil {
+			if len(storeRule.ForEachValues) == 0 {
+				return nil
+			}
+			// Only inject foreachValues when inside a foreach element; elementIndex
+			// is set by the engine only during foreach iteration, so its absence
+			// means we're at rule-level context load and should skip mock injection.
+			rawElem, err := jsonContext.Query("elementIndex")
+			if err != nil {
+				return nil
+			}
+			elemIdx := 0
+			if v, ok := rawElem.(int64); ok {
+				elemIdx = int(v)
+			}
+			blockIdx := 0
+			if raw, err := jsonContext.Query("foreachBlockIndex"); err == nil {
+				if v, ok := raw.(int64); ok {
+					blockIdx = int(v)
+				}
+			}
+			if blockIdx >= len(storeRule.ForEachValues) {
+				return nil
+			}
+			blockValues := storeRule.ForEachValues[blockIdx]
+			if len(blockValues) == 0 {
+				return nil
+			}
+			for key, values := range blockValues {
+				if elemIdx < len(values) {
+					if err := jsonContext.AddVariable(key, values[elemIdx]); err != nil {
 						return err
 					}
 				}
