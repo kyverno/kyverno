@@ -173,6 +173,7 @@ func testCommandExecute(
 					printer := table.NewTablePrinter(out)
 					fmt.Fprintln(out)
 					printer.Print(resultsTable.Rows(detailedResults))
+					printFailures(out, resultsTable.RawRows, detailedResults)
 					fmt.Fprintln(out)
 				}
 			}

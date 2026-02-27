@@ -465,9 +465,20 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
-	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
+	fmt.Fprintf(out, "Aggregated Failed Test Cases: ")
 	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
+	printFailures(out, resultsTable.RawRows, detailedResults)
+}
+
+func printFailures(out io.Writer, rows []table.Row, detailed bool) {
+	if !detailed {
+		for _, row := range rows {
+			if row.IsFailure && row.Message != "" {
+				fmt.Fprintf(out, "\nFailure %d: %s\n", row.ID, row.Message)
+			}
+		}
+	}
 }
 
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
