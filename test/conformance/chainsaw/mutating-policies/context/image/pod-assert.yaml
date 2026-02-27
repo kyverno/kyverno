@@ -4,8 +4,8 @@ metadata:
   name: pod-dockerhub
   namespace: isolated-ns
   labels:
-    source: "index.docker.io"
+    source: public.ecr.aws
 spec:
   containers:
     - name: nginx
-      image: nginx:latest
+      image: public.ecr.aws/docker/library/nginx:latest

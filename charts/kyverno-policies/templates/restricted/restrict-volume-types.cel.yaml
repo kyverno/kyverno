@@ -42,7 +42,7 @@ spec:
       message: >-
         Only the following types of volumes may be used: configMap, csi, downwardAPI,
         emptyDir, ephemeral, persistentVolumeClaim, projected, and secret.
-      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 

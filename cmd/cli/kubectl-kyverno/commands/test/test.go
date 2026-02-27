@@ -324,6 +324,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingPolicies:                  results.MutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
+			TargetResources:                   targetResources,
 			Resource:                          *resource,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
@@ -405,6 +406,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingPolicies:                  results.MutatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			TargetResources:                   targetResources,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
@@ -625,17 +627,15 @@ func applyDeletingPolicies(
 	contextPath string,
 	isFake bool,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
