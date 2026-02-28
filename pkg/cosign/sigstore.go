@@ -188,12 +188,18 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 		return verify.PolicyBuilder{}, err
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
+	hasIssuer := opts.Issuer != "" || opts.IssuerRegExp != ""
+	hasSubject := opts.Subject != "" || opts.SubjectRegExp != ""
 
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
-	if err != nil {
-		return verify.PolicyBuilder{}, err
+	if hasIssuer && hasSubject {
+		id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
+		if err != nil {
+			return verify.PolicyBuilder{}, err
+		}
+		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
 	}
-	return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
+
+	return verify.NewPolicy(artifactDigestVerificationOption), nil
 }
 
 func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
