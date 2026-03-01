@@ -69,7 +69,7 @@ jobs:
           set -e
           KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: Upload images archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -81,7 +81,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make build-cli
       - name: Upload binary
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
@@ -117,7 +117,7 @@ jobs:
         with:
           verify: true
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: kubectl-kyverno
       - name: Install Kyverno CLI
@@ -135,7 +135,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
