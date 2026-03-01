@@ -2,6 +2,7 @@ package background
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -100,12 +102,13 @@ type controller struct {
 	forceDelay    time.Duration
 
 	// config
-	config             config.Configuration
-	jp                 jmespath.Interface
-	eventGen           event.Interface
-	policyReports      bool
-	gctxStore          gctxstore.Store
-	exceptionNamespace string
+	config                 config.Configuration
+	jp                     jmespath.Interface
+	eventGen               event.Interface
+	policyReports          bool
+	gctxStore              gctxstore.Store
+	exceptionNamespace     string
+	respectWebhookSelector bool
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -143,6 +146,7 @@ func NewController(
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	respectWebhookSelector bool,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -151,26 +155,27 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
 	c := controller{
-		client:             client,
-		kyvernoClient:      kyvernoClient,
-		engine:             engine,
-		polLister:          polInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polexLister:        polexInformer.Lister(),
-		bgscanrLister:      ephrInformer.Lister(),
-		cbgscanrLister:     cephrInformer.Lister(),
-		nsLister:           nsInformer.Lister(),
-		queue:              queue,
-		metadataCache:      metadataCache,
-		forceDelay:         forceDelay,
-		config:             config,
-		jp:                 jp,
-		eventGen:           eventGen,
-		policyReports:      policyReports,
-		exceptionNamespace: exceptionNamespace,
-		gctxStore:          gctxStore,
-		mapper:             mapper,
-		typeConverter:      typeConverter,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		engine:                 engine,
+		polLister:              polInformer.Lister(),
+		cpolLister:             cpolInformer.Lister(),
+		polexLister:            polexInformer.Lister(),
+		bgscanrLister:          ephrInformer.Lister(),
+		cbgscanrLister:         cephrInformer.Lister(),
+		nsLister:               nsInformer.Lister(),
+		queue:                  queue,
+		metadataCache:          metadataCache,
+		forceDelay:             forceDelay,
+		config:                 config,
+		jp:                     jp,
+		eventGen:               eventGen,
+		policyReports:          policyReports,
+		exceptionNamespace:     exceptionNamespace,
+		gctxStore:              gctxStore,
+		mapper:                 mapper,
+		typeConverter:          typeConverter,
+		respectWebhookSelector: respectWebhookSelector,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -476,6 +481,34 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
+func (c *controller) isNamespaceExcludedByWebhookSelector(namespaceName string) (bool, error) {
+	webhookCfg := c.config.GetWebhook()
+	if webhookCfg.NamespaceSelector == nil {
+		return false, nil
+	}
+	ns, err := c.nsLister.Get(namespaceName)
+	if err != nil {
+		return false, err
+	}
+	sel, err := metav1.LabelSelectorAsSelector(webhookCfg.NamespaceSelector)
+	if err != nil {
+		return false, fmt.Errorf("invalid webhookNamespaceSelector: %w", err)
+	}
+	return !sel.Matches(labels.Set(ns.GetLabels())), nil
+}
+
+func (c *controller) isObjectExcludedByWebhookSelector(resourceLabels map[string]string) (bool, error) {
+	webhookCfg := c.config.GetWebhook()
+	if webhookCfg.ObjectSelector == nil {
+		return false, nil
+	}
+	sel, err := metav1.LabelSelectorAsSelector(webhookCfg.ObjectSelector)
+	if err != nil {
+		return false, fmt.Errorf("invalid webhookObjectSelector: %w", err)
+	}
+	return !sel.Matches(labels.Set(resourceLabels)), nil
+}
+
 func (c *controller) needsReconcile(
 	namespace string,
 	name string,
@@ -574,6 +607,21 @@ func (c *controller) reconcileReport(
 			return err
 		}
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+	}
+	if c.respectWebhookSelector {
+		excluded, err := c.isObjectExcludedByWebhookSelector(target.GetLabels())
+		if err != nil {
+			return err
+		}
+		if excluded {
+			if observed.GetResourceVersion() != "" {
+				if observed.GetNamespace() == "" {
+					return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+				}
+				return c.kyvernoClient.ReportsV1().EphemeralReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			}
+			return nil
+		}
 	}
 	// build desired report
 	expected := map[string]string{}
@@ -773,6 +821,22 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			} else {
 				return c.kyvernoClient.ReportsV1().EphemeralReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			}
+		}
+	}
+	if c.respectWebhookSelector && namespace != "" {
+		excluded, err := c.isNamespaceExcludedByWebhookSelector(namespace)
+		if err != nil {
+			return err
+		}
+		if excluded {
+			report, err := c.getMeta(namespace, name)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+			return c.kyvernoClient.ReportsV1().EphemeralReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 		}
 	}
 	// load all kyverno policies
