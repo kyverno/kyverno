@@ -67,6 +67,7 @@ func (idc *imageContext) AddImages(ctx context.Context, images []string, opts ..
 func (idc *imageContext) Get(ctx context.Context, image string, opts ...Option) (*ImageData, error) {
 	idc.RLock()
 	if data, found := idc.list[image]; found {
+		idc.RUnlock()
 		return data, nil
 	}
 	idc.RUnlock()
