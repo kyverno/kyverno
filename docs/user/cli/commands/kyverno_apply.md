@@ -58,7 +58,7 @@ kyverno apply [flags]
   -h, --help                               help for apply
       --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
-  -n, --namespace string                   Optional Policy parameter passed with cluster flag
+  -n, --namespace string                   Optional Policy parameter
   -o, --output string                      Prints the mutated/generated resources in provided file/directory
       --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters

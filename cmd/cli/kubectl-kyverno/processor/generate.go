@@ -33,7 +33,7 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 			if err != nil {
 				fmt.Fprintf(out, "failed to get resource bytes\n")
 			} else {
-				r, err := resource.GetUnstructuredResources(resourceBytes)
+				r, err := resource.GetUnstructuredResources(resourceBytes, "")
 				if err != nil {
 					fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
 				}

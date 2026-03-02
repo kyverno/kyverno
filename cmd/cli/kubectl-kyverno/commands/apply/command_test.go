@@ -519,6 +519,40 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_default_namespace.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_without_namespace.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			// Same as the above, but sets (fallback) namespace, making the policy pass
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_default_namespace.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_without_namespace.yaml"},
+				PolicyReport:  true,
+				Namespace:     "myapp-namespace",
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
