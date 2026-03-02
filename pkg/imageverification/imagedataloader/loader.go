@@ -200,7 +200,7 @@ func (i *ImageData) FetchReferrersForDigest(digest string, artifactType string) 
 		return i.FetchReferrers(artifactType)
 	}
 
-	// this is most likely a call to fetch notary signatures for an attesatation
+	// this is most likely a call to fetch notary signatures for an attestation
 	idx, err := i.fetchReferrersFromRemote(digest)
 	if err != nil {
 		return nil, err
@@ -378,7 +378,7 @@ func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifes
 
 	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+		return nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	return referrersDescs, nil

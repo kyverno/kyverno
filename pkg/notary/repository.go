@@ -52,7 +52,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 
 	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+		return fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	descList := []ocispec.Descriptor{}
