@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -119,7 +120,16 @@ func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.S
 
 	opts = append(opts, authOpts...)
 	opts = append(opts, remote.WithContext(ctx))
-
+	opts = append(opts, remote.WithRetryStatusCodes(
+		http.StatusRequestTimeout,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+		499, // nginx-specific, client closed request
+		522, // Cloudflare-specific, connection timeout
+		429, // Too Many Requests
+	))
 	return opts, nil
 }
 
