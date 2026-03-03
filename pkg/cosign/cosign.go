@@ -243,6 +243,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 		cosignOpts.TSAIntermediateCertificates = intermediates
 		cosignOpts.TSARootCertificates = roots
+		cosignOpts.UseSignedTimestamps = true
 	}
 
 	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11

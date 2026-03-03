@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: my-app-container
-        image: busybox:latest
+        image: public.ecr.aws/docker/library/busybox:latest
         securityContext:
           allowPrivilegeEscalation: true
         

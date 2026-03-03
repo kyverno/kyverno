@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx
+        image: public.ecr.aws/docker/library/nginx
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,4 +36,4 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx
+        image: public.ecr.aws/docker/library/nginx

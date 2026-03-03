@@ -29,11 +29,11 @@ func NewRepository(remoteOpts []remote.Option, ref name.Reference) notationregis
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
 	if err != nil {
-		return ocispec.Descriptor{}, nil
+		return ocispec.Descriptor{}, err
 	}
 	head, err := remote.Head(nameRef, c.remoteOpts...)
 	if err != nil {
-		return ocispec.Descriptor{}, nil
+		return ocispec.Descriptor{}, err
 	}
 	descriptor := v1ToOciSpecDescriptor(*head)
 	return descriptor, nil
@@ -52,7 +52,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 
 	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+		return fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	descList := []ocispec.Descriptor{}

@@ -9,23 +9,24 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
-	"github.com/kyverno/kyverno/pkg/cel/libs/json"
-	"github.com/kyverno/kyverno/pkg/cel/libs/math"
-	"github.com/kyverno/kyverno/pkg/cel/libs/random"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/libs/time"
-	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
-	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
 	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	ivpolvar "github.com/kyverno/kyverno/pkg/imageverification/variables"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/hash"
+	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/imagedata"
+	"github.com/kyverno/sdk/cel/libs/json"
+	"github.com/kyverno/sdk/cel/libs/math"
+	"github.com/kyverno/sdk/cel/libs/random"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/libs/time"
+	"github.com/kyverno/sdk/cel/libs/transform"
+	"github.com/kyverno/sdk/cel/libs/user"
+	"github.com/kyverno/sdk/cel/libs/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -56,8 +57,7 @@ type compilerImpl struct {
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(ivpolicy)
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -163,15 +163,13 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
-		cel.Variable(engine.HttpKey, http.ContextType),
 		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
 		cel.Variable(engine.AttestorsKey, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(engine.AttestationsKey, cel.MapType(cel.StringType, cel.StringType)),
-		cel.Variable(engine.ImageDataKey, imagedata.ContextType),
 		cel.Variable(engine.ObjectKey, cel.DynType),
 	)
 
@@ -181,7 +179,6 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 			cel.Variable(engine.NamespaceObjectKey, engine.NamespaceType.CelType()),
 			cel.Variable(engine.OldObjectKey, cel.DynType),
 			cel.Variable(engine.VariablesKey, engine.VariablesType),
-			cel.Variable(engine.GlobalContextKey, globalcontext.ContextType),
 		)
 	}
 
@@ -210,21 +207,25 @@ func (c *compilerImpl) createBaseIvpolEnv(ivpol policiesv1beta1.ImageValidatingP
 			IntroducedVersion: ivpolCompilerVersion,
 			EnvOptions: []cel.EnvOption{
 				globalcontext.Lib(
+					globalcontext.Context{ContextInterface: libsctx},
 					globalcontext.Latest(),
 				),
 				http.Lib(
+					http.Context{ContextInterface: http.NewHTTP(nil)},
 					http.Latest(),
 				),
 				image.Lib(
 					image.Latest(),
 				),
 				imagedata.Lib(
+					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
 				),
 				imageverify.Lib(
 					imageverify.Latest(), c.ictx, ivpol, c.lister,
 				),
 				resource.Lib(
+					resource.Context{ContextInterface: libsctx},
 					ivpol.GetNamespace(),
 					resource.Latest(),
 				),

@@ -112,9 +112,9 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
 {{- if eq . "Enforce" -}}
-{{- list "Deny" -}}
+{{- list "Deny" | toYaml -}}
 {{- else -}}
-{{- list "Audit" -}}
+{{- list "Audit" | toYaml -}}
 {{- end -}}
 {{- end -}}
 

@@ -5,6 +5,6 @@ metadata:
 spec:
   containers:
   - name: busybox-1
-    image: busybox:1.35
+    image: public.ecr.aws/docker/library/busybox:1.35
   - name: busybox-2
-    image: busybox:1.35
+    image: public.ecr.aws/docker/library/busybox:1.35
