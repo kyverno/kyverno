@@ -153,13 +153,12 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
-	var subresources []string
-	if p := strings.Split(resource, "/"); len(p) > 1 {
-		resource = p[0]
-		subresources = p[1:]
-	}
+	parts := strings.Split(resource, "/")
+	resource = parts[0]
+	subresources := parts[1:]
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresource...)
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
