@@ -3,6 +3,7 @@ package libs
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -152,8 +153,13 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
+	var subresource []string
+	if p := strings.Split(resource, "/"); len(p) == 2 {
+		resource = p[0]
+		subresource = []string{p[1]}
+	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresource...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
