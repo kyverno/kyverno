@@ -52,6 +52,7 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
+          version: v0.69.2
           scan-type: fs
           scan-ref: '.'
           format: sarif
