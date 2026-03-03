@@ -153,10 +153,10 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
-	var subresource []string
-	if p := strings.Split(resource, "/"); len(p) == 2 {
+	var subresources []string
+	if p := strings.Split(resource, "/"); len(p) > 1 {
 		resource = p[0]
-		subresource = []string{p[1]}
+		subresources = p[1:]
 	}
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresource...)
