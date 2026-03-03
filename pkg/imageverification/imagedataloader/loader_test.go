@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	image = "public.ecr.aws/docker/library/nginx:latest"
+	image = "ghcr.io/kyverno/test-verify-image:signed"
 )
 
 func Test_ImageDataLoader(t *testing.T) {
