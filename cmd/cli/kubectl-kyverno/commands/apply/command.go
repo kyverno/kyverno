@@ -15,7 +15,6 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
@@ -777,16 +776,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	}
 	resources = test.ProcessResources(resources)
 	var jsonPayloads []*unstructured.Unstructured
-	if len(c.JSONPaths) > 0 {
-		for _, path := range c.JSONPaths {
-			payload, err := payload.Load(path)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
-			}
-
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
-		}
-	}
+	// JSON payload support has been removed - use ValidatingPolicy instead
 	return resources, jsonPayloads, nil
 }
 

@@ -18,7 +18,7 @@ const (
 var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
-	assertAutogenNodes     = []string{"object", "oldObject"}
+	// assertAutogenNodes has been removed - Assert validation is no longer supported
 )
 
 func isKindOtherthanPod(kinds []string) bool {
@@ -263,32 +263,4 @@ func copyMap(m map[string]any) map[string]any {
 	return newMap
 }
 
-func createAutogenAssertion(tree *kyvernov1.AssertionTree, tplKey string) *kyvernov1.AssertionTree {
-	if tree == nil {
-		return tree
-	}
-
-	v, ok := tree.Value.(map[string]any)
-	if !ok {
-		return tree
-	}
-
-	value := copyMap(v)
-
-	for _, n := range assertAutogenNodes {
-		object, ok := v[n].(map[string]any)
-		if !ok {
-			continue
-		}
-
-		value[n] = map[string]any{
-			"spec": map[string]any{
-				tplKey: copyMap(object),
-			},
-		}
-	}
-
-	return &kyvernov1.AssertionTree{
-		Value: value,
-	}
-}
+// createAutogenAssertion has been removed - Assert validation is no longer supported

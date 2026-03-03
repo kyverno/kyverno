@@ -237,10 +237,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			rule.Validation.CEL = cel
 			return rule
 		}
-		if rule.HasValidateAssert() {
-			rule.Validation.Assert = createAutogenAssertion(rule.Validation.Assert.DeepCopy(), tplKey)
-			return rule
-		}
+		// Assert validation has been removed - use ValidatingPolicy instead
 	}
 	if rule.VerifyImages != nil {
 		newVerifyImages := make([]kyvernov1.ImageVerification, len(rule.VerifyImages))

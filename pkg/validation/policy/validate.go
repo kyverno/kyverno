@@ -1308,13 +1308,6 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
-		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
-		// sure we can create the corresponding bindings
-		if rule.Validation != nil && rule.Validation.Assert != nil && rule.Validation.Assert.Value != nil {
-			if !bindingIdentifier.MatchString(entry.Name) {
-				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
-			}
-		}
 		for _, v := range []string{"images", "request", "serviceAccountName", "serviceAccountNamespace", "element", "elementIndex"} {
 			if entry.Name == v || strings.HasPrefix(entry.Name, v+".") {
 				return fmt.Errorf("entry name %s is invalid as it conflicts with a pre-defined variable %s", entry.Name, v)

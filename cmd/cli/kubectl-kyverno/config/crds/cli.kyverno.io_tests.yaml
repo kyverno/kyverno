@@ -30,35 +30,19 @@ spec:
             description: Checks are the verifications to be checked in the test
             items:
               properties:
-                assert:
-                  description: Assert contains assertion to be performed on the relevant
-                    rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                error:
-                  description: Error contains negative assertion to be performed on
-                    the relevant rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 match:
                   description: Match tells how to match relevant rule responses
                   properties:
                     policy:
                       description: Policy filters engine responses
-                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                     resource:
                       description: Resource filters engine responses
-                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                     rule:
                       description: Rule filters rule responses
-                      type: object
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
-              required:
-              - assert
-              - error
               type: object
             type: array
           clusterResources:

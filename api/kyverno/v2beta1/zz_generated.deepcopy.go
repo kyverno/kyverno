@@ -1087,10 +1087,6 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 		*out = new(v1.CEL)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Assert != nil {
-		in, out := &in.Assert, &out.Assert
-		*out = (*in).DeepCopy()
-	}
 	return
 }
 
