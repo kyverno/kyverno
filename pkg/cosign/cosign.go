@@ -84,6 +84,17 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 	}
 
 	logger.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
+
+	// Check if any signature has an RFC3161 timestamp and require TSA cert chain if so
+	if opts.TSACertChain == "" {
+		for _, sig := range signatures {
+			tsaTimestamp, err := sig.RFC3161Timestamp()
+			if err == nil && tsaTimestamp != nil {
+				return nil, fmt.Errorf("unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
+			}
+		}
+	}
+
 	payload, err := extractPayload(signatures)
 	if err != nil {
 		return nil, err
