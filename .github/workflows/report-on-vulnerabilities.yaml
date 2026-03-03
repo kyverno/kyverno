@@ -32,7 +32,6 @@ jobs:
     - name: Scan for vulnerabilities in latest image
       uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
-        version: v0.69.2
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
@@ -45,7 +44,6 @@ jobs:
     - name: Scan for vulnerabilities in latest-1 image
       uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
-        version: v0.69.2
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
@@ -58,7 +56,6 @@ jobs:
     - name: Scan for vulnerabilities in latest-2 image
       uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
-        version: v0.69.2
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
