@@ -38,7 +38,6 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
         with:
-          version: v0.69.2
           scan-type: image
           scan-ref: kyverno-devcontainer
           format: sarif

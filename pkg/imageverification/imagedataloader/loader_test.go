@@ -10,7 +10,6 @@ import (
 
 var (
 	image = "ghcr.io/kyverno/test-verify-image:signed"
-	ctx   = context.Background()
 )
 
 func Test_ImageDataLoader(t *testing.T) {
