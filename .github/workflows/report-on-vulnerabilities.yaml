@@ -30,9 +30,11 @@ jobs:
         echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
     
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      with:
+        version: v0.69.2
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
         ignore-unfixed: false
         severity: HIGH,CRITICAL
@@ -42,9 +44,11 @@ jobs:
         # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
+      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      with:
+        version: v0.69.2
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
         ignore-unfixed: false
         severity: HIGH,CRITICAL
@@ -54,9 +58,11 @@ jobs:
         # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-      with: 
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
+      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      with:
+        version: v0.69.2
+        scan-type: image
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
         ignore-unfixed: false
         severity: HIGH,CRITICAL
