@@ -57,16 +57,8 @@ func NewProvider(
 			return nil, err
 		}
 		for _, autogen := range generated {
-			var autogenPolicy policiesv1beta1.ValidatingPolicyLike
-			if vp, ok := policy.(*policiesv1beta1.ValidatingPolicy); ok {
-				vpCopy := vp.DeepCopy()
-				vpCopy.Spec = *autogen.Spec
-				autogenPolicy = vpCopy
-			} else if nvp, ok := policy.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
-				nvpCopy := nvp.DeepCopy()
-				nvpCopy.Spec = *autogen.Spec
-				autogenPolicy = nvpCopy
-			}
+			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
+			*autogenPolicy.GetValidatingPolicySpec() = *autogen.Spec
 			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", autogenPolicy.GetName(), errs.ToAggregate())

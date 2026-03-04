@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: check-deployment-labels-test
+policies:
+- ../policy.yaml
+resources:
+- resources.yaml
+results:
+- isImageValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - negative-deployment
+  result: fail
+- isImageValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - positive-deployment
+  result: pass
