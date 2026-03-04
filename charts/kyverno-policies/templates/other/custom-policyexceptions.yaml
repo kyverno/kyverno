@@ -1,0 +1,17 @@
+{{- range $name, $values := .Values.additionalPolicyExceptions }}
+{{- if not (has $values.kind (list "PolicyException")) }}
+{{- fail (printf "Invalid kind (%s) for policy named %s." $values.kind $name) }}
+{{- end }}
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: {{ default $values.kind "PolicyException" }}
+metadata:
+  name: {{ $name }}
+    {{- if $values.namespace  }}
+  namespace: {{ $values.namespace }}
+    {{- else }}
+      {{- fail (printf "PolicyException named %s requires a namespace." $name) }}
+    {{- end }}
+  annotations: {{- toYaml (default dict $values.annotations) | nindent 4 }}
+  labels: {{- include "kyverno-policies.labels" $ | nindent 4 }}
+spec: {{- toYaml $values.spec | nindent 2 }}
