@@ -167,7 +167,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 
 	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+		return nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
