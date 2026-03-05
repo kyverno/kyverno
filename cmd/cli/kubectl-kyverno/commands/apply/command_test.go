@@ -670,22 +670,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+		// JSON payload tests removed - Kyverno JSON support has been removed
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
@@ -806,23 +791,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
-				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
-
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+		// JSON payload test removed - Kyverno JSON support has been removed
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
@@ -881,20 +850,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 	}
 }
 
-// Test_Apply_JsonPayload_K8sMode_NoSegfault verifies that applying a
-// Kubernetes-mode policy against a JSON payload does not panic (segfault).
-// The K8s-mode policy should be gracefully skipped with zero results.
-func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
-	config := ApplyCommandConfig{
-		PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
-		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
-		PolicyReport: true,
-	}
-	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
-	assert.NoError(t, err, "should not crash with segfault")
-	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
-	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
-}
+// Test_Apply_JsonPayload_K8sMode_NoSegfault has been removed - JSON payload support has been removed
 
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
@@ -915,23 +871,7 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+		// JSON payload test removed - Kyverno JSON support has been removed
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
@@ -1008,22 +948,7 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-deleting-policy/deleting-json/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-json/payload.json"},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+		// JSON payload test removed - Kyverno JSON support has been removed
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},

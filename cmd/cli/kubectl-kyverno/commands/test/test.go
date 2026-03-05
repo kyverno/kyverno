@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -126,15 +125,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	var json any
-	if testCase.Test.JSONPayload != "" {
-		fmt.Fprintln(out, "  Loading JSON payload", "...")
-		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
-		json, err = payload.Load(jsonFullPath[0])
-		if err != nil {
-			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
-		}
-	}
+	// JSON payload support has been removed - use ValidatingPolicy instead
 
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
@@ -394,84 +385,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[resourceKey] = ers
 	}
 
-	if json != nil {
-		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
-			Store:                             &store,
-			Policies:                          validPolicies,
-			ValidatingAdmissionPolicies:       results.VAPs,
-			ValidatingAdmissionPolicyBindings: results.VAPBindings,
-			MutatingAdmissionPolicies:         results.MAPs,
-			MutatingAdmissionPolicyBindings:   results.MAPBindings,
-			MutatingPolicies:                  results.MutatingPolicies,
-			GeneratingPolicies:                results.GeneratingPolicies,
-			ValidatingPolicies:                results.ValidatingPolicies,
-			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
-			PolicyExceptions:                  polexLoader.Exceptions,
-			CELExceptions:                     polexLoader.CELExceptions,
-			MutateLogPath:                     "",
-			Variables:                         vars,
-			ContextFs:                         testCase.Fs,
-			ContextPath:                       contextPath,
-			UserInfo:                          userInfo,
-			PolicyReport:                      true,
-			NamespaceSelectorMap:              vars.NamespaceSelectors(),
-			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           len(testCase.Test.ClusterResources) > 0,
-			Client:                            dClient,
-			Subresources:                      vars.Subresources(),
-			Out:                               io.Discard,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-		}
-		if len(results.ImageValidatingPolicies) != 0 {
-			ivpols, err := applyImageValidatingPolicies(
-				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
-				nil,
-				polexLoader.CELExceptions,
-				vars.Namespace,
-				userInfo,
-				&resultCounts,
-				dClient,
-				true,
-				testCase.Fs,
-				contextPath,
-				false,
-				true,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-			}
-			ers = append(ers, ivpols...)
-		}
-
-		if len(results.DeletingPolicies) != 0 {
-			dpols, err := applyDeletingPolicies(
-				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
-				polexLoader.CELExceptions,
-				vars.Namespace,
-				&resultCounts,
-				dClient,
-				true,
-				testCase.Fs,
-				contextPath,
-				true,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
-			}
-			ers = append(ers, dpols...)
-		}
-
-		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
-		engineResponses = append(engineResponses, ers...)
-	}
+	// JSON payload support has been removed - use ValidatingPolicy instead
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {

@@ -37,10 +37,7 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			if hasValidate {
-				hasValidateAssert := rule.HasValidateAssert()
-				if hasValidateAssert && rule.Validation.Assert.Value != nil {
-					return validation.NewValidateAssertHandler(e.client, e.isCluster)
-				}
+				// Assert validation has been removed - use ValidatingPolicy instead
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
 				hasValidateCEL := rule.HasValidateCEL()
