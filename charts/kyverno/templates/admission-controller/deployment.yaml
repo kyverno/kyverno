@@ -266,6 +266,10 @@ spec:
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
             value: {{ .Values.admissionController.tufRootMountPath }}
+          {{- if .Values.features.tuf.configs }}
+          - name: TUF_CONFIGS
+            value: {{ .Values.features.tuf.configs | toJson | quote }}
+          {{- end }}
           {{- with (concat .Values.global.extraEnvVars .Values.admissionController.container.extraEnvVars) }}
           {{- toYaml . | nindent 10 }}
           {{- end }}

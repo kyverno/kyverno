@@ -825,6 +825,15 @@ features:
     rootRaw: ~
     # -- (string) Tuf mirror
     mirror: ~
+    # -- Array of TUF configurations for multi-instance support with fallback.
+    # When specified, Kyverno will try each TUF configuration in order and fallback to public Sigstore if all fail.
+    # This allows verifying both private and public signatures.
+    configs: []
+    # configs:
+    #   # Configuration for GitHub private Sigstore instance (for attestations)
+    #   - mirror: https://tuf-repo.github.com/
+    #     rootRaw: "..." # base64-encoded root.json
+    #   # Public Sigstore will be used as automatic fallback
 
 # Admission controller configuration
 admissionController:
