@@ -19,10 +19,8 @@ spec:
       expression: image.GetMetadata(variables.imageKey)
   validations:
     - expression: >-
-         variables.image.config.architecture == "amd64"  
+        variables.image.config.architecture == "amd64"  
       messageExpression: "'image architecture is not supported: ' + string(variables.image.config.architecture)"
-  matchImageReferences:
-    - glob: ghcr.io/*
   attestors:
     - name: notary
       notary:

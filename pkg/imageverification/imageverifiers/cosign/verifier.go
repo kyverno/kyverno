@@ -42,6 +42,15 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		cOpts.NewBundleFormat = false
 	}
 
+	// Necessary for key-based attestors
+	if cOpts.NewBundleFormat && cOpts.TrustedMaterial == nil {
+		trustedRoot, err := getTrustedRootFromTUF(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
+		}
+		cOpts.TrustedMaterial = trustedRoot
+	}
+
 	return cOpts, nil
 }
 
@@ -80,7 +89,9 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		if !(attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT) {
+		ignoreTlog := attestor.Cosign.CTLog != nil && attestor.Cosign.CTLog.InsecureIgnoreTlog
+		ignoreSCT := attestor.Cosign.CTLog != nil && attestor.Cosign.CTLog.InsecureIgnoreSCT
+		if !ignoreTlog && !ignoreSCT {
 			err := fmt.Errorf("transparency log or timestamp verification failed")
 			logger.Error(err, "image verification failed")
 			return err

@@ -105,3 +105,126 @@ func Test_Eval(t *testing.T) {
 	assert.False(t, result[ivpol.Name].Result)
 	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
 }
+
+func Test_Eval_FilterNonMatchingImages(t *testing.T) {
+	nonMatchingImage := "docker.io/library/nginx:latest"
+	policyWithFilter := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{
+					Glob: "ghcr.io/*",
+				},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{
+					Name:       "bar",
+					Expression: "[object.foo.bar]",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "size(images.bar) == 0",
+					Message:    "non-matching images should be filtered out",
+				},
+			},
+		},
+	}
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policyWithFilter}}, obj(nonMatchingImage), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.True(t, len(result) == 1)
+	assert.True(t, result[policyWithFilter.Name].Result)
+	assert.True(t, result[policyWithFilter.Name].Skipped, "policy should be skipped when no images match")
+}
+
+func Test_Eval_PreserveEmptyImageKeys(t *testing.T) {
+	nonMatchingImage := "docker.io/library/nginx:latest"
+	policyWithMultipleExtractors := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{
+					Glob: "ghcr.io/*",
+				},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{
+					Name:       "containers",
+					Expression: "object.spec.containers.map(c, c.image)",
+				},
+				{
+					Name:       "initContainers",
+					Expression: "object.spec.initContainers.orValue([]).map(c, c.image)",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "has(images.containers) && has(images.initContainers)",
+					Message:    "all image keys should be preserved even when empty",
+				},
+			},
+		},
+	}
+
+	podObj := map[string]any{
+		"spec": map[string]any{
+			"containers": []map[string]any{
+				{"image": nonMatchingImage},
+			},
+			"initContainers": []map[string]any{},
+		},
+	}
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policyWithMultipleExtractors}}, podObj, nil, nil, nil)
+	assert.NoError(t, err)
+	assert.True(t, len(result) == 1)
+	assert.True(t, result[policyWithMultipleExtractors.Name].Result, "validation should pass because keys exist")
+	assert.True(t, result[policyWithMultipleExtractors.Name].Skipped, "policy should be skipped when no images match")
+}
+
+func Test_Eval_MixedMatchingAndNonMatchingImages(t *testing.T) {
+	matchingImage := "ghcr.io/kyverno/test-verify-image:signed"
+	nonMatchingImage := "docker.io/library/nginx:latest"
+	policyWithFilter := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{
+					Glob: "ghcr.io/*",
+				},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{
+					Name:       "bar",
+					Expression: "[object.foo.bar, object.foo.baz]",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "size(images.bar) == 1 && images.bar[0] == 'ghcr.io/kyverno/test-verify-image:signed'",
+					Message:    "only matching images should be in context",
+				},
+			},
+		},
+	}
+
+	mixedObj := map[string]any{
+		"foo": map[string]string{
+			"bar": matchingImage,
+			"baz": nonMatchingImage,
+		},
+	}
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policyWithFilter}}, mixedObj, nil, nil, nil)
+	assert.NoError(t, err)
+	assert.True(t, len(result) == 1)
+	assert.NotNil(t, result[policyWithFilter.Name])
+	assert.False(t, result[policyWithFilter.Name].Skipped, "policy should not be skipped when images match")
+}
