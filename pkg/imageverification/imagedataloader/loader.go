@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -119,7 +120,16 @@ func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.S
 
 	opts = append(opts, authOpts...)
 	opts = append(opts, remote.WithContext(ctx))
-
+	opts = append(opts, remote.WithRetryStatusCodes(
+		http.StatusRequestTimeout,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+		499, // nginx-specific, client closed request
+		522, // Cloudflare-specific, connection timeout
+		429, // Too Many Requests
+	))
 	return opts, nil
 }
 
@@ -190,7 +200,7 @@ func (i *ImageData) FetchReferrersForDigest(digest string, artifactType string) 
 		return i.FetchReferrers(artifactType)
 	}
 
-	// this is most likely a call to fetch notary signatures for an attesatation
+	// this is most likely a call to fetch notary signatures for an attestation
 	idx, err := i.fetchReferrersFromRemote(digest)
 	if err != nil {
 		return nil, err
@@ -368,7 +378,7 @@ func (i *ImageData) fetchReferrersFromRemote(digest string) (*gcrv1.IndexManifes
 
 	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
 	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", maxReferrersCount)
+		return nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
 	}
 
 	return referrersDescs, nil
