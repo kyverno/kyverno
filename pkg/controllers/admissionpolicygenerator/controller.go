@@ -221,10 +221,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "MutatingPolicy" {
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-		if !generateMutatingAdmissionPolicy {
-			return nil
-		}
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -232,6 +228,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		if !generateMutatingAdmissionPolicy {
+			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
+				return nil
+			}
+			logger.Info("generating MutatingAdmissionPolicy explicitly enabled in policy", "policy", mpol.GetName())
 		}
 		err = c.handleMAPGeneration(ctx, mpol)
 		if err != nil {

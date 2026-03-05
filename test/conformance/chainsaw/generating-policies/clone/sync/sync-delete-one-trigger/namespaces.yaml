@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-sync-delete-one-trigger-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-sync-delete-one-trigger-2

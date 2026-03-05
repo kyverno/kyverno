@@ -111,7 +111,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 	}
 
 	if len(referrersDescs.Manifests) > limit {
-		return nil, nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", limit)
+		return nil, nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", limit)
 	}
 
 	for _, manifestDesc := range referrersDescs.Manifests {
@@ -142,6 +142,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
+		defer layerBytes.Close()
 		bundleBytes, err := io.ReadAll(layerBytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
@@ -187,12 +188,18 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 		return verify.PolicyBuilder{}, err
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
+	hasIssuer := opts.Issuer != "" || opts.IssuerRegExp != ""
+	hasSubject := opts.Subject != "" || opts.SubjectRegExp != ""
 
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
-	if err != nil {
-		return verify.PolicyBuilder{}, err
+	if hasIssuer && hasSubject {
+		id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
+		if err != nil {
+			return verify.PolicyBuilder{}, err
+		}
+		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
 	}
-	return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
+
+	return verify.NewPolicy(artifactDigestVerificationOption), nil
 }
 
 func buildVerifyOptions(opts images.Options) []verify.VerifierOption {

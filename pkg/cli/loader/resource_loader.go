@@ -118,7 +118,7 @@ func (cl *ClusterLoader) createLoadingTasks() []LoadTask {
 	var tasks []LoadTask
 	taskID := 0
 	gvks := cl.resourceOptions.ResourceTypes
-	restMapper, err := utils.GetRESTMapper(cl.client, true)
+	restMapper, err := utils.GetRESTMapper(cl.client)
 	if err != nil {
 		return nil
 	}

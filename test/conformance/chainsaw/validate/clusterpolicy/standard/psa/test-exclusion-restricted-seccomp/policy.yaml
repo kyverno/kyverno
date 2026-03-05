@@ -19,7 +19,7 @@ spec:
         exclude:
         - controlName: "Seccomp"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.seccompProfile.type"
           values:
           - "Unconfined"

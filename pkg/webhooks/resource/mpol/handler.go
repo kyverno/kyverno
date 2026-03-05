@@ -17,6 +17,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -24,6 +25,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -82,7 +84,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	response, err := h.engine.Handle(ctx, request, predicate)
 	if err != nil {
 		logger.Error(err, "failed to handle mutating policy request")
-		return admissionutils.ResponseSuccess(admissionRequest.UID)
+		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
 	go func() {
@@ -122,7 +124,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	resp, err := h.admissionResponse(request, response)
 	if err != nil {
 		logger.Error(err, "mutation failures")
-		return admissionutils.ResponseSuccess(admissionRequest.UID)
+		return admissionutils.Response(admissionRequest.UID, err)
 	}
 	return resp
 }
@@ -192,10 +194,15 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	var mutationErrors []string
 
 	for _, policy := range response.Policies {
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore())
 		for _, rule := range policy.Rules {
 			switch rule.Status() {
 			case engineapi.RuleStatusError:
-				mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.GetName(), rule.Message()))
+				// Only block the request if failurePolicy is Fail
+				// If failurePolicy is Ignore, the error is logged but the request proceeds
+				if failurePolicy == admissionregistrationv1.Fail {
+					mutationErrors = append(mutationErrors, fmt.Sprintf("Policy %s: %s", policy.Policy.GetName(), rule.Message()))
+				}
 			case engineapi.RuleStatusWarn:
 				warnings = append(warnings, rule.Message())
 			}
@@ -203,9 +210,9 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	}
 
 	if len(mutationErrors) > 0 {
-		return admissionutils.ResponseSuccess(request.Request.UID),
-			fmt.Errorf("Resource: %s/%s, Kind: %s, Errors: %v\n",
-				request.Request.Namespace, request.Request.Name, request.Request.Kind.Kind, mutationErrors)
+		err := fmt.Errorf("Resource: %s/%s, Kind: %s, Errors: %v",
+			request.Request.Namespace, request.Request.Name, request.Request.Kind.Kind, mutationErrors)
+		return admissionutils.Response(request.Request.UID, err), err
 	}
 
 	if response.PatchedResource != nil {

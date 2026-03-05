@@ -103,20 +103,28 @@ type GenericPolicy interface {
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
 	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
+	// AsValidatingPolicyLike returns the validating policy
+	AsValidatingPolicyLike() policiesv1beta1.ValidatingPolicyLike
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy
 	// AsNamespacedValidatingPolicy returns the namespaced validating policy
 	AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy
+	// AsImageValidatingPolicyLike returns the imageverificationpolicy
+	AsImageValidatingPolicyLike() policiesv1beta1.ImageValidatingPolicyLike
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1beta1.ImageValidatingPolicy
 	// AsNamespacedImageValidatingPolicy returns the namespaced imageverificationpolicy
 	AsNamespacedImageValidatingPolicy() *policiesv1beta1.NamespacedImageValidatingPolicy
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
 	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
+	// AsMutatingPolicyLike returns the mutating policy
+	AsMutatingPolicyLike() policiesv1beta1.MutatingPolicyLike
 	// AsMutatingPolicy returns the mutating policy
 	AsMutatingPolicy() *policiesv1beta1.MutatingPolicy
 	// AsNamespacedMutatingPolicy returns the namespaced mutating policy
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
+	// AsGeneratingPolicyLike returns the generating policy
+	AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
 	// AsNamespacedGeneratingPolicy returns the namespaced generating policy
@@ -158,12 +166,32 @@ func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	return p.MutatingAdmissionPolicy
 }
 
+func (p *genericPolicy) AsValidatingPolicyLike() policiesv1beta1.ValidatingPolicyLike {
+	if v := p.AsValidatingPolicy(); v != nil {
+		return v
+	}
+	if v := p.AsNamespacedValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
+}
+
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
 	return p.ValidatingPolicy
 }
 
 func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy {
 	return p.NamespacedValidatingPolicy
+}
+
+func (p *genericPolicy) AsImageValidatingPolicyLike() policiesv1beta1.ImageValidatingPolicyLike {
+	if v := p.AsImageValidatingPolicy(); v != nil {
+		return v
+	}
+	if v := p.AsNamespacedImageValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1beta1.ImageValidatingPolicy {
@@ -174,12 +202,32 @@ func (p *genericPolicy) AsNamespacedImageValidatingPolicy() *policiesv1beta1.Nam
 	return p.NamespacedImageValidatingPolicy
 }
 
+func (p *genericPolicy) AsMutatingPolicyLike() policiesv1beta1.MutatingPolicyLike {
+	if m := p.AsMutatingPolicy(); m != nil {
+		return m
+	}
+	if m := p.AsNamespacedMutatingPolicy(); m != nil {
+		return m
+	}
+	return nil
+}
+
 func (p *genericPolicy) AsMutatingPolicy() *policiesv1beta1.MutatingPolicy {
 	return p.MutatingPolicy
 }
 
 func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy {
 	return p.NamespacedMutatingPolicy
+}
+
+func (p *genericPolicy) AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike {
+	if g := p.AsGeneratingPolicy(); g != nil {
+		return g
+	}
+	if g := p.AsNamespacedGeneratingPolicy(); g != nil {
+		return g
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {

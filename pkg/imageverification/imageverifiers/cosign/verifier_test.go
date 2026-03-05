@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -533,8 +533,6 @@ func TestNegative_WrongKeylessIdentity(t *testing.T) {
 }
 
 func TestConcurrentVerification(t *testing.T) {
-	t.Skip("Broken test, code needs a fix")
-
 	if testing.Short() {
 		t.Skip("skipping concurrent test in short mode")
 	}

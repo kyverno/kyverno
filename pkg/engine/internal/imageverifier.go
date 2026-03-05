@@ -157,7 +157,7 @@ func EvaluateConditions(
 	if err != nil {
 		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	return variables.EvaluateAnyAllConditions(log, ctx, c)
+	return variables.EvaluateAnyAllConditionsWithContext(log, ctx, c, "attestation.conditions")
 }
 
 func getRawResp(statements []map[string]interface{}) ([]byte, error) {

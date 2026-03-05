@@ -19,13 +19,13 @@ spec:
         exclude:
         - controlName: "Privileged Containers"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.privileged"
           values:
           - "true"
         - controlName: "Privileged Containers"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.initContainers[*].securityContext.privileged"
           values:
           - "true"

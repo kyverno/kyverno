@@ -243,6 +243,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 		cosignOpts.TSAIntermediateCertificates = intermediates
 		cosignOpts.TSARootCertificates = roots
+		cosignOpts.UseSignedTimestamps = true
 	}
 
 	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11
@@ -661,16 +662,29 @@ func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, er
 	}
 }
 
-func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
-	for _, p := range payload {
+func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	var errs []error
+	for _, p := range payloads {
+		allMatch := true
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-					p.Optional[key], val, key)
+				errs = append(errs, fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+					p.Optional[key], val, key))
+				allMatch = false
+				break
 			}
 		}
+		if allMatch {
+			// At least one payload matches all required annotations
+			return nil
+		}
 	}
-	return nil
+
+	return fmt.Errorf("no signature matched the required annotations")
 }
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {

@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: busybox
-    image: busybox:1.35
+    image: public.ecr.aws/docker/library/busybox:1.35
     env:
     # first element was removed, second env var became index 0
     # next patch is supposed to remove element at index 1 but it doesn't exist anymore

@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci"
@@ -92,12 +92,17 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	}
 
 	if len(attestor.Cosign.Annotations) != 0 {
+		var annotationErrors []error
 		for _, sig := range sigs {
 			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
-				logger.Error(err, "image verification failed")
-				return err
+				annotationErrors = append(annotationErrors, err)
+				continue
 			}
+			return nil
 		}
+		err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
+		logger.Error(err, "image verification failed")
+		return err
 	}
 
 	return nil
@@ -137,6 +142,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	checkedTypes := []string{}
 	found := false
+	var annotationErrors []error
 	for _, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
@@ -148,9 +154,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
-			logger.Error(err, "image verification failed")
-			return err
+		if len(attestor.Cosign.Annotations) != 0 {
+			if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
+				annotationErrors = append(annotationErrors, err)
+				continue
+			}
 		}
 
 		found = true
@@ -158,6 +166,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	if !found {
+		if len(annotationErrors) > 0 {
+			err := fmt.Errorf("no attestation matched the required annotations: %v", annotationErrors)
+			logger.Error(err, "image verification failed")
+			return err
+		}
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err

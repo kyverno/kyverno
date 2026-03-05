@@ -1,5 +1,8 @@
 name: Cleanup Stale Branches
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   schedule:
@@ -10,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup Stale Branches
-        uses: cbrgm/cleanup-stale-branches-action@fd52205dfe70f8d09cc33d0092006f1ab6a37296 # v1.2.5
+        uses: cbrgm/cleanup-stale-branches-action@c6bf15e293f579173a40a90f063c5133461784d0 # v1.2.7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}

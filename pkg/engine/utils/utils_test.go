@@ -11,6 +11,7 @@ import (
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -2466,5 +2467,173 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
+	}
+}
+
+func TestMatchesResourceDescriptionWithEmptyExcludeNames(t *testing.T) {
+	resourceJSON := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default"
+		},
+		"spec": {
+			"containers": [{
+				"name": "test-container",
+				"image": "nginx"
+			}]
+		}
+	}`
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(resourceJSON))
+	if err != nil {
+		t.Fatalf("Failed to convert resource: %v", err)
+	}
+
+	rule := v1.Rule{
+		Name: "test-rule",
+		MatchResources: v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+		ExcludeResources: &v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Names: []string{},
+			},
+		},
+		Validation: &v1.Validation{
+			Message: "test validation rule",
+			RawPattern: &apiextv1.JSON{
+				Raw: []byte(`{"spec":{"containers":[{"image":"trusted-registry/*"}]}}`),
+			},
+		},
+	}
+
+	err = MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE")
+
+	if err != nil {
+		t.Errorf("Expected resource to match (not be excluded by empty names array), but got error: %v", err)
+	}
+}
+
+func TestMatchesResourceDescriptionWithEmptyExcludeNamesVsNil(t *testing.T) {
+	resourceJSON := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default"
+		},
+		"spec": {
+			"containers": [{
+				"name": "test-container",
+				"image": "nginx"
+			}]
+		}
+	}`
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(resourceJSON))
+	if err != nil {
+		t.Fatalf("Failed to convert resource: %v", err)
+	}
+
+	ruleWithNilExclusion := v1.Rule{
+		Name: "test-rule-nil",
+		MatchResources: v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+		ExcludeResources: nil,
+	}
+
+	ruleWithEmptyNames := v1.Rule{
+		Name: "test-rule-empty",
+		MatchResources: v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+		ExcludeResources: &v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Names: []string{}, // Empty array
+			},
+		},
+	}
+
+	errNil := MatchesResourceDescription(*resource, ruleWithNilExclusion, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE")
+	errEmpty := MatchesResourceDescription(*resource, ruleWithEmptyNames, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE")
+
+	if errNil != nil {
+		t.Errorf("Expected resource to match with nil exclusion, but got error: %v", errNil)
+	}
+	if errEmpty != nil {
+		t.Errorf("Expected resource to match with empty names exclusion, but got error: %v", errEmpty)
+	}
+
+	if (errNil == nil) != (errEmpty == nil) {
+		t.Errorf("Expected nil exclusion and empty names exclusion to behave the same, but got different results: nil=%v, empty=%v", errNil, errEmpty)
+	}
+}
+
+func TestMatchesResourceDescriptionWithSpecificExclusion(t *testing.T) {
+	resourceJSON := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default"
+		},
+		"spec": {
+			"containers": [{
+				"name": "test-container",
+				"image": "nginx"
+			}]
+		}
+	}`
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(resourceJSON))
+	if err != nil {
+		t.Fatalf("Failed to convert resource: %v", err)
+	}
+
+	ruleWithNonMatchingExclusion := v1.Rule{
+		Name: "test-rule-non-matching",
+		MatchResources: v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+		ExcludeResources: &v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Names: []string{"some-other-pod"},
+			},
+		},
+	}
+
+	ruleWithMatchingExclusion := v1.Rule{
+		Name: "test-rule-matching",
+		MatchResources: v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+		ExcludeResources: &v1.MatchResources{
+			ResourceDescription: v1.ResourceDescription{
+				Names: []string{"test-pod"},
+			},
+		},
+	}
+
+	errNonMatching := MatchesResourceDescription(*resource, ruleWithNonMatchingExclusion, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE")
+	if errNonMatching != nil {
+		t.Errorf("Expected resource to match (not be excluded by non-matching name), but got error: %v", errNonMatching)
+	}
+
+	errMatching := MatchesResourceDescription(*resource, ruleWithMatchingExclusion, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE")
+	if errMatching == nil {
+		t.Errorf("Expected resource to be excluded by matching name, but got no error")
 	}
 }
