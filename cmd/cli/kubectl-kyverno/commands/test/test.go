@@ -200,6 +200,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			cl.RESTMapper(crds)
 			for _, crd := range crds {
 				allObjects = append(allObjects, crd)
+				results.CustomResources = append(results.CustomResources, crd)
 			}
 		}
 
@@ -343,6 +344,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
+			CustomResources:                   results.CustomResources,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -423,6 +425,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			CustomResources:                   results.CustomResources,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
