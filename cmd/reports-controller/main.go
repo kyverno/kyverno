@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue" // register workqueue depth/latency metrics
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"

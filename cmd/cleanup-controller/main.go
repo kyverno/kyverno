@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue" // register workqueue depth/latency metrics
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
