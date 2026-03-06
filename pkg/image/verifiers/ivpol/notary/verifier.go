@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
 	"github.com/pkg/errors"
@@ -94,8 +94,8 @@ func (v *Verifier) VerifyAttestationSignature(
 		}
 
 		if err := checkVerificationOutcomes(outcomes); err != nil {
-			err := errors.Wrapf(err, "notation failed to verify attesattion signatures")
-			logger.Error(err, "attesatation verification failed")
+			err := errors.Wrapf(err, "notation failed to verify attestation signatures")
+			logger.Error(err, "attestation verification failed")
 			errs = append(errs, err)
 			continue
 		}

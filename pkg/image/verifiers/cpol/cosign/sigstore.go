@@ -111,7 +111,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 	}
 
 	if len(referrersDescs.Manifests) > limit {
-		return nil, nil, fmt.Errorf("failed to fetch referrers: to many referrers found, max limit is %d", limit)
+		return nil, nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", limit)
 	}
 
 	for _, manifestDesc := range referrersDescs.Manifests {
