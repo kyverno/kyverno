@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
-	_ "k8s.io/component-base/metrics/prometheus/workqueue" // register workqueue depth/latency metrics
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -42,6 +41,7 @@ import (
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue" // register workqueue depth/latency metrics
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
