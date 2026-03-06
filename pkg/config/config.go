@@ -110,6 +110,7 @@ const (
 	excludeRoles                  = "excludeRoles"
 	excludeClusterRoles           = "excludeClusterRoles"
 	generateSuccessEvents         = "generateSuccessEvents"
+	generateMutationEvents        = "generateMutationEvents"
 	webhooks                      = "webhooks"
 	webhookAnnotations            = "webhookAnnotations"
 	webhookLabels                 = "webhookLabels"
@@ -196,6 +197,8 @@ type Configuration interface {
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
+	// GetGenerateMutationEvents return if should generate mutation events independently of success events
+	GetGenerateMutationEvents() bool
 	// GetWebhook returns the webhook config
 	GetWebhook() WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
@@ -223,6 +226,7 @@ type configuration struct {
 	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
+	generateMutationEvents        bool
 	webhook                       WebhookConfig
 	webhookAnnotations            map[string]string
 	webhookLabels                 map[string]string
@@ -337,6 +341,12 @@ func (cd *configuration) GetGenerateSuccessEvents() bool {
 	return cd.generateSuccessEvents
 }
 
+func (cd *configuration) GetGenerateMutationEvents() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.generateMutationEvents
+}
+
 func (cd *configuration) GetWebhook() WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -397,6 +407,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.generateMutationEvents = false
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
@@ -477,6 +488,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		} else {
 			cd.generateSuccessEvents = generateSuccessEvents
 			logger.V(2).Info("generateSuccessEvents configured")
+		}
+	}
+	// load generateMutationEvents
+	generateMutationEvents, ok := data[generateMutationEvents]
+	if !ok {
+		logger.V(2).Info("generateMutationEvents not set")
+	} else {
+		logger := logger.WithValues("generateMutationEvents", generateMutationEvents)
+		generateMutationEvents, err := strconv.ParseBool(generateMutationEvents)
+		if err != nil {
+			logger.Error(err, "generateMutationEvents is not a boolean")
+		} else {
+			cd.generateMutationEvents = generateMutationEvents
+			logger.V(2).Info("generateMutationEvents configured")
 		}
 	}
 	// load webhooks
@@ -574,6 +599,7 @@ func (cd *configuration) unload() {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.generateMutationEvents = false
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil

@@ -12,7 +12,7 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 		var eventInfos []event.Info
 		eventInfos = append(eventInfos, generateFailEvents(logger, result)...)
 		eventInfos = append(eventInfos, generateExceptionEvents(result)...)
-		if config.GetGenerateSuccessEvents() {
+		if config.GetGenerateSuccessEvents() || config.GetGenerateMutationEvents() {
 			eventInfos = append(eventInfos, generateSuccessEvents(logger, result)...)
 		}
 		eventGen.Add(eventInfos...)

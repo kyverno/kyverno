@@ -79,6 +79,20 @@ func (mr *MockConfigurationMockRecorder) GetGenerateSuccessEvents() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenerateSuccessEvents", reflect.TypeOf((*MockConfiguration)(nil).GetGenerateSuccessEvents))
 }
 
+// GetGenerateMutationEvents mocks base method.
+func (m *MockConfiguration) GetGenerateMutationEvents() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGenerateMutationEvents")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetGenerateMutationEvents indicates an expected call of GetGenerateMutationEvents.
+func (mr *MockConfigurationMockRecorder) GetGenerateMutationEvents() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenerateMutationEvents", reflect.TypeOf((*MockConfiguration)(nil).GetGenerateMutationEvents))
+}
+
 // GetMatchConditions mocks base method.
 func (m *MockConfiguration) GetMatchConditions() []v1.MatchCondition {
 	m.ctrl.T.Helper()

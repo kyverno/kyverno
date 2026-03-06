@@ -290,6 +290,11 @@ config:
   # -- Generate success events.
   generateSuccessEvents: false
 
+  # -- Generate events for mutations only.
+  # When enabled, Kyverno will create Kubernetes events for successful mutations
+  # without generating events for other successful policy evaluations (e.g. validations).
+  generateMutationEvents: false
+
   # -- Maximum cumulative size of context data during policy evaluation.
   # Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152).
   # Limits memory used by context variables to prevent unbounded growth.

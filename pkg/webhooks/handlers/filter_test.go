@@ -23,6 +23,7 @@ type mockConfiguration struct {
 func (m *mockConfiguration) GetDefaultRegistry() string               { return "" }
 func (m *mockConfiguration) GetEnableDefaultRegistryMutation() bool   { return false }
 func (m *mockConfiguration) GetGenerateSuccessEvents() bool           { return false }
+func (m *mockConfiguration) GetGenerateMutationEvents() bool          { return false }
 func (m *mockConfiguration) GetWebhook() config.WebhookConfig         { return config.WebhookConfig{} }
 func (m *mockConfiguration) GetWebhookAnnotations() map[string]string { return nil }
 func (m *mockConfiguration) GetWebhookLabels() map[string]string      { return nil }

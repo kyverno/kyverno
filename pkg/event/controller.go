@@ -96,8 +96,11 @@ func (gen *controller) Add(infos ...Info) {
 			continue
 		}
 		if info.Reason == PolicyApplied && !gen.cfg.GetGenerateSuccessEvents() {
-			logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-			continue
+			// allow mutation events through if generateMutationEvents is enabled
+			if info.Action != ResourceMutated || !gen.cfg.GetGenerateMutationEvents() {
+				logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
+				continue
+			}
 		}
 
 		gen.emitEvent(info)
