@@ -8,6 +8,7 @@ import (
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	tlsutils "github.com/kyverno/kyverno/pkg/utils/tls"
 	"github.com/kyverno/kyverno/pkg/version"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -18,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 const (
@@ -261,6 +263,28 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	return provider, nil
 }
 
+// swappableRegisterer wraps a prometheus.Registerer so that on duplicate
+// registration (AlreadyRegisteredError) it unregisters the old collector and
+// registers the new one. This is required because the OTel Prometheus exporter
+// does not unregister its internal collector from the registry on Shutdown(),
+// causing re-registration failures when the metrics refresh goroutine recreates
+// the MeterProvider.
+type swappableRegisterer struct {
+	promclient.Registerer
+}
+
+func (r *swappableRegisterer) Register(c promclient.Collector) error {
+	err := r.Registerer.Register(c)
+	if err != nil {
+		if are, ok := err.(promclient.AlreadyRegisteredError); ok {
+			r.Registerer.Unregister(are.ExistingCollector)
+			return r.Registerer.Register(c)
+		}
+		return err
+	}
+	return nil
+}
+
 func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	res, err := resource.Merge(
 		resource.Default(),
@@ -278,6 +302,7 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 		prometheus.WithoutUnits(),
 		prometheus.WithoutTargetInfo(),
 		prometheus.WithAggregationSelector(aggregationSelector(configuration)),
+		prometheus.WithRegisterer(&swappableRegisterer{legacyregistry.Registerer()}),
 	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
