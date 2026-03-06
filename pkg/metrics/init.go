@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -90,6 +91,9 @@ func InitMetrics(
 
 	switch otelProvider {
 	case "grpc":
+		// Note: workqueue metrics registered via k8s.io/component-base/metrics/legacyregistry
+		// are not exported through the OTLP/gRPC path. They are only visible via the
+		// Prometheus scrape endpoint (--otelProvider=prometheus).
 		endpoint := fmt.Sprintf("[%s]:%d", otelCollector, metricsPort)
 		meterProvider, err = NewOTLPGRPCConfig(
 			ctx,
@@ -110,12 +114,19 @@ func InitMetrics(
 		}
 
 		metricsServerMux = http.NewServeMux()
-		// also serve controller-runtime's registry (workqueue_*, rest client, leader election)
-		// so those metrics are scraped from the same endpoint as Kyverno's own
+		// legacyregistry.DefaultGatherer exposes OTel metrics (registered onto the
+		// legacyregistry via swappableRegisterer in NewPrometheusConfig) plus any
+		// client-go workqueue metrics registered through
+		// k8s.io/component-base/metrics/prometheus/workqueue -- used by binaries
+		// such as cleanup-controller and reports-controller that don't run a
+		// controller-runtime manager. Also gather controller-runtime's own
+		// registry (workqueue_*, rest client, leader election metrics for
+		// binaries that do run a controller-runtime manager) so everything is
+		// scraped from this single endpoint.
 		metricsServerMux.Handle(config.MetricsPath, promhttp.InstrumentMetricHandler(
 			prometheus.DefaultRegisterer,
 			promhttp.HandlerFor(
-				prometheus.Gatherers{prometheus.DefaultGatherer, crmetrics.Registry},
+				prometheus.Gatherers{legacyregistry.DefaultGatherer, crmetrics.Registry},
 				promhttp.HandlerOpts{},
 			),
 		))
