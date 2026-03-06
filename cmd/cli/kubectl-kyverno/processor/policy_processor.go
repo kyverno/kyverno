@@ -839,6 +839,7 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err != nil {
 			return nil, err
 		}
+		policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
 		if ret == nil {
 			policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
 		} else {
@@ -848,7 +849,6 @@ func (p *PolicyProcessor) makePolicyContext(
 			}
 			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
 		}
-		policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
 	}
 	return policyContext, nil
 }
