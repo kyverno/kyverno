@@ -744,9 +744,17 @@ func (p *PolicyProcessor) makePolicyContext(
 	case "UPDATE":
 		operation = kyvernov1.Update
 	}
+
+	var newResource unstructured.Unstructured
+	if operation == kyvernov1.Delete {
+		newResource = unstructured.Unstructured{}
+	} else {
+		newResource = resource
+	}
+
 	policyContext, err := engine.NewPolicyContext(
 		jp,
-		resource,
+		newResource,
 		operation,
 		p.UserInfo,
 		cfg,
@@ -831,6 +839,7 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err != nil {
 			return nil, err
 		}
+		policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
 		if ret == nil {
 			policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
 		} else {
