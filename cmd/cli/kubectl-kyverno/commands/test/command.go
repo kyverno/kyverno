@@ -247,17 +247,33 @@ func checkResult(
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
-	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
-		matches = responses
-	} else {
-		for _, response := range responses {
-			rule := response.Name()
-			if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
-				continue
-			}
+	// The CLI test framework allows users to specify a rule name when they expect the
+	// result of a particular rule. For most Kyverno policies a rule name is always
+	// present. However, some newer policy types such as ValidatingPolicy (vpol) do
+	// not surface any rule names in engine responses (they are intentionally left
+	// empty). In those cases we should ignore the rule name from the test case and
+	// return whatever responses we received. This keeps tests from being skipped if
+	// the user accidentally (or purposely) provides a rule field even though the
+	// underlying policy has no named rules.
+	for _, response := range responses {
+		rule := response.Name()
+		// if the rule has no name we cannot filter on it, just include it
+		if rule == "" {
 			matches = append(matches, response)
+			continue
 		}
+		// some legacy policy types also don't expose rules (eg validating admission
+		// policies) – the previous implementation short‑circuited on a flag set in the
+		// test Result. Keep that behaviour for backwards compatibility.
+		if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
+			matches = append(matches, response)
+			continue
+		}
+		// regular policies: only include matches that satisfy the rule name
+		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+			continue
+		}
+		matches = append(matches, response)
 	}
 	return matches
 }

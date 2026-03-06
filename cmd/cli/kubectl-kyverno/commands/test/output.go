@@ -399,6 +399,13 @@ func printTestResult(
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
+	// for policies without named rules (eg. validating policies), the engine
+	// returns an unnamed RuleResponse. when the test case specifies a rule name
+	// we prefer to show that value in the output table so the user can still
+	// correlate the row to their expectation.
+	if ruleName == "" && test.Rule != "" {
+		ruleName = test.Rule
+	}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        *globalTestCounter,

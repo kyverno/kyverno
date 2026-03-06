@@ -8,7 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -154,4 +158,40 @@ func Test_JSONPayload(t *testing.T) {
 			assert.Equal(t, "Ok", curlResult.Reason, "curl policy reason should be 'Ok'")
 		}
 	})
+}
+
+func TestLookupRuleResponsesWithUnnamedRules(t *testing.T) {
+	// simulate engine responses where one rule has no name (vpol case)
+	r1 := engineapi.NewRuleResponse("", engineapi.Validation, "ok", engineapi.RuleStatusPass, nil)
+	r2 := engineapi.NewRuleResponse("foo", engineapi.Validation, "fail", engineapi.RuleStatusFail, nil)
+	// populate the promoted fields via the embedded base struct
+	tst := v1alpha1.TestResult{
+		TestResultBase: v1alpha1.TestResultBase{
+			Rule:               "my-rule",
+			IsValidatingPolicy: true,
+		},
+	}
+	matches := lookupRuleResponses(tst, *r1, *r2)
+	// both responses should be retained because validating policies bypass filtering
+	assert.Len(t, matches, 2, "expected both rule responses to be returned")
+}
+
+func TestCreateRowsFallbackRuleName(t *testing.T) {
+	// when engine returns an unnamed rule response but test specifies a rule,
+	// the table row should include the test rule name.
+	// ensure the color package is initialized to avoid nil-pointer panics
+	color.Init(true)
+	tst := v1alpha1.TestResult{
+		TestResultBase: v1alpha1.TestResultBase{
+			Policy: "policy",
+			Rule:   "expected-rule",
+			Result: openreports.StatusPass,
+		},
+	}
+	ruleName := "" // engine didn't give a name
+	rows := createRowsAccordingToResults(tst, &resultCounts{}, new(int), ruleName, true, "msg", "reason", "v1,Pod,default,foo")
+	if assert.Len(t, rows, 1) {
+		// rule column should show the test rule when engine name is empty
+		assert.Contains(t, rows[0].Rule, "expected-rule")
+	}
 }
