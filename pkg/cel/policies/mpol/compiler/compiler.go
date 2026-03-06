@@ -28,6 +28,7 @@ import (
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	matchconditions "k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	environment "k8s.io/apiserver/pkg/cel/environment"
 )
@@ -95,7 +96,18 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	if policy.GetSpec().Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.GetSpec().Variables), optionsVars, environment.StoredExpressions)
+		for _, v := range policy.GetSpec().Variables {
+			// ne as in NamedExpressionAccessor which is an interface that validating.Variable implements
+			ne := &validating.Variable{
+				Name:       v.Name,
+				Expression: v.Expression,
+			}
+
+			res := compositedCompiler.CompileAndStoreVariable(ne, optionsVars, environment.StoredExpressions)
+			if res.Error != nil {
+				return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+			}
+		}
 	}
 
 	// Compile match conditions and collect errors
