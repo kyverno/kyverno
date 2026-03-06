@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+  namespace: default
+  labels:
+    app: nginx
+    team: platform
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: default
+  labels:
+    app: nginx
+    # missing team label
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: legacy-app
+  namespace: kube-system
+  labels:
+    app: legacy
+    # missing team label but will be exempted
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.35
+    command: ["sleep", "1d"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitoring-agent
+  namespace: monitoring
+  # missing both labels but will be exempted by name wildcard
+spec:
+  containers:
+  - name: agent
+    image: busybox:1.35
+    command: ["sleep", "1d"]
