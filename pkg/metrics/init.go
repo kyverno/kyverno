@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -106,7 +106,7 @@ func InitMetrics(
 		}
 
 		metricsServerMux = http.NewServeMux()
-		metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
+		metricsServerMux.Handle(config.MetricsPath, legacyregistry.Handler())
 	}
 
 	if meterProvider != nil {

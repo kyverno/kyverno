@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 const (
@@ -265,6 +266,7 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 		prometheus.WithoutUnits(),
 		prometheus.WithoutTargetInfo(),
 		prometheus.WithAggregationSelector(aggregationSelector(configuration)),
+		prometheus.WithRegisterer(legacyregistry.Registerer()),
 	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
