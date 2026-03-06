@@ -38,13 +38,13 @@ customPolicies: []
 failurePolicy: Fail
 
 # -- Validation failure action (`Audit`, `Enforce`).
+# Note that `Enforce` will be translated to `Deny` for `ValidatingPolicy` for backwards compatibility
 # For more info https://kyverno.io/docs/policy-types/cluster-policy/validate.
 validationFailureAction: Audit
 
 # -- Define validationFailureActionByPolicy for specific policies.
 # Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
 validationFailureActionByPolicy: {}
-#  disallow-capabilities-strict: Enforce
 #  disallow-host-path: Enforce
 #  disallow-host-ports: Enforce
 
@@ -60,6 +60,15 @@ validationFailureActionOverrides:
   #   - action: Audit
   #     namespaces:
   #       - fluent
+
+# -- Emit admission response warnings when the policy is violated
+# Only supported for `ValidatingPolicy` policies.
+emitWarnings: false
+
+# -- Define emitWarningByPolicy for specific policies.
+# Override the defined `emitWarnings` for individual Policies.
+emitWarningByPolicy: {}
+#  disallow-host-path: true
 
 # -- Validate already existing resources.
 # For more info https://kyverno.io/docs/policy-types/.
