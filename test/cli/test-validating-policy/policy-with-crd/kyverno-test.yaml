@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: custom-crd-policy-test
+policies:
+  - policy.yaml
+resources:
+  - pass-widget.yaml
+  - fail-widget.yaml
+clusterResources:
+  - clusterresources.yaml
+results:
+  - policy: require-widget-label
+    kind: Widget
+    resources:
+      - good-widget
+    isValidatingPolicy: true
+    result: pass
+  - policy: require-widget-label
+    kind: Widget
+    resources:
+      - bad-widget
+    isValidatingPolicy: true
+    result: fail
