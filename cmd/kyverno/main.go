@@ -826,6 +826,8 @@ func main() {
 			setup.KyvernoClient,
 			admissionReports,
 			eventGenerator,
+			kyvernoInformer.Kyverno().V2().PolicyExceptions().Lister(),
+			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions().Lister(),
 		)
 		ivpolHandlers := ivpol.New(
 			ivpolEngine,
