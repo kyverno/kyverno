@@ -180,6 +180,7 @@ rules:
     resources:
       - configmaps
       - namespaces
+      - secrets
     verbs:
       - get
       - list
