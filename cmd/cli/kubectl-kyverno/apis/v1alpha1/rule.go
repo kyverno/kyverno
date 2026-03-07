@@ -2,7 +2,7 @@ package v1alpha1
 
 // Rule declares values for a given policy rule
 type Rule struct {
-	// Name is the name of the ppolicy rule
+	// Name is the name of the policy rule
 	Name string `json:"name"`
 
 	// Values are the values for the given policy rule
@@ -11,9 +11,9 @@ type Rule struct {
 	// +kubebuilder:validation:Schemaless
 	Values map[string]interface{} `json:"values,omitempty"`
 
-	// ForeachValues are the foreach values for the given policy rule
-	// +kubebuilder:validation:Type=object
+	// ForeachValues are the foreach values for the given policy rule, indexed per foreach block
+	// +kubebuilder:validation:Type=array
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
-	ForeachValues map[string][]interface{} `json:"foreachValues,omitempty"`
+	ForeachValues []map[string][]interface{} `json:"foreachValues,omitempty"`
 }

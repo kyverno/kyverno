@@ -14,9 +14,9 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name          string                   `json:"name"`
-	Values        map[string]interface{}   `json:"values"`
-	ForEachValues map[string][]interface{} `json:"foreachValues"`
+	Name          string                     `json:"name"`
+	Values        map[string]interface{}     `json:"values"`
+	ForEachValues []map[string][]interface{} `json:"foreachValues"`
 }
 
 type Store struct {
@@ -24,7 +24,6 @@ type Store struct {
 	registryClient registryclient.Client
 	allowApiCalls  bool
 	policies       []Policy
-	foreachElement int
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -35,14 +34,6 @@ func (s *Store) SetLocal(m bool) {
 // IsLocal returns 'true' if the CLI is in local (clusterless) execution
 func (s *Store) IsLocal() bool {
 	return s.local
-}
-
-func (s *Store) SetForEachElement(element int) {
-	s.foreachElement = element
-}
-
-func (s *Store) GetForeachElement() int {
-	return s.foreachElement
 }
 
 func (s *Store) SetRegistryAccess(access bool) {
