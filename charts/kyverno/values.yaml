@@ -35,6 +35,10 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+    # Example to use secret with subPath:
+    # secret:
+    #   secretName: my-ca-secret
+    # subPath: ca.crt
 
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
