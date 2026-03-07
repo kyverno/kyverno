@@ -335,7 +335,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
-				if len(r.Rules) == 0 {
+				if len(r.Rules) == 0 && isAutoGenEligible(r.Policy.GetSpec().MatchConstraints) {
 					continue
 				}
 				patched := *reps.Resource
@@ -542,7 +542,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 				}
 				for _, r := range reps.Policies {
-					if len(r.Rules) == 0 {
+					if len(r.Rules) == 0 && isAutoGenEligible(r.Policy.GetSpec().MatchConstraints) {
 						continue
 					}
 					response := engineapi.EngineResponse{
@@ -1116,4 +1116,31 @@ func discoverCELTargets(
 		result[pol.Policy.GetName()] = targetKeys
 	}
 	return result, nil
+}
+
+func isAutoGenEligible(match *admissionregistrationv1.MatchResources) bool {
+	if match == nil {
+		return false
+	}
+	if match.NamespaceSelector != nil {
+		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
+			return false
+		}
+	}
+	if match.ObjectSelector != nil {
+		if len(match.ObjectSelector.MatchLabels) > 0 || len(match.ObjectSelector.MatchExpressions) > 0 {
+			return false
+		}
+	}
+	if len(match.ExcludeResourceRules) != 0 {
+		return false
+	}
+	if len(match.ResourceRules) != 1 {
+		return false
+	}
+	rule := match.ResourceRules[0]
+	if len(rule.ResourceNames) > 0 {
+		return false
+	}
+	return true
 }
