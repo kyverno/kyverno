@@ -39,6 +39,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "run-as-non-root-user") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
