@@ -12,12 +12,14 @@ type Store interface {
 
 type store struct {
 	sync.RWMutex
-	store map[string]Entry
+	store      map[string]Entry
+	maxEntries int
 }
 
-func New() Store {
+func New(maxEntries int) Store {
 	return &store{
-		store: make(map[string]Entry),
+		store:      make(map[string]Entry),
+		maxEntries: maxEntries,
 	}
 }
 
@@ -25,9 +27,13 @@ func (l *store) Set(key string, val Entry) {
 	l.Lock()
 	defer l.Unlock()
 	old := l.store[key]
-	// If the key already exists, stop it before replacing it
 	if old != nil {
 		old.Stop()
+	} else if l.maxEntries > 0 && len(l.store) >= l.maxEntries {
+		if val != nil {
+			val.Stop()
+		}
+		return
 	}
 	l.store[key] = val
 }
