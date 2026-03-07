@@ -155,6 +155,9 @@ func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov2.RequestInfo) *P
 	return &c
 }
 
+// WithNewResource returns a shallow copy with the new resource set. It does NOT update request.object in
+// the JSON context. If the JSON context must reflect the new resource, call JSONContext().AddResource()
+// after this method.
 func (c PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
 	c.newResource = resource
 	return &c
