@@ -3,6 +3,7 @@ package apicall
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -307,10 +309,108 @@ func Test_serviceHeaders(t *testing.T) {
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
 }
 
+type mockClientWithSecret struct {
+	mockClient
+}
+
+func (c *mockClientWithSecret) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if kind == "Secret" && name == "my-secret" {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"data": map[string]interface{}{
+					"basic-auth-creds": "dXNlcjpwYXNz",
+				},
+			},
+		}, nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+func Test_serviceHeadersValueFrom(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "Authorization",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name:      "my-secret",
+								Namespace: "default",
+								Key:       "basic-auth-creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithSecret{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "user:pass", responseHeaders["Authorization"][0])
+}
+
+func Test_serviceHeadersValueFrom_CrossNamespace(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "Authorization",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name:      "my-secret",
+								Namespace: "other-ns",
+								Key:       "creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithSecret{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "secret namespace other-ns is different from policy namespace default")
+}
+
 type mockClient struct{}
 
 func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return []byte("{}"), nil
+}
+
+func (c *mockClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
 }
 
 func Test_CrossNamespaceAccess(t *testing.T) {

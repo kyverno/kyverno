@@ -187,6 +187,18 @@ type ConfigMapReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+type ConfigMapKeyReference struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
+}
+
+type SecretKeyReference struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
+}
+
 type APICall struct {
 	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
@@ -255,7 +267,8 @@ type ServiceCall struct {
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
-	CABundle string `json:"caBundle"`
+	CABundle     string           `json:"caBundle,omitempty"`
+	CABundleFrom *HeaderValueFrom `json:"caBundleFrom,omitempty"`
 }
 
 // Method is a HTTP request type.
@@ -275,7 +288,13 @@ type HTTPHeader struct {
 	// Key is the header key
 	Key string `json:"key"`
 	// Value is the header value
-	Value string `json:"value"`
+	Value     string           `json:"value,omitempty"`
+	ValueFrom *HeaderValueFrom `json:"valueFrom,omitempty"`
+}
+
+type HeaderValueFrom struct {
+	SecretKeyRef    *SecretKeyReference    `json:"secretKeyRef,omitempty"`
+	ConfigMapKeyRef *ConfigMapKeyReference `json:"configMapKeyRef,omitempty"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
