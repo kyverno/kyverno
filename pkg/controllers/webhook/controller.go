@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sort"
 	"sync"
 	"time"
 
@@ -543,6 +544,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if err != nil {
 		return err
 	}
+	sort.Slice(desired.Webhooks, func(i, j int) bool { return desired.Webhooks[i].Name < desired.Webhooks[j].Name })
 	observed, err := c.vwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -573,6 +575,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	if err != nil {
 		return err
 	}
+	sort.Slice(desired.Webhooks, func(i, j int) bool { return desired.Webhooks[i].Name < desired.Webhooks[j].Name })
 	observed, err := c.mwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
