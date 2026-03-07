@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-delete-prod
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: block-prod-deletion
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+            selector:
+              matchLabels:
+                env: production
+            operations:
+              - DELETE
+      validate:
+        message: "Deleting production pods is forbidden!"
+        deny:
+          conditions:
+            all:
+            - key: "{{request.operation}}"
+              operator: Equals
+              value: DELETE
