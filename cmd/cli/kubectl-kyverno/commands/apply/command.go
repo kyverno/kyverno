@@ -20,6 +20,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -103,6 +104,7 @@ type ApplyCommandConfig struct {
 	BatchSize                 int
 	ContinueOnError           bool
 	ShowPerformance           bool
+	CrdPath                   string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -228,10 +230,12 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
+
 	cmd.Flags().IntVar(&applyCommandConfig.Concurrent, "concurrent", 1, "Number of concurrent workers for resource loading")
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
+	cmd.Flags().StringVar(&applyCommandConfig.CrdPath, "crdpath", "", "crd path to be used for apply command")
 	return cmd
 }
 
@@ -248,6 +252,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	processor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(processor)
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
@@ -494,6 +500,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			CrdPath:                           c.CrdPath,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -534,6 +541,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			CrdPath:                           c.CrdPath,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -977,6 +985,9 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
+	}
+	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
+		return fmt.Errorf("crdpath and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
 	return nil
 }

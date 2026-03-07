@@ -5,11 +5,14 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+var genericImageExtractors []v1alpha1.ImageExtractor
 
 var (
 	podImageExtractors = []v1beta1.ImageExtractor{{
@@ -66,8 +69,9 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 		return podControllerImageExtractors
 	case cronjobs:
 		return cronJobImageExtractors
+	default:
+		return genericImageExtractors
 	}
-	return nil
 }
 
 func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
@@ -125,4 +129,8 @@ func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (m
 		}
 	}
 	return result, nil
+}
+
+func SetGenericExtractors(extractors []v1alpha1.ImageExtractor) {
+	genericImageExtractors = extractors
 }
