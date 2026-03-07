@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: test
+    imageExcluded: "false"
+  name: pod-with-non-allowed-image
+  namespace: default
+spec:
+  containers:
+  - image: ubuntu:latest
+    name: container01
+    resources: {}

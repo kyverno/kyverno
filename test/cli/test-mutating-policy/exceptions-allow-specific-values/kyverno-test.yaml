@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+kind: Test
+metadata:
+  name: mpol-exceptions-allow-specific-values
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingPolicy: true
+  kind: Pod
+  patchedResources: patched-allowed.yaml
+  policy: mpol-allow-specific-values
+  resources:
+  - default/pod-allowed-image-allowed-cap
+  result: pass
+- isMutatingPolicy: true
+  kind: Pod
+  patchedResources: patched-non-allowed.yaml
+  policy: mpol-allow-specific-values
+  resources:
+  - default/pod-non-allowed-image
+  result: pass
