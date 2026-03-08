@@ -335,7 +335,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
 			for _, r := range reps.Policies {
-				if len(r.Rules) == 0 && isAutoGenEligible(r.Policy.GetSpec().MatchConstraints) {
+				if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 					continue
 				}
 				patched := *reps.Resource
@@ -542,7 +542,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 				}
 				for _, r := range reps.Policies {
-					if len(r.Rules) == 0 && isAutoGenEligible(r.Policy.GetSpec().MatchConstraints) {
+					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 						continue
 					}
 					response := engineapi.EngineResponse{
@@ -1118,7 +1118,7 @@ func discoverCELTargets(
 	return result, nil
 }
 
-func isAutoGenEligible(match *admissionregistrationv1.MatchResources) bool {
+func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	if match == nil {
 		return false
 	}
