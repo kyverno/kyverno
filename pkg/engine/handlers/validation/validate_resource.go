@@ -283,13 +283,6 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 			v.log.V(2).Info("skip rule", "reason", r.Message())
 			continue
 		} else if status != engineapi.RuleStatusPass {
-			if status == engineapi.RuleStatusError {
-				if index < len(elements)-1 {
-					continue
-				}
-				msg := fmt.Sprintf("validation failure: %v", r.Message())
-				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status, v.rule.ReportProperties), applyCount
-			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message())
 			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status, v.rule.ReportProperties), applyCount
 		}
