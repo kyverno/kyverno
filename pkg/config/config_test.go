@@ -89,6 +89,58 @@ func TestConfiguration_GetMaxContextSize_ZeroDisablesLimit(t *testing.T) {
 	assert.Equal(t, int64(0), cfg.GetMaxContextSize())
 }
 
+func TestConfiguration_GetGenerateMutationEvents_Default(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	assert.False(t, cfg.GetGenerateMutationEvents())
+}
+
+func TestConfiguration_GetGenerateMutationEvents_Unload(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data:       map[string]string{"generateMutationEvents": "true"},
+	})
+	assert.True(t, cfg.GetGenerateMutationEvents())
+
+	// unload should reset to false
+	cfg.Load(nil)
+	assert.False(t, cfg.GetGenerateMutationEvents())
+}
+
+func TestConfiguration_GetGenerateMutationEvents_FromConfigMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		{"true", "true", true},
+		{"false", "false", false},
+		{"True", "True", true},
+		{"invalid falls back to default", "notabool", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewDefaultConfiguration(false)
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+				Data:       map[string]string{"generateMutationEvents": tt.value},
+			}
+			cfg.Load(cm)
+			assert.Equal(t, tt.expected, cfg.GetGenerateMutationEvents())
+		})
+	}
+}
+
+func TestConfiguration_GetGenerateMutationEvents_NotSet(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data:       map[string]string{},
+	}
+	cfg.Load(cm)
+	assert.False(t, cfg.GetGenerateMutationEvents())
+}
+
 func TestConfiguration_GetMaxContextSize_KubernetesQuantityFormat(t *testing.T) {
 	tests := []struct {
 		name     string

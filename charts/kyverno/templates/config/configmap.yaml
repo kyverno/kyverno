@@ -19,6 +19,7 @@ data:
   defaultRegistry: {{ . | quote }}
   {{- end }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
+  generateMutationEvents: {{ .Values.config.generateMutationEvents | quote }}
   {{- with .Values.config.excludeGroups }}
   excludeGroups: {{ join "," . | quote }}
   {{- end -}}

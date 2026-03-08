@@ -59,6 +59,202 @@ func TestEventGenerator(t *testing.T) {
 	}
 }
 
+func TestEventGenerator_PolicyApplied_SuccessEventsDisabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 1)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
+	// generateSuccessEvents=false (default), generateMutationEvents=false (default)
+	cfg := config.NewDefaultConfiguration(false)
+	eventGenerator := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go eventGenerator.Run(ctx, Workers)
+	time.Sleep(500 * time.Millisecond)
+
+	// PolicyApplied event should be dropped when generateSuccessEvents is false
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+		t.Fatal("PolicyApplied event should have been dropped")
+	case <-time.After(2 * time.Second):
+		// expected: event was dropped
+	}
+}
+
+func TestEventGenerator_PolicyApplied_SuccessEventsEnabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 1)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{"generateSuccessEvents": "true"},
+	})
+	eventGenerator := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go eventGenerator.Run(ctx, Workers)
+	time.Sleep(500 * time.Millisecond)
+
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+		// expected: event was created
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("PolicyApplied event should have been created when generateSuccessEvents is true")
+	}
+}
+
+func TestEventGenerator_MutationEvent_MutationEventsEnabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 1)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
+	// generateSuccessEvents=false, generateMutationEvents=true
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{"generateMutationEvents": "true"},
+	})
+	eventGenerator := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go eventGenerator.Run(ctx, Workers)
+	time.Sleep(500 * time.Millisecond)
+
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourceMutated,
+		Message:   "resource mutated",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+		// expected: mutation event was created
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("mutation event should have been created when generateMutationEvents is true")
+	}
+}
+
+func TestEventGenerator_ValidationEvent_MutationEventsOnly(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 1)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
+	// generateSuccessEvents=false, generateMutationEvents=true
+	// validation events should still be dropped
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{"generateMutationEvents": "true"},
+	})
+	eventGenerator := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go eventGenerator.Run(ctx, Workers)
+	time.Sleep(500 * time.Millisecond)
+
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+		t.Fatal("validation event should have been dropped when only generateMutationEvents is true")
+	case <-time.After(2 * time.Second):
+		// expected: event was dropped
+	}
+}
+
+func TestEventGenerator_AllSuccessEventsWhenBothFlagsSet(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 2)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+
+	// both generateSuccessEvents=true and generateMutationEvents=true
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"generateSuccessEvents":  "true",
+			"generateMutationEvents": "true",
+		},
+	})
+	eventGenerator := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go eventGenerator.Run(ctx, Workers)
+	time.Sleep(500 * time.Millisecond)
+
+	// mutation event should pass
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourceMutated,
+		Message:   "resource mutated",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("mutation event should have been created when both flags are true")
+	}
+
+	// validation event should also pass
+	eventGenerator.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod-2", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	select {
+	case <-eventCreated:
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("validation event should have been created when both flags are true")
+	}
+}
+
 // TestEventNameSanitization tests that events with invalid RFC 1123 characters in their names are sanitized correctly
 func TestEventNameSanitization(t *testing.T) {
 	testCases := []struct {
