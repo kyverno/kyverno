@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
