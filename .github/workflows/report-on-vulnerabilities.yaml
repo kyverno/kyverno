@@ -30,7 +30,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -42,7 +42,7 @@ jobs:
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
@@ -54,7 +54,7 @@ jobs:
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
@@ -87,20 +87,25 @@ jobs:
       id: set-scan-output-1
       run: |
         cat scan1.json | jq -r '
-          .Results[] |
+          [.Results[] |
           select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
-          "## Image: `\(.Target)`\n\n" +
+          .Target as $target |
+          (.Vulnerabilities | map(select(.PkgName != "github.com/kyverno/kyverno"))) |
+          select(length > 0) |
+          "## Image: `\($target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities
-          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
-          | map(
+          (map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
             ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
-          ) | join("\n")) + "\n"
+          ) | join("\n")) + "\n"] | join("\n")
         ' > results.md
+        echo "has_results=false" >> $GITHUB_OUTPUT
+        if [ -s results.md ]; then
+          echo "has_results=true" >> $GITHUB_OUTPUT
+        fi
         echo "results<<EOF" >> $GITHUB_OUTPUT
         cat results.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
@@ -108,20 +113,25 @@ jobs:
       id: set-scan-output-2
       run: |
         cat scan2.json | jq -r '
-          .Results[] |
+          [.Results[] |
           select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
-          "## Image: `\(.Target)`\n\n" +
+          .Target as $target |
+          (.Vulnerabilities | map(select(.PkgName != "github.com/kyverno/kyverno"))) |
+          select(length > 0) |
+          "## Image: `\($target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities
-          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
-          | map(
+          (map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
             ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
-          ) | join("\n")) + "\n"
+          ) | join("\n")) + "\n"] | join("\n")
         ' > results.md
+        echo "has_results=false" >> $GITHUB_OUTPUT
+        if [ -s results.md ]; then
+          echo "has_results=true" >> $GITHUB_OUTPUT
+        fi
         echo "results<<EOF" >> $GITHUB_OUTPUT
         cat results.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
@@ -129,24 +139,30 @@ jobs:
       id: set-scan-output-3
       run: |
         cat scan3.json | jq -r '
-          .Results[] |
+          [.Results[] |
           select(.Vulnerabilities != null and (.Vulnerabilities | length) > 0) |
-          "## Image: `\(.Target)`\n\n" +
+          .Target as $target |
+          (.Vulnerabilities | map(select(.PkgName != "github.com/kyverno/kyverno"))) |
+          select(length > 0) |
+          "## Image: `\($target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities
-          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
-          | map(
+          (map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
             ((.Title // .Description // "N/A") | gsub("\n"; " ") | gsub("\\|"; "/") | .[0:100]) + " |"
-          ) | join("\n")) + "\n"
+          ) | join("\n")) + "\n"] | join("\n")
         ' > results.md
+        echo "has_results=false" >> $GITHUB_OUTPUT
+        if [ -s results.md ]; then
+          echo "has_results=true" >> $GITHUB_OUTPUT
+        fi
         echo "results<<EOF" >> $GITHUB_OUTPUT
         cat results.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
     - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      if: steps.set-scan-output-1.outputs.has_results == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         RESULTS: ${{ steps.set-scan-output-1.outputs.results }}
@@ -156,6 +172,7 @@ jobs:
         update_existing: true
         search_existing: open
     - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      if: steps.set-scan-output-2.outputs.has_results == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         RESULTS: ${{ steps.set-scan-output-2.outputs.results }}
@@ -165,6 +182,7 @@ jobs:
         update_existing: true
         search_existing: open
     - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+      if: steps.set-scan-output-3.outputs.has_results == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         RESULTS: ${{ steps.set-scan-output-3.outputs.results }}
