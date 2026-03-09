@@ -22,32 +22,20 @@ spec:
   failurePolicy: {{ .Values.failurePolicy }}
   matchConstraints:
     resourceRules:
-    - apiGroups: [""]
-      apiVersions: [v1]
-      operations: [CREATE, UPDATE]
-      resources: [pods]
+      - apiGroups: [ "" ]
+        apiVersions: [ v1 ]
+        operations: [ CREATE, UPDATE ]
+        resources: [ pods ]
+  variables:
+    - name: allContainers
+      expression: >-
+        object.spec.containers +
+        object.spec.?initContainers.orValue([]) +
+        object.spec.?ephemeralContainers.orValue([])
   validations:
     - expression: >-
-        ((has(object.spec.securityContext) && 
-         has(object.spec.securityContext.seccompProfile) && 
-         has(object.spec.securityContext.seccompProfile.type) && 
-         object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']) ||
-        (!has(object.spec.securityContext) || !has(object.spec.securityContext.seccompProfile))) &&
-        (!has(object.spec.containers) || object.spec.containers.all(c, 
-          has(c.securityContext) && 
-          has(c.securityContext.seccompProfile) && 
-          has(c.securityContext.seccompProfile.type) && 
-          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost'])) &&
-        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
-          has(c.securityContext) && 
-          has(c.securityContext.seccompProfile) && 
-          has(c.securityContext.seccompProfile.type) && 
-          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost'])) &&
-        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
-          has(c.securityContext) && 
-          has(c.securityContext.seccompProfile) && 
-          has(c.securityContext.seccompProfile.type) && 
-          c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']))
+        (object.spec.?securityContext.?seccompProfile.?type.orValue('') in ['RuntimeDefault', 'Localhost'] && variables.allContainers.all(container,  container.?securityContext.?seccompProfile.?type.orValue('') in ['','RuntimeDefault', 'Localhost'])) ||
+        (object.spec.?securityContext.?seccompProfile.?type.orValue('') in ['', 'RuntimeDefault', 'Localhost'] && variables.allContainers.all(container,  container.?securityContext.?seccompProfile.?type.orValue('') in ['RuntimeDefault', 'Localhost']))
       message: >-
         Seccomp profile must be explicitly set. The fields
         spec.securityContext.seccompProfile.type,
