@@ -30,7 +30,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -42,7 +42,7 @@ jobs:
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
@@ -54,7 +54,7 @@ jobs:
       env:
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+      uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
       with:
         scan-type: image
         scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
@@ -92,7 +92,9 @@ jobs:
           "## Image: `\(.Target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities | map(
+          (.Vulnerabilities
+          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
+          | map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
@@ -111,7 +113,9 @@ jobs:
           "## Image: `\(.Target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities | map(
+          (.Vulnerabilities
+          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
+          | map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +
@@ -130,7 +134,9 @@ jobs:
           "## Image: `\(.Target)`\n\n" +
           "| CVE ID | Package | Severity | CVSS | Installed | Fixed | Description |\n" +
           "|--------|---------|----------|------|-----------|-------|-------------|\n" +
-          (.Vulnerabilities | map(
+          (.Vulnerabilities
+          | map(select(.PkgName != "github.com/kyverno/kyverno" or (.InstalledVersion | startswith("v0.0.0-") | not)))
+          | map(
             "| [\(.VulnerabilityID)](\(.PrimaryURL // "")) | `\(.PkgName)` | **\(.Severity)** | " +
             (if .CVSS then (.CVSS | to_entries | map(.value.V3Score) | map(select(. != null)) | first // "N/A" | tostring) else "N/A" end) +
             " | \(.InstalledVersion) | \(.FixedVersion // "N/A") | " +

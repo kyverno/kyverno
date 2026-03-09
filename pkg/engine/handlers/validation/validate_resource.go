@@ -201,12 +201,12 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	}
 
 	defer func() {
-		if err = v.policyContext.SetResources(oldResource, newResource); err != nil {
-			v.log.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		if resetErr := v.policyContext.SetResources(oldResource, newResource); resetErr != nil {
+			v.log.Error(errors.Wrapf(resetErr, "failed to reset resources"), "")
 		}
 
-		if err = v.policyContext.SetOperation(kyvernov1.Update); err != nil {
-			v.log.Error(errors.Wrapf(err, "failed to reset operation"), "")
+		if resetErr := v.policyContext.SetOperation(kyvernov1.Update); resetErr != nil {
+			v.log.Error(errors.Wrapf(resetErr, "failed to reset operation"), "")
 		}
 	}()
 
