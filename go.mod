@@ -85,7 +85,7 @@ require (
 	k8s.io/apiserver v0.35.2
 	k8s.io/cli-runtime v0.35.2
 	k8s.io/client-go v0.35.2
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-aggregator v0.35.2
 	k8s.io/pod-security-admission v0.34.1
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
