@@ -77,7 +77,7 @@ func TestDefaultRegistryClientFactory(t *testing.T) {
 func TestRegistryClientFactory_GetClient_NilCreds(t *testing.T) {
 	factory := DefaultRegistryClientFactory(nil, nil)
 
-	client, err := factory.GetClient(context.Background(), nil)
+	client, err := factory.GetClient(context.Background(), nil, "", []string{})
 
 	assert.NoError(t, err)
 	// When creds are nil, should return the global client (which is nil in this case)
@@ -91,7 +91,7 @@ func TestRegistryClientFactory_GetClient_WithCreds(t *testing.T) {
 		AllowInsecureRegistry: true,
 	}
 
-	client, err := factory.GetClient(context.Background(), creds)
+	client, err := factory.GetClient(context.Background(), creds, "", []string{})
 
 	// Should create a new client with the options
 	assert.NoError(t, err)
@@ -107,7 +107,7 @@ func TestRegistryClientFactory_GetClient_WithProviders(t *testing.T) {
 		},
 	}
 
-	client, err := factory.GetClient(context.Background(), creds)
+	client, err := factory.GetClient(context.Background(), creds, "", []string{})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
@@ -189,7 +189,7 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			factory := DefaultRegistryClientFactory(nil, nil)
-			client, err := factory.GetClient(context.Background(), tt.creds)
+			client, err := factory.GetClient(context.Background(), tt.creds, "", []string{})
 
 			if tt.wantError {
 				assert.Error(t, err)

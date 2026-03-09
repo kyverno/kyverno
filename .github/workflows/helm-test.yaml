@@ -9,16 +9,36 @@ on:
     branches:
       - main
       - release*
-    paths:
-      - charts/**
-  merge_group:
-    types: [checks_requested]
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  linter-artifacthub:
+  ct-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: 3.13.1
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+      - name: Add Helm repos and build dependencies
+        run: |
+          helm repo add openreports https://openreports.github.io/reports-api
+          helm repo add reports-server https://kyverno.github.io/reports-server
+          helm repo add kyverno-api https://kyverno.github.io/api
+          helm repo update
+      - name: Run chart-testing (lint)
+        run: ct lint --target-branch=${{ github.base_ref }} --check-version-increment=false --validate-maintainers=false
+
+  ah-lint:
     runs-on: ubuntu-latest
     container:
       image: artifacthub/ah

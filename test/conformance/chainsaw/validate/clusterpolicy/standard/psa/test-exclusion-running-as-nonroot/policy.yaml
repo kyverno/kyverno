@@ -23,7 +23,7 @@ spec:
           - "false"
         - controlName: "Running as Non-root"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.runAsNonRoot"
           values:
           - "false"

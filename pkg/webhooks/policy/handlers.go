@@ -39,7 +39,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 
-	if vpol := policy.AsValidatingPolicy(); vpol != nil {
+	if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
 		warnings, err := vpolvalidation.Validate(vpol)
 		if err != nil {
 			logger.Error(err, "ValidatingPolicy validation errors")
@@ -47,15 +47,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
-	if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
-		warnings, err := vpolvalidation.Validate(nvpol)
-		if err != nil {
-			logger.Error(err, "NamespacedValidatingPolicy validation errors")
-		}
-		return admissionutils.Response(request.UID, err, warnings...)
-	}
-
-	if ivpol := policy.AsImageValidatingPolicy(); ivpol != nil {
+	if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
 		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
 		if err != nil {
 			logger.Error(err, "ImageValidatingPolicy validation errors")
@@ -63,15 +55,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
-	if nivpol := policy.AsNamespacedImageValidatingPolicy(); nivpol != nil {
-		warnings, err := eval.Validate(policy.AsNamespacedImageValidatingPolicy(), h.client.GetKubeClient().CoreV1().Secrets(""))
-		if err != nil {
-			logger.Error(err, "NamespacedImageValidatingPolicy validation errors")
-		}
-		return admissionutils.Response(request.UID, err, warnings...)
-	}
-
-	if mpol := policy.AsMutatingPolicy(); mpol != nil {
+	if mpol := policy.AsMutatingPolicyLike(); mpol != nil {
 		warnings, err := mpolvalidation.Validate(mpol)
 		if err != nil {
 			logger.Error(err, "MutatingPolicy validation errors")
@@ -79,26 +63,10 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
-	if nmpol := policy.AsNamespacedMutatingPolicy(); nmpol != nil {
-		warnings, err := mpolvalidation.Validate(nmpol)
-		if err != nil {
-			logger.Error(err, "NamespacedMutatingPolicy validation errors")
-		}
-		return admissionutils.Response(request.UID, err, warnings...)
-	}
-
-	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+	if gpol := policy.AsGeneratingPolicyLike(); gpol != nil {
 		warnings, err := gpolvalidation.Validate(gpol)
 		if err != nil {
 			logger.Error(err, "GeneratingPolicy validation errors")
-		}
-		return admissionutils.Response(request.UID, err, warnings...)
-	}
-
-	if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
-		warnings, err := gpolvalidation.Validate(ngpol)
-		if err != nil {
-			logger.Error(err, "NamespacedGeneratingPolicy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}

@@ -1,0 +1,108 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/description: >-
+      Denies workload create/update requests which use a non-spot ComputeClass,
+      unless the workload is in an approved (excluded) namespace. This variant
+      fetches ComputeClass information via a CRD API call.
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/title: Enforce Non-Spot Usage via ComputeClass CRD
+  name: computeclasses-enforce-non-spot-usage-crd
+spec:
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - istio-system
+            - gmp-system
+            - balloon-pods
+            - cluster-jobs
+            - fluentbit
+    resourceRules:
+      - apiGroups:
+          - ''
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - deployments
+          - daemonsets
+          - statefulsets
+      - apiGroups:
+          - batch
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - jobs
+          - cronjobs
+  validationActions:
+    - Deny
+  validations:
+    - expression: variables.hasSpotEnabled
+      messageExpression: >-
+        'Workload ' + object.metadata.name + ' uses ComputeClass "' +
+        variables.computeclassname + '" which does not have spot enabled. Spot
+        values found: ' + variables.spotvalues.join(', ') + '. Workloads must
+        use a ComputeClass with at least one spot-enabled priority.'
+  variables:
+    - expression: object.kind == 'Pod'
+      name: isPod
+    - expression: 'object.kind in [''Deployment'', ''StatefulSet'', ''DaemonSet'']'
+      name: isDeploymentOrStatefulSetOrDaemonSet
+    - expression: object.kind == 'Job'
+      name: isJob
+    - expression: object.kind == 'CronJob'
+      name: isCronJob
+    - expression: 'variables.isPod ? object.spec.?nodeSelector.orValue({}) : {}'
+      name: podNodeSelector
+    - expression: >-
+        variables.isDeploymentOrStatefulSetOrDaemonSet ?
+        object.spec.?template.?spec.?nodeSelector.orValue({}) : (variables.isJob
+        ? object.spec.?template.?spec.?nodeSelector.orValue({}) :
+        (variables.isCronJob ?
+        object.spec.?jobTemplate.?spec.?template.?spec.?nodeSelector.orValue({})
+        : {}))
+      name: templateNodeSelector
+    - expression: >-
+        variables.isPod ? variables.podNodeSelector :
+        variables.templateNodeSelector
+      name: nodeSelector
+    - expression: >-
+        variables.nodeSelector[?'cloud.google.com/compute-class'].orValue('default')
+      name: computeclassname
+    - expression: >-
+        resource.Get('cloud.google.com/v1', 'computeclasses', '',
+        variables.computeclassname)
+      name: computeclass
+    - expression: 'variables.computeclass.?spec.?priorities.orValue([])'
+      name: priorities
+    - expression: >-
+        size(variables.priorities) > 0 ? variables.priorities.map(p,
+        string(p.?spot.orValue(false))) : ['true', 'false', 'false']
+      name: spotvalues
+    - expression: 'variables.spotvalues.exists(v, v == ''true'')'
+      name: hasSpotEnabled

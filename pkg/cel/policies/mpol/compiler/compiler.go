@@ -7,26 +7,28 @@ import (
 	cel "github.com/google/cel-go/cel"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/json"
-	"github.com/kyverno/kyverno/pkg/cel/libs/math"
-	"github.com/kyverno/kyverno/pkg/cel/libs/random"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/libs/time"
-	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
-	"github.com/kyverno/kyverno/pkg/cel/libs/user"
-	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
-	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/imagedata"
+	"github.com/kyverno/sdk/cel/libs/json"
+	"github.com/kyverno/sdk/cel/libs/math"
+	"github.com/kyverno/sdk/cel/libs/random"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/libs/time"
+	"github.com/kyverno/sdk/cel/libs/transform"
+	"github.com/kyverno/sdk/cel/libs/user"
+	"github.com/kyverno/sdk/cel/libs/x509"
+	"github.com/kyverno/sdk/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	matchconditions "k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	environment "k8s.io/apiserver/pkg/cel/environment"
 )
@@ -48,6 +50,7 @@ type compilerImpl struct{}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
+	libCtx := libs.GetLibsCtx()
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
 	extendedEnvSet, err := baseEnvSet.Extend(
@@ -58,19 +61,15 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				cel.Variable(compiler.ObjectKey, cel.DynType),
 				cel.Variable(compiler.OldObjectKey, cel.DynType),
 				cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-				cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-				cel.Variable(compiler.HttpKey, http.ContextType),
-				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 				cel.Variable(compiler.ImagesKey, image.ImageType),
-				cel.Variable(compiler.ResourceKey, resource.ContextType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(image.Latest()),
-				http.Lib(image.Latest()),
+				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
+				http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()),
 				image.Lib(image.Latest()),
-				imagedata.Lib(imagedata.Latest()),
+				imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
 				math.Lib(math.Latest()),
-				resource.Lib(policy.GetNamespace(), resource.Latest()),
+				resource.Lib(resource.Context{ContextInterface: libCtx}, policy.GetNamespace(), resource.Latest()),
 				user.Lib(user.Latest()),
 				json.Lib(&json.JsonImpl{}, json.Latest()),
 				yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),
@@ -97,7 +96,18 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	if policy.GetSpec().Variables != nil {
-		compositedCompiler.CompileAndStoreVariables(ConvertVariables(policy.GetSpec().Variables), optionsVars, environment.StoredExpressions)
+		for _, v := range policy.GetSpec().Variables {
+			// ne as in NamedExpressionAccessor which is an interface that validating.Variable implements
+			ne := &validating.Variable{
+				Name:       v.Name,
+				Expression: v.Expression,
+			}
+
+			res := compositedCompiler.CompileAndStoreVariable(ne, optionsVars, environment.StoredExpressions)
+			if res.Error != nil {
+				return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+			}
+		}
 	}
 
 	// Compile match conditions and collect errors
@@ -109,7 +119,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 			matchExpressionAccessors[i] = (*matchconditions.MatchCondition)(&matchConditions[i])
 		}
 
-		evaluator := compositedCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
+		evaluator := compositedCompiler.ConditionCompiler.CompileCondition(matchExpressionAccessors, optionsVars, environment.StoredExpressions)
 		for _, err := range evaluator.CompilationErrors() {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec").Child("matchConditions"),

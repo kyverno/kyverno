@@ -72,7 +72,10 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 		return patternMap
 	}
 
-	metadata := patternMetadata.(map[string]interface{})
+	metadata, ok := patternMetadata.(map[string]interface{})
+	if !ok {
+		return patternMap
+	}
 	labelsKey, labels := expandWildcardsInTag("labels", patternMetadata, resourceMetadata)
 	if labels != nil {
 		metadata[labelsKey] = labels

@@ -88,6 +88,12 @@ func TestWithAdmission(t *testing.T) {
 			expectedStatusCode: http.StatusExpectationFailed,
 		},
 		{
+			name:               "Nil Request Field",
+			requestBody:        []byte(`{"kind":"AdmissionReview","apiVersion":"admission.k8s.io/v1"}`),
+			contentType:        "application/json",
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
 			name: "Handler Returns Not Allowed",
 			requestBody: func() []byte {
 				review := admissionv1.AdmissionReview{

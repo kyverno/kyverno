@@ -12,13 +12,13 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/notary"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
-	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
@@ -157,7 +157,7 @@ func EvaluateConditions(
 	if err != nil {
 		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
-	return variables.EvaluateAnyAllConditions(log, ctx, c)
+	return variables.EvaluateAnyAllConditionsWithContext(log, ctx, c, "attestation.conditions")
 }
 
 func getRawResp(statements []map[string]interface{}) ([]byte, error) {

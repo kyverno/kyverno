@@ -10,8 +10,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/release-utils/version"
@@ -94,9 +94,9 @@ func NewOrDie(options ...Option) Client {
 }
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
-func WithKeychainPullSecrets(lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
+func WithKeychainPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) Option {
 	return func(c *config) error {
-		kc, err := NewAutoRefreshSecretsKeychain(lister, imagePullSecrets...)
+		kc, err := NewAutoRefreshSecretsKeychain(lister, defaultNamespace, imagePullSecrets...)
 		if err != nil {
 			return err
 		}

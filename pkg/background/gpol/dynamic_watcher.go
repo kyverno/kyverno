@@ -495,9 +495,9 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 						wm.log.Error(err, "failed to delete downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 					} else {
 						wm.log.V(4).Info("downstream resource deleted", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+						// remove the resource from the metadata cache upon successful deletion
+						delete(watcher.metadataCache, downstream.GetUID())
 					}
-					// remove the resource from the metadata cache
-					delete(watcher.metadataCache, downstream.GetUID())
 				}
 			}
 		} else {

@@ -9,7 +9,7 @@ spec:
       name: configmap
   containers:
   - name: nginx
-    image: nginx
+    image: public.ecr.aws/docker/library/nginx
     args:
     - sleep
     - 1d

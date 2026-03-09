@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-non-spot-computeclass
+  namespace: test-namespace
+spec:
+  nodeSelector:
+    cloud.google.com/compute-class: non-spot-compute-class
+  containers:
+  - name: test-container
+    image: nginx:latest
+
