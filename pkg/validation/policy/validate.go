@@ -113,6 +113,42 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
+func checkWildcardResources(policy kyvernov1.PolicyInterface) string {
+	spec := policy.GetSpec()
+	for _, rule := range spec.Rules {
+		if hasWildcardKind(rule.MatchResources) {
+			return "Policy uses wildcard (*) in resource kinds which may cause high load on the API server"
+		}
+		if rule.ExcludeResources != nil && hasWildcardKind(*rule.ExcludeResources) {
+			return "Policy uses wildcard (*) in resource kinds which may cause high load on the API server"
+		}
+	}
+	return ""
+}
+
+func hasWildcardKind(resources kyvernov1.MatchResources) bool {
+	for _, kind := range resources.Kinds {
+		if kind == "*" || strings.Contains(kind, "*/") || strings.HasSuffix(kind, "/*") {
+			return true
+		}
+	}
+	for _, any := range resources.Any {
+		for _, kind := range any.ResourceDescription.Kinds {
+			if kind == "*" || strings.Contains(kind, "*/") || strings.HasSuffix(kind, "/*") {
+				return true
+			}
+		}
+	}
+	for _, all := range resources.All {
+		for _, kind := range all.ResourceDescription.Kinds {
+			if kind == "*" || strings.Contains(kind, "*/") || strings.HasSuffix(kind, "/*") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFailureAction, validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
 	if validationFailureAction == "enforce" || validationFailureAction == "audit" {
@@ -138,6 +174,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+	}
+
+	// Check for wildcard resources in match/exclude rules
+	if wildcardWarning := checkWildcardResources(policy); wildcardWarning != "" {
+		warnings = append(warnings, wildcardWarning)
 	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
