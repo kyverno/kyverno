@@ -16,5 +16,5 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: public.ecr.aws/docker/library/nginx:latest
+          image: nginx:latest
           imagePullPolicy: IfNotPresent

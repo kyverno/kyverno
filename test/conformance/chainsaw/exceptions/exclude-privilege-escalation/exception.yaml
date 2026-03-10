@@ -16,13 +16,13 @@ spec:
   podSecurity:
     - controlName: "Privilege Escalation"
       images:
-      - public.ecr.aws/docker/library/nginx
+      - nginx
       restrictedField: "spec.containers[*].securityContext.allowPrivilegeEscalation"
       values:
       - "true"
     - controlName: "Privilege Escalation"
       images:
-      - public.ecr.aws/docker/library/nginx
+      - nginx
       restrictedField: "spec.initContainers[*].securityContext.allowPrivilegeEscalation"
       values:
       - "true"
