@@ -25,10 +25,22 @@ jobs:
         script: |
           const { owner, repo } = context.repo;
 
-          const alerts = await github.paginate(
-            github.rest.codeScanning.listAlertsForRepo,
-            { owner, repo, state: "open", tool_name: "Trivy", per_page: 100 }
-          );
+          const branches = ["main", "release-1.17", "release-1.16"];
+          const allAlerts = [];
+          for (const branch of branches) {
+            const ref = `refs/heads/${branch}`;
+            const branchAlerts = await github.paginate(
+              github.rest.codeScanning.listAlertsForRepo,
+              { owner, repo, ref, state: "open", tool_name: "Trivy", per_page: 100 }
+            );
+            allAlerts.push(...branchAlerts);
+          }
+          const seen = new Set();
+          const alerts = allAlerts.filter(a => {
+            if (seen.has(a.number)) return false;
+            seen.add(a.number);
+            return true;
+          });
 
           const issues = await github.paginate(
             github.rest.issues.listForRepo,
