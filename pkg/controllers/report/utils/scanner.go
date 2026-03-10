@@ -218,7 +218,7 @@ func (s *scanner) ScanResource(
 	}
 
 	for i, policy := range mpols {
-		if pol := policy.AsMutatingPolicy(); pol != nil {
+		if pol := policy.AsMutatingPolicyLike(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
 			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions)
 			if err != nil {
