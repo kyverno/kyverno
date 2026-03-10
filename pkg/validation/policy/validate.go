@@ -113,14 +113,16 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
+const wildcardResourceWarning = "Policy uses wildcard (*) in resource kinds which may cause high load on the API server"
+
 func checkWildcardResources(policy kyvernov1.PolicyInterface) string {
 	spec := policy.GetSpec()
 	for _, rule := range spec.Rules {
 		if hasWildcardKind(rule.MatchResources) {
-			return "Policy uses wildcard (*) in resource kinds which may cause high load on the API server"
+			return wildcardResourceWarning
 		}
 		if rule.ExcludeResources != nil && hasWildcardKind(*rule.ExcludeResources) {
-			return "Policy uses wildcard (*) in resource kinds which may cause high load on the API server"
+			return wildcardResourceWarning
 		}
 	}
 	return ""
