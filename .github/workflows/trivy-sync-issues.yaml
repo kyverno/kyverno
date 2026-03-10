@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Trivy (sync issues)
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  workflow_run:
+    workflows:
+      - Trivy
+    types: 
+      - completed
+
+jobs:
+  trivy-sync-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      security-events: read
+    steps:
+    - name: Sync issues from Trivy
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+
+          const branches = ["main", "release-1.17", "release-1.16"];
+          const allAlerts = [];
+          for (const branch of branches) {
+            const ref = `refs/heads/${branch}`;
+            const branchAlerts = await github.paginate(
+              github.rest.codeScanning.listAlertsForRepo,
+              { owner, repo, ref, state: "open", tool_name: "Trivy", per_page: 100 }
+            );
+            allAlerts.push(...branchAlerts);
+          }
+          const seen = new Set();
+          const alerts = allAlerts.filter(a => {
+            if (seen.has(a.number)) return false;
+            seen.add(a.number);
+            return true;
+          });
+
+          const issues = await github.paginate(
+            github.rest.issues.listForRepo,
+            { owner, repo, labels: "codeql", state: "open", per_page: 100 }
+          );
+
+          function shortRef(ref) {
+            if (!ref) return "unknown";
+            const branch = ref.replace(/^refs\/heads\//, "");
+            const short = branch.includes("/") ? branch.split("/").pop() : branch;
+            return short.length > 30 ? short.slice(0, 27) + "..." : short;
+          }
+
+          for (const alert of alerts) {
+            const alertId = `codeql-id-${alert.number}`;
+            const ref = shortRef(alert.most_recent_instance?.ref);
+            const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
+            const title = `Vulnerability detected in ${ref}: ${alert.rule.name} (${severity})`;
+            const body = `**Alert:** ${alert.rule.description}\n\n` +
+              `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}\n\n` +
+              `**View Alert:** ${alert.html_url}\n\n` +
+              `<!-- ${alertId} -->`;
+            const existing = issues.find(i => i.body && i.body.includes(alertId));
+            if (!existing) {
+              core.info(`Creating issue: ${title}`);
+              await github.rest.issues.create({
+                owner, repo, title, body,
+                labels: ["codeql", "security"]
+              });
+            } else {
+              core.info(`Updating issue #${existing.number}: ${title}`);
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, title, body
+              });
+            }
+          }
+
+          for (const issue of issues) {
+            const match = issue.body?.match(/codeql-id-(\d+)/);
+            if (match) {
+              const alertNumber = parseInt(match[1]);
+              const isStillOpen = alerts.some(a => a.number === alertNumber);
+              if (!isStillOpen) {
+                core.info(`Closing issue #${issue.number} (Alert #${alertNumber} resolved)`);
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: "Automatically closing: The Trivy alert is no longer present."
+                });
+                await github.rest.issues.update({
+                  owner, repo, issue_number: issue.number, state: "closed"
+                });
+              }
+            }
+          }
+
+          core.info("Sync complete.");
