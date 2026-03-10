@@ -53,13 +53,15 @@ jobs:
             const short = branch.includes("/") ? branch.split("/").pop() : branch;
             return short.length > 30 ? short.slice(0, 27) + "..." : short;
           }
-
+        
           for (const alert of alerts) {
             const alertId = `codeql-id-${alert.number}`;
             const ref = shortRef(alert.most_recent_instance?.ref);
             const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
-            const title = `Vulnerability detected in ${ref}: ${alert.rule.name} (${severity})`;
-            const body = `**Alert:** ${alert.rule.description}\n\n` +
+            const title = `Vulnerability detected in ${ref}: ${alert.rule.id || alert.rule.name} (${severity})`;
+            const body = 
+              `**Rule:** ${alert.rule.id || alert.rule.name}\n\n` +
+              `**Alert:** ${alert.rule.full_description || alert.rule.description}\n\n` +
               `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}\n\n` +
               `**View Alert:** ${alert.html_url}\n\n` +
               `<!-- ${alertId} -->`;
