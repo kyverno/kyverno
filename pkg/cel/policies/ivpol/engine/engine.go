@@ -231,6 +231,10 @@ func (e *engineImpl) handleMutation(
 				results[pol.Policy.GetName()] = response
 			} else if matches {
 				filteredPolicies = append(filteredPolicies, pol)
+			} else {
+				if !matches {
+					results[pol.Policy.GetName()] = response
+				}
 			}
 		}
 	}
@@ -269,7 +273,7 @@ func (e *engineImpl) handleMutation(
 				} else {
 					ruleName := ivpol.Policy.GetName()
 					if result.Error != nil {
-						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
 					} else if result.Result {
 						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
 					} else {
