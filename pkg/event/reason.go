@@ -8,4 +8,5 @@ const (
 	PolicyApplied   Reason = "PolicyApplied"
 	PolicyError     Reason = "PolicyError"
 	PolicySkipped   Reason = "PolicySkipped"
+	PolicyWarning   Reason = "PolicyWarning"
 )

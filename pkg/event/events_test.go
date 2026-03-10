@@ -318,3 +318,29 @@ func Test_Info_Resource_cluster_scoped(t *testing.T) {
 
 	assert.Equal(t, "Namespace/kube-public", out)
 }
+func Test_NewPolicyWarningEvent(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v1",
+			Kind:       "ClusterPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "warn-all-kinds",
+			UID:  "pol-uid-123",
+		},
+	}
+
+	ev := NewPolicyWarningEvent(
+		AdmissionController,
+		PolicyWarning,
+		"wildcard policy adds high load to the API server and can bring down a cluster",
+		engineapi.NewKyvernoPolicy(policy),
+	)
+
+	assert.Equal(t, "ClusterPolicy", ev.Regarding.Kind)
+	assert.Equal(t, "warn-all-kinds", ev.Regarding.Name)
+	assert.Equal(t, "pol-uid-123", string(ev.Regarding.UID))
+	assert.Equal(t, PolicyWarning, ev.Reason)
+	assert.Equal(t, AdmissionController, ev.Source)
+	assert.Contains(t, ev.Message, "wildcard policy adds high load")
+}

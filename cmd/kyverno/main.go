@@ -277,6 +277,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
 		reportsServiceAccountName,
 		stateRecorder,
+		eventGenerator,
 	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
@@ -644,6 +645,7 @@ func main() {
 			setup.KyvernoDynamicClient,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
+			eventGenerator,
 		)
 
 		contextProvider, err := libs.NewContextProvider(

@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,6 +130,9 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
+	if policyutils.HasWildcard(engineapi.NewKyvernoPolicy(policy)) {
+		warnings = append(warnings, policyutils.WildcardWarning)
+	}
 	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
 		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
 		return warnings, fmt.Errorf("A clusterpolicy should not have the namespace defined")

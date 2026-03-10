@@ -146,6 +146,23 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	}
 }
 
+func NewPolicyWarningEvent(source Source, reason Reason, message string, policy engineapi.GenericPolicy) Info {
+	regarding := corev1.ObjectReference{
+		APIVersion: policy.GetAPIVersion(),
+		Kind:       policy.GetKind(),
+		Name:       policy.GetName(),
+		Namespace:  policy.GetNamespace(),
+		UID:        policy.GetUID(),
+	}
+	return Info{
+		Regarding: regarding,
+		Reason:    reason,
+		Source:    source,
+		Message:   message,
+		Action:    ResourcePassed,
+	}
+}
+
 func NewResourceGenerationEvent(policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
 	msg := fmt.Sprintf("Created %s %s as a result of applying policy %s/%s", resource.GetKind(), resource.GetName(), policy, rule)
 	regarding := corev1.ObjectReference{
