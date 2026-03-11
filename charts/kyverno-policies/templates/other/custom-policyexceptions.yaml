@@ -7,10 +7,7 @@ kind: {{ default $values.kind "PolicyException" }}
 metadata:
   name: {{ $name }}
     {{- if $values.namespace  }}
-  namespace: {{ $values.namespace }}
-    {{- else }}
-      {{- fail (printf "PolicyException named %s requires a namespace." $name) }}
-    {{- end }}
+  namespace: {{ $values.namespace | default "kyverno" }}
   annotations: {{- toYaml (default dict $values.annotations) | nindent 4 }}
   labels: {{- include "kyverno-policies.labels" $ | nindent 4 }}
 spec: {{- toYaml $values.spec | nindent 2 }}
