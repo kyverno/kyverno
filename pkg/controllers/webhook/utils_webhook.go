@@ -216,7 +216,7 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 		}
 	}
 
-	return stableSortedRules(out)
+	return sortedRules(out)
 }
 
 func (wh *webhook) set(

@@ -774,7 +774,7 @@ func TestDeduplicateRules(t *testing.T) {
 	}
 }
 
-func TestStableSortedRules(t *testing.T) {
+func TestsortedRules(t *testing.T) {
 	rule_apps_pods := admissionregistrationv1.RuleWithOperations{
 		Rule: admissionregistrationv1.Rule{
 			APIGroups:   []string{"apps"},
@@ -881,7 +881,7 @@ func TestStableSortedRules(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := stableSortedRules(tc.input)
+			result := sortedRules(tc.input)
 			assert.Equal(t, tc.expectedRules, result)
 		})
 	}

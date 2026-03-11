@@ -218,7 +218,7 @@ func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []adm
 	return uniqueRules
 }
 
-func stableSortedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
+func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
 	for _, rule := range rules {
 		out = append(out, rule)
