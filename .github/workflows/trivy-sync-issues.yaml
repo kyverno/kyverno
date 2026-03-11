@@ -53,16 +53,34 @@ jobs:
             const short = branch.includes("/") ? branch.split("/").pop() : branch;
             return short.length > 30 ? short.slice(0, 27) + "..." : short;
           }
+
+          async function getAlertInstances(alertNumber) {
+            try {
+              return await github.paginate(
+                github.rest.codeScanning.listAlertInstances,
+                { owner, repo, alert_number: alertNumber, per_page: 100 }
+              );
+            } catch (err) {
+              core.warning(`Could not list instances for alert #${alertNumber}: ${err.message}`);
+              return [];
+            }
+          }
         
           for (const alert of alerts) {
             const alertId = `codeql-id-${alert.number}`;
-            const ref = shortRef(alert.most_recent_instance?.ref);
+            const instances = await getAlertInstances(alert.number);
+            const refs = [...new Set((instances.length ? instances : [alert.most_recent_instance])
+              .map(i => i?.ref).filter(Boolean).map(shortRef))];
+            const refLabel = refs.length ? refs.join(", ") : shortRef(alert.most_recent_instance?.ref);
             const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
-            const title = `Vulnerability detected in ${ref}: ${alert.rule.id || alert.rule.name} (${severity})`;
-            const body = 
+            const title = `Vulnerability detected in ${refLabel}: ${alert.rule.id || alert.rule.name} (${severity})`;
+            const locationsText = instances.length
+              ? instances.map(i => `- **${shortRef(i.ref)}:** \`${i.location?.path ?? i.path ?? "N/A"}\``).join("\n")
+              : `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}`;
+            const body =
               `**Rule:** ${alert.rule.id || alert.rule.name}\n\n` +
               `**Alert:** ${alert.rule.full_description || alert.rule.description}\n\n` +
-              `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}\n\n` +
+              `**Locations:**\n${locationsText}\n\n` +
               `**View Alert:** ${alert.html_url}\n\n` +
               `<!-- ${alertId} -->`;
             const existing = issues.find(i => i.body && i.body.includes(alertId));
