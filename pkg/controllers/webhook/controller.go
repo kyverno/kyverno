@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -1102,6 +1103,11 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			},
 		)
 	}
+
+	slices.SortFunc(mutatingWebhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return mutatingWebhooks
 }
 
@@ -1364,6 +1370,11 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			},
 		)
 	}
+	
+	slices.SortFunc(validatingWebhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return validatingWebhooks
 }
 
