@@ -39,9 +39,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -362,7 +362,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				false,
-				true,
+				!(len(testCase.Test.ClusterResources) > 0),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -567,7 +567,11 @@ func applyImageValidatingPolicies(
 		}
 
 		for _, r := range engineResponse.Policies {
-			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			if reflect.DeepEqual(r.Result, engineapi.RuleResponse{}) {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{}
+			} else {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
