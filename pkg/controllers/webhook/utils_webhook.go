@@ -1,9 +1,6 @@
 package webhook
 
 import (
-	"slices"
-	"strings"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -218,32 +215,8 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			})
 		}
 	}
-	// sort rules
-	for _, rule := range out {
-		slices.Sort(rule.APIGroups)
-		slices.Sort(rule.APIVersions)
-		slices.Sort(rule.Resources)
-		slices.Sort(rule.Operations)
-	}
-	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
-		if x := less(a.APIGroups, b.APIGroups); x != 0 {
-			return x
-		}
-		if x := less(a.APIVersions, b.APIVersions); x != 0 {
-			return x
-		}
-		if x := less(a.Resources, b.Resources); x != 0 {
-			return x
-		}
-		if x := less(a.Operations, b.Operations); x != 0 {
-			return x
-		}
-		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
-			return x
-		}
-		return 0
-	})
-	return out
+
+	return stableSortedRules(out)
 }
 
 func (wh *webhook) set(
