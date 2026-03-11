@@ -137,7 +137,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			}
 			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
-				webhook.Name = name + "-ignore-finegrained-" + p.GetName()
+				webhook.Name = generateName(name+"-ignore-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
 				webhook.NamespaceSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().NamespaceSelector,
@@ -150,7 +150,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				fineGrainedIgnoreList = append(fineGrainedIgnoreList, webhook)
 			} else {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
-				webhook.Name = name + "-fail-finegrained-" + p.GetName()
+				webhook.Name = generateName(name+"-fail-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
 				webhook.NamespaceSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().NamespaceSelector,
@@ -341,4 +341,12 @@ func validConditions(celExpressionCache *expressionCache, conditions []admission
 		return conditions
 	}
 	return nil
+}
+
+func generateName(name string, policy policiesv1beta1.GenericPolicy) string {
+	if ns := policy.GetNamespace(); ns != "" {
+		return name + "-" + ns + "-" + policy.GetName()
+	}
+
+	return name + "-" + policy.GetName()
 }
