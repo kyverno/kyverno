@@ -71,17 +71,16 @@ jobs:
             const instances = await getAlertInstances(alert.number);
             const refs = [...new Set((instances.length ? instances : [alert.most_recent_instance])
               .map(i => i?.ref).filter(Boolean).map(shortRef))];
-            const refLabel = refs.length ? refs.join(", ") : shortRef(alert.most_recent_instance?.ref);
             const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
-            const title = `Vulnerability detected in ${refLabel}: ${alert.rule.id || alert.rule.name} (${severity})`;
-            const locationsText = instances.length
-              ? instances.map(i => `- **${shortRef(i.ref)}:** \`${i.location?.path ?? i.path ?? "N/A"}\``).join("\n")
-              : `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}`;
+            const title = `Vulnerability detected: ${alert.rule.id || alert.rule.name} (${severity})`;
+            const branchesText = refs.length
+              ? refs.map(b => `- ${b}`).join("\n")
+              : `- ${shortRef(alert.most_recent_instance?.ref)}`;
             const body =
-              `**Rule:** ${alert.rule.id || alert.rule.name}\n\n` +
-              `**Alert:** ${alert.rule.full_description || alert.rule.description}\n\n` +
-              `**Locations:**\n${locationsText}\n\n` +
-              `**View Alert:** ${alert.html_url}\n\n` +
+              `${alert.rule.full_description || alert.rule.description}\n\n` +
+              `---\n\n` +
+              `**Affected branches:**\n${branchesText}\n\n` +
+              `${alert.rule.id || alert.rule.name} ${alert.html_url}\n\n` +
               `<!-- ${alertId} -->`;
             const existing = issues.find(i => i.body && i.body.includes(alertId));
             if (!existing) {
