@@ -774,7 +774,7 @@ func TestDeduplicateRules(t *testing.T) {
 	}
 }
 
-func TestsortedRules(t *testing.T) {
+func TestSortedRules(t *testing.T) {
 	rule_apps_pods := admissionregistrationv1.RuleWithOperations{
 		Rule: admissionregistrationv1.Rule{
 			APIGroups:   []string{"apps"},
