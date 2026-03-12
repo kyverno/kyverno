@@ -230,7 +230,6 @@ func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admission
 		slices.Sort(rule.Resources)
 		slices.Sort(rule.Operations)
 	}
-	
 	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
 		if x := less(a.APIGroups, b.APIGroups); x != 0 {
 			return x
