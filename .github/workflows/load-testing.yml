@@ -73,7 +73,7 @@ jobs:
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       k8s-version: [v1.34.0]
+  #       k8s-version: [v1.35.1]
   #   steps:
   #     - name: Checkout kyverno/kyverno
   #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -173,7 +173,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.34.0]
+        k8s-version: [v1.35.1]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -281,7 +281,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.34.0]
+        k8s-version: [v1.35.1]
         test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
     steps:
       - name: Checkout kyverno/kyverno
