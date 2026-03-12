@@ -942,6 +942,7 @@ jobs:
         with:
           repository: kyverno/policies
           path: policies
+          ref: ${{ github.base_ref }}
       # install tools
       - name: Install helm
         id: helm
