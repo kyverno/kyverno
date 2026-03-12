@@ -53,17 +53,34 @@ jobs:
             const short = branch.includes("/") ? branch.split("/").pop() : branch;
             return short.length > 30 ? short.slice(0, 27) + "..." : short;
           }
+
+          async function getAlertInstances(alertNumber) {
+            try {
+              return await github.paginate(
+                github.rest.codeScanning.listAlertInstances,
+                { owner, repo, alert_number: alertNumber, per_page: 100 }
+              );
+            } catch (err) {
+              core.warning(`Could not list instances for alert #${alertNumber}: ${err.message}`);
+              return [];
+            }
+          }
         
           for (const alert of alerts) {
             const alertId = `codeql-id-${alert.number}`;
-            const ref = shortRef(alert.most_recent_instance?.ref);
+            const instances = await getAlertInstances(alert.number);
+            const refs = [...new Set((instances.length ? instances : [alert.most_recent_instance])
+              .map(i => i?.ref).filter(Boolean).map(shortRef))];
             const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
-            const title = `Vulnerability detected in ${ref}: ${alert.rule.id || alert.rule.name} (${severity})`;
-            const body = 
-              `**Rule:** ${alert.rule.id || alert.rule.name}\n\n` +
-              `**Alert:** ${alert.rule.full_description || alert.rule.description}\n\n` +
-              `**Location:** ${alert.most_recent_instance?.location?.path ?? "N/A"}\n\n` +
-              `**View Alert:** ${alert.html_url}\n\n` +
+            const title = `Vulnerability detected: ${alert.rule.id || alert.rule.name} (${severity})`;
+            const branchesText = refs.length
+              ? refs.map(b => `- ${b}`).join("\n")
+              : `- ${shortRef(alert.most_recent_instance?.ref)}`;
+            const body =
+              `${alert.rule.full_description || alert.rule.description}\n\n` +
+              `---\n\n` +
+              `**Affected branches:**\n${branchesText}\n\n` +
+              `${alert.rule.id || alert.rule.name} ${alert.html_url}\n\n` +
               `<!-- ${alertId} -->`;
             const existing = issues.find(i => i.body && i.body.includes(alertId));
             if (!existing) {
