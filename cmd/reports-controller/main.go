@@ -412,6 +412,7 @@ func main() {
 			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
 			polexCache,
 			gcstore,
+			nil,
 		)
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {

@@ -133,6 +133,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		store.ContextLoaderFactory(p.Store, p.ConfigMapResolver),
 		exceptions.New(policyExceptionLister),
 		&isCluster,
+		nil,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	resourceKind := resource.GetKind()
