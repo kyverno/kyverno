@@ -13,6 +13,41 @@ webhooks:
     service:
       name: kyverno-svc
       namespace: kyverno
+      path: /vpol/check-deployment-labels-2
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vpol.validate.kyverno.svc-fail
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kyverno
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - deployments
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
       path: /vpol/disallow-privilege-escalation
       port: 443
   failurePolicy: Fail
@@ -56,16 +91,6 @@ webhooks:
     - pods
     scope: '*'
   - apiGroups:
-    - batch
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cronjobs
-    scope: '*'
-  - apiGroups:
     - apps
     apiVersions:
     - v1
@@ -86,42 +111,17 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - jobs
+    - cronjobs
     scope: '*'
-  sideEffects: NoneOnDryRun
-  timeoutSeconds: 10
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: kyverno-svc
-      namespace: kyverno
-      path: /vpol/check-deployment-labels-2
-      port: 443
-  failurePolicy: Fail
-  matchPolicy: Equivalent
-  name: vpol.validate.kyverno.svc-fail
-  namespaceSelector:
-    matchExpressions:
-    - key: kubernetes.io/metadata.name
-      operator: NotIn
-      values:
-      - kube-system
-    - key: kubernetes.io/metadata.name
-      operator: NotIn
-      values:
-      - kyverno
-  objectSelector: {}
-  rules:
   - apiGroups:
-    - apps
+    - batch
     apiVersions:
     - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - deployments
+    - jobs
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 10
