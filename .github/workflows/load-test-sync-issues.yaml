@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Load Test (sync issues)
+
+permissions: {}
+
+on:
+  workflow_run:
+    workflows:
+      - Load Tests
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  load-test-sync-issues:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      actions: read
+    steps:
+      - name: Create tracking issue when load-test job failed
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run = github.event.workflow_run;
+            const runId = run.id;
+            const runUrl = run.html_url;
+            const headSha = run.head_sha;
+            const shortSha = headSha.substring(0, 7);
+            const branch = run.head_branch || run.display_title || 'unknown';
+            const actor = run.actor?.login || 'unknown';
+
+            const { data: jobsData } = await github.rest.actions.listJobsForWorkflowRun({
+              owner,
+              repo,
+              run_id: runId
+            });
+            const loadTestJob = jobsData.jobs.find(j => j.name === 'load-test');
+            if (!loadTestJob || loadTestJob.conclusion !== 'failure') {
+              core.info('Load-test job did not fail; skipping issue creation.');
+              return;
+            }
+
+            const title = `Load test failed: ${branch} (${shortSha})`;
+            const body = [
+              '## Load test failure',
+              '',
+              'The load-test job failed in the [Load Tests](https://github.com/' + owner + '/' + repo + '/actions/workflows/load-testing.yml) workflow.',
+              '',
+              '| | |',
+              '|---|------|',
+              `| **Workflow run** | [${runId}](${runUrl}) |`,
+              `| **Branch** | \`${branch}\` |`,
+              `| **Commit** | \`${shortSha}\` |`,
+              `| **Triggered by** | @${actor} |`,
+              '',
+              '---',
+              '*This issue was automatically created by the Load Test (sync issues) workflow.*'
+            ].join('\n');
+
+            try {
+              const { data: issue } = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: ['load-test-failure']
+              });
+              core.info(`Created tracking issue #${issue.number}: ${issue.html_url}`);
+            } catch (err) {
+              if (err.status === 422 && /Label/.test(err.message)) {
+                const { data: issue } = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title,
+                  body
+                });
+                core.warning(`Created issue #${issue.number} without label (add "load-test-failure" label in repo to use it).`);
+              } else {
+                throw err;
+              }
+            }
