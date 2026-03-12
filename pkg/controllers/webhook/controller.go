@@ -934,6 +934,11 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
 	}
+
+	slices.SortFunc(result.Webhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return result, multierr.Combine(errs...)
 }
 
@@ -1104,10 +1109,6 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 		)
 	}
 
-	slices.SortFunc(mutatingWebhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
-		return strings.Compare(a.Name, b.Name)
-	})
-
 	return mutatingWebhooks
 }
 
@@ -1179,6 +1180,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	if err := c.buildForJSONPoliciesValidation(cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
+
+	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
 
 	return webhookConfig, multierr.Combine(errs...)
 }
@@ -1370,10 +1375,6 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			},
 		)
 	}
-	
-	slices.SortFunc(validatingWebhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
-		return strings.Compare(a.Name, b.Name)
-	})
 
 	return validatingWebhooks
 }
