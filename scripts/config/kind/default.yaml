@@ -1,5 +1,8 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  # Needed for proc-mount-policies in k8s < 1.33 (GA)
+  UserNamespacesSupport: true
 kubeadmConfigPatches:
   - |-
     kind: ClusterConfiguration
