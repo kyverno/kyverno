@@ -34,11 +34,12 @@ customPolicies: []
 #   spec: # spec
 
 # -- Additional PolicyExceptions to include. See https://kyverno.io/docs/guides/exceptions/
-additionalPolicyExceptions:
+additionalPolicyExceptions: []
 # samplePolicyException: 
-#    kind: PolicyException
 #    metadata: # metadata
-#      namespace: "" 
+#     namespace: ""
+#     labels:
+#       app: appname 
 #    spec: # spec
 #      exceptions:
 
