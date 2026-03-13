@@ -87,16 +87,23 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
 		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		list := make([]unstructured.Unstructured, 0)
 		for ns, gvks := range results {
 			for r := range gvks {
 				if r.Kind == "Namespace" || ns == "*" {
 					ns = ""
 				}
-				targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
+				resources, err := p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
 				if err != nil {
 					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.String(), ur.Spec.GetPolicyKey(), err))
+					continue
 				}
+
+				list = append(list, resources.Items...)
 			}
+		}
+		if len(list) > 0 {
+			targets = &unstructured.UnstructuredList{Items: list}
 		}
 	} else {
 		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
