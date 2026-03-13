@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-gpol-custom-crd
+clusterResources:
+  - clusterresources.yaml
+policies:
+  - policy.yaml
+resources:
+  - resources/widget.yaml
+results:
+  - generatedResource: generated/configmap.yaml
+    isGeneratingPolicy: true
+    kind: Widget
+    policy: generate-configmap-for-widget
+    resources: ["test-namespace/my-widget"]
+    result: pass
