@@ -25,6 +25,22 @@ func NamespacedPolicy(namespace string) Predicate {
 	return func(policy policiesv1beta1.MutatingPolicyLike) bool { return policy.GetNamespace() == namespace }
 }
 
+func NoTargetMatchConstraintPolicy() Predicate {
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		tmc := policy.GetSpec().TargetMatchConstraints
+
+		if tmc == nil {
+			return true
+		}
+
+		if len(tmc.ResourceRules) == 0 && tmc.Expression == "" {
+			return true
+		}
+
+		return false
+	}
+}
+
 func And(conditions ...Predicate) Predicate {
 	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
 		for _, condition := range conditions {
