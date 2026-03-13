@@ -773,3 +773,116 @@ func TestDeduplicateRules(t *testing.T) {
 		})
 	}
 }
+
+func TestSortedRules(t *testing.T) {
+	rule_apps_pods := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule_apps_pods_cluster := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+			Scope:       ptr.To(admissionregistrationv1.ClusterScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule_apps_pods_all := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+			Scope:       ptr.To(admissionregistrationv1.AllScopes),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.OperationAll,
+		},
+	}
+	rule_batch_jobs := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"jobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Delete,
+		},
+	}
+	rule_batch_cronjobs := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"cronjobs"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Delete,
+		},
+	}
+	rule_v1beta1_apps := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1beta1"},
+			Resources:   []string{"deployments", "pods"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+
+	testCases := []struct {
+		name          string
+		input         []admissionregistrationv1.RuleWithOperations
+		expectedCount int
+		expectedRules []admissionregistrationv1.RuleWithOperations
+	}{
+		{
+			name:          "Sorted by API group",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_batch_jobs, rule_apps_pods},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_batch_jobs},
+		},
+		{
+			name:          "Sorted by API version",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_v1beta1_apps, rule_apps_pods},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_v1beta1_apps},
+		},
+		{
+			name:          "Sorted by resource",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_batch_jobs, rule_batch_cronjobs},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_batch_cronjobs, rule_batch_jobs},
+		},
+		{
+			name:          "Sorted by operation",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_all},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_all, rule_apps_pods},
+		},
+		{
+			name:          "Sorted by scope",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_cluster},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_cluster, rule_apps_pods},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := sortedRules(tc.input)
+			assert.Equal(t, tc.expectedRules, result)
+		})
+	}
+}
