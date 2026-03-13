@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 )
 
