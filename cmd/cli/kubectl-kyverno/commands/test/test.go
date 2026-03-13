@@ -175,6 +175,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
+		allCRDs := []*apiextensionsv1.CustomResourceDefinition{}
 		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
 			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
 				return &v1alpha1.ClusterResource{}
@@ -182,7 +183,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			if err != nil {
 				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
 			}
-			crds := []*apiextensionsv1.CustomResourceDefinition{}
 			if len(src.Spec.CRDs) > 0 {
 				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
 					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
@@ -191,7 +191,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 					if err != nil {
 						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
 					}
-					crds = append(crds, crd)
+					allCRDs = append(allCRDs, crd)
 				}
 			}
 			if len(src.Spec.Resources) > 0 {
@@ -199,10 +199,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 					allObjects = append(allObjects, resource)
 				}
 			}
-			restMapper = cl.RESTMapper(crds)
-			for _, crd := range crds {
-				allObjects = append(allObjects, crd)
-			}
+		}
+		restMapper = cl.RESTMapper(allCRDs)
+		for _, crd := range allCRDs {
+			allObjects = append(allObjects, crd)
 		}
 
 		dClient, err = cl.DClient(allObjects)
