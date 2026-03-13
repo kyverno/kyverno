@@ -1,7 +1,7 @@
 header:
   schema-version: 1.0.0
-  last-updated: '2026-03-12'
-  last-reviewed: '2026-03-12'
+  last-updated: '2026-03-13'
+  last-reviewed: '2026-03-13'
   expiration-date: '2027-01-15T01:00:00.000Z'
   project-url: 'https://github.com/kyverno/kyverno'
   project-release: '1.18.0'
@@ -26,6 +26,7 @@ contribution-policy:
 documentation:
   - 'https://kyverno.io/docs/'
   - 'https://kyverno.io/docs/guides/security/'
+  - 'https://github.com/kyverno/kyverno/blob/main/DEPENDENCY-POLICY.md'
 distribution-points:
   - 'https://github.com/orgs/kyverno/packages'
   - 'https://artifacthub.io/packages/helm/kyverno/kyverno'
@@ -113,3 +114,5 @@ dependencies:
     - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
   dependencies-lifecycle:
     policy-url: 'https://kyverno.io/docs/installation/#compatibility-matrix'
+  env-dependencies-policy:
+    policy-url: 'https://github.com/kyverno/kyverno/blob/main/DEPENDENCY-POLICY.md'
