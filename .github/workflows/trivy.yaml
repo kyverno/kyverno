@@ -1,14 +1,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Trivy scan
+name: Trivy
 
 permissions: {}
 
 on:
+  workflow_dispatch: {}
   push:
     branches:
-      - main
-      - release-*
+    - main
+    - release-*
 
 jobs:
   scan:
@@ -35,11 +36,12 @@ jobs:
       uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
       with:
         scan-type: rootfs
-        image-ref: ./cmd/kyverno/kyverno
+        scan-ref: ./cmd/kyverno/kyverno
         format: sarif
         output: kyverno.sarif
         severity: CRITICAL,HIGH
         ignore-unfixed: true
+        trivyignores: .trivyignore
     - name: Upload Trivy scan results to GitHub Security
       uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
       with:
