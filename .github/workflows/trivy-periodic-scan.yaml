@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Trivy (periodic scan)
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  schedule:
+  - cron: '23 2 * * *' # Every day at 02:23
+
+jobs:
+  periodic-scan-1:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - name: Run scan
+      run: |
+        set -e
+        RUN_URL=$(gh workflow run trivy.yaml --repo ${{ github.repository }} --ref main)
+        RUN_ID=$(echo "$RUN_URL" | grep -o '[0-9]*$')
+        echo "The workflow was triggered with Run ID: $RUN_ID"
+        gh run watch "$RUN_ID" --interval 15 --compact --repo ${{ github.repository }}
+  periodic-scan-2:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - name: Run scan
+      run: |
+        set -e
+        RUN_URL=$(gh workflow run trivy.yaml --repo ${{ github.repository }} --ref release-1.17)
+        RUN_ID=$(echo "$RUN_URL" | grep -o '[0-9]*$')
+        echo "The workflow was triggered with Run ID: $RUN_ID"
+        gh run watch "$RUN_ID" --interval 15 --compact --repo ${{ github.repository }}
+  periodic-scan-3:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - name: Run scan
+      run: |
+        set -e
+        RUN_URL=$(gh workflow run trivy.yaml --repo ${{ github.repository }} --ref release-1.16)
+        RUN_ID=$(echo "$RUN_URL" | grep -o '[0-9]*$')
+        echo "The workflow was triggered with Run ID: $RUN_ID"
+        gh run watch "$RUN_ID" --interval 15 --compact --repo ${{ github.repository }}
