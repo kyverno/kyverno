@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -933,6 +934,11 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
 	}
+
+	slices.SortFunc(result.Webhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return result, multierr.Combine(errs...)
 }
 
@@ -1007,7 +1013,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			AdmissionReviewVersions: w.AdmissionReviewVersions,
 			NamespaceSelector:       w.NamespaceSelector,
 			ObjectSelector:          w.ObjectSelector,
-			Rules:                   deDuplicatedRules(w.Rules),
+			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
 			TimeoutSeconds:          w.TimeoutSeconds,
 		})
@@ -1089,7 +1095,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
+				Rules:                   sortedRules(deDuplicatedRules(webhook.buildRulesWithOperations())),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1102,6 +1108,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			},
 		)
 	}
+
 	return mutatingWebhooks
 }
 
@@ -1174,6 +1181,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
+	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return webhookConfig, multierr.Combine(errs...)
 }
 
@@ -1196,7 +1207,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.celExpressionCache)
 
 	for i := range vpolWebhooks {
-		vpolWebhooks[i].Rules = deDuplicatedRules(vpolWebhooks[i].Rules)
+		vpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(vpolWebhooks[i].Rules))
 	}
 	result.Webhooks = append(result.Webhooks, vpolWebhooks...)
 
@@ -1214,7 +1225,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.celExpressionCache)
 
 	for i := range nvpolWebhooks {
-		nvpolWebhooks[i].Rules = deDuplicatedRules(nvpolWebhooks[i].Rules)
+		nvpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(nvpolWebhooks[i].Rules))
 	}
 	result.Webhooks = append(result.Webhooks, nvpolWebhooks...)
 
@@ -1232,7 +1243,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.celExpressionCache)
 
 	for i := range gpolWebhooks {
-		gpolWebhooks[i].Rules = deDuplicatedRules(gpolWebhooks[i].Rules)
+		gpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(gpolWebhooks[i].Rules))
 	}
 	result.Webhooks = append(result.Webhooks, gpolWebhooks...)
 
@@ -1250,7 +1261,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.celExpressionCache)
 
 	for i := range ivpolWebhooks {
-		ivpolWebhooks[i].Rules = deDuplicatedRules(ivpolWebhooks[i].Rules)
+		ivpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ivpolWebhooks[i].Rules))
 	}
 	result.Webhooks = append(result.Webhooks, ivpolWebhooks...)
 
@@ -1352,7 +1363,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   deDuplicatedRules(webhook.buildRulesWithOperations()),
+				Rules:                   sortedRules(deDuplicatedRules(webhook.buildRulesWithOperations())),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1364,6 +1375,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			},
 		)
 	}
+
 	return validatingWebhooks
 }
 
