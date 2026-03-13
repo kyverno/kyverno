@@ -854,6 +854,17 @@ test-unit:
 	@echo Running unit tests... >&2
 	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
+#####################
+# INTEGRATION TESTS #
+#####################
+
+.PHONY: test-integration
+test-integration: ## Run integration tests (envtest, no cluster required)
+test-integration:
+	@echo Running integration tests... >&2
+	@KUBEBUILDER_ASSETS=$$($(shell go env GOPATH)/bin/setup-envtest use 1.30 -p path) \
+	go test -race -v -count=1 ./test/integration/...
+
 #############
 # CLI TESTS #
 #############
