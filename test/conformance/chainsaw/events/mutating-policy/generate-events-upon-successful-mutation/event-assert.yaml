@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: policies.kyverno.io/v1beta1
+  kind: MutatingPolicy
+  name: add-labels
+type: Normal
+reason: PolicyApplied
+action: Resource Mutated
+reportingComponent: kyverno-admission
