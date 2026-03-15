@@ -27,7 +27,7 @@ func TestEntry_Get_ReturnsWrappedError(t *testing.T) {
 	testErr := errors.New("original error")
 	e := New(testErr)
 
-	result, err := e.Get()
+	result, err := e.Get("")
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
@@ -38,7 +38,7 @@ func TestEntry_Get_ReturnsWrappedError(t *testing.T) {
 func TestEntry_Get_WithNilError(t *testing.T) {
 	e := New(nil)
 
-	result, err := e.Get()
+	result, err := e.Get("")
 
 	assert.Nil(t, result)
 	// When the stored error is nil, errors.Wrapf returns nil
@@ -72,7 +72,7 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := New(tt.inputErr)
 
-			result, err := e.Get()
+			result, err := e.Get("")
 
 			assert.Nil(t, result)
 			assert.Error(t, err)
@@ -123,7 +123,7 @@ func TestEntry_Get_AlwaysReturnsNilResult(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := New(tt.inputErr)
 
-			result, _ := e.Get()
+			result, _ := e.Get("")
 
 			assert.Nil(t, result, "Get should always return nil result")
 		})
@@ -143,7 +143,7 @@ func TestEntry_Get_AlwaysReturnsError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := New(tt.inputErr)
 
-			_, err := e.Get()
+			_, err := e.Get("")
 
 			assert.Error(t, err, "Get should return an error when underlying error is non-nil")
 		})

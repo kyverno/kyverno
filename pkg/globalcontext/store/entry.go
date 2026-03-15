@@ -10,4 +10,5 @@ type Projection struct {
 type Entry interface {
 	Get(projection string) (any, error)
 	Stop()
+	IsAllowed(namespace string) bool
 }

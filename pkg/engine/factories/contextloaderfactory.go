@@ -122,7 +122,7 @@ func (l *contextLoader) newLoader(
 		}
 	} else if entry.GlobalReference != nil {
 		if gctx != nil {
-			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx)
+			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx, l.policyNamespace)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.V(3).Info("disabled loading of GlobalContext context entry", "name", entry.Name)
