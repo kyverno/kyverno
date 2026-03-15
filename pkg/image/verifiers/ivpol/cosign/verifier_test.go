@@ -47,8 +47,8 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 			Keyless: &v1beta1.Keyless{
 				Identities: []v1beta1.Identity{
 					{
-						Issuer:  githubActionsIssuer,
-						Subject: githubWorkflowID,
+						Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+						Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 					},
 				},
 			},
@@ -80,8 +80,8 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 			Keyless: &v1beta1.Keyless{
 				Identities: []v1beta1.Identity{
 					{
-						Issuer:  githubActionsIssuer,
-						Subject: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main",
+						Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+						Subject: &v1beta1.StringOrExpression{Value: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main"},
 					},
 				},
 			},
@@ -205,8 +205,8 @@ func TestCosign_V3_Keyless(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -303,8 +303,8 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -362,8 +362,8 @@ func TestBundleAutoDetection(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -514,8 +514,8 @@ func TestNegative_WrongKeylessIdentity(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  githubActionsIssuer,
-							Subject: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main",
+							Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main"},
 						},
 					},
 				},
@@ -776,8 +776,8 @@ func Test_GitHubAttestationVerification(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Issuer:  &v1beta1.StringOrExpression{Value: githubActionsIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
