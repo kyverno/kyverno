@@ -5,6 +5,6 @@ metadata:
 spec:
   containers:
     - name: container
-      image: public.ecr.aws/docker/library/nginx:latest
+      image: nginx:latest
       ports:
         - containerPort: 80

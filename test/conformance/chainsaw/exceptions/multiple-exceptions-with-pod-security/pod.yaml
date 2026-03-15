@@ -5,7 +5,7 @@ metadata:
   name: test-pod
 spec:
   containers:
-  - image: public.ecr.aws/docker/library/alpine:latest
+  - image: alpine:latest
     imagePullPolicy: IfNotPresent
     name: primary
     securityContext:
@@ -19,7 +19,7 @@ spec:
       seccompProfile:
         type: RuntimeDefault
   initContainers:
-  - image: public.ecr.aws/docker/library/alpine:latest
+  - image: alpine:latest
     imagePullPolicy: IfNotPresent
     name: init1
     securityContext:
@@ -37,7 +37,7 @@ spec:
       runAsUser: 10001
       seccompProfile:
         type: RuntimeDefault
-  - image: public.ecr.aws/docker/library/busybox:latest
+  - image: busybox:latest
     imagePullPolicy: IfNotPresent
     name: init2
     securityContext:

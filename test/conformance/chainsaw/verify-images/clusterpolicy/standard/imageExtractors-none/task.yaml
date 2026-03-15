@@ -5,4 +5,4 @@ metadata:
 spec:
   steps:
     - name: ubuntu-example
-      image: public.ecr.aws/docker/library/ubuntu:bionic
+      image: ubuntu:bionic

@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: main
-        image: docker.io/library/bash:5
+        image: bash:5
         command: ["bash"]
         args:
         - -c
