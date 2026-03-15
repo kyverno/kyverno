@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: test
+    extraCapsAllowed: "false"
+  name: pod-non-allowed-image
+  namespace: default
+spec:
+  containers:
+  - image: ubuntu:latest
+    name: ubuntu
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - FOO
+        drop:
+        - ALL

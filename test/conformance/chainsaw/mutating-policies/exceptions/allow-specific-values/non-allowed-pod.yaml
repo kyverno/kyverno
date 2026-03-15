@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: non-allowed-pod
+  labels:
+    app: test
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - FOO

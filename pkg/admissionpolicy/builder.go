@@ -245,20 +245,69 @@ func BuildMutatingAdmissionPolicy(
 	exceptions []policiesv1beta1.PolicyException,
 ) {
 	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
+	variables := slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
+		return admissionregistrationv1alpha1.Variable(v)
+	})
+	mutations := mp.Spec.Mutations
+
 	// convert celexceptions if exist
 	for _, exception := range exceptions {
-		for _, matchCondition := range exception.Spec.MatchConditions {
-			// negate the match condition
-			expression := "!(" + matchCondition.Expression + ")"
-			matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
-				Name:       matchCondition.Name,
-				Expression: expression,
-			})
+		hasFineGrained := len(exception.Spec.Images) > 0 || len(exception.Spec.AllowedValues) > 0
+		if hasFineGrained {
+			// For fine-grained exceptions, add allowedImages/allowedValues as variables
+			if len(exception.Spec.Images) > 0 {
+				quotedImages := make([]string, len(exception.Spec.Images))
+				for i, img := range exception.Spec.Images {
+					quotedImages[i] = fmt.Sprintf("'%s'", img)
+				}
+				variables = append(variables, admissionregistrationv1alpha1.Variable{
+					Name:       "allowedImages",
+					Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+				})
+			}
+			if len(exception.Spec.AllowedValues) > 0 {
+				quotedValues := make([]string, len(exception.Spec.AllowedValues))
+				for i, val := range exception.Spec.AllowedValues {
+					quotedValues[i] = fmt.Sprintf("'%s'", val)
+				}
+				variables = append(variables, admissionregistrationv1alpha1.Variable{
+					Name:       "allowedValues",
+					Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+				})
+			}
+		} else {
+			// For full-skip exceptions, negate the match conditions
+			for _, matchCondition := range exception.Spec.MatchConditions {
+				// negate the match condition
+				expression := "!(" + matchCondition.Expression + ")"
+				matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
+					Name:       matchCondition.Name,
+					Expression: expression,
+				})
+			}
 		}
 	}
 	for _, mc := range mp.Spec.MatchConditions {
 		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
 	}
+
+	// replace exceptions references with variables references in mutation expressions
+	replacements := map[string]string{
+		"exceptions.allowedImages": "variables.allowedImages",
+		"exceptions.allowedValues": "variables.allowedValues",
+	}
+	for i := range mutations {
+		if mutations[i].ApplyConfiguration != nil {
+			mutations[i].ApplyConfiguration.Expression = replaceExpressions(mutations[i].ApplyConfiguration.Expression, replacements)
+		}
+		if mutations[i].JSONPatch != nil {
+			mutations[i].JSONPatch.Expression = replaceExpressions(mutations[i].JSONPatch.Expression, replacements)
+		}
+	}
+	for i := range variables {
+		variables[i].Expression = replaceExpressions(variables[i].Expression, replacements)
+	}
+
 	// set owner reference
 	mapol.OwnerReferences = []metav1.OwnerReference{
 		{
@@ -285,11 +334,9 @@ func BuildMutatingAdmissionPolicy(
 				}
 			}),
 		},
-		MatchConditions: matchConditions,
-		Mutations:       mp.Spec.Mutations,
-		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
-			return admissionregistrationv1alpha1.Variable(v)
-		}),
+		MatchConditions:    matchConditions,
+		Mutations:          mutations,
+		Variables:          variables,
 		FailurePolicy:      fpt,
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}

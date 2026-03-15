@@ -1,0 +1,40 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-allow-specific-values
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  variables:
+    - name: hasAllowedExtras
+      expression: >-
+        object.spec.containers.exists(c,
+          string(c.image) in exceptions.allowedImages &&
+          c.?securityContext.?capabilities.?add.orValue([]).exists(cap,
+            cap in exceptions.allowedValues
+          )
+        )
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        variables.hasAllowedExtras ?
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              extraCapsAllowed: "true"
+            }
+          }
+        }
+        :
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              extraCapsAllowed: "false"
+            }
+          }
+        }

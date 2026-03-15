@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-exclude-images
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  variables:
+    - name: hasExcludedImage
+      expression: >-
+        object.spec.containers.exists(c, string(c.image) in exceptions.allowedImages)
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        variables.hasExcludedImage ?
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              imageExcluded: "true"
+            }
+          }
+        }
+        :
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              imageExcluded: "false"
+            }
+          }
+        }
