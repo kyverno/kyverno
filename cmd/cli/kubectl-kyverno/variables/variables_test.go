@@ -108,8 +108,8 @@ func TestVariables_SetInStore(t *testing.T) {
 			Values: map[string]interface{}{
 				"foo": "bar",
 			},
-			ForeachValues: map[string][]interface{}{
-				"baz": nil,
+			ForeachValues: []map[string][]interface{}{
+				{"baz": nil},
 			},
 		}},
 	})
