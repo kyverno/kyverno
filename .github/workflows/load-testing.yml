@@ -28,12 +28,12 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+        uses: ./.github/actions/tools/ko
       - name: ko build
         shell: bash
         run: |
           set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+          VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -162,9 +162,9 @@ jobs:
         with:
           repository: kyverno/load-testing
           path: load-testing
-      - name: Install Helm
+      - name: Install helm
         id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       - name: Create Kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -280,9 +280,9 @@ jobs:
         with:
           repository: kyverno/load-testing
           path: load-testing
-      - name: Install Helm
+      - name: Install helm
         id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       - name: Create Kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:

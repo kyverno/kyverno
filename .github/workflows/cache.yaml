@@ -46,12 +46,12 @@ jobs:
         with:
           gobuild-cache-prefix: '' # disable gobuild cache
       - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+        uses: ./.github/actions/tools/ko
       - name: Build all
         shell: bash
         run: |
           set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make image-build-all build-all
+          VERSION=${{ github.ref_name }} make image-build-all build-all
       - name: Save gobuild cache
         uses: ./.github/actions/go/save-cache
         with:
