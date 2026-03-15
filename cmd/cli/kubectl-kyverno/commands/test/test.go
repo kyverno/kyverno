@@ -46,6 +46,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -169,10 +170,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	}
 
+	var restMapper meta.RESTMapper
 	var cmResolver engineapi.ConfigmapResolver
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
+		var allCRDs []*apiextensionsv1.CustomResourceDefinition
 		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
 			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
 				return &v1alpha1.ClusterResource{}
@@ -197,10 +200,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 					allObjects = append(allObjects, resource)
 				}
 			}
-			cl.RESTMapper(crds)
+			allCRDs = append(allCRDs, crds...)
 			for _, crd := range crds {
 				allObjects = append(allObjects, crd)
 			}
+		}
+		if len(allCRDs) > 0 {
+			restMapper = cl.RESTMapper(allCRDs)
 		}
 
 		dClient, err = cl.DClient(allObjects)
@@ -340,6 +346,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
+			RESTMapper:                        restMapper,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
@@ -358,6 +365,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				userInfo,
 				&resultCounts,
 				dClient,
+				restMapper,
 				true,
 				testCase.Fs,
 				contextPath,
@@ -378,6 +386,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				vars.Namespace,
 				&resultCounts,
 				dClient,
+				restMapper,
 				true,
 				testCase.Fs,
 				contextPath,
@@ -438,6 +447,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				userInfo,
 				&resultCounts,
 				dClient,
+				restMapper,
 				true,
 				testCase.Fs,
 				contextPath,
@@ -458,6 +468,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				vars.Namespace,
 				&resultCounts,
 				dClient,
+				restMapper,
 				true,
 				testCase.Fs,
 				contextPath,
@@ -493,6 +504,7 @@ func applyImageValidatingPolicies(
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	restMapper meta.RESTMapper,
 	registryAccess bool,
 	f billy.Filesystem,
 	contextPath string,
@@ -514,9 +526,12 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
+	if restMapper == nil {
+		var err error
+		restMapper, err = utils.GetRESTMapper(dclient)
+		if err != nil {
+			return nil, err
+		}
 	}
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
 	if err != nil {
@@ -626,14 +641,18 @@ func applyDeletingPolicies(
 	namespaceProvider func(string) *corev1.Namespace,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	restMapper meta.RESTMapper,
 	registryAccess bool,
 	f billy.Filesystem,
 	contextPath string,
 	isFake bool,
 ) ([]engineapi.EngineResponse, error) {
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
+	if restMapper == nil {
+		var err error
+		restMapper, err = utils.GetRESTMapper(dclient)
+		if err != nil {
+			return nil, err
+		}
 	}
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
 	if err != nil {

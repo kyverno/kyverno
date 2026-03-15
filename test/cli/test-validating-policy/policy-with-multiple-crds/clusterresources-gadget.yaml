@@ -1,0 +1,7 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources-gadget
+spec:
+  crds:
+    - crds/gadget-crd.yaml

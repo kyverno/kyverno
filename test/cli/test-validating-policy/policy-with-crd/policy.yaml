@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-widget-label
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [example.com]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [widgets]
+  validations:
+    - expression: "has(object.metadata.labels) && has(object.metadata.labels.app)"
+      message: "Widget must have an 'app' label."

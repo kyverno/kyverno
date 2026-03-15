@@ -4,10 +4,15 @@ import (
 	"os"
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/restmapper"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -117,4 +122,122 @@ func Test_NamespaceSelector(t *testing.T) {
 		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
+}
+
+var validatingPolicyWithCRD = []byte(`
+{
+  "apiVersion": "policies.kyverno.io/v1",
+  "kind": "ValidatingPolicy",
+  "metadata": {
+    "name": "require-widget-label"
+  },
+  "spec": {
+    "validationActions": [
+      "Audit"
+    ],
+    "matchConstraints": {
+      "resourceRules": [
+        {
+          "apiGroups": [
+            "example.com"
+          ],
+          "apiVersions": [
+            "v1"
+          ],
+          "operations": [
+            "CREATE",
+            "UPDATE"
+          ],
+          "resources": [
+            "widgets"
+          ]
+        }
+      ]
+    },
+    "validations": [
+      {
+        "expression": "has(object.metadata.labels) && has(object.metadata.labels.app)",
+        "message": "Widget must have an app label."
+      }
+    ]
+  }
+}
+`)
+
+var widgetResourceJSON = []byte(`{
+    "apiVersion": "example.com/v1",
+    "kind": "Widget",
+    "metadata": {
+      "name": "good-widget",
+      "namespace": "default",
+      "labels": {
+        "app": "my-app"
+      }
+    }
+  }
+`)
+
+func Test_RESTMapper(t *testing.T) {
+	_, _, _, vpols, _, _, _, err := yamlutils.GetPolicy(validatingPolicyWithCRD)
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(vpols))
+	vpolsLike := make([]policiesv1beta1.ValidatingPolicyLike, len(vpols))
+	for i := range vpols {
+		vpolsLike[i] = &vpols[i]
+	}
+
+	widgets, err := resource.GetUnstructuredResources(widgetResourceJSON)
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(widgets))
+
+	defaultNS := &unstructured.Unstructured{}
+	defaultNS.SetName("default")
+	namespaceCache := map[string]*unstructured.Unstructured{"default": defaultNS}
+
+	t.Run("with_RESTMapper", func(t *testing.T) {
+		rc := &ResultCounts{}
+		rm := restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{
+			{
+				Group: metav1.APIGroup{
+					Name:     "example.com",
+					Versions: []metav1.GroupVersionForDiscovery{{GroupVersion: "example.com/v1", Version: "v1"}},
+				},
+				VersionedResources: map[string][]metav1.APIResource{
+					"v1": {{Name: "widgets", Namespaced: true, Kind: "Widget"}},
+				},
+			},
+		})
+
+		proc := PolicyProcessor{
+			Store:              &store.Store{},
+			ValidatingPolicies: vpolsLike,
+			Resource:           *widgets[0],
+			Rc:                 rc,
+			Out:                os.Stdout,
+			Cluster:            true,
+			NamespaceCache:     namespaceCache,
+			Variables:          &variables.Variables{},
+			RESTMapper:         rm,
+		}
+		_, err := proc.ApplyPoliciesOnResource()
+		assert.NilError(t, err)
+		assert.Equal(t, int64(1), int64(rc.Pass))
+	})
+
+	t.Run("nil_RESTMapper_cluster_mode", func(t *testing.T) {
+		rc := &ResultCounts{}
+		proc := PolicyProcessor{
+			Store:              &store.Store{},
+			ValidatingPolicies: vpolsLike,
+			Resource:           *widgets[0],
+			Rc:                 rc,
+			Out:                os.Stdout,
+			Cluster:            true,
+			NamespaceCache:     namespaceCache,
+			Variables:          &variables.Variables{},
+			RESTMapper:         nil, // Omit the RESTMapper so the built-in default is used
+		}
+		_, err := proc.ApplyPoliciesOnResource()
+		assert.Assert(t, err != nil)
+	})
 }
