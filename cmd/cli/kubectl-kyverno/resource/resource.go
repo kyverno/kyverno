@@ -18,14 +18,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
+func GetUnstructuredResources(resourceBytes []byte, fallbackNamespace string) ([]*unstructured.Unstructured, error) {
 	documents, err := yamlutils.SplitDocuments(resourceBytes)
 	if err != nil {
 		return nil, err
 	}
 	resources := make([]*unstructured.Unstructured, 0, len(documents))
 	for _, document := range documents {
-		resource, err := YamlToUnstructured(document)
+		resource, err := YamlToUnstructured(document, fallbackNamespace)
 		if err != nil {
 			return nil, err
 		}
@@ -34,7 +34,11 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 	return resources, nil
 }
 
-func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
+func YamlToUnstructured(resourceYaml []byte, fallbackNamespace string) (*unstructured.Unstructured, error) {
+	if fallbackNamespace == "" {
+		fallbackNamespace = "default"
+	}
+
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
 	if decodeErr != nil {
@@ -54,7 +58,7 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 		resource.SetGroupVersionKind(*metaData)
 	}
 	if resource.GetNamespace() == "" {
-		resource.SetNamespace("default")
+		resource.SetNamespace(fallbackNamespace)
 	}
 	// Normalize nil map fields to empty maps
 	// This handles cases where YAML has keys without values (e.g., "annotations:")
@@ -84,7 +88,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, apiVersion, kind, res
 		}
 		resourceBytes = data
 	}
-	resources, err := GetUnstructuredResources(resourceBytes)
+	resources, err := GetUnstructuredResources(resourceBytes, resourceNamespace)
 	if err != nil {
 		return nil, err
 	}

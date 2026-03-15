@@ -81,7 +81,7 @@ func (rf *ResourceFetcher) getFromLocalFiles() ([]*unstructured.Unstructured, er
 			continue
 		}
 
-		getResources, err := resource.GetUnstructuredResources(resourceBytes)
+		getResources, err := resource.GetUnstructuredResources(resourceBytes, rf.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +367,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, resourcePaths []st
 				continue
 			}
 
-			getResources, err := resource.GetUnstructuredResources(resourceBytes)
+			getResources, err := resource.GetUnstructuredResources(resourceBytes, "")
 			if err != nil {
 				return nil, err
 			}
