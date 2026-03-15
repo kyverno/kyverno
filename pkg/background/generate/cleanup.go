@@ -108,8 +108,18 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
 	selector[common.GenerateTriggerVersionLabel] = gv.Version
 
-	for _, g := range rule.Generation.ForEachGeneration {
-		return c.fetch(g.GeneratePattern, selector, ruleContext)
+	if len(rule.Generation.ForEachGeneration) > 0 {
+		var allDownstreams []unstructured.Unstructured
+		var errs []error
+		for _, g := range rule.Generation.ForEachGeneration {
+			downstreams, err := c.fetch(g.GeneratePattern, selector, ruleContext)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			allDownstreams = append(allDownstreams, downstreams...)
+		}
+		return allDownstreams, multierr.Combine(errs...)
 	}
 
 	return c.fetch(rule.Generation.GeneratePattern, selector, ruleContext)
@@ -126,11 +136,15 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 		}
 
 		if len(dsList.Items) == 0 {
-			// Fetch downstream resources using the trigger name label
-			delete(selector, common.GenerateTriggerUIDLabel)
-			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
-			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+			// Build a name-based selector for fallback without mutating the original
+			nameSelector := make(map[string]string, len(selector))
+			for k, v := range selector {
+				nameSelector[k] = v
+			}
+			delete(nameSelector, common.GenerateTriggerUIDLabel)
+			nameSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
+			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", nameSelector)
+			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), nameSelector)
 			if err != nil {
 				return nil, err
 			}
@@ -142,22 +156,21 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 
 	for _, kind := range generatePattern.CloneList.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		// Create a copy of selector for each iteration to prevent mutation from affecting subsequent iterations
-		kindSelector := make(map[string]string, len(selector))
-		for k, v := range selector {
-			kindSelector[k] = v
-		}
-		c.log.V(4).Info("fetching downstream cloneList resources by the UID", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-		dsList, err := common.FindDownstream(c.client, apiVersion, kind, kindSelector)
+		c.log.V(4).Info("fetching downstream cloneList resources by the UID", "APIVersion", apiVersion, "kind", kind, "selector", selector)
+		dsList, err := common.FindDownstream(c.client, apiVersion, kind, selector)
 		if err != nil {
 			return nil, err
 		}
 
 		if len(dsList.Items) == 0 {
-			delete(kindSelector, common.GenerateTriggerUIDLabel)
-			kindSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
-			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-			dsList, err = common.FindDownstream(c.client, apiVersion, kind, kindSelector)
+			nameSelector := make(map[string]string, len(selector))
+			for k, v := range selector {
+				nameSelector[k] = v
+			}
+			delete(nameSelector, common.GenerateTriggerUIDLabel)
+			nameSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
+			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", apiVersion, "kind", kind, "selector", nameSelector)
+			dsList, err = common.FindDownstream(c.client, apiVersion, kind, nameSelector)
 			if err != nil {
 				return nil, err
 			}
