@@ -1,6 +1,8 @@
 package imageverify
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -15,6 +17,7 @@ import (
 const libraryName = "kyverno.imageverify"
 
 type lib struct {
+	ctx     context.Context
 	logger  logr.Logger
 	version *version.Version
 	imgCtx  imagedataloader.ImageContext
@@ -26,9 +29,10 @@ func Latest() *version.Version {
 	return versions.ImageVerifyVersion
 }
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
+func Lib(ctx context.Context, v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
+		ctx:     ctx,
 		version: v,
 		imgCtx:  imgCtx,
 		ivpol:   ivpol,
@@ -55,7 +59,7 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
+	impl, err := ImageVerifyCELFuncs(c.ctx, c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
 	}
