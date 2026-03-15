@@ -76,7 +76,7 @@ func New(
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout)
-		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
+		caller := apicall.NewExecutor(logger, "globalcontext", client, config, "")
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
