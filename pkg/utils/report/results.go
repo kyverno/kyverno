@@ -215,6 +215,11 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Subjects = []corev1.ObjectReference{*resource}
 	}
 
+	// If the rule result is due to a PolicyException, keep reporting it as skip for now.
+	if ruleResult.IsException() {
+		result.Result = openreports.StatusSkip
+	}
+
 	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
 		var names []string
 		for _, e := range exceptions {
