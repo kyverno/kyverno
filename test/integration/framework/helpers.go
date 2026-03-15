@@ -1,7 +1,11 @@
 package framework
 
 import (
+	"context"
+	"strings"
+
 	"github.com/google/uuid"
+	"github.com/julienschmidt/httprouter"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -35,6 +39,14 @@ func PodAdmissionRequest(name, namespace string, raw []byte) handlers.AdmissionR
 			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
 		},
 	}
+}
+
+// ContextWithPolicies injects policy names into the context using httprouter params,
+// matching how the real webhook server passes policy names to handlers.
+func ContextWithPolicies(ctx context.Context, policyNames ...string) context.Context {
+	return context.WithValue(ctx, httprouter.ParamsKey, httprouter.Params{
+		{Key: "policies", Value: "/" + strings.Join(policyNames, "/")},
+	})
 }
 
 // PodMatchRules returns MatchResources that match pods on CREATE operations.
