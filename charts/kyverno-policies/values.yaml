@@ -33,6 +33,16 @@ customPolicies: []
 #   metadata: # metadata
 #   spec: # spec
 
+# -- Additional PolicyExceptions to include. See https://kyverno.io/docs/guides/exceptions/
+additionalPolicyExceptions: []
+# samplePolicyException: 
+#    metadata: # metadata
+#     namespace: ""
+#     labels:
+#       app: appname 
+#    spec: # spec
+#      exceptions:
+
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/
 failurePolicy: Fail
