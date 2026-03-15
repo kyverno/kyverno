@@ -26,7 +26,7 @@ import (
 
 var targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
 
-func buildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, error) {
+func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.ObjectKey, cel.DynType),

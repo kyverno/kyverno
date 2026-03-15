@@ -15,8 +15,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"golang.org/x/exp/maps"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -231,6 +231,10 @@ func (e *engineImpl) handleMutation(
 				results[pol.Policy.GetName()] = response
 			} else if matches {
 				filteredPolicies = append(filteredPolicies, pol)
+			} else {
+				if !matches {
+					results[pol.Policy.GetName()] = response
+				}
 			}
 		}
 	}
@@ -269,7 +273,7 @@ func (e *engineImpl) handleMutation(
 				} else {
 					ruleName := ivpol.Policy.GetName()
 					if result.Error != nil {
-						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", err, nil)
+						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
 					} else if result.Result {
 						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
 					} else {

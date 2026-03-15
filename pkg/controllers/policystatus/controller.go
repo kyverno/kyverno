@@ -165,7 +165,7 @@ func NewController(
 			if !ok {
 				return ""
 			}
-			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.MutatingPolicyType, nmpol.Name, nmpol.Namespace))
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, nmpol.Name, nmpol.Namespace))
 		},
 	)
 	if err != nil {

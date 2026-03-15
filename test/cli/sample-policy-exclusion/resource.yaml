@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-excluded
+  namespace: default
+  labels:
+    prod: "true"
+spec:
+  containers:
+    - name: nginx
+      image: 'ghcr.io/kyverno/test-verify-image:signed'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-excluded
+  namespace: default
+  labels: 
+    app: busybox
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+      - name: busybox
+        image: busybox:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-deploy-2
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
