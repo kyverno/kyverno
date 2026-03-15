@@ -12,8 +12,10 @@ import (
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/event"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
@@ -22,13 +24,15 @@ type policyHandlers struct {
 	client                       dclient.Interface
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
+	eventGen                     event.Interface
 }
 
-func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string) *policyHandlers {
+func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string, eventGen event.Interface) *policyHandlers {
 	return &policyHandlers{
 		client:                       client,
 		backgroundServiceAccountName: backgroundSA,
 		reportsServiceAccountName:    reportsSA,
+		eventGen:                     eventGen,
 	}
 }
 
@@ -37,6 +41,15 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
+	}
+
+	if policyutils.HasWildcard(policy) {
+		h.eventGen.Add(event.NewPolicyWarningEvent(
+			event.AdmissionController,
+			event.PolicyWarning,
+			policyutils.WildcardWarning,
+			policy,
+		))
 	}
 
 	if vpol := policy.AsValidatingPolicyLike(); vpol != nil {

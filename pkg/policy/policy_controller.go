@@ -31,6 +31,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -417,6 +418,10 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
+			genericPolicy := engineapi.NewKyvernoPolicy(policy)
+			if policyutils.HasWildcard(genericPolicy) {
+				pc.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+			}
 			if err := pc.handleMutate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
 				errs = append(errs, err)

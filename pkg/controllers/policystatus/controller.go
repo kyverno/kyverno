@@ -15,7 +15,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	event "github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +42,7 @@ type controller struct {
 	queue            workqueue.TypedRateLimitingInterface[any]
 	authChecker      auth.AuthChecker
 	polStateRecorder webhook.StateRecorder
+	eventGen         event.Interface
 }
 
 func NewController(
@@ -54,6 +57,7 @@ func NewController(
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
+	eventGen event.Interface,
 ) Controller {
 	c := &controller{
 		dclient: dclient,
@@ -63,6 +67,7 @@ func NewController(
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName}),
 		authChecker:      auth.NewSubjectChecker(dclient.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), reportsSA, nil),
 		polStateRecorder: polStateRecorder,
+		eventGen:         eventGen,
 	}
 
 	enqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(c.queue)))
@@ -212,7 +217,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return err
 		}
 
-		return c.updateVpolStatus(ctx, vpol)
+		if err := c.updateVpolStatus(ctx, vpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewValidatingPolicy(vpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 	if polType == webhook.NamespacedValidatingPolicyType {
 		nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -223,7 +235,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateNVpolStatus(ctx, nvpol)
+		if err := c.updateNVpolStatus(ctx, nvpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewNamespacedValidatingPolicy(nvpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 	if polType == webhook.ImageValidatingPolicyType {
 		ivpol, err := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
@@ -234,7 +253,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateIvpolStatus(ctx, ivpol)
+		if err := c.updateIvpolStatus(ctx, ivpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewImageValidatingPolicy(ivpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 
 	if polType == webhook.NamespacedImageValidatingPolicyType {
@@ -246,7 +272,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateNivpolStatus(ctx, nivpol)
+		if err := c.updateNivpolStatus(ctx, nivpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewNamespacedImageValidatingPolicy(nivpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 
 	if polType == webhook.MutatingPolicyType {
@@ -258,7 +291,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateMpolStatus(ctx, mpol)
+		if err := c.updateMpolStatus(ctx, mpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewMutatingPolicy(mpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 
 	if polType == webhook.NamespacedMutatingPolicyType {
@@ -270,7 +310,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateNMpolStatus(ctx, nmpol)
+		if err := c.updateNMpolStatus(ctx, nmpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewNamespacedMutatingPolicy(nmpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 
 	if polType == webhook.GeneratingPolicyType {
@@ -282,7 +329,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return err
 		}
-		return c.updateGpolStatus(ctx, gpol)
+		if err := c.updateGpolStatus(ctx, gpol); err != nil {
+			return err
+		}
+		genericPolicy := engineapi.NewGeneratingPolicy(gpol)
+		if policyutils.HasWildcard(genericPolicy) {
+			c.eventGen.Add(event.NewPolicyWarningEvent(event.PolicyController, event.PolicyWarning, policyutils.WildcardWarning, genericPolicy))
+		}
+		return nil
 	}
 	return nil
 }

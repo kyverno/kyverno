@@ -43,6 +43,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -444,7 +445,10 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		for _, w := range warnings {
+			fmt.Fprintf(out, "Policy Warning: %s\n", w)
+		}
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
@@ -456,6 +460,32 @@ func (c *ApplyCommandConfig) applyPolicies(
 			continue
 		}
 		validPolicies = append(validPolicies, pol)
+	}
+
+	for _, pol := range vaps {
+		if policyutils.HasWildcard(engineapi.NewValidatingAdmissionPolicy(&pol)) {
+			fmt.Fprintf(out, "Policy Warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range vpols {
+		if policyutils.HasWildcard(engineapi.NewValidatingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "Policy Warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range gpols {
+		if policyutils.HasWildcard(engineapi.NewGeneratingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "Policy Warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range mpols {
+		if policyutils.HasWildcard(engineapi.NewMutatingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "Policy Warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range maps {
+		if policyutils.HasWildcard(engineapi.NewMutatingAdmissionPolicy(&pol)) {
+			fmt.Fprintf(out, "Policy Warning: %s\n", policyutils.WildcardWarning)
+		}
 	}
 	var responses []engineapi.EngineResponse
 	namespaceCache := make(map[string]*unstructured.Unstructured)

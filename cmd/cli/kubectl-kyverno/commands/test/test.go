@@ -39,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -296,13 +297,51 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		for _, w := range warnings {
+			fmt.Fprintf(out, "  warning: %s\n", w)
+		}
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			skippedPolicyNames[pol.GetName()] = err.Error()
 			continue
 		}
 		validPolicies = append(validPolicies, pol)
+	}
+	for _, pol := range results.VAPs {
+		if policyutils.HasWildcard(engineapi.NewValidatingAdmissionPolicy(&pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.ValidatingPolicies {
+		if policyutils.HasWildcard(engineapi.NewValidatingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.GeneratingPolicies {
+		if policyutils.HasWildcard(engineapi.NewGeneratingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.MutatingPolicies {
+		if policyutils.HasWildcard(engineapi.NewMutatingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.MAPs {
+		if policyutils.HasWildcard(engineapi.NewMutatingAdmissionPolicy(&pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.DeletingPolicies {
+		if policyutils.HasWildcard(engineapi.NewDeletingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
+	}
+	for _, pol := range results.ImageValidatingPolicies {
+		if policyutils.HasWildcard(engineapi.NewImageValidatingPolicyFromLike(pol)) {
+			fmt.Fprintf(out, "  warning: %s\n", policyutils.WildcardWarning)
+		}
 	}
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
