@@ -109,12 +109,17 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 
 {{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
-{{/* Maps: Audit -> Audit, Enforce -> Deny */}}
+{{/* Maps: Audit -> Audit, Enforce -> Deny, Warn -> Warn */}}
 {{- define "kyverno-policies.validationActions" -}}
-{{- if eq . "Enforce" -}}
-{{- list "Deny" | toYaml -}}
+{{- $action := index . "action" -}}
+{{- $emitWarn := index . "emitWarn" -}}
+{{- if eq $action "Enforce" -}}
+{{- $action = "Deny" -}}
+{{- end -}}
+{{- if eq $emitWarn "true" -}}
+{{- list $action "Warn" | toYaml -}}
 {{- else -}}
-{{- list "Audit" | toYaml -}}
+{{- list $action | toYaml -}}
 {{- end -}}
 {{- end -}}
 
@@ -125,5 +130,15 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $defaultAction := $values.validationFailureAction -}}
 {{- $policyAction := index $values.validationFailureActionByPolicy $policyName -}}
 {{- $action := default $defaultAction $policyAction -}}
-{{- include "kyverno-policies.validationActions" $action -}}
+{{- $emitWarn := include "kyverno-policies.policyEmitWarning" (dict "name" $policyName "values" $values) -}}
+{{- include "kyverno-policies.validationActions" (dict "action" $action "emitWarn" $emitWarn) -}}
+{{- end -}}
+
+{{/* Get emitWarning for a specific policy */}}
+{{- define "kyverno-policies.policyEmitWarning" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaultEmitWarning := $values.emitWarnings -}}
+{{- $policyEmitWarning := index $values.emitWarningByPolicy $policyName -}}
+{{- default $defaultEmitWarning $policyEmitWarning -}}
 {{- end -}}
