@@ -94,6 +94,9 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 			fmt.Fprintf(&bldr, "%s is successfully mutated", res)
 			action = ResourceMutated
 		}
+	} else if policy.AsMutatingPolicyLike() != nil {
+		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
+		action = ResourceMutated
 	} else {
 		fmt.Fprintf(&bldr, "%s: pass", res)
 		action = ResourcePassed
