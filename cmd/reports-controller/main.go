@@ -80,6 +80,7 @@ func createReportControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
+	backgroundScanRespectsWebhookSelector bool,
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
@@ -193,6 +194,7 @@ func createReportControllers(
 				gcstore,
 				restMapper,
 				typeConverter,
+				backgroundScanRespectsWebhookSelector,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -233,6 +235,7 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
+	backgroundScanRespectsWebhookSelector bool,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
 ) ([]internal.Controller, func(context.Context) error, error) {
@@ -254,6 +257,7 @@ func createrLeaderControllers(
 		kubeInformer,
 		kyvernoInformer,
 		backgroundScanInterval,
+		backgroundScanRespectsWebhookSelector,
 		configuration,
 		jp,
 		eventGenerator,
@@ -265,22 +269,23 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		backgroundScan                   bool
-		admissionReports                 bool
-		aggregateReports                 bool
-		policyReports                    bool
-		validatingAdmissionPolicyReports bool
-		mutatingAdmissionPolicyReports   bool
-		reportsCRDsSanityChecks          bool
-		backgroundScanWorkers            int
-		backgroundScanInterval           time.Duration
-		aggregationWorkers               int
-		maxQueuedEvents                  int
-		omitEvents                       string
-		skipResourceFilters              bool
-		maxAPICallResponseLength         int64
-		apiCallTimeout                   time.Duration
-		maxBackgroundReports             int
+		backgroundScan                        bool
+		admissionReports                      bool
+		aggregateReports                      bool
+		policyReports                         bool
+		validatingAdmissionPolicyReports      bool
+		mutatingAdmissionPolicyReports        bool
+		reportsCRDsSanityChecks               bool
+		backgroundScanWorkers                 int
+		backgroundScanInterval                time.Duration
+		backgroundScanRespectsWebhookSelector bool
+		aggregationWorkers                    int
+		maxQueuedEvents                       int
+		omitEvents                            string
+		skipResourceFilters                   bool
+		maxAPICallResponseLength              int64
+		apiCallTimeout                        time.Duration
+		maxBackgroundReports                  int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -292,6 +297,7 @@ func main() {
 	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
+	flagset.BoolVar(&backgroundScanRespectsWebhookSelector, "backgroundScanRespectsWebhookSelector", false, "When true, background scan skips namespaces and objects excluded by the webhook namespaceSelector/objectSelector in the Kyverno ConfigMap.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
@@ -491,6 +497,7 @@ func main() {
 					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
+					backgroundScanRespectsWebhookSelector,
 					gcstore,
 					typeConverter,
 				)
