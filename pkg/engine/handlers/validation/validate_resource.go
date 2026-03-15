@@ -201,12 +201,12 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	}
 
 	defer func() {
-		if err = v.policyContext.SetResources(oldResource, newResource); err != nil {
-			v.log.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		if resetErr := v.policyContext.SetResources(oldResource, newResource); resetErr != nil {
+			v.log.Error(errors.Wrapf(resetErr, "failed to reset resources"), "")
 		}
 
-		if err = v.policyContext.SetOperation(kyvernov1.Update); err != nil {
-			v.log.Error(errors.Wrapf(err, "failed to reset operation"), "")
+		if resetErr := v.policyContext.SetOperation(kyvernov1.Update); resetErr != nil {
+			v.log.Error(errors.Wrapf(resetErr, "failed to reset operation"), "")
 		}
 	}()
 
@@ -283,12 +283,9 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 			v.log.V(2).Info("skip rule", "reason", r.Message())
 			continue
 		} else if status != engineapi.RuleStatusPass {
-			if status == engineapi.RuleStatusError {
-				if index < len(elements)-1 {
-					continue
-				}
-				msg := fmt.Sprintf("validation failure: %v", r.Message())
-				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status, v.rule.ReportProperties), applyCount
+			if status == engineapi.RuleStatusError && strings.Contains(r.Message(), "failed to evaluate preconditions") {
+				v.log.V(2).Info("skip element due to precondition evaluation error", "message", r.Message())
+				continue
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message())
 			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status, v.rule.ReportProperties), applyCount
