@@ -32,12 +32,12 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+        uses: ./.github/actions/tools/ko
       - name: Ko build
         shell: bash
         run: |
           set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+          VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: Upload images archive
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -75,17 +75,14 @@ jobs:
           repository: kyverno/policies
           path: policies
       # install tools
-      - name: Install helm
+      - name: Install tools
         id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
-      - name: Install ORAS
-        uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+        uses: ./.github/actions/tools/install
         with:
-          verify: true
+          helm: true
+          cosign: true
+          oras: true
+          chainsaw: true
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

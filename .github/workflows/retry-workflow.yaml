@@ -7,7 +7,6 @@ permissions: {}
 on:
   workflow_run:
     workflows:
-      - Build devcontainer
       - Conformance tests
     types: 
       - completed

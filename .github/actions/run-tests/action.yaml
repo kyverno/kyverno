@@ -44,18 +44,15 @@ runs:
   using: composite
   steps:
     # install tools
-    - name: Install helm
+    - name: Install tools
       id: helm
-      uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-    - name: Install Cosign
-      uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
-    - name: Setup yq
-      uses: mikefarah/yq@5a7e72a743649b1b3a47d1a1d8214f3453173c51 # v4.52.4
-    - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      uses: ./.github/actions/tools/install
       with:
-        verify: true
-        release: v0.2.15-beta.3
+        helm: true
+        cosign: true
+        yq: true
+    - name: Install chainsaw
+      uses: ./.github/actions/tools/chainsaw
     # create cluster
     - name: Create kind cluster
       uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0

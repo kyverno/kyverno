@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Check milestone
+name: Pull request checks
 
 permissions: {}
 
@@ -17,12 +17,13 @@ on:
       - synchronize
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
-  check-milestone:
-    runs-on: ubuntu-latest
+  check:
+    name: Check milestone
+    runs-on: ubuntu-slim
     steps:
       - name: Check milestone
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
