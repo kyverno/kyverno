@@ -1,17 +1,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Trivy scan
+name: Trivy
 
 permissions: {}
 
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Git ref
-        required: true
-        default: main
-        type: string
+  workflow_dispatch: {}
+  push:
+    branches:
+    - main
+    - release-*
 
 jobs:
   scan:
@@ -23,13 +21,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
-        ref: ${{ inputs.ref }}
         persist-credentials: false
     - name: Setup Go
-      uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
-      with:
-        go-version-file: go.mod
-        cache: false
+      uses: ./.github/actions/go/setup
     - name: Build all
       shell: bash
       run: |
@@ -39,7 +33,7 @@ jobs:
       uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
       with:
         scan-type: rootfs
-        image-ref: ./cmd/kyverno/kyverno
+        scan-ref: ./cmd/kyverno/kyverno
         format: sarif
         output: kyverno.sarif
         severity: CRITICAL,HIGH
