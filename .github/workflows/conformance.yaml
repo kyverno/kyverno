@@ -979,7 +979,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -1000,7 +999,6 @@ jobs:
         shell: bash
         run: |
           set -ex
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -1074,7 +1072,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -1095,14 +1092,12 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Helm test
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make helm-test
       - name: Debug failure
         if: failure()
@@ -1127,7 +1122,6 @@ jobs:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -1148,7 +1142,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=kyverno-cleanup
           make kind-install-kyverno
       - name: Wait for kyverno ready
@@ -1176,7 +1169,6 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       # create cluster
       - name: Create kind cluster
@@ -1199,7 +1191,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          ${{ steps.helm.outputs.helm-path }} install kyverno --namespace kyverno --create-namespace --wait \
+          helm install kyverno --namespace kyverno --create-namespace --wait \
             --repo https://kyverno.github.io/kyverno kyverno \
             --version ${{ matrix.kyverno-version }}
       - name: Wait for kyverno ready
@@ -1208,7 +1200,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready

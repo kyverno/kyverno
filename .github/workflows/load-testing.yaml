@@ -53,7 +53,6 @@ jobs:
   #         repository: kyverno/load-testing
   #         path: load-testing
   #     - name: Install Helm
-  #       id: helm
   #       uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
   #     - name: Create Kind cluster
   #       uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -74,7 +73,6 @@ jobs:
   #       shell: bash
   #       run: |
   #         set -e
-  #         export HELM=${{ steps.helm.outputs.helm-path }}
   #         export USE_CONFIG=default-with-profiling
   #         $HELM repo add kyverno https://kyverno.github.io/kyverno/
   #         $HELM repo update
@@ -156,7 +154,6 @@ jobs:
           repository: kyverno/load-testing
           path: load-testing
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       - name: Create Kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -179,7 +176,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=default-with-profiling
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
           make kind-install-kyverno
@@ -278,7 +274,6 @@ jobs:
           repository: kyverno/load-testing
           path: load-testing
       - name: Install helm
-        id: helm
         uses: ./.github/actions/tools/helm
       - name: Create Kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -301,13 +296,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make dev-lab-metrics-server dev-lab-prometheus
       - name: Install Kyverno
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=default-with-profiling
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=${{ matrix.test.replicas }} --set admissionController.serviceMonitor.enabled=true --set reportsController.serviceMonitor.enabled=true --set admissionController.container.resources.requests.cpu=${{ matrix.test.cpu_request }} --set admissionController.container.resources.requests.memory=${{ matrix.test.memory_request }} --set admissionController.container.resources.limits.memory=${{ matrix.test.memory_limit }} --set reportsController.resources.limits.memory=10Gi'
           make kind-install-kyverno
