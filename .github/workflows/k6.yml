@@ -6,8 +6,12 @@ on:
   push: {}
 
 jobs:
-  simple:
+  k6:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [simple, kyverno, kyverno-pss]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -17,13 +21,28 @@ jobs:
         uses: ./.github/actions/tools/helm
       - name: Install kind
         uses: ./.github/actions/tools/kind
+      - name: Install ko
+        if: matrix.scenario != 'simple'
+        uses: ./.github/actions/tools/ko
       - name: Install k6
         uses: ./.github/actions/tools/k6
       - name: Create cluster
         uses: ./.github/actions/perf-test/cluster
+      - name: Deploy kyverno
+        if: matrix.scenario != 'simple'
+        shell: bash
+        run: make kind-deploy-kyverno
       - name: Create test namespace
         shell: bash
         run: kubectl create ns testns
+      - name: Deploy policies
+        if: matrix.scenario == 'kyverno-pss'
+        shell: bash
+        run: |
+          helm upgrade --install --wait --timeout 15m \
+            --namespace kyverno --create-namespace \
+            --repo https://kyverno.github.io/kyverno/ \
+            kyverno-policies kyverno-policies
       - name: Expose prometheus
         shell: bash
         run: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
@@ -45,240 +64,55 @@ jobs:
             --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
             --out json=k6.json \
             ./scratch/k6/script.js
-      - name: Collect summary
+      - name: etcd storage report
         shell: bash
-        run: ./scripts/k6-summary-to-markdown.sh >> $GITHUB_STEP_SUMMARY
+        run: |
+          sleep 1m
+          ./scripts/etcd-storage-report.sh http://localhost:9090
+      - name: Kyverno pods CPU/memory report
+        shell: bash
+        run: |
+          ./scripts/kyverno-pods-resources-report.sh http://localhost:9090
+      - name: Upload k6 reports
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: k6-reports-${{ matrix.scenario }}
+          path: |
+            k6-summary.json
+            k6.html
+            k6.json
+            etcd-storage-report.json
+            kyverno-pods-resources-report.json
 
-  kyverno:
+  summary:
     runs-on: ubuntu-latest
+    needs:
+      - k6
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Install tools
-        uses: ./.github/actions/tools/install
+      - name: Download k6 reports (simple)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          k6: true
-          helm: true
-          kind: true
-          ko: true
-      - name: K6
-        shell: bash
-        run: |
-          set -e
-
-          # create cluster
-          make kind-create-cluster
-
-          # install prometheus
-          helm upgrade --install --wait --timeout 15m \
-            --namespace monitoring --create-namespace \
-            --repo https://prometheus-community.github.io/helm-charts \
-            kube-prometheus-stack kube-prometheus-stack --values - <<EOF
-          prometheus:
-            prometheusSpec:
-              enableRemoteWriteReceiver: true
-              serviceMonitorSelectorNilUsesHelmValues: false
-          kubeEtcd:
-            service:
-              targetPort: 2382
-          EOF
-
-          # install kwok
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/kwok.yaml"
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/stage-fast.yaml"
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/metrics-usage.yaml"
-
-          # create kwok node
-          kubectl create -f - <<EOF
-          apiVersion: v1
-          kind: Node
-          metadata:
-            annotations:
-              node.alpha.kubernetes.io/ttl: "0"
-              kwok.x-k8s.io/node: fake
-            labels:
-              beta.kubernetes.io/arch: amd64
-              beta.kubernetes.io/os: linux
-              kubernetes.io/arch: amd64
-              kubernetes.io/os: linux
-              kubernetes.io/role: agent
-              node-role.kubernetes.io/agent: ""
-              type: kwok
-            generateName: kwok-node-
-          spec:
-            taints: # Avoid scheduling actual running pods to fake Node
-            - effect: NoSchedule
-              key: kwok.x-k8s.io/node
-              value: fake
-          status:
-            allocatable:
-              cpu: 32
-              memory: 256Gi
-              pods: 110
-            capacity:
-              cpu: 32
-              memory: 256Gi
-              pods: 110
-            nodeInfo:
-              architecture: amd64
-              bootID: ""
-              containerRuntimeVersion: ""
-              kernelVersion: ""
-              kubeProxyVersion: fake
-              kubeletVersion: fake
-              machineID: ""
-              operatingSystem: linux
-              osImage: ""
-              systemUUID: ""
-            phase: Running
-          EOF
-
-          # install kyverno
-          make kind-deploy-kyverno
-
-          # create test namespace
-          kubectl create ns testns
-
-          # expose prometheus
-          kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-
-          # run test
-          K6_WEB_DASHBOARD_PERIOD=5s \
-          K6_WEB_DASHBOARD_EXPORT=k6.html \
-          K6_PROMETHEUS_RW_TREND_STATS="avg,min,med,max,p(90),p(95),p(99)" \
-          k6 run \
-            --vus 100 --iterations 1000 \
-            --no-connection-reuse \
-            --no-vu-connection-reuse \
-            --no-usage-report \
-            --quiet \
-            --summary-mode full --summary-export k6-summary.json --summary-trend-stats "avg,min,med,max,p(90),p(95),p(99)" \
-            --new-machine-readable-summary \
-            --out web-dashboard \
-            --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
-            --out json=k6.json \
-            ./scratch/k6/script.js
-
-          ./scripts/k6-summary-to-markdown.sh >> $GITHUB_STEP_SUMMARY
-
-  kyverno-pss:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Install tools
-        uses: ./.github/actions/tools/install
+          name: k6-reports-simple
+          path: summaries/simple
+        continue-on-error: true
+      - name: Download k6 reports (kyverno)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          k6: true
-          helm: true
-          kind: true
-          ko: true
-      - name: K6
-        shell: bash
+          name: k6-reports-kyverno
+          path: summaries/kyverno
+        continue-on-error: true
+      - name: Download k6 reports (kyverno-pss)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: k6-reports-kyverno-pss
+          path: summaries/kyverno-pss
+        continue-on-error: true
+      - name: Aggregate and compare results
         run: |
-          set -e
-
-          # create cluster
-          make kind-create-cluster
-
-          # install prometheus
-          helm upgrade --install --wait --timeout 15m \
-            --namespace monitoring --create-namespace \
-            --repo https://prometheus-community.github.io/helm-charts \
-            kube-prometheus-stack kube-prometheus-stack --values - <<EOF
-          prometheus:
-            prometheusSpec:
-              enableRemoteWriteReceiver: true
-              serviceMonitorSelectorNilUsesHelmValues: false
-          kubeEtcd:
-            service:
-              targetPort: 2382
-          EOF
-
-          # install kwok
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/kwok.yaml"
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/stage-fast.yaml"
-          kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/metrics-usage.yaml"
-
-          # create kwok node
-          kubectl create -f - <<EOF
-          apiVersion: v1
-          kind: Node
-          metadata:
-            annotations:
-              node.alpha.kubernetes.io/ttl: "0"
-              kwok.x-k8s.io/node: fake
-            labels:
-              beta.kubernetes.io/arch: amd64
-              beta.kubernetes.io/os: linux
-              kubernetes.io/arch: amd64
-              kubernetes.io/os: linux
-              kubernetes.io/role: agent
-              node-role.kubernetes.io/agent: ""
-              type: kwok
-            generateName: kwok-node-
-          spec:
-            taints: # Avoid scheduling actual running pods to fake Node
-            - effect: NoSchedule
-              key: kwok.x-k8s.io/node
-              value: fake
-          status:
-            allocatable:
-              cpu: 32
-              memory: 256Gi
-              pods: 110
-            capacity:
-              cpu: 32
-              memory: 256Gi
-              pods: 110
-            nodeInfo:
-              architecture: amd64
-              bootID: ""
-              containerRuntimeVersion: ""
-              kernelVersion: ""
-              kubeProxyVersion: fake
-              kubeletVersion: fake
-              machineID: ""
-              operatingSystem: linux
-              osImage: ""
-              systemUUID: ""
-            phase: Running
-          EOF
-
-          # install kyverno
-          make kind-deploy-kyverno
-
-          # install policies
-          helm upgrade --install --wait --timeout 15m \
-            --namespace kyverno --create-namespace \
-            --repo https://kyverno.github.io/kyverno/ \
-            kyverno-policies kyverno-policies
-
-          # create test namespace
-          kubectl create ns testns
-
-          # expose prometheus
-          kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-
-          # run test
-          K6_WEB_DASHBOARD_PERIOD=5s \
-          K6_WEB_DASHBOARD_EXPORT=k6.html \
-          K6_PROMETHEUS_RW_TREND_STATS="avg,min,med,max,p(90),p(95),p(99)" \
-          k6 run \
-            --vus 100 --iterations 1000 \
-            --no-connection-reuse \
-            --no-vu-connection-reuse \
-            --no-usage-report \
-            --quiet \
-            --summary-mode full --summary-export k6-summary.json --summary-trend-stats "avg,min,med,max,p(90),p(95),p(99)" \
-            --new-machine-readable-summary \
-            --out web-dashboard \
-            --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
-            --out json=k6.json \
-            ./scratch/k6/script.js
-
-          ./scripts/k6-summary-to-markdown.sh >> $GITHUB_STEP_SUMMARY
+          ./scripts/k6-aggregate-summary.sh summaries simple kyverno kyverno-pss >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ./scripts/etcd-aggregate-summary.sh summaries simple kyverno kyverno-pss >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ./scripts/kyverno-pods-resources-aggregate-summary.sh summaries simple kyverno kyverno-pss >> $GITHUB_STEP_SUMMARY
