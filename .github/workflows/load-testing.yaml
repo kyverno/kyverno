@@ -3,44 +3,34 @@ name: Load Tests
 permissions: {}
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Build test artifacts
+    types:
+      - completed
     branches:
       - main
       - release-*
 
 jobs:
   define-matrix:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Set Tests
         id: set-tests
-        run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
-
-  prepare-images:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Install Ko
-        uses: ./.github/actions/tools/ko
-      - name: ko build
-        shell: bash
         run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
+          MATRIX_FILE="./test/load/k6/${{ github.event_name }}-matrix.json"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            MATRIX_FILE="./test/load/k6/release-matrix.json"
+          fi
+          echo "tests=$(jq -c . < $MATRIX_FILE)" >> $GITHUB_OUTPUT
 
   # old-load-test:
   #   needs:
@@ -146,10 +136,11 @@ jobs:
 
   load-test:
     needs:
-      - prepare-images
+      - define-matrix
     runs-on: ubuntu-latest
     permissions:
-      packages: read
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -157,6 +148,8 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Checkout kyverno/load-testing
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -171,11 +164,13 @@ jobs:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
-      - name: Download kyverno images archive
+      - name: Download kyverno images archive from build workflow
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kyverno.tar
-      - name: Load Kyverno images archive in Kind cluster
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
           set -e
@@ -254,10 +249,10 @@ jobs:
   scale-test:
     needs:
       - define-matrix
-      - prepare-images
     runs-on: ubuntu-latest
     permissions:
-      packages: read
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -266,6 +261,8 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           android: true
@@ -289,11 +286,13 @@ jobs:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
-      - name: Download kyverno images archive
+      - name: Download kyverno images archive from build workflow
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kyverno.tar
-      - name: Load Kyverno images archive in Kind cluster
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
           set -e
