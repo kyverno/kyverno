@@ -32,11 +32,6 @@ inputs:
     description: Install ORAS (OCI Registry As Storage)
     default: 'false'
 
-outputs:
-  helm-path:
-    description: Path to helm binary (when helm is installed)
-    value: ${{ steps.helm-path.outputs.helm-path }}
-
 runs:
   using: composite
   steps:
@@ -44,10 +39,6 @@ runs:
       uses: ./.github/actions/tools/k6
     - if: inputs.helm != 'false'
       uses: ./.github/actions/tools/helm
-    - if: inputs.helm != 'false'
-      id: helm-path
-      run: echo "helm-path=$(which helm)" >> $GITHUB_OUTPUT
-      shell: bash
     - if: inputs.cosign != 'false'
       uses: ./.github/actions/tools/cosign
     - if: inputs.yq != 'false'

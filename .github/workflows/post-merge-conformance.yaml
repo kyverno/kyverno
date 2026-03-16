@@ -38,7 +38,6 @@ jobs:
           path: policies
       # install tools
       - name: Install tools
-        id: helm
         uses: ./.github/actions/tools/install
         with:
           helm: true
@@ -80,7 +79,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
