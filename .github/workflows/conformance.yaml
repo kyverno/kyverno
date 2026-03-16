@@ -33,12 +33,12 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+        uses: ./.github/actions/tools/ko
       - name: Ko build
         shell: bash
         run: |
           set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make docker-save-image-all
+          VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: Upload images archive
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -151,18 +151,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      - name: Install tools
+        uses: ./.github/actions/tools/helm
       - name: Install crane
-        uses: imjasonh/setup-crane@6da1ae018866400525525ce74ff892880c099987 # v0.5
+        uses: ./.github/actions/tools/crane
       - name: Install Cosign
         uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
-        with:
-          verify: true
-          release: v0.2.15-beta.3
+        uses: ./.github/actions/tools/chainsaw
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
@@ -190,7 +186,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=standard,custom-sigstore
           make kind-install-kyverno
       - name: Wait for kyverno ready
@@ -984,8 +979,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -1005,7 +999,6 @@ jobs:
         shell: bash
         run: |
           set -ex
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -1039,12 +1032,9 @@ jobs:
         with:
           name: kubectl-kyverno
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
-        with:
-          verify: true
-          release: v0.2.15-beta.3
+        uses: ./.github/actions/tools/chainsaw
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -1082,8 +1072,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -1103,14 +1092,12 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Helm test
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make helm-test
       - name: Debug failure
         if: failure()
@@ -1135,8 +1122,7 @@ jobs:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -1156,7 +1142,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=kyverno-cleanup
           make kind-install-kyverno
       - name: Wait for kyverno ready
@@ -1184,8 +1169,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
-        id: helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        uses: ./.github/actions/tools/helm
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -1207,7 +1191,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          ${{ steps.helm.outputs.helm-path }} install kyverno --namespace kyverno --create-namespace --wait \
+          helm install kyverno --namespace kyverno --create-namespace --wait \
             --repo https://kyverno.github.io/kyverno kyverno \
             --version ${{ matrix.kyverno-version }}
       - name: Wait for kyverno ready
@@ -1216,7 +1200,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready

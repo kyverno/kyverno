@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  gomod:
+  cache:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,7 +21,14 @@ jobs:
         with:
           gomod-cache-prefix: '' # disable gomod cache
           gobuild-cache-prefix: '' # disable gobuild cache
+      - name: Check gomod cache exists
+        id: check-gomod
+        uses: ./.github/actions/go/lookup-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gomod-cache }}
+          cache-prefix: gomod
       - name: Download modules
+        if: steps.check-gomod.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -e
@@ -30,29 +37,28 @@ jobs:
           (cd hack/api-group-resources && go mod download && go mod tidy)
           make install-tools
       - name: Save gomod cache
+        if: steps.check-gomod.outputs.cache-hit != 'true'
         uses: ./.github/actions/go/save-cache
         with:
           path: ${{ steps.setup-go.outputs.gomod-cache }}
           cache-prefix: gomod
-
-  gobuild:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        id: setup-go
-        uses: ./.github/actions/go/setup
+      - name: Check gobuild cache exists
+        id: check-gobuild
+        uses: ./.github/actions/go/lookup-cache
         with:
-          gobuild-cache-prefix: '' # disable gobuild cache
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild
       - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        uses: ./.github/actions/tools/ko
       - name: Build all
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make image-build-all build-all
+          VERSION=${{ github.ref_name }} make image-build-all build-all
       - name: Save gobuild cache
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
         uses: ./.github/actions/go/save-cache
         with:
           path: ${{ steps.setup-go.outputs.gobuild-cache }}
