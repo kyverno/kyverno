@@ -25,7 +25,11 @@ type Test struct {
 	Resources []string `json:"resources,omitempty"`
 
 	// JSONPayload is the JSON payload to be used in the test
+	// Deprecated: Use JSONPayloads instead.
 	JSONPayload string `json:"jsonPayload,omitempty"`
+
+	// JSONPayloads are the JSON payloads to be used in the test
+	JSONPayloads []string `json:"jsonPayloads,omitempty"`
 
 	// Target Resources are for policies that have mutate existing
 	TargetResources []string `json:"targetResources,omitempty"`

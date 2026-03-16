@@ -273,7 +273,7 @@ func Test_JSONPayload(t *testing.T) {
 	t.Logf("Test output: %s", out.String())
 
 	t.Run("Check policy results match output table", func(t *testing.T) {
-		payloadKey := testCase.Test.JSONPayload
+		payloadKey := testCase.Test.JSONPayloads[0]
 		responses := testResponse.Trigger[payloadKey]
 		policyResults := make(map[string]struct {
 			Status string
