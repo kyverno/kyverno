@@ -309,3 +309,62 @@ func Test_JSONPayload(t *testing.T) {
 		}
 	})
 }
+
+func Test_JSONPayloads(t *testing.T) {
+    wd, err := os.Getwd()
+    require.NoError(t, err, "Failed to get working directory")
+    rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+    testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-multiple-payloads")
+
+    _, err = os.Stat(testDir)
+    if os.IsNotExist(err) {
+        t.Skip("Test directory not found, skipping test")
+        return
+    }
+
+    testFile := filepath.Join(testDir, "kyverno-test.yaml")
+    testCases := test.LoadTest(nil, testFile)
+    require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+    testCase := testCases[0]
+    require.Len(t, testCase.Test.JSONPayloads, 2, "Expected 2 JSON payloads after loading")
+
+    out := &bytes.Buffer{}
+    testResponse, err := runTest(out, testCase, false)
+    require.NoError(t, err, "Failed to run test")
+
+    t.Run("Both payloads produce trigger responses", func(t *testing.T) {
+        assert.Contains(t, testResponse.Trigger, "payload-pass.json", "pass payload should have trigger response")
+        assert.Contains(t, testResponse.Trigger, "payload-fail.json", "fail payload should have trigger response")
+    })
+
+    t.Run("Pass payload produces a passing result", func(t *testing.T) {
+        responses := testResponse.Trigger["payload-pass.json"]
+        require.NotEmpty(t, responses, "Expected responses for pass payload")
+        found := false
+        for _, response := range responses {
+            if response.Policy().GetName() == "deny-root-ca-enabled" {
+                found = true
+                for _, rule := range response.PolicyResponse.Rules {
+                    assert.Equal(t, "pass", string(rule.Status()), "expected pass for pass payload")
+                }
+            }
+        }
+        assert.True(t, found, "deny-root-ca-enabled policy result not found for pass payload")
+    })
+
+    t.Run("Fail payload produces a failing result", func(t *testing.T) {
+        responses := testResponse.Trigger["payload-fail.json"]
+        require.NotEmpty(t, responses, "Expected responses for fail payload")
+        found := false
+        for _, response := range responses {
+            if response.Policy().GetName() == "deny-root-ca-enabled" {
+                found = true
+                for _, rule := range response.PolicyResponse.Rules {
+                    assert.Equal(t, "fail", string(rule.Status()), "expected fail for fail payload")
+                }
+            }
+        }
+        assert.True(t, found, "deny-root-ca-enabled policy result not found for fail payload")
+    })
+}
