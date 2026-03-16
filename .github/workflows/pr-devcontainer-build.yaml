@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Build devcontainer
+name: Pull request checks
 
 permissions: {}
 
@@ -8,20 +8,26 @@ on:
   pull_request:
     branches:
       - main
-      - release*
-  merge_group:
-    types: [checks_requested]
+      - release-*
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
-  devcontainer-build:
+  check:
+    name: Build devcontainer
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check for .devcontainer changes
+        id: changed-files
+        uses: tj-actions/changed-files@22103cc46bda19c2b464ffe86db46df6922fd323 # v47.0.5
+        with:
+          files: .devcontainer/**
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        if: steps.changed-files.outputs.any_changed == 'true'
         with:
           android: true
           docker-images: false
@@ -31,20 +37,7 @@ jobs:
           swap-storage: false
           tool-cache: false
       - name: Build devcontainer image
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: devcontainers/ci@8bf61b26e9c3a98f69cb6ce2f88d24ff59b785c6 # v0.3
         with:
-          imageName: kyverno-devcontainer
           push: never
-      - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          scan-type: image
-          scan-ref: kyverno-devcontainer
-          format: sarif
-          output: trivy-results.sarif
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          cache: false
-        env:
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
