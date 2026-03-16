@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
@@ -205,7 +206,18 @@ func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func
 	}
 }
 
-func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
+func resolveExemplarFilter(value string) exemplar.Filter {
+	switch value {
+	case "off":
+		return exemplar.AlwaysOffFilter
+	case "always-on":
+		return exemplar.AlwaysOnFilter
+	default:
+		return exemplar.TraceBasedFilter
+	}
+}
+
+func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector(configuration))}
 	if certs != "" {
 		// here the certificates are stored as configmaps
@@ -244,11 +256,12 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(res),
 		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
+		sdkmetric.WithExemplarFilter(resolveExemplarFilter(exemplarFilterValue)),
 	)
 	return provider, nil
 }
 
-func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
+func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewSchemaless(
@@ -274,6 +287,7 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
 		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
+		sdkmetric.WithExemplarFilter(resolveExemplarFilter(exemplarFilterValue)),
 	)
 	return provider, nil
 }

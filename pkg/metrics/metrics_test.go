@@ -1,12 +1,17 @@
 package metrics
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
+	"github.com/stretchr/testify/assert"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
+	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -147,3 +152,123 @@ func (m *mockMetricsConfig) BuildMeterProviderViews() []sdkmetric.View {
 func (m *mockMetricsConfig) Load(*corev1.ConfigMap) {}
 
 func (m *mockMetricsConfig) OnChanged(func()) {}
+
+func sampledContext() context.Context {
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{0x01},
+		SpanID:     trace.SpanID{0x01},
+		TraceFlags: trace.FlagsSampled,
+	})
+	return trace.ContextWithSpanContext(context.Background(), sc)
+}
+
+func TestResolveExemplarFilter(t *testing.T) {
+	t.Parallel()
+
+	bgCtx := context.Background()
+	sampledCtx := sampledContext()
+
+	tests := []struct {
+		name            string
+		value           string
+		bgExpected      bool
+		sampledExpected bool
+	}{
+		{
+			name:            "off returns AlwaysOffFilter behaviour",
+			value:           "off",
+			bgExpected:      false,
+			sampledExpected: false,
+		},
+		{
+			name:            "empty string defaults to TraceBasedFilter behaviour",
+			value:           "",
+			bgExpected:      false,
+			sampledExpected: true,
+		},
+		{
+			name:            "unknown value defaults to TraceBasedFilter behaviour",
+			value:           "invalid",
+			bgExpected:      false,
+			sampledExpected: true,
+		},
+		{
+			name:            "trace-based returns TraceBasedFilter behaviour",
+			value:           "trace-based",
+			bgExpected:      false,
+			sampledExpected: true,
+		},
+		{
+			name:            "always-on returns AlwaysOnFilter behaviour",
+			value:           "always-on",
+			bgExpected:      true,
+			sampledExpected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			filter := resolveExemplarFilter(tt.value)
+			assert.Equal(t, tt.bgExpected, filter(bgCtx), "background context")
+			assert.Equal(t, tt.sampledExpected, filter(sampledCtx), "sampled context")
+		})
+	}
+}
+
+func TestResolveExemplarFilterBehaviourConsistency(t *testing.T) {
+	t.Parallel()
+
+	bgCtx := context.Background()
+	sampledCtx := sampledContext()
+
+	offFilter := resolveExemplarFilter("off")
+	assert.Equal(t, exemplar.AlwaysOffFilter(bgCtx), offFilter(bgCtx))
+	assert.Equal(t, exemplar.AlwaysOffFilter(sampledCtx), offFilter(sampledCtx))
+
+	traceFilter := resolveExemplarFilter("trace-based")
+	assert.Equal(t, exemplar.TraceBasedFilter(bgCtx), traceFilter(bgCtx))
+	assert.Equal(t, exemplar.TraceBasedFilter(sampledCtx), traceFilter(sampledCtx))
+
+	onFilter := resolveExemplarFilter("always-on")
+	assert.Equal(t, exemplar.AlwaysOnFilter(bgCtx), onFilter(bgCtx))
+	assert.Equal(t, exemplar.AlwaysOnFilter(sampledCtx), onFilter(sampledCtx))
+}
+
+func TestResolveExemplarFilterWithMetricsConfiguration(t *testing.T) {
+	t.Parallel()
+
+	defaultConfig := config.NewDefaultMetricsConfiguration()
+
+	tests := []struct {
+		name            string
+		exemplarFilter  string
+		expectExemplars bool
+	}{
+		{
+			name:            "off filter with default config produces no exemplars",
+			exemplarFilter:  "off",
+			expectExemplars: false,
+		},
+		{
+			name:            "trace-based filter with default config allows sampled exemplars",
+			exemplarFilter:  "trace-based",
+			expectExemplars: true,
+		},
+		{
+			name:            "always-on filter with default config allows all exemplars",
+			exemplarFilter:  "always-on",
+			expectExemplars: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_ = defaultConfig
+			filter := resolveExemplarFilter(tt.exemplarFilter)
+			sampledCtx := sampledContext()
+			assert.Equal(t, tt.expectExemplars, filter(sampledCtx))
+		})
+	}
+}

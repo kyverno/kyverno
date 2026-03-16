@@ -37,6 +37,7 @@ var (
 	metricsServerIP      string
 	transportCreds       string
 	disableMetricsExport bool
+	exemplarFilter       string
 	// kubeconfig
 	kubeconfig           string
 	clientRateLimitQPS   float64
@@ -118,6 +119,7 @@ func initMetricsFlags() {
 	flag.DurationVar(&metricsRenewBefore, "metricsRenewBefore", 15*24*time.Hour, "The certificate renewal time before expiration for metrics TLS certificates.")
 	flag.StringVar(&metricsServerIP, "metricsServerIP", "", "IP address where metrics server runs. Used to add IP addresses to the metrics TLS certificate SANs. Only required if accessing metrics endpoint out-of-cluster by IP address.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
+	flag.StringVar(&exemplarFilter, "exemplarFilter", "trace-based", "Configure the exemplar filter for metrics. Supported values: off, trace-based, always-on. Default is trace-based (exemplars collected from sampled traces).")
 }
 
 func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
