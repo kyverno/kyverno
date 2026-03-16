@@ -7,7 +7,7 @@ permissions: {}
 on:
   workflow_run:
     workflows:
-      - build-and-push-images.yaml
+      - build-and-push-images
     types:
       - completed
     branches:

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Dev container
+name: Pull request checks
 
 permissions: {}
 
@@ -11,11 +11,11 @@ on:
       - release-*
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  check:
     name: Build devcontainer
     runs-on: ubuntu-latest
     steps:
