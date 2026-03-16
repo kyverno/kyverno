@@ -58,7 +58,7 @@ jobs:
         env:
           TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Publish kyverno
         id: publish-kyverno
         uses: ./.github/actions/publish-image
