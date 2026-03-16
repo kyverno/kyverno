@@ -9,8 +9,6 @@ on:
     branches:
       - main
       - release-*
-  merge_group:
-    types: [checks_requested]
 
 jobs:
   check:
@@ -21,7 +19,7 @@ jobs:
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@cc9ffdc62fadb9f83b46dd0979d9ad50408cc6a6 # v5.0.2
         with:
-          # slsa-github-generator requires using a semver tag for reusable workflows. 
+          # slsa-github-generator requires using a semver tag for reusable workflows.
           # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
           allowlist: |
             slsa-framework/slsa-github-generator
