@@ -7,7 +7,7 @@ permissions: {}
 on:
   workflow_run:
     workflows:
-      - build-and-push-images
+      - Build test images
     types:
       - completed
     branches:
