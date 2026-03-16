@@ -5,21 +5,24 @@ name: Conformance tests
 permissions: {}
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Build test images
+    types:
+      - completed
     branches:
       - main
       - release-*
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   prepare:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           android: true
@@ -31,20 +34,6 @@ jobs:
           tool-cache: false
       - name: Setup Go
         uses: ./.github/actions/go/setup
-      - name: Install Ko
-        uses: ./.github/actions/tools/ko
-      - name: Ko build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: Upload images archive
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
       - name: Build CLI
         shell: bash
         run: |
@@ -55,11 +44,13 @@ jobs:
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
-          retention-days: 1
           if-no-files-found: error
 
   policy-library:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +60,8 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Checkout kyverno/policies
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -101,9 +94,10 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - name: Download kyverno images archive from build workflow
+        uses: actions/download-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
+          run-id: ${{ github.event.workflow_run.id }}
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         shell: bash
