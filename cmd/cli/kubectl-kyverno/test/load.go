@@ -100,6 +100,11 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 func cleanTest(test *v1alpha1.Test) {
 	test.Policies = removeDuplicateStrings(test.Policies)
 	test.Resources = removeDuplicateStrings(test.Resources)
+	if test.JSONPayload != "" {
+		test.JSONPayloads = append(test.JSONPayloads, test.JSONPayload)
+		test.JSONPayload = ""
+	}
+	test.JSONPayloads = removeDuplicateStrings(test.JSONPayloads)
 }
 
 func removeDuplicateStrings(strings []string) []string {

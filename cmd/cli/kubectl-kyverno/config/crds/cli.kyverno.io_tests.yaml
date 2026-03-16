@@ -77,8 +77,15 @@ spec:
               type: string
             type: array
           jsonPayload:
-            description: JSONPayload is the JSON payload to be used in the test
+            description: |-
+              JSONPayload is the JSON payload to be used in the test
+              Deprecated: Use JSONPayloads instead.
             type: string
+          jsonPayloads:
+            description: JSONPayloads are the JSON payloads to be used in the test
+            items:
+              type: string
+            type: array
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.

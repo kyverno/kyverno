@@ -126,13 +126,20 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	var json any
-	if testCase.Test.JSONPayload != "" {
-		fmt.Fprintln(out, "  Loading JSON payload", "...")
-		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
-		json, err = payload.Load(jsonFullPath[0])
-		if err != nil {
-			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+	type jsonPayloadEntry struct {
+		name string
+		data any
+	}
+	var jsonPayloads []jsonPayloadEntry
+	if len(testCase.Test.JSONPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading JSON payloads", "...")
+		jsonFullPaths := path.GetFullPaths(testCase.Test.JSONPayloads, testDir, isGit)
+		for i, jp := range jsonFullPaths {
+			data, loadErr := payload.Load(jp)
+			if loadErr != nil {
+				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
+			}
+			jsonPayloads = append(jsonPayloads, jsonPayloadEntry{name: testCase.Test.JSONPayloads[i], data: data})
 		}
 	}
 
@@ -394,8 +401,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[resourceKey] = ers
 	}
 
-	if json != nil {
-		// the policy processor is for multiple policies at once
+	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
@@ -407,7 +413,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
+			JsonPayload:                       unstructured.Unstructured{Object: jp.data.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
@@ -426,12 +432,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data.(map[string]any)}},
 				nil,
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -445,7 +451,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 			}
 			ers = append(ers, ivpols...)
 		}
@@ -453,7 +459,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data.(map[string]any)}},
 				polexLoader.CELExceptions,
 				vars.Namespace,
 				&resultCounts,
@@ -464,12 +470,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
 			}
 			ers = append(ers, dpols...)
 		}
 
-		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
+		testResponse.Trigger[jp.name] = append(testResponse.Trigger[jp.name], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
 	for _, targetResource := range targetResources {
