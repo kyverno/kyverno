@@ -3,7 +3,6 @@ package leaderelection
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -103,8 +102,7 @@ func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interfac
 	}
 	e.leaderElector, err = leaderelection.NewLeaderElector(e.leaderElectionCfg)
 	if err != nil {
-		e.log.Error(err, "failed to create leaderElector")
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create leader elector: %w", err)
 	}
 	if e.leaderElectionCfg.WatchDog != nil {
 		e.leaderElectionCfg.WatchDog.SetLeaderElection(e.leaderElector)

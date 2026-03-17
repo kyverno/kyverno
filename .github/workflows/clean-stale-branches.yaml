@@ -4,9 +4,9 @@ permissions:
   contents: read
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   schedule:
-    - cron: '0 0 * * *' # This schedule runs the workflow at midnight every day
+    - cron: "0 0 * * *" # This schedule runs the workflow at midnight every day
 
 jobs:
   cleanup-stale-branches:
