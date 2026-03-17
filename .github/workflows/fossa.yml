@@ -9,23 +9,16 @@ on:
     branches: 
       - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   fossa-scan:
     runs-on: ubuntu-latest
+    env:
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Check secret
-        id: checksecret
-        uses: ./.github/actions/is-defined
-        with:
-          value: ${{ secrets.FOSSA_API_KEY }}
       - name: Run FOSSA analysis
-        if: steps.checksecret.outputs.result == 'true'
+        if: env.FOSSA_API_KEY != ''
         uses: fossas/fossa-action@c414b9ad82eaad041e47a7cf62a4f02411f427a0 # v1.8.0
         with:
-          api-key: ${{ secrets.FOSSA_API_KEY }}
+          api-key: ${{ env.FOSSA_API_KEY }}
