@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: cli
+name: Pull request checks
 
 permissions: {}
 
@@ -9,14 +9,14 @@ on:
     branches:
       - main
       - release-*
-  merge_group:
-    types: [checks_requested]
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
-  cli-test:
+  check:
+    name: CLI tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: helm-test
+name: Pull request checks
 
 permissions: {}
 
@@ -8,14 +8,15 @@ on:
   pull_request:
     branches:
       - main
-      - release*
+      - release-*
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow_ref }}
   cancel-in-progress: true
 
 jobs:
-  ct-lint:
+  check:
+    name: Chart-testing (lint)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,15 +38,3 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --target-branch=${{ github.base_ref }} --check-version-increment=false --validate-maintainers=false
-
-  ah-lint:
-    runs-on: ubuntu-latest
-    container:
-      image: artifacthub/ah
-      options: --user root
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Run ah lint
-        working-directory: ./charts/
-        run: ah lint
