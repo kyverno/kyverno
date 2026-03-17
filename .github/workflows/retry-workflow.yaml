@@ -7,7 +7,7 @@ permissions: {}
 on:
   workflow_run:
     workflows:
-      - Conformance tests
+      - Build test artifacts (PR)
     types: 
       - completed
 

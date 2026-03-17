@@ -1,14 +1,18 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Build test artifacts (PR)
+name: Build test artifacts (pull request)
 
 permissions: {}
 
 on:
-  push:
+  pull_request:
     branches:
       - main
       - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: true
 
 jobs:
   images:
@@ -53,20 +57,10 @@ jobs:
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
           if-no-files-found: error
 
-  load-tests:
-    needs:
-      - images
-      - cli
-    uses: ./.github/workflows/load-testing.yaml
-
   conformance-tests:
     needs:
       - images
       - cli
-    uses: ./.github/workflows/post-merge-conformance.yaml
-
-  k6-tests:
-    needs:
-      - images
-      - cli
-    uses: ./.github/workflows/k6-tests.yaml
+    permissions:
+      packages: read
+    uses: ./.github/workflows/conformance.yaml

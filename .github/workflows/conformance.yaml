@@ -5,70 +5,15 @@ name: Conformance tests
 permissions: {}
 
 on:
-  pull_request:
-    branches:
-      - main
-      - release*
-  merge_group:
-    types: [checks_requested]
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call: {}
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          docker-images: false
-          dotnet: false
-          haskell: false
-          large-packages: false
-          swap-storage: false
-          tool-cache: false
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Install Ko
-        uses: ./.github/actions/tools/ko
-      - name: Ko build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: Upload images archive
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
-      - name: Build CLI
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make build-cli
-      - name: Upload binary
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: kubectl-kyverno
-          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
-          retention-days: 1
-          if-no-files-found: error
-
   assert:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -79,15 +24,11 @@ jobs:
           tests-path: assert
 
   autogen:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -98,15 +39,11 @@ jobs:
           tests-path: autogen
 
   background-only:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -117,15 +54,11 @@ jobs:
           tests-path: background-only
 
   cleanup:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -136,17 +69,13 @@ jobs:
           tests-path: cleanup
 
   custom-sigstore:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version:
           - v1.33.x
           - v1.34.x
-    needs: prepare
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -214,15 +143,11 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   deferred:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -233,16 +158,12 @@ jobs:
           tests-path: deferred
 
   deleting-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -255,15 +176,11 @@ jobs:
           shard-count: 6
 
   events:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -274,16 +191,12 @@ jobs:
           tests-path: events
 
   exceptions:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -296,15 +209,11 @@ jobs:
           shard-count: 3
 
   filter:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -315,15 +224,11 @@ jobs:
           tests-path: filter
 
   force-failure-policy-ignore:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -334,16 +239,12 @@ jobs:
           tests-path: force-failure-policy-ignore
 
   generate:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -357,15 +258,11 @@ jobs:
           install-kubectl-evict: true
 
   generate-mutating-admission-policy:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -378,15 +275,11 @@ jobs:
           tests-path: generate-mutating-admission-policy
 
   generate-validating-admission-policy:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -397,16 +290,12 @@ jobs:
           tests-path: generate-validating-admission-policy
 
   generating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -421,15 +310,11 @@ jobs:
           install-kubectl-evict: true
 
   globalcontext:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -440,16 +325,12 @@ jobs:
           tests-path: globalcontext
 
   image-validating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -462,15 +343,11 @@ jobs:
           shard-count: 3
 
   lease:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -481,16 +358,12 @@ jobs:
           tests-path: lease
 
   mutate:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -503,15 +376,11 @@ jobs:
           shard-count: 3
 
   mutating-admission-policy-reports:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -523,15 +392,11 @@ jobs:
           tests-path: mutating-admission-policy-reports
 
   reports-exclude-result:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.34.0]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -542,16 +407,12 @@ jobs:
           tests-path: reports-exclude-result
 
   mutating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -564,15 +425,11 @@ jobs:
           shard-count: 3
 
   namespaced-deleting-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -583,16 +440,12 @@ jobs:
           tests-path: namespaced-deleting-policies
 
   namespaced-generating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -606,15 +459,11 @@ jobs:
           shard-count: 3
 
   namespaced-image-validating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -625,15 +474,11 @@ jobs:
           tests-path: namespaced-image-validating-policies
 
   namespaced-mutating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -644,16 +489,12 @@ jobs:
           tests-path: namespaced-mutating-policies
 
   namespaced-validating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -666,15 +507,11 @@ jobs:
           shard-count: 3
 
   openreports:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -686,15 +523,11 @@ jobs:
           install-openreports: true
 
   policy-exceptions-disabled:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -705,15 +538,11 @@ jobs:
           tests-path: policy-exceptions-disabled
 
   policy-validation:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -724,15 +553,11 @@ jobs:
           tests-path: policy-validation
 
   rangeoperators:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -743,16 +568,12 @@ jobs:
           tests-path: rangeoperators
 
   rbac:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         kyverno-configs: [standard, default, force-failure-policy-ignore]
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -763,16 +584,12 @@ jobs:
           tests-path: rbac
 
   reports:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -785,15 +602,11 @@ jobs:
           shard-count: 3
 
   sigstore-custom-tuf:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -805,15 +618,11 @@ jobs:
           tests-path: sigstore-custom-tuf
 
   ttl:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -824,16 +633,12 @@ jobs:
           tests-path: ttl
 
   validate:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -846,15 +651,11 @@ jobs:
           shard-count: 8
 
   validating-admission-policy-reports:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -865,16 +666,12 @@ jobs:
           tests-path: validating-admission-policy-reports
 
   validating-policies:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -887,7 +684,6 @@ jobs:
           shard-count: 5
 
   verify-images:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -896,7 +692,6 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -909,15 +704,11 @@ jobs:
           shard-count: 2
 
   verify-manifests:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -928,15 +719,11 @@ jobs:
           tests-path: verify-manifests
 
   webhook-configurations:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -947,15 +734,11 @@ jobs:
           tests-path: webhook-configurations
 
   webhooks:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/run-tests
@@ -966,15 +749,11 @@ jobs:
           tests-path: webhooks
 
   monitor-helm-secret-size:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.35.1]
-    needs: [prepare]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1017,12 +796,7 @@ jobs:
           fi
 
   check-tests:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    needs:
-      - prepare
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1058,16 +832,11 @@ jobs:
           cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
 
   helm-tests:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs:
-      - prepare
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1108,16 +877,11 @@ jobs:
           kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
 
   helm-uninstall:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
-    needs:
-      - prepare
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1156,16 +920,12 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   helm-upgrade:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         kyverno-version: ["3.6"]
-    needs: [prepare]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
@@ -1209,10 +969,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   cert-manager-certificates:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -1226,8 +983,6 @@ jobs:
           - name: ecdsa
             test-dir: ecdsa-cert-manager
             helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=ECDSA --set admissionController.certManager.size=256 --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=ECDSA --set cleanupController.certManager.size=256
-    needs:
-      - prepare
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1241,10 +996,7 @@ jobs:
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
-    # if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -1258,8 +1010,6 @@ jobs:
           - name: ed25519
             test-dir: ed25519-self-signed
             helm-settings: --set admissionController.tlsKeyAlgorithm=Ed25519 --set cleanupController.tlsKeyAlgorithm=Ed25519
-    needs:
-      - prepare
     name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
