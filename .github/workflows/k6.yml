@@ -31,7 +31,7 @@ jobs:
       - name: Deploy kyverno
         if: matrix.scenario != 'simple'
         shell: bash
-        run: make kind-deploy-kyverno
+        run: USE_CONFIG=standard,service-monitor make kind-deploy-kyverno
       - name: Create test namespace
         shell: bash
         run: kubectl create ns testns
@@ -63,7 +63,7 @@ jobs:
             --out web-dashboard \
             --out experimental-prometheus-rw=http://localhost:9090/api/v1/write \
             --out json=k6.json \
-            ./scratch/k6/script.js
+            ./scripts/k6/script.js
       - name: etcd storage report
         shell: bash
         run: |

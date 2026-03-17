@@ -11,8 +11,6 @@ features:
     enabled: true
 
 admissionController:
-  serviceMonitor:
-    enabled: true
   extraArgs:
     v: 4
   rbac:
