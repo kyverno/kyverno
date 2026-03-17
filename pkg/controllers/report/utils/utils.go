@@ -128,15 +128,26 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 	return policies, nil
 }
 
-func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionNamespaceLister) ([]kyvernov2.PolicyException, error) {
+func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, namespace string) ([]kyvernov2.PolicyException, error) {
 	var exceptions []kyvernov2.PolicyException
-	if polexs, err := polexLister.List(labels.Everything()); err != nil {
-		return nil, err
+	var polexs []*kyvernov2.PolicyException
+	var err error
+
+	if namespace == "*" {
+		polexs, err = polexLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		for _, polex := range polexs {
-			if polex.Spec.BackgroundProcessingEnabled() {
-				exceptions = append(exceptions, *polex)
-			}
+		polexs, err = polexLister.PolicyExceptions(namespace).List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, polex := range polexs {
+		if polex.Spec.BackgroundProcessingEnabled() {
+			exceptions = append(exceptions, *polex)
 		}
 	}
 	return exceptions, nil
