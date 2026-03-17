@@ -7,10 +7,6 @@ permissions: {}
 on:
   workflow_call: {}
 
-concurrency:
-  group: ${{ github.workflow_ref }}
-  cancel-in-progress: true
-
 jobs:
   assert:
     runs-on: ubuntu-latest
@@ -689,6 +685,8 @@ jobs:
 
   verify-images:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     strategy:
       fail-fast: false
       matrix:

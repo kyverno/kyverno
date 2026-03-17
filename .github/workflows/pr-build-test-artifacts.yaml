@@ -61,4 +61,6 @@ jobs:
     needs:
       - images
       - cli
+    permissions:
+      packages: read
     uses: ./.github/workflows/conformance.yaml
