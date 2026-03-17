@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dependent-configmap
+  labels:
+    app.example.com/use-central-config: "true"
+data:
+  serverAddress: http://local-server.example.com:9090
+  myKey: myValue

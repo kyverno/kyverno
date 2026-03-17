@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dependent-configmap-no-opt-in
+data:
+  serverAddress: http://local-server.example.com:9090
+  myKey: myValue

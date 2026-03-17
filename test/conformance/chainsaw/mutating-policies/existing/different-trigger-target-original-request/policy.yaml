@@ -1,0 +1,46 @@
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: propagate-central-config
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+        operations: ["CREATE", "UPDATE"]
+  matchConditions:
+    # Only trigger when the specific central ConfigMap is modified
+    - name: is-central-configmap
+      expression: >-
+        params.originalRequest.object.metadata.name == "central-config"
+  targetMatchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+  variables:
+    - name: serverAddress
+      expression: >-
+        params.originalRequest.object.data["serverAddress"]
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          has(object.metadata.labels)
+          && object.metadata.labels.exists(k,
+            k == "app.example.com/use-central-config"
+          )
+          && object.metadata.labels["app.example.com/use-central-config"] == "true"
+          ? [
+              JSONPatch{
+                op: "add",
+                path: "/data/serverAddress",
+                value: string(variables.serverAddress)
+              }
+            ]
+          : []

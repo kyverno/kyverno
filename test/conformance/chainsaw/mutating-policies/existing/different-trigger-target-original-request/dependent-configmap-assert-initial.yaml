@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dependent-configmap
+data:
+  serverAddress: http://server-initial.example.com:9090
+  myKey: myValue

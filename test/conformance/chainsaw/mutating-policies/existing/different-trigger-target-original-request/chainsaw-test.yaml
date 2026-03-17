@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-original-request-params
+spec:
+  concurrent: false
+  steps:
+    - name: create policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy.yaml
+    - name: wait-mutating-policy-ready
+      use:
+        template: ../../../_step-templates/mutating-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: propagate-central-config
+
+    - name: create dependent configmaps
+      try:
+        - apply:
+            file: dependent-configmap.yaml
+        - assert:
+            file: dependent-configmap.yaml
+
+    - name: create central config and verify initial mutation
+      try:
+        - apply:
+            file: configmap.yaml
+        - assert:
+            file: dependent-configmap-assert-initial.yaml
+
+    - name: update central config and verify dependent was updated
+      try:
+        - apply:
+            file: configmap-updated.yaml
+        - assert:
+            file: dependent-configmap-assert-updated.yaml
+
+    - name: create fake configmap and verify dependent was not updated
+      try:
+        - apply:
+            file: configmap-fake.yaml
+        - sleep:
+            duration: 5s
+        - assert:
+            file: dependent-configmap-assert-updated.yaml
+
+    - name: create dependent configmap without opt-in label and verify it does not get mutated
+      try:
+        - apply:
+            file: dependent-configmap-no-opt-in.yaml
+        - assert:
+            file: dependent-configmap-no-opt-in.yaml
+
+    - name: update central config once more to verify that dependent without opt-in label does not get mutated
+      try:
+        - apply:
+            file: configmap-updated-2.yaml
+        - sleep:
+            duration: 5s
+        - assert:
+            file: dependent-configmap-no-opt-in.yaml

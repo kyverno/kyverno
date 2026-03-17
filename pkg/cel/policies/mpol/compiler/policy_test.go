@@ -11,6 +11,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -404,7 +405,7 @@ func TestMatchesConditions(t *testing.T) {
 	ctx := context.TODO()
 	t.Run("no matcher", func(t *testing.T) {
 		p := Policy{}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, engine.EngineRequest{})
 		assert.False(t, res)
 	})
 
@@ -417,7 +418,7 @@ func TestMatchesConditions(t *testing.T) {
 			},
 		}
 
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, engine.EngineRequest{})
 		assert.False(t, res)
 	})
 
@@ -427,7 +428,7 @@ func TestMatchesConditions(t *testing.T) {
 				Matcher: &fakeMatcher{matches: false},
 			},
 		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, engine.EngineRequest{})
 		assert.False(t, res)
 	})
 
@@ -437,7 +438,7 @@ func TestMatchesConditions(t *testing.T) {
 				Matcher: &fakeMatcher{matches: true},
 			},
 		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
+		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, engine.EngineRequest{})
 		assert.True(t, res)
 	})
 }
@@ -481,7 +482,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 				},
 			},
 		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		res, err := p.matchExceptions(ctx, attr, nil, req, validNS)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 	})
@@ -508,7 +509,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 				},
 			},
 		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		res, err := p.matchExceptions(ctx, attr, nil, req, validNS)
 		assert.Error(t, err)
 		assert.NotNil(t, res)
 	})
@@ -534,7 +535,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 				},
 			},
 		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		res, err := p.matchExceptions(ctx, attr, nil, req, validNS)
 		assert.Error(t, err)
 		assert.NotNil(t, res)
 	})
@@ -552,7 +553,7 @@ func TestMatchExceptions_FullCoverage(t *testing.T) {
 				},
 			},
 		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
+		res, err := p.matchExceptions(ctx, attr, nil, req, validNS)
 		assert.NoError(t, err)
 		assert.Empty(t, res)
 	})

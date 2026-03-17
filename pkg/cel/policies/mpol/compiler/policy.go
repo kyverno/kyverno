@@ -11,7 +11,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -49,7 +51,7 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 	lazyMap := lazy.NewMapValue(c.evaluator.CompositionEnv.MapType)
 
 	// Extract object and oldObject from the activation context
-	var objectVal, oldObjectVal interface{}
+	var objectVal, oldObjectVal, paramsVal interface{}
 	if evalActivation, ok := activation.(interface {
 		ResolveName(string) (interface{}, bool)
 	}); ok {
@@ -59,6 +61,9 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 		if oldObj, found := evalActivation.ResolveName("oldObject"); found {
 			oldObjectVal = oldObj
 		}
+		if paramsObj, found := evalActivation.ResolveName("params"); found {
+			paramsVal = paramsObj
+		}
 	}
 
 	// Set up context data for variable evaluation
@@ -66,6 +71,7 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 		compiler.VariablesKey: lazyMap,
 		compiler.ObjectKey:    objectVal,
 		compiler.OldObjectKey: oldObjectVal,
+		compiler.ParamsKey:    paramsVal,
 	}
 
 	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {
@@ -106,14 +112,18 @@ func (c *compositionContext) Value(key interface{}) interface{} {
 	return c.ctx.Value(key)
 }
 
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, request engine.EngineRequest) bool {
 	if p.evaluator.Matcher != nil {
 		versionedAttributes := &admission.VersionedAttributes{
 			Attributes:      attr,
 			VersionedObject: attr.GetObject(),
 			VersionedKind:   attr.GetKind(),
 		}
-		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
+		params, err := p.getParams(request.Request)
+		if err != nil {
+			return false
+		}
+		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, params, nil)
 		if matchResult.Error != nil || !matchResult.Matches {
 			return false
 		}
@@ -137,8 +147,13 @@ func (p *Policy) Evaluate(
 		VersionedKind:   attr.GetKind(),
 	}
 
+	params, err := p.getParams(request)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+
 	if len(p.exceptions) > 0 {
-		matchedExceptions, err := p.matchExceptions(ctx, attr, request, namespace)
+		matchedExceptions, err := p.matchExceptions(ctx, attr, params, request, namespace)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
@@ -154,7 +169,7 @@ func (p *Policy) Evaluate(
 	}
 
 	if p.evaluator.Matcher != nil {
-		matchResult := p.evaluator.Matcher.Match(compositionCtx, versionedAttributes, namespace, nil)
+		matchResult := p.evaluator.Matcher.Match(compositionCtx, versionedAttributes, params, nil)
 		if matchResult.Error != nil {
 			return &EvaluationResult{Error: matchResult.Error}
 		}
@@ -169,7 +184,7 @@ func (p *Policy) Evaluate(
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
 			ObjectInterfaces:    o,
-			OptionalVariables:   plugincel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
+			OptionalVariables:   plugincel.OptionalVariableBindings{VersionedParams: params, Authorizer: nil},
 			Namespace:           namespace,
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
@@ -186,7 +201,31 @@ func (p *Policy) Evaluate(
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
 
-func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1beta1.PolicyException, error) {
+func (p *Policy) getParams(request admissionv1.AdmissionRequest) (*unstructured.Unstructured, error) {
+	originalRequestObject, originalRequestOldObject, err := admissionutils.ExtractResources(nil, request)
+	if err != nil {
+		return nil, err
+	}
+	originalRequestObjectVal, err := utils.ObjectToResolveVal(&originalRequestObject)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+	}
+	originalRequestOldObjectVal, err := utils.ObjectToResolveVal(&originalRequestOldObject)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
+	}
+
+	originalRequestData := map[string]any{
+		compiler.ObjectKey:    originalRequestObjectVal,
+		compiler.OldObjectKey: originalRequestOldObjectVal,
+	}
+	paramsData := map[string]any{
+		compiler.OriginalRequestKey: originalRequestData,
+	}
+	return &unstructured.Unstructured{Object: paramsData}, nil
+}
+
+func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, params *unstructured.Unstructured, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1beta1.PolicyException, error) {
 	var errs []error
 	matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
@@ -201,6 +240,7 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 	data := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.ObjectKey:          objectVal,
+		compiler.ParamsKey:          params,
 	}
 
 	if attr.GetOldObject() != nil {

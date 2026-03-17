@@ -16,4 +16,6 @@ const (
 	GeneratorKey       = "generator"
 	VariablesKey       = "variables"
 	ExceptionsKey      = "exceptions"
+	OriginalRequestKey = "originalRequest"
+	ParamsKey          = "params"
 )

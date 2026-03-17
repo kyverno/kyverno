@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -260,7 +261,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 			}
 			attrs := &mockAttributes{}
 			namespace := &corev1.Namespace{}
-			got := r.MatchesMutateExisting(context.TODO(), attrs, namespace)
+			got := r.MatchesMutateExisting(context.TODO(), attrs, namespace, engine.EngineRequest{})
 			assert.ElementsMatch(t, tt.expectedNames, got)
 		})
 	}

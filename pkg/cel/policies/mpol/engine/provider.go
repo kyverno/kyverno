@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -23,7 +24,7 @@ import (
 
 type Provider interface {
 	Fetch(context.Context, bool) []Policy
-	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string
+	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace, engine.EngineRequest) []string
 }
 
 func NewKubeProvider(
@@ -113,7 +114,7 @@ func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Polic
 	return filtered
 }
 
-func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, request engine.EngineRequest) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -124,7 +125,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace, request) {
 				continue
 			}
 		}

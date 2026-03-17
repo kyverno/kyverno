@@ -62,6 +62,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				cel.Variable(compiler.OldObjectKey, cel.DynType),
 				cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 				cel.Variable(compiler.ImagesKey, image.ImageType),
+				cel.Variable(compiler.ParamsKey, cel.DynType),
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
 				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),

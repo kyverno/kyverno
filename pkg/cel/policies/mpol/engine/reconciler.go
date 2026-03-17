@@ -135,7 +135,7 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	return policies
 }
 
-func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, request engine.EngineRequest) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -149,7 +149,7 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 			continue
 		}
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace, request) {
 				continue
 			}
 		}
