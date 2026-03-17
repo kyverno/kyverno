@@ -15,7 +15,7 @@ spec:
         all:
           - resources:
               kinds:
-                - Pod
+                - Deployment
       preconditions:
         all:
           - key: "{{ request.operation }}"

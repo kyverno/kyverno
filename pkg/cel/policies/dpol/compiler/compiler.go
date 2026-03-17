@@ -143,7 +143,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 					globalcontext.Latest(),
 				),
 				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
+					http.Context{ContextInterface: libs.GetHTTPContext()},
 					http.Latest(),
 				),
 				image.Lib(

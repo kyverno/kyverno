@@ -65,7 +65,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				cel.Types(compiler.NamespaceType.CelType()),
 				cel.Types(compiler.RequestType.CelType()),
 				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
-				http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()),
+				http.Lib(http.Context{ContextInterface: libs.GetHTTPContext()}, http.Latest()),
 				image.Lib(image.Latest()),
 				imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
 				math.Lib(math.Latest()),

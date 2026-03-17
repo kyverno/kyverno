@@ -86,9 +86,9 @@ type PolicyProcessor struct {
 	Variables                         *variables.Variables
 	ParameterResources                []runtime.Object
 	// TODO
-	ContextFs                    billy.Filesystem
-	ContextPath                  string
-	MockGlobalContextEntries     map[string]interface{}
+	ContextFs                 billy.Filesystem
+	ContextPath               string
+	MockGlobalContextEntries  map[string]interface{}
 	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
