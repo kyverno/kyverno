@@ -29,8 +29,6 @@ jobs:
 
   autogen:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -46,8 +44,6 @@ jobs:
 
   background-only:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -63,8 +59,6 @@ jobs:
 
   cleanup:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -80,8 +74,6 @@ jobs:
 
   custom-sigstore:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -156,8 +148,6 @@ jobs:
 
   deferred:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -173,8 +163,6 @@ jobs:
 
   deleting-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -193,8 +181,6 @@ jobs:
 
   events:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -210,8 +196,6 @@ jobs:
 
   exceptions:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -230,8 +214,6 @@ jobs:
 
   filter:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -247,8 +229,6 @@ jobs:
 
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -264,8 +244,6 @@ jobs:
 
   generate:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -285,8 +263,6 @@ jobs:
 
   generate-mutating-admission-policy:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -304,8 +280,6 @@ jobs:
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -321,8 +295,6 @@ jobs:
 
   generating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -343,8 +315,6 @@ jobs:
 
   globalcontext:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -360,8 +330,6 @@ jobs:
 
   image-validating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -380,8 +348,6 @@ jobs:
 
   lease:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -397,8 +363,6 @@ jobs:
 
   mutate:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -417,8 +381,6 @@ jobs:
 
   mutating-admission-policy-reports:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -435,8 +397,6 @@ jobs:
 
   reports-exclude-result:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -452,8 +412,6 @@ jobs:
 
   mutating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -472,8 +430,6 @@ jobs:
 
   namespaced-deleting-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -489,8 +445,6 @@ jobs:
 
   namespaced-generating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -510,8 +464,6 @@ jobs:
 
   namespaced-image-validating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -527,8 +479,6 @@ jobs:
 
   namespaced-mutating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -544,8 +494,6 @@ jobs:
 
   namespaced-validating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -564,8 +512,6 @@ jobs:
 
   openreports:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -582,8 +528,6 @@ jobs:
 
   policy-exceptions-disabled:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -599,8 +543,6 @@ jobs:
 
   policy-validation:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -616,8 +558,6 @@ jobs:
 
   rangeoperators:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -633,8 +573,6 @@ jobs:
 
   rbac:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -651,8 +589,6 @@ jobs:
 
   reports:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -671,8 +607,6 @@ jobs:
 
   sigstore-custom-tuf:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -689,8 +623,6 @@ jobs:
 
   ttl:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -706,8 +638,6 @@ jobs:
 
   validate:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -726,8 +656,6 @@ jobs:
 
   validating-admission-policy-reports:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -743,8 +671,6 @@ jobs:
 
   validating-policies:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -763,8 +689,6 @@ jobs:
 
   verify-images:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -783,8 +707,6 @@ jobs:
 
   verify-manifests:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -800,8 +722,6 @@ jobs:
 
   webhook-configurations:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -817,8 +737,6 @@ jobs:
 
   webhooks:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -834,8 +752,6 @@ jobs:
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -883,8 +799,6 @@ jobs:
 
   check-tests:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -921,8 +835,6 @@ jobs:
 
   helm-tests:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -968,8 +880,6 @@ jobs:
 
   helm-uninstall:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -1013,8 +923,6 @@ jobs:
 
   helm-upgrade:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -1064,8 +972,6 @@ jobs:
 
   cert-manager-certificates:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -1093,8 +999,6 @@ jobs:
 
   self-signed-certificates:
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     strategy:
       fail-fast: false
       matrix:
