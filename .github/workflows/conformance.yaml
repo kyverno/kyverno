@@ -118,7 +118,7 @@ jobs:
           export USE_CONFIG=standard,custom-sigstore
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       # prepare test image
       - name: Create test image
         shell: bash
@@ -140,7 +140,7 @@ jobs:
           cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   deferred:
     runs-on: ubuntu-latest
@@ -780,7 +780,7 @@ jobs:
           set -ex
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Check secret size
         shell: bash
         run: |
@@ -863,14 +863,14 @@ jobs:
           set -e
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Helm test
         run: |
           set -e
           make helm-test
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
       - name: Get logs from liveness pod
         if: failure()
         run: |
@@ -909,7 +909,7 @@ jobs:
           export USE_CONFIG=kyverno-cleanup
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Uninstall kyverno
         shell: bash
         run: |
@@ -917,7 +917,7 @@ jobs:
           helm uninstall kyverno -n kyverno --wait --timeout 1m
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   helm-upgrade:
     runs-on: ubuntu-latest
@@ -955,18 +955,18 @@ jobs:
             --repo https://kyverno.github.io/kyverno kyverno \
             --version ${{ matrix.kyverno-version }}
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Upgrade kyverno
         shell: bash
         run: |
           set -e
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       # debug
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   cert-manager-certificates:
     runs-on: ubuntu-latest

@@ -65,7 +65,7 @@ jobs:
           export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       # run tests
       - name: Install CRDs
         run: |
@@ -84,4 +84,4 @@ jobs:
             --no-color=false
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
