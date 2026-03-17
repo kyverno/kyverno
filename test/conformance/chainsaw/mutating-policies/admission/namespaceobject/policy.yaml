@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-namespaceobject
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "apps" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE" ]
+      resources: [ "deployments" ]
+  matchConditions:
+  - name: is-namespaceobject-namespace
+    expression: object.metadata.namespace == 'namespaceobject'
+  variables:
+  - name: nsLabel
+    expression: 'string(namespaceObject.metadata.labels["env"])'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              env_from_namespace: variables.nsLabel
+            }
+          }
+        }
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: namespaceobject
+  labels:
+    env: production

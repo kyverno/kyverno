@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy
+  namespace: namespaceobject
+  labels:
+    env_from_namespace: production

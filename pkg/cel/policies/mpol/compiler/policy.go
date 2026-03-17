@@ -41,6 +41,7 @@ type compositionContext struct {
 	ctx             context.Context //nolint:containedctx
 	evaluator       *mutating.PolicyEvaluator
 	contextProvider libs.Context
+	namespace       *corev1.Namespace
 	accumulatedCost int64
 }
 
@@ -61,11 +62,19 @@ func (c *compositionContext) Variables(activation any) ref.Val {
 		}
 	}
 
+	var namespaceVal any
+	if c.namespace != nil {
+		if namespace, err := utils.ObjectToResolveVal(c.namespace); err == nil {
+			namespaceVal = namespace
+		}
+	}
+
 	// Set up context data for variable evaluation
 	ctxData := map[string]any{
-		compiler.VariablesKey: lazyMap,
-		compiler.ObjectKey:    objectVal,
-		compiler.OldObjectKey: oldObjectVal,
+		compiler.VariablesKey:       lazyMap,
+		compiler.ObjectKey:          objectVal,
+		compiler.OldObjectKey:       oldObjectVal,
+		compiler.NamespaceObjectKey: namespaceVal,
 	}
 
 	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {
@@ -151,6 +160,7 @@ func (p *Policy) Evaluate(
 		ctx:             ctx,
 		evaluator:       &p.evaluator,
 		contextProvider: contextProvider,
+		namespace:       namespace,
 	}
 
 	if p.evaluator.Matcher != nil {
