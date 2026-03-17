@@ -57,19 +57,18 @@ type Test struct {
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
 
-	// MockAPICallResponses provides static mock responses for APICall service
-	// context entries, allowing offline testing of policies that call external
-	// HTTP endpoints.
+	// MockAPICallResponses provides static mock responses for HTTP calls (offline testing).
+	// Supported for: (1) CEL policies (ValidatingPolicy, MutatingPolicy, GeneratingPolicy,
+	// DeletingPolicy) that use http.Get() or http.Post() — key by the URL; (2) ClusterPolicy/
+	// Policy context.apiCall.service — key by the service URL.
 	MockAPICallResponses []MockAPICallResponse `json:"mockAPICallResponses,omitempty"`
 
-	// MockGlobalContextEntries provides static mock data for GlobalContextEntry
-	// references, allowing offline testing of policies that depend on global
-	// context entries.
+	// MockGlobalContextEntries provides static mock data for GlobalContextEntry references.
+	// Supported for both ClusterPolicy/Policy and CEL policies that use globalContext.Get().
 	MockGlobalContextEntries []MockGlobalContextEntry `json:"mockGlobalContextEntries,omitempty"`
 }
 
-// MockAPICallResponse provides a static mock response for an APICall service
-// context entry, keyed by the service URL path.
+// MockAPICallResponse provides a static mock response
 type MockAPICallResponse struct {
 	// URLPath is the service URL to match against APICall context entries.
 	URLPath string `json:"urlPath"`
@@ -80,7 +79,7 @@ type MockAPICallResponse struct {
 
 // MockResponse represents a mock HTTP response body.
 type MockResponse struct {
-	// StatusCode is the HTTP status code (informational only; not enforced by the engine).
+	// StatusCode is the HTTP status code
 	StatusCode int `json:"statusCode,omitempty"`
 
 	// Body is the response body that will be injected as the context entry value.
