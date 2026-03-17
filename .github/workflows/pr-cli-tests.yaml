@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Pull request checks
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: CLI tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Setup TEST_GIT_BRANCH
+        shell: bash
+        run: echo "TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+      - name: Test CLI
+        run: |
+          VERSION=${{ github.ref_name }} make test-cli
+      - name: Test CLI (failures)
+        run: |
+          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
+          $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+          $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+          $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
