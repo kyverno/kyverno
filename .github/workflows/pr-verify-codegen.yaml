@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Pull request checks
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-codegen-code:
+    name: Verify codegen (code)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Generate code
+        run: make codegen-all-code
+      - name: Verify codegen is up to date
+        run: make verify-codegen
+
+  verify-codegen-docs:
+    name: Verify codegen (docs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Generate api docs
+        run: make codegen-all-docs
+      - name: Verify codegen is up to date
+        run: make verify-codegen
