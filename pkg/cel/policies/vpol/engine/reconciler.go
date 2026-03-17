@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"sync"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,14 +21,14 @@ type reconciler struct {
 	compiler     compiler.Compiler
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	compiler compiler.Compiler,
 	client client.Client,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -88,7 +87,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	compiled, errs := r.compiler.Compile(policy, exceptions)
 	if len(errs) > 0 {
-		fmt.Println(errs)
+		logging.V(4).Info("failed to compile policy", "policy", policy.GetName(), "errors", errs)
 		return ctrl.Result{}, nil
 	}
 	spec := policy.GetValidatingPolicySpec()
@@ -116,7 +115,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 		compiled, errs := r.compiler.Compile(tempPolicy, exceptions)
 		if len(errs) > 0 {
-			fmt.Println(errs)
+			logging.V(4).Info("failed to compile policy", "policy", tempPolicy.GetName(), "errors", errs)
 			return ctrl.Result{}, nil
 		}
 		policies = append(policies, Policy{

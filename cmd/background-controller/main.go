@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -318,7 +319,7 @@ func main() {
 					compiler,
 					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
 					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
-					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
+					celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()),
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
@@ -356,7 +357,7 @@ func main() {
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)
