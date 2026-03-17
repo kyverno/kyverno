@@ -69,4 +69,4 @@ jobs:
     needs:
       - images
       - cli
-    uses: ./.github/workflows/k6.yaml
+    uses: ./.github/workflows/k6-tests.yaml
