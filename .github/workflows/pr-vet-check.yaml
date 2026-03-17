@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Build images
+name: Pull request checks
 
 permissions: {}
 
@@ -15,17 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-images:
+  check:
+    name: Check vet
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Setup Go
         uses: ./.github/actions/go/setup
-      - name: Install Ko
-        uses: ./.github/actions/tools/ko
-      - name: Build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make ko-build-all
+      - name: Go vet
+        run: make vet

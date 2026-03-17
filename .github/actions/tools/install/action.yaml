@@ -22,11 +22,15 @@ inputs:
   ko:
     description: Install ko (container image builder for Go)
     default: 'false'
-
-outputs:
-  helm-path:
-    description: Path to helm binary (when helm is installed)
-    value: ${{ steps.helm-path.outputs.helm-path }}
+  crane:
+    description: Install crane (container image tool)
+    default: 'false'
+  chainsaw:
+    description: Install Chainsaw (E2E test runner)
+    default: 'false'
+  oras:
+    description: Install ORAS (OCI Registry As Storage)
+    default: 'false'
 
 runs:
   using: composite
@@ -35,10 +39,6 @@ runs:
       uses: ./.github/actions/tools/k6
     - if: inputs.helm != 'false'
       uses: ./.github/actions/tools/helm
-    - if: inputs.helm != 'false'
-      id: helm-path
-      run: echo "helm-path=$(which helm)" >> $GITHUB_OUTPUT
-      shell: bash
     - if: inputs.cosign != 'false'
       uses: ./.github/actions/tools/cosign
     - if: inputs.yq != 'false'
@@ -47,3 +47,9 @@ runs:
       uses: ./.github/actions/tools/kind
     - if: inputs.ko != 'false'
       uses: ./.github/actions/tools/ko
+    - if: inputs.crane != 'false'
+      uses: ./.github/actions/tools/crane
+    - if: inputs.chainsaw != 'false'
+      uses: ./.github/actions/tools/chainsaw
+    - if: inputs.oras != 'false'
+      uses: ./.github/actions/tools/oras

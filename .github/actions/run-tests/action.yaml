@@ -45,17 +45,13 @@ runs:
   steps:
     # install tools
     - name: Install tools
-      id: helm
       uses: ./.github/actions/tools/install
       with:
         helm: true
         cosign: true
         yq: true
     - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
-      with:
-        verify: true
-        release: v0.2.15-beta.3
+      uses: ./.github/actions/tools/chainsaw
     # create cluster
     - name: Create kind cluster
       uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -91,7 +87,6 @@ runs:
       shell: bash
       run: |
         set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
         export USE_CONFIG=${{ inputs.kyverno-configs }}
         export EXPLICIT_INSTALL_SETTINGS="${{ inputs.explicit-install-settings }}"
         echo "Installing Kyverno from main"
