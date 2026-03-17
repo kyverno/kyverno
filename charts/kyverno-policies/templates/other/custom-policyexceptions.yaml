@@ -4,9 +4,16 @@ kind: PolicyException
 metadata:
   name: {{ $name }}
   namespace: {{ $values.namespace | default "kyverno" }}
+  {{ if $values.metadata.annotations }}
   annotations: {{- toYaml (default dict $values.metadata.annotations) | nindent 4 }}
+  {{- end }}
+  {{ if $values.metadata.labels }}
   labels: 
     {{- toYaml (default dict $values.metadata.labels) | nindent 4 }}
     {{- include "kyverno-policies.labels" $ | nindent 4 }}
+  {{- else }}
+  labels: 
+    {{- include "kyverno-policies.labels" $ | nindent 4 }}
+  {{- end }}
 spec: {{- toYaml $values.spec | nindent 2 }}
 {{- end }}
