@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -86,7 +85,7 @@ func NewProvider(
 func NewKubeProvider(
 	compiler vpolcompiler.Compiler,
 	mgr ctrl.Manager,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)

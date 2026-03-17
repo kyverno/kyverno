@@ -8,7 +8,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -69,7 +68,7 @@ func NewProvider(policies []policiesv1beta1.ImageValidatingPolicyLike, exception
 
 func NewKubeProvider(
 	mgr ctrl.Manager,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, error) {
 	reconciler := newReconciler(mgr.GetClient(), polexLister, polexEnabled)
