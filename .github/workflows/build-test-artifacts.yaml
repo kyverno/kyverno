@@ -52,3 +52,15 @@ jobs:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
           if-no-files-found: error
+
+  load-tests:
+    needs:
+      - images
+      - cli
+    uses: ./.github/workflows/load-testing.yaml
+
+  conformance-tests:
+    needs:
+      - images
+      - cli
+    uses: ./.github/workflows/post-merge-conformance.yaml
