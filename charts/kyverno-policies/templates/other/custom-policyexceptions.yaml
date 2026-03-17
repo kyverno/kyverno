@@ -7,13 +7,13 @@ metadata:
   {{- if and $values.metadata $values.metadata.annotations }}
   annotations: {{- toYaml $values.metadata.annotations | nindent 4 }}
   {{- end }}
+  {{- $defaultLabels := (include "kyverno-policies.labels" $ | fromYaml) }}
   {{- if and $values.metadata $values.metadata.labels }}
   labels: 
-    {{- toYaml (default dict $values.metadata.labels) | nindent 4 }}
-    {{- include "kyverno-policies.labels" $ | nindent 4 }}
+    {{- toYaml (mustMergeOverwrite $defaultLabels $values.metadata.labels) | nindent 4 }}
   {{- else }}
   labels: 
-    {{- include "kyverno-policies.labels" $ | nindent 4 }}
+    {{- toYaml $defaultLabels | nindent 4 }}
   {{- end }}
 spec: {{- toYaml $values.spec | nindent 2 }}
 {{- end }}
