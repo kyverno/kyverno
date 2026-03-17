@@ -56,6 +56,45 @@ type Test struct {
 
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
+
+	// MockAPICallResponses provides static mock responses for APICall service
+	// context entries, allowing offline testing of policies that call external
+	// HTTP endpoints.
+	MockAPICallResponses []MockAPICallResponse `json:"mockAPICallResponses,omitempty"`
+
+	// MockGlobalContextEntries provides static mock data for GlobalContextEntry
+	// references, allowing offline testing of policies that depend on global
+	// context entries.
+	MockGlobalContextEntries []MockGlobalContextEntry `json:"mockGlobalContextEntries,omitempty"`
+}
+
+// MockAPICallResponse provides a static mock response for an APICall service
+// context entry, keyed by the service URL path.
+type MockAPICallResponse struct {
+	// URLPath is the service URL to match against APICall context entries.
+	URLPath string `json:"urlPath"`
+
+	// Response is the mock HTTP response to return.
+	Response MockResponse `json:"response"`
+}
+
+// MockResponse represents a mock HTTP response body.
+type MockResponse struct {
+	// StatusCode is the HTTP status code (informational only; not enforced by the engine).
+	StatusCode int `json:"statusCode,omitempty"`
+
+	// Body is the response body that will be injected as the context entry value.
+	Body interface{} `json:"body"`
+}
+
+// MockGlobalContextEntry provides static mock data for a GlobalContextEntry
+// reference by name.
+type MockGlobalContextEntry struct {
+	// Name is the name of the GlobalContextEntry resource to mock.
+	Name string `json:"name"`
+
+	// Data is the static data to return for this global context entry.
+	Data interface{} `json:"data"`
 }
 
 type CheckResult struct {

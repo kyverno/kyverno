@@ -15,16 +15,58 @@ func TestNewFakeContextProvider(t *testing.T) {
 	cp := NewFakeContextProvider()
 	assert.Equal(
 		t, &FakeContextProvider{
-			resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-			images:    map[string]map[string]any{},
+			resources:        map[string]map[string]map[string]*unstructured.Unstructured{},
+			images:           map[string]map[string]any{},
+			globalReferences: map[string]any{},
 		},
 		cp,
 	)
 }
 
-func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
+func TestFakeContextProvider_GetGlobalReference_Missing(t *testing.T) {
+	cp := NewFakeContextProvider()
+	got, err := cp.GetGlobalReference("nonexistent", "")
+	assert.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestFakeContextProvider_GetGlobalReference_NilMap(t *testing.T) {
 	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
+	got, err := cp.GetGlobalReference("foo", "bar")
+	assert.Error(t, err)
+	assert.Nil(t, got)
+}
+
+func TestFakeContextProvider_AddAndGetGlobalReference(t *testing.T) {
+	cp := NewFakeContextProvider()
+
+	data := map[string]any{
+		"items": []any{
+			map[string]any{"name": "deploy-1"},
+			map[string]any{"name": "deploy-2"},
+		},
+	}
+	cp.AddGlobalReference("my-gce", data)
+
+	got, err := cp.GetGlobalReference("my-gce", "")
+	assert.NoError(t, err)
+	assert.Equal(t, data, got)
+
+	got, err = cp.GetGlobalReference("other-gce", "")
+	assert.Error(t, err)
+	assert.Nil(t, got)
+}
+
+func TestFakeContextProvider_AddGlobalReference_Overwrite(t *testing.T) {
+	cp := NewFakeContextProvider()
+
+	cp.AddGlobalReference("entry", "first")
+	cp.AddGlobalReference("entry", "second")
+
+	got, err := cp.GetGlobalReference("entry", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "second", got)
 }
 
 func TestFakeContextProvider_AddImageData(t *testing.T) {

@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -34,7 +36,11 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 			}
 			return nil
 		}
-		factory := factories.DefaultContextLoaderFactory(cmResolver, factories.WithInitializer(init))
+		opts := []factories.ContextLoaderFactoryOptions{factories.WithInitializer(init)}
+		if mocks := s.GetMockGlobalContextEntries(); len(mocks) > 0 {
+			opts = append(opts, factories.WithGlobalContextStore(NewMockGCtxStore(mocks)))
+		}
+		factory := factories.DefaultContextLoaderFactory(cmResolver, opts...)
 		return wrapper{
 			store: s,
 			inner: factory(policy, rule),
@@ -61,5 +67,36 @@ func (w wrapper) Load(
 	if !w.store.GetRegistryAccess() {
 		rclientFactory = nil
 	}
+	mockURLIndex := buildMockAPICallURLIndex(w.store.GetMockAPICallResponses())
+	if len(mockURLIndex) > 0 {
+		remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
+		for _, entry := range contextEntries {
+			if entry.APICall != nil && entry.APICall.Service != nil {
+				if body, ok := mockURLIndex[entry.APICall.Service.URL]; ok {
+					data, err := json.Marshal(body)
+					if err != nil {
+						return err
+					}
+					if err := jsonContext.AddContextEntry(entry.Name, data); err != nil {
+						return err
+					}
+					continue
+				}
+			}
+			remaining = append(remaining, entry)
+		}
+		contextEntries = remaining
+	}
 	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
+}
+
+func buildMockAPICallURLIndex(mocks []v1alpha1.MockAPICallResponse) map[string]interface{} {
+	if len(mocks) == 0 {
+		return nil
+	}
+	index := make(map[string]interface{}, len(mocks))
+	for _, m := range mocks {
+		index[m.URLPath] = m.Response.Body
+	}
+	return index
 }

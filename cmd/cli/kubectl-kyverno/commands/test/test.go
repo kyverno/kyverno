@@ -230,6 +230,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
 	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
+	store.SetMockAPICallResponses(testCase.Test.MockAPICallResponses)
+	store.SetMockGlobalContextEntries(testCase.Test.MockGlobalContextEntries)
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
@@ -312,6 +314,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		Target:          map[string][]engineapi.EngineResponse{},
 		SkippedPolicies: skippedPolicyNames,
 	}
+	var mockGCEMap map[string]interface{}
+	if len(testCase.Test.MockGlobalContextEntries) > 0 {
+		mockGCEMap = make(map[string]interface{}, len(testCase.Test.MockGlobalContextEntries))
+		for _, m := range testCase.Test.MockGlobalContextEntries {
+			mockGCEMap[m.Name] = m.Data
+		}
+	}
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{
@@ -333,6 +342,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			MockGlobalContextEntries:          mockGCEMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -363,6 +373,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				!(len(testCase.Test.ClusterResources) > 0),
+				mockGCEMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -382,6 +393,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				true,
+				mockGCEMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -414,6 +426,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			MockGlobalContextEntries:          mockGCEMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -443,6 +456,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				true,
+				mockGCEMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
@@ -462,6 +476,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				true,
+				mockGCEMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
@@ -498,6 +513,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 	isFake bool,
+	mockGlobalContextEntries map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -518,7 +534,7 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, mockGlobalContextEntries)
 	if err != nil {
 		return nil, err
 	}
@@ -630,12 +646,13 @@ func applyDeletingPolicies(
 	f billy.Filesystem,
 	contextPath string,
 	isFake bool,
+	mockGlobalContextEntries map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, mockGlobalContextEntries)
 	if err != nil {
 		return nil, err
 	}
