@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-check-userinfo
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+        operations: ["CREATE"]
+  validations:
+    - expression: >-
+        request.userInfo.username != "kubernetes-admin" || object.metadata.name != "my-blocked-configmap"
+      message: >-
+        Creation of ConfigMap "my-blocked-configmap" is not allowed for user "kubernetes-admin"
