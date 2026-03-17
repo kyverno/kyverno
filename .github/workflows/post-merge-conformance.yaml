@@ -10,9 +10,10 @@ on:
       - Build test artifacts
     types:
       - completed
-    branches:
-      - main
-      - release-*
+    # branches:
+    #   - main
+    #   - release-*
+    #   - pull/*/merge
 
 jobs:
   policy-library:
