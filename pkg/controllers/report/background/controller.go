@@ -11,6 +11,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -79,8 +80,8 @@ type controller struct {
 	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	polexLister           kyvernov2listers.PolicyExceptionLister
-	celpolexListener      policiesv1beta1listers.PolicyExceptionLister
+	polexLister           kyvernov2listers.PolicyExceptionNamespaceLister
+	celpolexListener      celengine.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
@@ -99,11 +100,12 @@ type controller struct {
 	forceDelay    time.Duration
 
 	// config
-	config        config.Configuration
-	jp            jmespath.Interface
-	eventGen      event.Interface
-	policyReports bool
-	gctxStore     gctxstore.Store
+	config             config.Configuration
+	jp                 jmespath.Interface
+	eventGen           event.Interface
+	policyReports      bool
+	gctxStore          gctxstore.Store
+	exceptionNamespace string
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -137,6 +139,7 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
+	exceptionNamespace string,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
@@ -148,25 +151,26 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
 	c := controller{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		engine:         engine,
-		polLister:      polInformer.Lister(),
-		cpolLister:     cpolInformer.Lister(),
-		polexLister:    polexInformer.Lister(),
-		bgscanrLister:  ephrInformer.Lister(),
-		cbgscanrLister: cephrInformer.Lister(),
-		nsLister:       nsInformer.Lister(),
-		queue:          queue,
-		metadataCache:  metadataCache,
-		forceDelay:     forceDelay,
-		config:         config,
-		jp:             jp,
-		eventGen:       eventGen,
-		policyReports:  policyReports,
-		gctxStore:      gctxStore,
-		mapper:         mapper,
-		typeConverter:  typeConverter,
+		client:             client,
+		kyvernoClient:      kyvernoClient,
+		engine:             engine,
+		polLister:          polInformer.Lister(),
+		cpolLister:         cpolInformer.Lister(),
+		polexLister:        polexInformer.Lister().PolicyExceptions(exceptionNamespace),
+		bgscanrLister:      ephrInformer.Lister(),
+		cbgscanrLister:     cephrInformer.Lister(),
+		nsLister:           nsInformer.Lister(),
+		queue:              queue,
+		metadataCache:      metadataCache,
+		forceDelay:         forceDelay,
+		config:             config,
+		jp:                 jp,
+		eventGen:           eventGen,
+		policyReports:      policyReports,
+		exceptionNamespace: exceptionNamespace,
+		gctxStore:          gctxStore,
+		mapper:             mapper,
+		typeConverter:      typeConverter,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -205,7 +209,7 @@ func NewController(
 		}
 	}
 	if celpolexlInformer != nil {
-		c.celpolexListener = celpolexlInformer.Lister()
+		c.celpolexListener = celengine.NewPolicyExceptionLister(celpolexlInformer.Lister(), c.exceptionNamespace)
 		if _, err := controllerutils.AddEventHandlersT(celpolexlInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELPolicy); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
@@ -892,12 +896,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		convertedBindings := engineapi.ConvertMutatingAdmissionPolicyBindingsAlpha(mapAlphaBindings)
 		mapBindings = append(mapBindings, convertedBindings...)
 	}
-	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, namespace)
+	exceptions, err := utils.FetchPolicyExceptions(c.polexLister)
 	if err != nil {
 		return err
 	}
 	// load celexceptions with background process enabled
-	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener, namespace)
+	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener)
 	if err != nil {
 		return err
 	}

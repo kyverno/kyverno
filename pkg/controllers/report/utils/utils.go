@@ -8,6 +8,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -127,9 +128,9 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 	return policies, nil
 }
 
-func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, namespace string) ([]kyvernov2.PolicyException, error) {
+func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionNamespaceLister) ([]kyvernov2.PolicyException, error) {
 	var exceptions []kyvernov2.PolicyException
-	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
+	if polexs, err := polexLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
 		for _, polex := range polexs {
@@ -377,8 +378,8 @@ func FetchNamespacedGeneratingPolicies(ngpolLister policiesv1beta1listers.Namesp
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyExceptionLister, namespace string) ([]*policiesv1beta1.PolicyException, error) {
-	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
+func FetchCELPolicyExceptions(celexLister celengine.PolicyExceptionLister) ([]*policiesv1beta1.PolicyException, error) {
+	exceptions, err := celexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
