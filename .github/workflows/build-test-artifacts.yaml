@@ -64,3 +64,9 @@ jobs:
       - images
       - cli
     uses: ./.github/workflows/post-merge-conformance.yaml
+
+  k6-tests:
+    needs:
+      - images
+      - cli
+    uses: ./.github/workflows/k6.yaml
