@@ -42,7 +42,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: fs
           scan-ref: '.'
@@ -336,7 +336,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@97222a775ae8e68f1e85508f356f248704255c9c # v2.8.1
+        uses: fluxcd/flux2/action@bfa461ed2153ae5e0cca6bce08e0845268fb3088 # v2.8.2
         with:
           version: 0.35.0
       - name: Install Cosign

@@ -6,7 +6,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

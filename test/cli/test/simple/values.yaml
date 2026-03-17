@@ -9,7 +9,7 @@ policies:
   - name: test-require-image-tag-pass
   - name: test-require-image-tag-fail
     values:
-      request.operation: ""
+      request.operation: CREATE
   - name: test-validate-image-tag-ignore
   - name: test-validate-image-tag-fail
   - name: test-validate-image-tag-pass
