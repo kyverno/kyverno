@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -20,11 +21,13 @@ type Rule struct {
 }
 
 type Store struct {
-	local          bool
-	registryClient registryclient.Client
-	allowApiCalls  bool
-	policies       []Policy
-	foreachElement int
+	local                    bool
+	registryClient           registryclient.Client
+	allowApiCalls            bool
+	policies                 []Policy
+	foreachElement           int
+	mockAPICallResponses     []v1alpha1.MockAPICallResponse
+	mockGlobalContextEntries []v1alpha1.MockGlobalContextEntry
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -96,4 +99,20 @@ func (s *Store) AllowApiCall(allow bool) {
 
 func (s *Store) IsApiCallAllowed() bool {
 	return s.allowApiCalls
+}
+
+func (s *Store) SetMockAPICallResponses(responses []v1alpha1.MockAPICallResponse) {
+	s.mockAPICallResponses = responses
+}
+
+func (s *Store) GetMockAPICallResponses() []v1alpha1.MockAPICallResponse {
+	return s.mockAPICallResponses
+}
+
+func (s *Store) SetMockGlobalContextEntries(entries []v1alpha1.MockGlobalContextEntry) {
+	s.mockGlobalContextEntries = entries
+}
+
+func (s *Store) GetMockGlobalContextEntries() []v1alpha1.MockGlobalContextEntry {
+	return s.mockGlobalContextEntries
 }
