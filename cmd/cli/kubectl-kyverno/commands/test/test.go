@@ -234,7 +234,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	store.SetMockAPICallResponses(testCase.Test.MockAPICallResponses)
 	store.SetMockGlobalContextEntries(testCase.Test.MockGlobalContextEntries)
 	// Set CEL http.Get() mock for offline tests; clear when done.
-	httpMockIndex := buildHTTPMockIndex(testCase.Test.MockAPICallResponses)
+	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.MockAPICallResponses)
+	if err != nil {
+		return nil, err
+	}
 	libs.SetHTTPMockResponses(httpMockIndex)
 	defer libs.SetHTTPMockResponses(nil)
 	if vars != nil {
@@ -323,7 +326,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if len(testCase.Test.MockGlobalContextEntries) > 0 {
 		mockGCEMap = make(map[string]interface{}, len(testCase.Test.MockGlobalContextEntries))
 		for _, m := range testCase.Test.MockGlobalContextEntries {
-			mockGCEMap[m.Name] = m.Data
+			data, err := v1alpha1.RawExtensionToObject(m.Data)
+			if err != nil {
+				return nil, fmt.Errorf("mockGlobalContextEntries entry %q: invalid data: %w", m.Name, err)
+			}
+			mockGCEMap[m.Name] = data
 		}
 	}
 	for _, resource := range uniques {
@@ -504,15 +511,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	return &testResponse, nil
 }
 
-func buildHTTPMockIndex(mocks []v1alpha1.MockAPICallResponse) map[string]interface{} {
+func buildHTTPMockIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
-		return nil
+		return nil, nil
 	}
 	index := make(map[string]interface{}, len(mocks))
 	for _, m := range mocks {
-		index[m.URLPath] = m.Response.Body
+		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("mockAPICallResponses url %q: invalid body: %w", m.URLPath, err)
+		}
+		index[m.URLPath] = body
 	}
-	return index
+	return index, nil
 }
 
 func applyImageValidatingPolicies(

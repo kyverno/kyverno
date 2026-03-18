@@ -174,7 +174,7 @@ func (v *imageVerificationHandler) handleAudit(
 		createReport = false
 	}
 	tracing.Span(
-		context.Background(),
+		ctx,
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
@@ -189,7 +189,7 @@ func (v *imageVerificationHandler) handleAudit(
 				report := reportutils.BuildAdmissionReport(resource, request, filteredEngineResponses...)
 				if len(report.GetResults()) > 0 {
 					err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {
-						_, err := reportutils.CreateEphemeralReport(context.Background(), report, v.kyvernoClient)
+						_, err := reportutils.CreateEphemeralReport(ctx, report, v.kyvernoClient)
 						return err
 					})
 					if err != nil {

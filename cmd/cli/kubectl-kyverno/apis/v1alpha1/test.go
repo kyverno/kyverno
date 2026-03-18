@@ -1,8 +1,11 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -78,8 +81,8 @@ type MockResponse struct {
 	// StatusCode is the HTTP status code
 	StatusCode int `json:"statusCode,omitempty"`
 
-	// Body is the response body that will be injected as the context entry value.
-	Body interface{} `json:"body"`
+	// Body is the response body that will be injected as the context entry value (arbitrary JSON).
+	Body runtime.RawExtension `json:"body"`
 }
 
 // MockGlobalContextEntry provides static mock data for a GlobalContextEntry
@@ -88,8 +91,21 @@ type MockGlobalContextEntry struct {
 	// Name is the name of the GlobalContextEntry resource to mock.
 	Name string `json:"name"`
 
-	// Data is the static data to return for this global context entry.
-	Data interface{} `json:"data"`
+	// Data is the static data to return for this global context entry (arbitrary JSON).
+	Data runtime.RawExtension `json:"data"`
+}
+
+// RawExtensionToObject decodes a RawExtension (e.g. MockResponse.Body or MockGlobalContextEntry.Data) into a Go value.
+// Returns nil if raw.Raw is empty. Used when passing mock data to the engine.
+func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
+	if len(raw.Raw) == 0 {
+		return nil, nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw.Raw, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 type CheckResult struct {

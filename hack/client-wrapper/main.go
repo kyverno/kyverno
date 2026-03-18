@@ -666,8 +666,9 @@ func executeTemplate(tpl string, data interface{}, folder string, file string) {
 				return toSnakeCase(in)
 			},
 			"Args": func(in reflect.Method) []arg {
-				var out []arg
-				for i, a := range getIns(in) {
+				ins := getIns(in)
+				out := make([]arg, 0, len(ins))
+				for i, a := range ins {
 					out = append(out, arg{
 						Type:       a,
 						IsVariadic: in.Type.IsVariadic() && i == in.Type.NumIn()-1,

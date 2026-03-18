@@ -89,6 +89,57 @@ spec:
             type: string
           metadata:
             type: object
+          mockAPICallResponses:
+            description: MockAPICallResponses provides static mock responses for HTTP
+              calls (offline testing).
+            items:
+              description: MockAPICallResponse provides a static mock response
+              properties:
+                response:
+                  description: Response is the mock HTTP response to return.
+                  properties:
+                    body:
+                      description: Body is the response body that will be injected
+                        as the context entry value (arbitrary JSON).
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    statusCode:
+                      description: StatusCode is the HTTP status code
+                      type: integer
+                  required:
+                  - body
+                  type: object
+                urlPath:
+                  description: URLPath is the service URL to match against APICall
+                    context entries.
+                  type: string
+              required:
+              - response
+              - urlPath
+              type: object
+            type: array
+          mockGlobalContextEntries:
+            description: MockGlobalContextEntries provides static mock data for GlobalContextEntry
+              references.
+            items:
+              description: |-
+                MockGlobalContextEntry provides static mock data for a GlobalContextEntry
+                reference by name.
+              properties:
+                data:
+                  description: Data is the static data to return for this global context
+                    entry (arbitrary JSON).
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                name:
+                  description: Name is the name of the GlobalContextEntry resource
+                    to mock.
+                  type: string
+              required:
+              - data
+              - name
+              type: object
+            type: array
           name:
             description: |-
               Name is the name of the test.

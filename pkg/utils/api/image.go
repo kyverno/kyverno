@@ -145,7 +145,7 @@ func extract(
 func BuildStandardExtractors(tags ...string) []imageExtractor {
 	extractors := make([]imageExtractor, 0, 3)
 	for _, tag := range []string{"initContainers", "containers", "ephemeralContainers"} {
-		var t []string
+		t := make([]string, 0, len(tags)+2)
 		t = append(t, tags...)
 		t = append(t, tag)
 		t = append(t, "*")
@@ -157,7 +157,7 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
 	if configs != nil {
 		if extractorConfigs, ok := configs[kind]; ok {
-			extractors := []imageExtractor{}
+			extractors := make([]imageExtractor, 0, len(extractorConfigs))
 			for _, c := range extractorConfigs {
 				fields := func(input []string) []string {
 					output := []string{}
