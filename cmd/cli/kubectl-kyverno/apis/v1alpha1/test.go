@@ -58,13 +58,9 @@ type Test struct {
 	ClusterResources []string `json:"clusterResources,omitempty"`
 
 	// MockAPICallResponses provides static mock responses for HTTP calls (offline testing).
-	// Supported for: (1) CEL policies (ValidatingPolicy, MutatingPolicy, GeneratingPolicy,
-	// DeletingPolicy) that use http.Get() or http.Post() — key by the URL; (2) ClusterPolicy/
-	// Policy context.apiCall.service — key by the service URL.
 	MockAPICallResponses []MockAPICallResponse `json:"mockAPICallResponses,omitempty"`
 
 	// MockGlobalContextEntries provides static mock data for GlobalContextEntry references.
-	// Supported for both ClusterPolicy/Policy and CEL policies that use globalContext.Get().
 	MockGlobalContextEntries []MockGlobalContextEntry `json:"mockGlobalContextEntries,omitempty"`
 }
 

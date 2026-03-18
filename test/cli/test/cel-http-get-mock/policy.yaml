@@ -1,5 +1,5 @@
 # ValidatingPolicy (CEL) using http.Get() — mockAPICallResponses supplies the response offline.
-apiVersion: policies.kyverno.io/v1beta1
+apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
   name: vpol-http-get
