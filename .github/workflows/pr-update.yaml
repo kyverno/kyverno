@@ -30,3 +30,12 @@ jobs:
           allow_ongoing_checks: true
           sort: created
           direction: desc
+
+  issue-sync:
+    needs:
+      - autoupdate
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
