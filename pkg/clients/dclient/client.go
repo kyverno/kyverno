@@ -10,6 +10,7 @@ import (
 
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -284,6 +285,13 @@ func (c *client) GetDynamicInterface() dynamic.Interface {
 func (c *client) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
 	options := metav1.ListOptions{}
 	if lselector != nil {
+		if kubeutils.LabelSelectorContainsWildcard(lselector) {
+			list, err := c.getResourceInterface(apiVersion, kind, namespace).List(ctx, options)
+			if err != nil {
+				return nil, err
+			}
+			return filterListByLabelSelector(list, lselector)
+		}
 		options = metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(lselector)}
 	}
 	return c.getResourceInterface(apiVersion, kind, namespace).List(ctx, options)
@@ -374,4 +382,25 @@ func (c *client) Discovery() IDiscovery {
 // SetDiscovery sets the discovery client implementation
 func (c *client) SetDiscovery(discoveryClient IDiscovery) {
 	c.disco = discoveryClient
+}
+
+// filterListByLabelSelector applies selector matching locally to listed resources.
+func filterListByLabelSelector(list *unstructured.UnstructuredList, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	filtered := &unstructured.UnstructuredList{}
+	filtered.SetAPIVersion(list.GetAPIVersion())
+	filtered.SetKind(list.GetKind())
+	filtered.SetResourceVersion(list.GetResourceVersion())
+	filtered.SetContinue(list.GetContinue())
+	filtered.SetRemainingItemCount(list.GetRemainingItemCount())
+
+	for _, item := range list.Items {
+		matches, err := matchutils.CheckSelector(lselector, item.GetLabels())
+		if err != nil {
+			return nil, err
+		}
+		if matches {
+			filtered.Items = append(filtered.Items, item)
+		}
+	}
+	return filtered, nil
 }
