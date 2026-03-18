@@ -67,3 +67,12 @@ jobs:
         with:
           path: ${{ steps.setup-go.outputs.gobuild-cache }}
           cache-prefix: gobuild
+
+  issue-sync:
+    needs:
+      - cache
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue

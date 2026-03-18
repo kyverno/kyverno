@@ -32,3 +32,12 @@ jobs:
         with:
           version: v2.6.0
           skip-cache: true
+
+  issue-sync:
+    needs:
+      - check
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
