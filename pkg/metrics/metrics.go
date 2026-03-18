@@ -208,7 +208,7 @@ func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func
 
 func resolveExemplarFilter(value string) exemplar.Filter {
 	switch value {
-	case "off":
+	case "always-off":
 		return exemplar.AlwaysOffFilter
 	case "always-on":
 		return exemplar.AlwaysOnFilter

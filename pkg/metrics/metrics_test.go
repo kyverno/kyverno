@@ -175,8 +175,8 @@ func TestResolveExemplarFilter(t *testing.T) {
 		sampledExpected bool
 	}{
 		{
-			name:            "off returns AlwaysOffFilter behaviour",
-			value:           "off",
+			name:            "always-off returns AlwaysOffFilter behaviour",
+			value:           "always-off",
 			bgExpected:      false,
 			sampledExpected: false,
 		},
@@ -222,7 +222,7 @@ func TestResolveExemplarFilterBehaviourConsistency(t *testing.T) {
 	bgCtx := context.Background()
 	sampledCtx := sampledContext()
 
-	offFilter := resolveExemplarFilter("off")
+	offFilter := resolveExemplarFilter("always-off")
 	assert.Equal(t, exemplar.AlwaysOffFilter(bgCtx), offFilter(bgCtx))
 	assert.Equal(t, exemplar.AlwaysOffFilter(sampledCtx), offFilter(sampledCtx))
 
@@ -246,8 +246,8 @@ func TestResolveExemplarFilterWithMetricsConfiguration(t *testing.T) {
 		expectExemplars bool
 	}{
 		{
-			name:            "off filter with default config produces no exemplars",
-			exemplarFilter:  "off",
+			name:            "always-off filter with default config produces no exemplars",
+			exemplarFilter:  "always-off",
 			expectExemplars: false,
 		},
 		{
