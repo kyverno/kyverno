@@ -77,3 +77,13 @@ jobs:
         verbose: true
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  issue-sync:
+    needs:
+      - tests
+      - upload-to-codecov
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue

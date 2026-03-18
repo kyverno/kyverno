@@ -32,3 +32,12 @@ jobs:
           # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
           allowlist: |
             slsa-framework/slsa-github-generator
+
+  issue-sync:
+    needs:
+      - check
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
