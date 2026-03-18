@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Pull request checks
+name: Go packages
 
 permissions: {}
 
@@ -9,10 +9,14 @@ on:
     branches:
       - main
       - release-*
+  push:
+    branches:
+      - main
+      - release-*
 
 concurrency:
-  group: ${{ github.workflow_ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
