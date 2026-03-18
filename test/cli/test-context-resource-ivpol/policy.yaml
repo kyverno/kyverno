@@ -45,7 +45,7 @@ spec:
   variables:
     - name: cm
       expression: >-
-        resource.Get("v1", "configmaps", object.metadata.namespace, "policy-cm")
+        resource.get("v1", "configmaps", object.metadata.namespace, "policy-cm")
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.cm.data.env
@@ -61,4 +61,3 @@ spec:
     - expression: >-
         images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
       message: failed to verify image with notary cert
-
