@@ -31,3 +31,12 @@ jobs:
       - name: Run ah lint
         working-directory: ./charts/
         run: ah lint
+
+  issue-sync:
+    needs:
+      - check
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue

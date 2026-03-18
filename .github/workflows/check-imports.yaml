@@ -29,3 +29,12 @@ jobs:
         uses: ./.github/actions/go/setup
       - name: goimports check
         run: make imports-check
+
+  issue-sync:
+    needs:
+      - check
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
