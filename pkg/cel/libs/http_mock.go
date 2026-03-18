@@ -13,17 +13,14 @@ var (
 )
 
 // SetHTTPMockResponses sets the map of URL -> response body used by CEL http.Get()
-// when evaluating policies offline (e.g. kyverno test with mockAPICallResponses).
-// Pass nil to clear mocks. Keys should match the URL passed to http.Get() in CEL.
+// when evaluating policies offline
 func SetHTTPMockResponses(responses map[string]interface{}) {
 	httpMockResponsesMu.Lock()
 	defer httpMockResponsesMu.Unlock()
 	httpMockResponses = responses
 }
 
-// GetHTTPContext returns an http.ContextInterface for CEL. If SetHTTPMockResponses
-// was called with a non-empty map, returns a mock that serves those responses;
-// otherwise returns the default implementation (no client, real HTTP disabled).
+// GetHTTPContext returns an http.ContextInterface for CEL.
 func GetHTTPContext() sdklibhttp.ContextInterface {
 	httpMockResponsesMu.RLock()
 	mock := httpMockResponses
