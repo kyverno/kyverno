@@ -9,6 +9,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
 jobs:
   cache:
     runs-on: ubuntu-latest

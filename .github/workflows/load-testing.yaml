@@ -1,36 +1,24 @@
-name: Load Tests
+name: Load tests
 
 permissions: {}
 
 on:
-  workflow_run:
-    workflows:
-      - Build test artifacts
-    types:
-      - completed
-    branches:
-      - main
-      - release-*
+  workflow_call: {}
 
 jobs:
   define-matrix:
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       tests: ${{ steps.set-tests.outputs.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Set Tests
+        run: echo "${{ github.event_name }}"
       - name: Set Tests
         id: set-tests
-        run: |
-          MATRIX_FILE="./test/load/k6/${{ github.event_name }}-matrix.json"
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            MATRIX_FILE="./test/load/k6/release-matrix.json"
-          fi
-          echo "tests=$(jq -c . < $MATRIX_FILE)" >> $GITHUB_OUTPUT
+        run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
+
 
   # old-load-test:
   #   needs:
@@ -80,7 +68,7 @@ jobs:
   #         export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
   #         make kind-install-kyverno-from-repo
   #     - name: Wait for kyverno ready
-  #       uses: ./.github/actions/kyverno-wait-ready
+  #       uses: ./.github/actions/kyverno/wait-ready
   #     - name: Install K6
   #       shell: bash
   #       run: |
@@ -130,15 +118,12 @@ jobs:
   #         echo $GITHUB_OUTPUT
   #     - name: Debug failure
   #       if: failure()
-  #       uses: ./.github/actions/kyverno-logs
+  #       uses: ./.github/actions/kyverno/logs
 
   load-test:
     needs:
       - define-matrix
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -146,8 +131,6 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Checkout kyverno/load-testing
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -165,8 +148,6 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kyverno.tar
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
@@ -180,7 +161,7 @@ jobs:
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Install K6
         shell: bash
         run: |
@@ -240,15 +221,12 @@ jobs:
           path: report
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   scale-test:
     needs:
       - define-matrix
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -257,8 +235,6 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           android: true
@@ -285,8 +261,6 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: kyverno.tar
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Load kyverno images archive in kind cluster
         shell: bash
         run: |
@@ -305,7 +279,7 @@ jobs:
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=${{ matrix.test.replicas }} --set admissionController.serviceMonitor.enabled=true --set reportsController.serviceMonitor.enabled=true --set admissionController.container.resources.requests.cpu=${{ matrix.test.cpu_request }} --set admissionController.container.resources.requests.memory=${{ matrix.test.memory_request }} --set admissionController.container.resources.limits.memory=${{ matrix.test.memory_limit }} --set reportsController.resources.limits.memory=10Gi'
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Install K6
         shell: bash
         run: |
@@ -368,4 +342,4 @@ jobs:
           path: report
       - name: Debug failure
         # if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs

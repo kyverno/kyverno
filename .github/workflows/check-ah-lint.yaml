@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Artifact Hub
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Artifact Hub (lint)
+    runs-on: ubuntu-latest
+    container:
+      image: artifacthub/ah
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run ah lint
+        working-directory: ./charts/
+        run: ah lint

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Pull request checks
+name: Go format
 
 permissions: {}
 
@@ -9,19 +9,23 @@ on:
     branches:
       - main
       - release-*
+  push:
+    branches:
+      - main
+      - release-*
 
 concurrency:
-  group: ${{ github.workflow_ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
-    name: Check unused packages
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Setup Go
         uses: ./.github/actions/go/setup
-      - name: Checking unused pkgs using go mod tidy
-        run: make unused-package-check
+      - name: go fmt check
+        run: make fmt-check
