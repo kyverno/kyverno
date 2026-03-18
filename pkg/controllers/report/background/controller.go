@@ -80,7 +80,7 @@ type controller struct {
 	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	polexLister           kyvernov2listers.PolicyExceptionNamespaceLister
+	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexListener      celengine.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
@@ -156,7 +156,7 @@ func NewController(
 		engine:             engine,
 		polLister:          polInformer.Lister(),
 		cpolLister:         cpolInformer.Lister(),
-		polexLister:        polexInformer.Lister().PolicyExceptions(exceptionNamespace),
+		polexLister:        polexInformer.Lister(),
 		bgscanrLister:      ephrInformer.Lister(),
 		cbgscanrLister:     cephrInformer.Lister(),
 		nsLister:           nsInformer.Lister(),
@@ -896,7 +896,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		convertedBindings := engineapi.ConvertMutatingAdmissionPolicyBindingsAlpha(mapAlphaBindings)
 		mapBindings = append(mapBindings, convertedBindings...)
 	}
-	exceptions, err := utils.FetchPolicyExceptions(c.polexLister)
+	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, c.exceptionNamespace)
 	if err != nil {
 		return err
 	}

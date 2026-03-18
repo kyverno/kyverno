@@ -97,12 +97,22 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
 
+	// Copy the properties map to avoid concurrent map writes.
+	// The original map may be shared across goroutines via informer-cached policy objects.
+	var properties map[string]string
+	if src := ruleResult.Properties(); src != nil {
+		properties = make(map[string]string, len(src))
+		for k, v := range src {
+			properties[k] = v
+		}
+	}
+
 	result := openreportsv1alpha1.ReportResult{
 		Source:      SourceKyverno,
 		Policy:      policyName,
 		Rule:        ruleResult.Name(),
 		Description: ruleResult.Message(),
-		Properties:  ruleResult.Properties(),
+		Properties:  properties,
 		Result:      toPolicyResult(ruleResult.Status()),
 		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
