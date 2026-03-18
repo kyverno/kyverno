@@ -7,7 +7,7 @@ permissions: {}
 on:
   workflow_run:
     workflows:
-      - Build test artifacts (PR)
+      - Build test artifacts (pull request)
     types: 
       - completed
 

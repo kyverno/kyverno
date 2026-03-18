@@ -47,7 +47,7 @@ jobs:
           fetch-depth: 0
       - name: Cherry-pick to each branch
         if: steps.cherry.outputs.result != '[]'
-        uses: ./.github/actions/cherry-pick
+        uses: ./.github/actions/git/cherry-pick
         with:
           github-token: ${{ secrets.PR_UPDATE_TOKEN }}
           source-pr: ${{ github.event.pull_request.number }}

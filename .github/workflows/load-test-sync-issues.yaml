@@ -26,7 +26,7 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const run = github.event.workflow_run;
+            const run = context.payload.workflow_run;
             const runId = run.id;
             const runUrl = run.html_url;
             const headSha = run.head_sha;

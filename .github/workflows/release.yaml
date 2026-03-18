@@ -55,7 +55,7 @@ jobs:
         uses: ./.github/actions/tools/cosign
       - name: Publish kyverno
         id: release-kyverno
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
@@ -70,7 +70,7 @@ jobs:
           main-path: ./cmd/kyverno
       - name: Publish kyverno-init
         id: release-kyverno-init
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
@@ -85,7 +85,7 @@ jobs:
           main-path: ./cmd/kyverno-init
       - name: Publish background-controller
         id: release-background-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
@@ -100,7 +100,7 @@ jobs:
           main-path: ./cmd/background-controller
       - name: Publish cleanup-controller
         id: release-cleanup-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
@@ -115,7 +115,7 @@ jobs:
           main-path: ./cmd/cleanup-controller
       - name: Publish cli
         id: release-cli
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cli
           registry: ghcr.io
@@ -130,7 +130,7 @@ jobs:
           main-path: ./cmd/cli/kubectl-kyverno
       - name: Publish reports-controller
         id: release-reports-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
@@ -145,7 +145,7 @@ jobs:
           main-path: ./cmd/reports-controller
       - name: Publish readiness-checker
         id: release-readiness-checker
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-readiness-checker
           registry: ghcr.io
