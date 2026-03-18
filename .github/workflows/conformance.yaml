@@ -16,7 +16,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -31,7 +31,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -46,7 +46,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -61,7 +61,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -118,7 +118,7 @@ jobs:
           export USE_CONFIG=standard,custom-sigstore
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       # prepare test image
       - name: Create test image
         shell: bash
@@ -140,7 +140,7 @@ jobs:
           cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   deferred:
     runs-on: ubuntu-latest
@@ -150,7 +150,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -166,7 +166,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -183,7 +183,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -199,7 +199,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -216,7 +216,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -231,7 +231,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard,force-failure-policy-ignore
@@ -247,7 +247,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -265,7 +265,7 @@ jobs:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
@@ -282,7 +282,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -298,7 +298,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -317,7 +317,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -333,7 +333,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -350,7 +350,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -366,7 +366,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -383,7 +383,7 @@ jobs:
         k8s-version: [v1.32.8, v1.33.4, v1.34.0]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
@@ -399,7 +399,7 @@ jobs:
         k8s-version: [v1.34.0]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: exclude-result
@@ -415,7 +415,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -432,7 +432,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -448,7 +448,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -466,7 +466,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -481,7 +481,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -497,7 +497,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -514,7 +514,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: openreports
@@ -530,7 +530,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: default
@@ -545,7 +545,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -560,7 +560,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -576,7 +576,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: ${{ matrix.kyverno-configs }}
@@ -592,7 +592,7 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -609,7 +609,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
@@ -625,7 +625,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard,ttl
@@ -641,7 +641,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -658,7 +658,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -674,7 +674,7 @@ jobs:
         shard-index: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -694,7 +694,7 @@ jobs:
         shard-index: [0, 1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -711,7 +711,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -726,7 +726,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -741,7 +741,7 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
@@ -780,7 +780,7 @@ jobs:
           set -ex
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Check secret size
         shell: bash
         run: |
@@ -863,14 +863,14 @@ jobs:
           set -e
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Helm test
         run: |
           set -e
           make helm-test
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
       - name: Get logs from liveness pod
         if: failure()
         run: |
@@ -909,7 +909,7 @@ jobs:
           export USE_CONFIG=kyverno-cleanup
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Uninstall kyverno
         shell: bash
         run: |
@@ -917,7 +917,7 @@ jobs:
           helm uninstall kyverno -n kyverno --wait --timeout 1m
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   helm-upgrade:
     runs-on: ubuntu-latest
@@ -955,18 +955,18 @@ jobs:
             --repo https://kyverno.github.io/kyverno kyverno \
             --version ${{ matrix.kyverno-version }}
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Upgrade kyverno
         shell: bash
         run: |
           set -e
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       # debug
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   cert-manager-certificates:
     runs-on: ubuntu-latest
@@ -986,7 +986,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version.version }}
           kyverno-configs: standard
@@ -1013,7 +1013,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/run-tests
+      - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version.version }}
           kyverno-configs: standard

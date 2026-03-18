@@ -68,7 +68,7 @@ jobs:
   #         export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
   #         make kind-install-kyverno-from-repo
   #     - name: Wait for kyverno ready
-  #       uses: ./.github/actions/kyverno-wait-ready
+  #       uses: ./.github/actions/kyverno/wait-ready
   #     - name: Install K6
   #       shell: bash
   #       run: |
@@ -118,7 +118,7 @@ jobs:
   #         echo $GITHUB_OUTPUT
   #     - name: Debug failure
   #       if: failure()
-  #       uses: ./.github/actions/kyverno-logs
+  #       uses: ./.github/actions/kyverno/logs
 
   load-test:
     needs:
@@ -161,7 +161,7 @@ jobs:
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Install K6
         shell: bash
         run: |
@@ -221,7 +221,7 @@ jobs:
           path: report
       - name: Debug failure
         if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs
 
   scale-test:
     needs:
@@ -279,7 +279,7 @@ jobs:
           export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=${{ matrix.test.replicas }} --set admissionController.serviceMonitor.enabled=true --set reportsController.serviceMonitor.enabled=true --set admissionController.container.resources.requests.cpu=${{ matrix.test.cpu_request }} --set admissionController.container.resources.requests.memory=${{ matrix.test.memory_request }} --set admissionController.container.resources.limits.memory=${{ matrix.test.memory_limit }} --set reportsController.resources.limits.memory=10Gi'
           make kind-install-kyverno
       - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
+        uses: ./.github/actions/kyverno/wait-ready
       - name: Install K6
         shell: bash
         run: |
@@ -342,4 +342,4 @@ jobs:
           path: report
       - name: Debug failure
         # if: failure()
-        uses: ./.github/actions/kyverno-logs
+        uses: ./.github/actions/kyverno/logs

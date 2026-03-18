@@ -101,7 +101,7 @@ runs:
         echo 'Adding kubectl-evict directory to PATH...'
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
-      uses: ./.github/actions/kyverno-wait-ready
+      uses: ./.github/actions/kyverno/wait-ready
     - name: Add excluded tests
       shell: bash
       run: |
@@ -150,4 +150,4 @@ runs:
     # debug
     - name: Debug failure
       if: failure()
-      uses: ./.github/actions/kyverno-logs
+      uses: ./.github/actions/kyverno/logs

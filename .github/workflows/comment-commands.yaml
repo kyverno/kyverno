@@ -114,7 +114,7 @@ jobs:
 
       - name: Cherry Pick
         if: fromJSON(steps.check-merged.outputs.result).merged == true
-        uses: ./.github/actions/cherry-pick
+        uses: ./.github/actions/git/cherry-pick
         continue-on-error: true # Send failure comment to PR
         id: cherry-pick
         with:
