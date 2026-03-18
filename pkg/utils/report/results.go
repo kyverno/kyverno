@@ -216,7 +216,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	}
 
 	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
-		var names []string
+		names := make([]string, 0, len(exceptions))
 		for _, e := range exceptions {
 			names = append(names, e.GetName())
 		}
@@ -320,7 +320,7 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
 				continue
 			}
-			property := make([]string, 0)
+			property := make([]string, 0, len(generatedResources))
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))
 			}
@@ -363,7 +363,7 @@ func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1
 }
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -373,7 +373,7 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
 }
 
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -383,7 +383,7 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
 }
 
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)

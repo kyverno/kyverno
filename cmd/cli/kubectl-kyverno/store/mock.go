@@ -3,6 +3,7 @@ package store
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type mockGCtxStore struct {
@@ -23,11 +24,11 @@ func (s *mockGCtxStore) Get(key string) (gctxstore.Entry, bool) {
 }
 
 type mockEntry struct {
-	data interface{}
+	data runtime.RawExtension
 }
 
 func (e *mockEntry) Get(_ string) (interface{}, error) {
-	return e.data, nil
+	return v1alpha1.RawExtensionToObject(e.data)
 }
 
 func (e *mockEntry) Stop() {}

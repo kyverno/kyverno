@@ -58,13 +58,13 @@ func (m *admissionMetrics) RecordRequest(ctx context.Context, allowed bool, name
 		return
 	}
 
-	attributes := []attribute.KeyValue{
+	attributes := make([]attribute.KeyValue, 0, 4+len(attrs))
+	attributes = append(attributes,
 		attribute.String("resource_kind", kind),
 		attribute.String("resource_namespace", namespace),
 		attribute.String("resource_request_operation", strings.ToLower(string(operation))),
 		attribute.Bool("request_allowed", allowed),
-	}
-
+	)
 	attributes = append(attributes, attrs...)
 
 	defer func() {

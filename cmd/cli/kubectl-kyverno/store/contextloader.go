@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -67,7 +68,10 @@ func (w wrapper) Load(
 	if !w.store.GetRegistryAccess() {
 		rclientFactory = nil
 	}
-	mockURLIndex := buildMockAPICallURLIndex(w.store.GetMockAPICallResponses())
+	mockURLIndex, err := buildMockAPICallURLIndex(w.store.GetMockAPICallResponses())
+	if err != nil {
+		return err
+	}
 	if len(mockURLIndex) > 0 {
 		remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
 		for _, entry := range contextEntries {
@@ -90,13 +94,17 @@ func (w wrapper) Load(
 	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
 
-func buildMockAPICallURLIndex(mocks []v1alpha1.MockAPICallResponse) map[string]interface{} {
+func buildMockAPICallURLIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
-		return nil
+		return nil, nil
 	}
 	index := make(map[string]interface{}, len(mocks))
 	for _, m := range mocks {
-		index[m.URLPath] = m.Response.Body
+		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("mockAPICallResponses url %q: invalid body: %w", m.URLPath, err)
+		}
+		index[m.URLPath] = body
 	}
-	return index
+	return index, nil
 }

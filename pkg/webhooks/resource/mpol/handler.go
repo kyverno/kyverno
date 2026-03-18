@@ -87,11 +87,11 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
-	go func() {
-		if err := h.audit(context.TODO(), response, request); err != nil {
+	go func(ctx context.Context) {
+		if err := h.audit(ctx, response, request); err != nil {
 			logger.Error(err, "failed to create reports")
 		}
-	}()
+	}(ctx)
 
 	// Skip mutate-existing UpdateRequest creation for dry-run requests
 	// to honor the SideEffects: NoneOnDryRun contract.

@@ -283,7 +283,7 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 	var mpol v1beta1.MutatingPolicyLike
 	var err error
 
-	var failures []error
+	failures := make([]error, 0, 1)
 	mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
 	if err == nil {
 		return mpol, nil

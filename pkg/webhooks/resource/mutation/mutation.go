@@ -154,11 +154,11 @@ func (v *mutationHandler) applyMutations(
 	v.eventGen.Add(events...)
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
-		go func() {
-			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
+		go func(ctx context.Context) {
+			if err := v.createReports(ctx, policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
-		}()
+		}(ctx)
 	}
 
 	logMutationResponse(patches, engineResponses, v.log)
