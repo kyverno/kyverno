@@ -24,7 +24,7 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
@@ -45,7 +45,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	response, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
@@ -72,7 +72,7 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	response, err := verifier.FetchAttestations(context.TODO(), opts)
 	assert.NilError(t, err)
 

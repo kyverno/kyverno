@@ -10,6 +10,27 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/oci/static"
 )
 
+var client driver = &cosignDriver{}
+
+type driver interface {
+	VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+	VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error)
+}
+
+type cosignDriver struct{}
+
+func (d *cosignDriver) VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	return cosign.VerifyImageSignatures(ctx, signedImgRef, co)
+}
+
+func (d *cosignDriver) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
+	return cosign.VerifyImageAttestations(ctx, signedImgRef, co)
+}
+
+type mockDriver struct {
+	data map[string][]cosign.SignedPayload
+}
+
 func SetMock(image string, data [][]byte) error {
 	imgRef, err := name.ParseReference(image)
 	if err != nil {
@@ -23,7 +44,7 @@ func SetMock(image string, data [][]byte) error {
 		}
 	}
 
-	client = &mock{data: map[string][]cosign.SignedPayload{
+	client = &mockDriver{data: map[string][]cosign.SignedPayload{
 		imgRef.String(): payloads,
 	}}
 
@@ -31,27 +52,22 @@ func SetMock(image string, data [][]byte) error {
 }
 
 func ClearMock() {
-	client = &driver{}
+	client = &cosignDriver{}
 }
 
-type mock struct {
-	data map[string][]cosign.SignedPayload
-}
-
-func (m *mock) VerifyImageSignatures(_ context.Context, signedImgRef name.Reference, _ *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+func (m *mockDriver) VerifyImageSignatures(_ context.Context, signedImgRef name.Reference, _ *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 	return m.getSignatures(signedImgRef)
 }
 
-func (m *mock) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
+func (m *mockDriver) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
 	return m.getSignatures(signedImgRef)
 }
 
-func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool, error) {
+func (m *mockDriver) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool, error) {
 	results, ok := m.data[signedImgRef.String()]
 	if !ok {
 		return nil, false, fmt.Errorf("failed to find mock data for %s", signedImgRef.String())
 	}
-
 	sigs := make([]oci.Signature, 0, len(results))
 	for _, sp := range results {
 		ociSig, err := getSignature(sp)
@@ -60,7 +76,6 @@ func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool
 		}
 		sigs = append(sigs, ociSig)
 	}
-
 	return sigs, true, nil
 }
 
