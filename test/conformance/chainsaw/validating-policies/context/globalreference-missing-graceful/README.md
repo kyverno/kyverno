@@ -2,7 +2,7 @@
 
 This test verifies that ValidatingPolicies gracefully handle missing GlobalContextEntries instead of failing hard. 
 
-When a ValidatingPolicy uses CEL expressions with `globalContext.Get()` and the referenced GlobalContextEntry doesn't exist or isn't synchronized yet, the policy should continue evaluation with null values rather than blocking admission completely.
+When a ValidatingPolicy uses CEL expressions with `globalContext.get()` and the referenced GlobalContextEntry doesn't exist or isn't synchronized yet, the policy should continue evaluation with null values rather than blocking admission completely.
 
 ## Expected Behavior
 
@@ -13,7 +13,7 @@ When a ValidatingPolicy uses CEL expressions with `globalContext.Get()` and the 
 
 ## Related Issues
 
-- Fixes #13337: calls to globalContext.Get do not work when GlobalContextEntry is missing
+- Fixes #13337: calls to globalContext.get do not work when GlobalContextEntry is missing
 - Addresses graceful handling of timing dependencies between GlobalContextEntries and ValidatingPolicies
 
 ## Test Coverage
@@ -21,4 +21,4 @@ When a ValidatingPolicy uses CEL expressions with `globalContext.Get()` and the 
 - Missing GlobalContextEntry handling
 - Null value evaluation in CEL expressions  
 - Policy creation with missing dependencies
-- Normal operation when dependencies are available 
+- Normal operation when dependencies are available
