@@ -8,9 +8,9 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/oci"
 )
 
-var client Cosign = &driver{}
+var client cosignDriver = &driver{}
 
-type Cosign interface {
+type cosignDriver interface {
 	VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
 	VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error)
 }

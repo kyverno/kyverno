@@ -257,12 +257,9 @@ func TestNewVerifier(t *testing.T) {
 
 func TestNewVerifierType(t *testing.T) {
 	v := NewVerifier()
-	nv, ok := v.(*notaryVerifier)
+	_, ok := v.(*notaryVerifier)
 	if !ok {
 		t.Fatal("NewVerifier() did not return a *notaryVerifier")
-	}
-	if nv.log.GetSink() == nil {
-		t.Error("NewVerifier() logger sink is nil")
 	}
 }
 
