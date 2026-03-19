@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: configuration
+spec:
+  timeouts:
+    apply: 30s
+    assert: 90s
+    error: 90s
+  parallel: 1
+  fullName: true
+  failFast: true
+  excludeTestRegex: '_.+'
+  forceTerminationGracePeriod: 5s
+  delayBeforeCleanup: 3s
+  template: false
