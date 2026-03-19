@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Conformance tests
+name: Conformance tests (policy library)
 
 permissions: {}
 
