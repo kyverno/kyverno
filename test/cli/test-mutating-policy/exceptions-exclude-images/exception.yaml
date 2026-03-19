@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-images
+spec:
+  policyRefs:
+  - name: "mpol-exclude-images"
+    kind: MutatingPolicy
+  images:
+  - nginx:latest
+  - busybox:latest

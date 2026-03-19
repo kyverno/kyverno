@@ -42,6 +42,7 @@ type compositionContext struct {
 	evaluator       *mutating.PolicyEvaluator
 	contextProvider libs.Context
 	accumulatedCost int64
+	exceptions      map[string]any
 }
 
 func (c *compositionContext) Variables(activation any) ref.Val {
@@ -137,13 +138,23 @@ func (p *Policy) Evaluate(
 		VersionedKind:   attr.GetKind(),
 	}
 
+	allowedImages := make([]string, 0)
+	allowedValues := make([]string, 0)
 	if len(p.exceptions) > 0 {
 		matchedExceptions, err := p.matchExceptions(ctx, attr, request, namespace)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
 		if len(matchedExceptions) > 0 {
-			return &EvaluationResult{Exceptions: matchedExceptions}
+			for _, ex := range matchedExceptions {
+				allowedImages = append(allowedImages, ex.Spec.Images...)
+				allowedValues = append(allowedValues, ex.Spec.AllowedValues...)
+			}
+			// if there are matched exceptions and no allowed images or values,
+			// the resource is fully excluded from policy evaluation
+			if len(allowedImages) == 0 && len(allowedValues) == 0 {
+				return &EvaluationResult{Exceptions: matchedExceptions}
+			}
 		}
 	}
 
@@ -151,6 +162,10 @@ func (p *Policy) Evaluate(
 		ctx:             ctx,
 		evaluator:       &p.evaluator,
 		contextProvider: contextProvider,
+		exceptions: map[string]any{
+			"allowedImages": allowedImages,
+			"allowedValues": allowedValues,
+		},
 	}
 
 	if p.evaluator.Matcher != nil {
@@ -211,31 +226,35 @@ func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes,
 		data[compiler.OldObjectKey] = oldObjectVal
 	}
 
-	if reflect.DeepEqual(request, admissionv1.AdmissionRequest{}) {
-		requestVal, err := utils.ConvertObjectToUnstructured(request)
+	if !reflect.DeepEqual(request, admissionv1.AdmissionRequest{}) {
+		requestVal, err := utils.ConvertObjectToUnstructured(&request)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 		}
 		data[compiler.RequestKey] = requestVal
 	}
 	for _, polex := range p.exceptions {
+		match := true
 		for _, condition := range polex.MatchConditions {
 			out, _, err := condition.ContextEval(ctx, data)
 			if err != nil {
 				errs = append(errs, err)
-				continue
+				match = false
+				break
 			}
 			result, err := utils.ConvertToNative[bool](out)
 			if err != nil {
 				errs = append(errs, err)
-				continue
-			}
-			if !result {
+				match = false
 				break
 			}
-			if err := multierr.Combine(errs...); err == nil {
-				matchedExceptions = append(matchedExceptions, polex.Exception)
+			if !result {
+				match = false
+				break
 			}
+		}
+		if match {
+			matchedExceptions = append(matchedExceptions, polex.Exception)
 		}
 	}
 	return matchedExceptions, multierr.Combine(errs...)

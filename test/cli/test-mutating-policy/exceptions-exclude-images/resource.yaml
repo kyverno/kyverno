@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-allowed-image
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: container01
+    image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-non-allowed-image
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: container01
+    image: ubuntu:latest
