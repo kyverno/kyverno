@@ -25,7 +25,7 @@ spec:
     try:
     - apply:
         file: configmap.yaml
-  - name: step-02
+  - name: step-03
     try:
     - apply:
         file: pod.yaml
