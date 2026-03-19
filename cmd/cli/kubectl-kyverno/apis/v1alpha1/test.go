@@ -1,8 +1,11 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -56,6 +59,53 @@ type Test struct {
 
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
+
+	// MockAPICallResponses provides static mock responses for HTTP calls (offline testing).
+	MockAPICallResponses []MockAPICallResponse `json:"mockAPICallResponses,omitempty"`
+
+	// MockGlobalContextEntries provides static mock data for GlobalContextEntry references.
+	MockGlobalContextEntries []MockGlobalContextEntry `json:"mockGlobalContextEntries,omitempty"`
+}
+
+// MockAPICallResponse provides a static mock response
+type MockAPICallResponse struct {
+	// URLPath is the service URL to match against APICall context entries.
+	URLPath string `json:"urlPath"`
+
+	// Response is the mock HTTP response to return.
+	Response MockResponse `json:"response"`
+}
+
+// MockResponse represents a mock HTTP response body.
+type MockResponse struct {
+	// StatusCode is the HTTP status code
+	StatusCode int `json:"statusCode,omitempty"`
+
+	// Body is the response body that will be injected as the context entry value (arbitrary JSON).
+	Body runtime.RawExtension `json:"body"`
+}
+
+// MockGlobalContextEntry provides static mock data for a GlobalContextEntry
+// reference by name.
+type MockGlobalContextEntry struct {
+	// Name is the name of the GlobalContextEntry resource to mock.
+	Name string `json:"name"`
+
+	// Data is the static data to return for this global context entry (arbitrary JSON).
+	Data runtime.RawExtension `json:"data"`
+}
+
+// RawExtensionToObject decodes a RawExtension (e.g. MockResponse.Body or MockGlobalContextEntry.Data) into a Go value.
+// Returns nil if raw.Raw is empty. Used when passing mock data to the engine.
+func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
+	if len(raw.Raw) == 0 {
+		return nil, nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw.Raw, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 type CheckResult struct {

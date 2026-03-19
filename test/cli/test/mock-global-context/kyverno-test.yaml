@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mock-global-context
+policies:
+- policy.yaml
+- policy-vpol.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+mockGlobalContextEntries:
+  - name: gctxentry-deployments
+    data:
+      items:
+        - name: existing-deployment-1
+        - name: existing-deployment-2
+results:
+# ClusterPolicy (v1) with globalReference context entry
+- kind: Deployment
+  policy: check-global-context
+  resources:
+  - test-ns/test-deployment
+  result: pass
+  rule: check-deployment-count
+# ValidatingPolicy (CEL) with globalContext.Get() — same mock data
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-global-context-cel
+  resources:
+  - test-ns/test-deployment
+  result: pass

@@ -14,7 +14,7 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 
 	if spec == nil {
 		err = append(err, field.Required(field.NewPath("spec"), "spec must not be nil"))
-		warnings := make([]string, 0)
+		warnings := make([]string, 0, len(err.ToAggregate().Errors()))
 		for _, e := range err.ToAggregate().Errors() {
 			warnings = append(warnings, e.Error())
 		}

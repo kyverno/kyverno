@@ -94,7 +94,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 					globalcontext.Latest(),
 				),
 				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
+					http.Context{ContextInterface: libs.GetHTTPContext()},
 					http.Latest(),
 				),
 				resource.Lib(

@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-external-service
+spec:
+  failurePolicy: Fail
+  rules:
+    - name: check-allowed
+      context:
+        - name: externalCheck
+          apiCall:
+            service:
+              url: https://external-service.example.com/api/check
+            jmesPath: "allowed"
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: Equals
+            value: CREATE
+      validate:
+        failureAction: Enforce
+        deny:
+          conditions:
+            any:
+              - key: "{{ externalCheck }}"
+                operator: Equals
+                value: false

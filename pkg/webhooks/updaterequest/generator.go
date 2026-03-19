@@ -47,7 +47,7 @@ func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) e
 		return nil
 	}
 	logger.V(4).Info("apply Update Request", "request", ur)
-	go g.applyResource(context.TODO(), ur)
+	go g.applyResource(ctx, ur)
 	return nil
 }
 
