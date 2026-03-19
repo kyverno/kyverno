@@ -43,7 +43,7 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient verifie
 		}
 	}
 
-	repository := NewRepository(remoteOpts, nameRef)
+	repository := newRepository(remoteOpts, nameRef)
 	err = resolveDigestCrane(repository, remoteOpts, nameRef)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve digest")

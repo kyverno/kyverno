@@ -10,7 +10,7 @@ import (
 
 func TestNewTrustStore(t *testing.T) {
 	certs := []*x509.Certificate{{}, {}}
-	ts := NewTrustStore("test-store", certs)
+	ts := newTrustStore("test-store", certs)
 
 	if ts == nil {
 		t.Fatal("NewTrustStore returned nil")
@@ -19,7 +19,7 @@ func TestNewTrustStore(t *testing.T) {
 
 func TestSimpleTrustStore_GetCertificates(t *testing.T) {
 	certs := []*x509.Certificate{{}, {}}
-	ts := NewTrustStore("my-store", certs)
+	ts := newTrustStore("my-store", certs)
 
 	tests := []struct {
 		name      string
@@ -48,7 +48,7 @@ func TestSimpleTrustStore_GetCertificates(t *testing.T) {
 }
 
 func TestSimpleTrustStore_EmptyCerts(t *testing.T) {
-	ts := NewTrustStore("empty-store", nil)
+	ts := newTrustStore("empty-store", nil)
 	got, err := ts.GetCertificates(context.Background(), truststore.TypeCA, "empty-store")
 	if err != nil {
 		t.Errorf("GetCertificates() unexpected error = %v", err)
