@@ -9,8 +9,13 @@ on:
     branches: 
       - main
 
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
 jobs:
-  fossa-scan:
+  analysis:
+    name: FOSSA analysis
     runs-on: ubuntu-latest
     env:
       FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
@@ -22,3 +27,16 @@ jobs:
         uses: fossas/fossa-action@c414b9ad82eaad041e47a7cf62a4f02411f427a0 # v1.8.0
         with:
           api-key: ${{ env.FOSSA_API_KEY }}
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - analysis
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
