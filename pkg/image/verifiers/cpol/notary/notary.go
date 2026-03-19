@@ -10,8 +10,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
-	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
@@ -31,7 +31,7 @@ var (
 	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
 )
 
-func NewVerifier() images.ImageVerifier {
+func NewVerifier() verifiers.ImageVerifier {
 	return &notaryVerifier{
 		log: logging.WithName("Notary"),
 	}
@@ -41,7 +41,7 @@ type notaryVerifier struct {
 	log logr.Logger
 }
 
-func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *notaryVerifier) VerifySignature(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
 	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
 	certsPEM := combineCerts(opts)
@@ -81,7 +81,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 
 	v.log.V(2).Info("verified image", "type", targetDesc.MediaType, "digest", targetDesc.Digest, "size", targetDesc.Size)
 
-	resp := &images.Response{
+	resp := &verifiers.Response{
 		Digest:     targetDesc.Digest.String(),
 		Statements: nil,
 	}
@@ -89,7 +89,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 	return resp, nil
 }
 
-func combineCerts(opts images.Options) string {
+func combineCerts(opts verifiers.Options) string {
 	certs := opts.Cert
 	if opts.CertChain != "" {
 		if certs != "" {
@@ -134,7 +134,7 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 	return multierr.Combine(errs...)
 }
 
-func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
 	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
 
 	nameOpts := opts.Client.NameOptions()
@@ -204,13 +204,13 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 			return nil, fmt.Errorf("failed to fetch attestations")
 		}
 		v.log.V(6).Info("sending response")
-		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
+		return &verifiers.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 	}
 
 	return nil, fmt.Errorf("no matching attestations found for image %s with type %s", opts.ImageRef, opts.Type)
 }
 
-func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts images.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
+func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts verifiers.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
 	v.log.V(2).Info("verifying attestations", "reference", opts.ImageRef, "opts", opts)
 	if opts.Cert == "" && opts.CertChain == "" {
 		// skips the checks when no attestor is provided

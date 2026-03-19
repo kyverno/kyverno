@@ -1,4 +1,4 @@
-package eval
+package evaluator
 
 import "github.com/kyverno/kyverno/pkg/logging"
 

@@ -1,4 +1,4 @@
-package eval
+package evaluator
 
 import (
 	"encoding/json"

@@ -14,7 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
@@ -40,13 +40,13 @@ var signatureAlgorithmMap = map[string]crypto.Hash{
 	"sha512": crypto.SHA512,
 }
 
-func NewVerifier() images.ImageVerifier {
+func NewVerifier() verifiers.ImageVerifier {
 	return &cosignVerifier{}
 }
 
 type cosignVerifier struct{}
 
-func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *cosignVerifier) VerifySignature(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
 	if opts.SigstoreBundle {
 		results, err := verifyBundleAndFetchAttestations(ctx, opts)
 		if err != nil {
@@ -57,7 +57,7 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
 		}
 
-		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
+		return &verifiers.Response{Digest: results[0].Desc.Digest.String()}, nil
 	}
 
 	nameOpts := opts.Client.NameOptions()
@@ -106,10 +106,10 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 		}
 	}
 
-	return &images.Response{Digest: digest}, nil
+	return &verifiers.Response{Digest: digest}, nil
 }
 
-func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
+func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
 	options, err := opts.Client.Options(ctx)
@@ -281,7 +281,7 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
 }
 
-func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
 	if opts.SigstoreBundle {
 		results, err := verifyBundleAndFetchAttestations(ctx, opts)
 		if err != nil {
@@ -296,7 +296,7 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		if err != nil {
 			return nil, err
 		}
-		return &images.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
+		return &verifiers.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
 	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)
 	if err != nil {
@@ -358,7 +358,7 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
-	return &images.Response{Digest: digest, Statements: inTotoStatements}, nil
+	return &verifiers.Response{Digest: digest, Statements: inTotoStatements}, nil
 }
 
 func matchType(sig oci.Signature, expectedType string) (bool, string, error) {

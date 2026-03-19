@@ -1,4 +1,4 @@
-package imageverifycache
+package cache
 
 import (
 	"context"

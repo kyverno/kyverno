@@ -9,7 +9,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
@@ -145,7 +145,7 @@ func TestCosignPayload(t *testing.T) {
 }
 
 func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef:           "ghcr.io/jimbugwadia/pause2",
 		Client:             nil,
 		FetchAttestations:  false,
@@ -163,7 +163,7 @@ func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
 }
 
 func TestCosignKeyless(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef:  "ghcr.io/jimbugwadia/pause2",
 		Issuer:    "https://github.com/",
 		Subject:   "jim",
@@ -189,7 +189,7 @@ func TestCosignKeyless(t *testing.T) {
 }
 
 func TestRekorPubkeys(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef:    "ghcr.io/jimbugwadia/pause2",
 		Issuer:      "https://github.com/login/oauth",
 		Subject:     "jim@nirmata.com",
@@ -216,7 +216,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 	defer ClearMock()
 	assert.NilError(t, err)
 
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef: "ghcr.io/kyverno/test-verify-image",
 	}
 
@@ -248,7 +248,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 }
 
 func TestCTLogsPubkeys(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef:     "ghcr.io/vishal-chdhry/cosign-test:v1",
 		Issuer:       "https://accounts.google.com",
 		Subject:      "vishal.choudhary@nirmata.com",
@@ -330,7 +330,7 @@ func TestTSACertChain(t *testing.T) {
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P0sNlaZiaZC4TSEea3oh2Pim0+wxSubhKoK+7jq9Egg==
 -----END PUBLIC KEY-----`
 
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef:     "ghcr.io/kyverno/test-verify-image:tsa",
 		Key:          key,
 		TSACertChain: freeTSACertChain,
@@ -346,7 +346,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P
 }
 
 func TestCosignOCI11Experimental(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef: "ghcr.io/kyverno/test-verify-image:cosign-oci11",
 		Key: `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
@@ -393,7 +393,7 @@ func TestBuildCosignOptionsUsesSignedTimestamps(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := images.Options{
+			opts := verifiers.Options{
 				ImageRef:     "ghcr.io/kyverno/test-verify-image:signed",
 				Client:       rc,
 				TSACertChain: tt.tsaCertChain,
