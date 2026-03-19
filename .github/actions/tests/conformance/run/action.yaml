@@ -45,7 +45,6 @@ runs:
   steps:
     # install tools
     - name: Install tools
-      id: helm
       uses: ./.github/actions/tools/install
       with:
         helm: true
@@ -88,7 +87,6 @@ runs:
       shell: bash
       run: |
         set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
         export USE_CONFIG=${{ inputs.kyverno-configs }}
         export EXPLICIT_INSTALL_SETTINGS="${{ inputs.explicit-install-settings }}"
         echo "Installing Kyverno from main"
@@ -103,7 +101,7 @@ runs:
         echo 'Adding kubectl-evict directory to PATH...'
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
-      uses: ./.github/actions/kyverno-wait-ready
+      uses: ./.github/actions/kyverno/wait-ready
     - name: Add excluded tests
       shell: bash
       run: |
@@ -152,4 +150,4 @@ runs:
     # debug
     - name: Debug failure
       if: failure()
-      uses: ./.github/actions/kyverno-logs
+      uses: ./.github/actions/kyverno/logs

@@ -1,27 +1,26 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Tests
+name: Unit tests
 
 permissions: {}
 
 on:
-  push:
-    branches:
-    - main
-    - release-*
   pull_request:
     branches:
-    - main
-    - release-*
-  merge_group:
-    types: [checks_requested]
+      - main
+      - release-*
+  push:
+    branches:
+      - main
+      - release-*
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -59,6 +58,7 @@ jobs:
         if-no-files-found: error
 
   upload-to-codecov:
+    name: Upload coverage to Codecov
     needs:
     - tests
     runs-on: ubuntu-latest
@@ -77,3 +77,15 @@ jobs:
         verbose: true
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  issue-sync:
+    needs:
+      - tests
+      - upload-to-codecov
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
