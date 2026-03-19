@@ -1,4 +1,4 @@
-package eval
+package evaluator
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	"github.com/kyverno/kyverno/pkg/imageverification/variables"
+	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/imagedata"
 	"github.com/kyverno/sdk/cel/libs/resource"
