@@ -20,10 +20,10 @@ spec:
       - jobs
       - cronjobs
   matchConditions:
-  - expression: "(has(object.metadata.labels) && 'coco' in object.metadata.labels && object.metadata.labels['coco'] == 'enabled')"
+  - expression: "object.metadata.labels['coco'] == 'enabled'"
     name: has-coco-label
-  - expression: "(has(object.metadata.annotations) && 'coco.io/initdata-configmap' in object.metadata.annotations && object.metadata.annotations['coco.io/initdata-configmap'] != '')"
-    name: has-initdata-configmap-annotation
+  - expression: "has(object.metadata.annotations) && has(object.metadata.annotatiations['coco.io/initdata-configmap'])"
+    name: has-coco-label
   matchConstraints:
     resourceRules:
     - apiGroups:
@@ -39,11 +39,10 @@ spec:
       expression: 'variables.initData != "" ? Object{metadata: Object.metadata{annotations: {"io.katacontainers.config.runtime.cc_init_data": variables.initData}}} : Object{}'
     patchType: ApplyConfiguration
   variables:
-  - expression: "has(object.metadata.annotations) && 'coco.io/initdata-configmap' in object.metadata.annotations ? object.metadata.annotations['coco.io/initdata-configmap'] : object.spec.template.metadata.annotations['coco.io/initdata-configmap']"
+  - expression: "has(object.metadata.annotations) && 'coco.io/initdata-configmap' in object.metadata.annotations ? object.metadata.annotations['coco.io/initdata-configmap'] : 'initdata-configmap'"
     name: configMapName
   - expression: "has(object.metadata.namespace) ? object.metadata.namespace : 'default'"
     name: configMapNamespace
-  - expression: resource.Get('v1', 'configmaps', variables.configMapNamespace, variables.configMapName)
+  - expression: "resource.Get('v1', 'configmaps', variables.configMapNamespace, variables.configMapName)"
     name: configMap
   - expression: "has(variables.configMap.data) && 'data' in variables.configMap.data ? gzip.decompress(base64.decode(variables.configMap.data['data'])) : ''"
-    name: initData
