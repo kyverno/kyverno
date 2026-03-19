@@ -53,7 +53,7 @@ func TestSimpleTrustStore_EmptyCerts(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetCertificates() unexpected error = %v", err)
 	}
-	if got != nil && len(got) != 0 {
+	if len(got) != 0 {
 		t.Errorf("GetCertificates() expected nil or empty, got len = %v", len(got))
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
@@ -19,7 +19,7 @@ type parsedReference struct {
 	Desc       ocispec.Descriptor
 }
 
-func parseReferenceCrane(ctx context.Context, ref string, registryClient images.Client) (*parsedReference, error) {
+func parseReferenceCrane(ctx context.Context, ref string, registryClient verifiers.Client) (*parsedReference, error) {
 	nameOpts := registryClient.NameOptions()
 	nameRef, err := name.ParseReference(ref, nameOpts...)
 	if err != nil {

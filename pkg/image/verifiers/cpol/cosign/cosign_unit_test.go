@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/in-toto/in-toto-golang/in_toto"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	cosignPkg "github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
@@ -440,27 +440,27 @@ func TestDecodeStatements(t *testing.T) {
 func TestBuildVerifyOptions(t *testing.T) {
 	tests := []struct {
 		name       string
-		opts       images.Options
+		opts       verifiers.Options
 		wantLength int
 	}{
 		{
 			name:       "both tlog and sct enabled",
-			opts:       images.Options{IgnoreTlog: false, IgnoreSCT: false},
+			opts:       verifiers.Options{IgnoreTlog: false, IgnoreSCT: false},
 			wantLength: 2,
 		},
 		{
 			name:       "tlog ignored",
-			opts:       images.Options{IgnoreTlog: true, IgnoreSCT: false},
+			opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: false},
 			wantLength: 1,
 		},
 		{
 			name:       "sct ignored",
-			opts:       images.Options{IgnoreTlog: false, IgnoreSCT: true},
+			opts:       verifiers.Options{IgnoreTlog: false, IgnoreSCT: true},
 			wantLength: 1,
 		},
 		{
 			name:       "both ignored",
-			opts:       images.Options{IgnoreTlog: true, IgnoreSCT: true},
+			opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: true},
 			wantLength: 0,
 		},
 	}
@@ -516,7 +516,7 @@ func TestNewCosignVerifier(t *testing.T) {
 		t.Fatal("NewVerifier() returned nil")
 	}
 
-	var _ images.ImageVerifier = v
+	var _ verifiers.ImageVerifier = v
 }
 
 func TestSignatureAlgorithmMap(t *testing.T) {
