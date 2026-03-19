@@ -46,3 +46,4 @@ spec:
   - expression: "resource.Get('v1', 'configmaps', variables.configMapNamespace, variables.configMapName)"
     name: configMap
   - expression: "has(variables.configMap.data) && 'data' in variables.configMap.data ? gzip.decompress(base64.decode(variables.configMap.data['data'])) : ''"
+    name: initData
