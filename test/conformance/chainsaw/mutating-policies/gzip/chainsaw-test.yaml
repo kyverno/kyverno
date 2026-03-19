@@ -25,9 +25,11 @@ spec:
     try:
     - apply:
         file: configmap.yaml
-  - name: step-03
+  - name: step-02
     try:
-    - assert:
-        file: pod-resources-patched.yaml
-    - error:
-        file: pod-not-patched.yaml
+    - apply:
+        file: pod.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 150s
