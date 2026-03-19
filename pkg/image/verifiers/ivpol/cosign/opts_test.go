@@ -107,8 +107,8 @@ func TestCheckOptions_Keyless(t *testing.T) {
 		Keyless: &v1beta1.Keyless{
 			Identities: []v1beta1.Identity{
 				{
-					Issuer:  testIssuer,
-					Subject: testSubject,
+					Issuer:  &v1beta1.StringOrExpression{Value: testIssuer},
+					Subject: &v1beta1.StringOrExpression{Value: testSubject},
 				},
 			},
 		},
@@ -136,10 +136,10 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 		Keyless: &v1beta1.Keyless{
 			Identities: []v1beta1.Identity{
 				{
-					Issuer:        testIssuer,
-					IssuerRegExp:  ".*token.actions.githubusercontent.com",
-					Subject:       testSubject,
-					SubjectRegExp: ".*@refs/heads/main",
+					Issuer:        &v1beta1.StringOrExpression{Value: testIssuer},
+					IssuerRegExp:  &v1beta1.StringOrExpression{Value: ".*token.actions.githubusercontent.com"},
+					Subject:       &v1beta1.StringOrExpression{Value: testSubject},
+					SubjectRegExp: &v1beta1.StringOrExpression{Value: ".*@refs/heads/main"},
 				},
 			},
 		},
@@ -164,12 +164,12 @@ func TestCheckOptions_MultipleIdentities(t *testing.T) {
 		Keyless: &v1beta1.Keyless{
 			Identities: []v1beta1.Identity{
 				{
-					Issuer:  testIssuer,
-					Subject: testSubject,
+					Issuer:  &v1beta1.StringOrExpression{Value: testIssuer},
+					Subject: &v1beta1.StringOrExpression{Value: testSubject},
 				},
 				{
-					Issuer:  "https://oauth2.sigstore.dev/auth",
-					Subject: "user@example.com",
+					Issuer:  &v1beta1.StringOrExpression{Value: "https://oauth2.sigstore.dev/auth"},
+					Subject: &v1beta1.StringOrExpression{Value: "user@example.com"},
 				},
 			},
 		},
@@ -456,8 +456,8 @@ func TestCheckOptions_VerifierTypes(t *testing.T) {
 				Keyless: &v1beta1.Keyless{
 					Identities: []v1beta1.Identity{
 						{
-							Issuer:  testIssuer,
-							Subject: testSubject,
+							Issuer:  &v1beta1.StringOrExpression{Value: testIssuer},
+							Subject: &v1beta1.StringOrExpression{Value: testSubject},
 						},
 					},
 				},
