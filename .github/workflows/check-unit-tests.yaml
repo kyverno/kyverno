@@ -78,11 +78,13 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - tests
       - upload-to-codecov
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout
