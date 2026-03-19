@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      id-token: write 
+      id-token: write
     outputs:
       kyverno-digest: ${{ steps.publish-kyverno.outputs.digest }}
       kyverno-init-digest: ${{ steps.publish-kyverno-init.outputs.digest }}
@@ -27,31 +27,41 @@ jobs:
       cleanup-controller-digest: ${{ steps.publish-cleanup-controller.outputs.digest }}
       cli-digest: ${{ steps.publish-cli.outputs.digest }}
       reports-controller-digest: ${{ steps.publish-reports-controller.outputs.digest }}
+      readiness-checker-digest: ${{ steps.publish-readiness-checker.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 30
-      - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          version: v0.69.2
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
           scan-type: fs
           scan-ref: '.'
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          cache: false
         env:
-          # Trivy is returning TOOMANYREQUESTS
-          # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
           TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Publish kyverno
         id: publish-kyverno
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
@@ -66,7 +76,7 @@ jobs:
           main-path: ./cmd/kyverno
       - name: Publish kyverno-init
         id: publish-kyverno-init
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
@@ -81,7 +91,7 @@ jobs:
           main-path: ./cmd/kyverno-init
       - name: Publish background-controller
         id: publish-background-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
@@ -96,7 +106,7 @@ jobs:
           main-path: ./cmd/background-controller
       - name: Publish cleanup-controller
         id: publish-cleanup-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
@@ -111,7 +121,7 @@ jobs:
           main-path: ./cmd/cleanup-controller
       - name: Publish cli
         id: publish-cli
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cli
           registry: ghcr.io
@@ -126,7 +136,7 @@ jobs:
           main-path: ./cmd/cli/kubectl-kyverno
       - name: Publish reports-controller
         id: publish-reports-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
@@ -139,6 +149,21 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
+      - name: Publish readiness-checker
+        id: publish-readiness-checker
+        uses: ./.github/actions/image/publish
+        with:
+          makefile-target: ko-publish-readiness-checker
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
+          sign-image: true
+          sbom-name: readiness-checker
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/readiness-checker
 
   generate-kyverno-provenance:
     needs: publish-images
@@ -226,6 +251,21 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.publish-images.outputs.reports-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  generate-readiness-checker-provenance:
+    needs: publish-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/readiness-checker
+      digest: "${{ needs.publish-images.outputs.readiness-checker-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}

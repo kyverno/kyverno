@@ -22,31 +22,40 @@ jobs:
       cleanup-controller-digest: ${{ steps.release-cleanup-controller.outputs.digest }}
       cli-digest: ${{ steps.release-cli.outputs.digest }}
       reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
+      readiness-checker-digest: ${{ steps.release-readiness-checker.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 30
-      - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # v0.34.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          version: v0.69.2
+          fetch-tags: true
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
           scan-type: fs
           scan-ref: '.'
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          cache: false
         env:
-          # Trivy is returning TOOMANYREQUESTS
-          # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
           TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Publish kyverno
         id: release-kyverno
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
@@ -61,7 +70,7 @@ jobs:
           main-path: ./cmd/kyverno
       - name: Publish kyverno-init
         id: release-kyverno-init
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
@@ -76,7 +85,7 @@ jobs:
           main-path: ./cmd/kyverno-init
       - name: Publish background-controller
         id: release-background-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
@@ -91,7 +100,7 @@ jobs:
           main-path: ./cmd/background-controller
       - name: Publish cleanup-controller
         id: release-cleanup-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
@@ -106,7 +115,7 @@ jobs:
           main-path: ./cmd/cleanup-controller
       - name: Publish cli
         id: release-cli
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-cli
           registry: ghcr.io
@@ -121,7 +130,7 @@ jobs:
           main-path: ./cmd/cli/kubectl-kyverno
       - name: Publish reports-controller
         id: release-reports-controller
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/image/publish
         with:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
@@ -134,6 +143,21 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
+      - name: Publish readiness-checker
+        id: release-readiness-checker
+        uses: ./.github/actions/image/publish
+        with:
+          makefile-target: ko-publish-readiness-checker
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
+          sign-image: true
+          sbom-name: readiness-checker
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/readiness-checker
 
   generate-kyverno-provenance:
     needs: release-images
@@ -225,6 +249,21 @@ jobs:
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
 
+  generate-readiness-checker-provenance:
+    needs: release-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/readiness-checker
+      digest: "${{ needs.release-images.outputs.readiness-checker-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
   create-release:
     runs-on: ubuntu-latest
     needs: release-images
@@ -233,13 +272,23 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 30
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-tags: true
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Make Release
         env:
           VERSION: ${{ github.ref_name }}
@@ -249,7 +298,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
+        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
         with:
           distribution: goreleaser
           version: latest
@@ -263,37 +312,47 @@ jobs:
     permissions:
       contents: write # needed to write releases
       id-token: write # needed for keyless signing
-      packages: write # needed for ghcr access  
+      packages: write # needed for ghcr access
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-tags: true
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@4a15fa6a023259353ef750acf1c98fe88407d4d0 # v2.7.2
+        uses: fluxcd/flux2/action@871be9b40d53627786d3a3835a3ddba1e3234bd2 # v2.8.3
         with:
           version: 0.35.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        uses: ./.github/actions/tools/cosign
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # 2.11.2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@81c65b7cd4de9b2570615ce3aad67a41de5b1a13 # 2.11.2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/**/*.yaml
           file_glob: true
           tag: ${{ github.ref }}
       - name: Login to GHCR
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -326,10 +385,20 @@ jobs:
     needs: create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-tags: true
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: true
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
       - name: Check Tag
         id: check-tag
         run: |
@@ -338,4 +407,4 @@ jobs:
           fi
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
-        uses: rajatjindal/krew-release-bot@3d9faef30a82761d610544f62afddca00993eef9 # v0.0.47
+        uses: rajatjindal/krew-release-bot@c970b8a8f6dbc2f2285a26e3ae160903b87002c3 # v0.0.51
