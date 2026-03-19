@@ -12,7 +12,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
@@ -37,7 +37,7 @@ type Bundle struct {
 	DSSE_Envelope *in_toto.Statement //nolint:staticcheck
 }
 
-func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) ([]*VerificationResult, error) {
+func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Options) ([]*VerificationResult, error) {
 	nameOpts := opts.Client.NameOptions()
 	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
@@ -182,7 +182,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 	return bundles, desc, nil
 }
 
-func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder, error) {
+func buildPolicy(desc *v1.Descriptor, opts verifiers.Options) (verify.PolicyBuilder, error) {
 	digest, err := hex.DecodeString(desc.Digest.Hex)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
@@ -202,7 +202,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	return verify.NewPolicy(artifactDigestVerificationOption), nil
 }
 
-func buildVerifyOptions(opts images.Options) []verify.VerifierOption {
+func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	var verifierOptions []verify.VerifierOption
 	if !opts.IgnoreTlog {
 		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1))

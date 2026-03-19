@@ -15,10 +15,10 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/notary"
-	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
@@ -306,8 +306,8 @@ func (iv *ImageVerifier) verifyAttestors(
 	attestors []kyvernov1.AttestorSet,
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
-) (*engineapi.RuleResponse, *images.Response) {
-	var cosignResponse *images.Response
+) (*engineapi.RuleResponse, *verifiers.Response) {
+	var cosignResponse *verifiers.Response
 	image := imageInfo.String()
 	for i, attestorSet := range attestors {
 		var err error
@@ -450,7 +450,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	path string,
-) (*images.Response, error) {
+) (*verifiers.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = ExpandStaticKeys(attestorSet)
@@ -459,7 +459,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 
 	for i, a := range attestorSet.Entries {
 		var entryError error
-		var cosignResp *images.Response
+		var cosignResp *verifiers.Response
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
 		iv.logger.V(4).Info("verifying attestorSet", "path", attestorPath, "image", image)
 
@@ -500,7 +500,7 @@ func (iv *ImageVerifier) buildVerifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
-) (images.ImageVerifier, *images.Options, string) {
+) (verifiers.ImageVerifier, *verifiers.Options, string) {
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
 		return iv.buildNotaryVerifier(attestor, image, attestation)
@@ -514,9 +514,9 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
-) (images.ImageVerifier, *images.Options, string) {
+) (verifiers.ImageVerifier, *verifiers.Options, string) {
 	path := ""
-	opts := &images.Options{
+	opts := &verifiers.Options{
 		ImageRef:           image,
 		Repository:         imageVerify.Repository,
 		CosignOCI11:        imageVerify.CosignOCI11,
@@ -634,9 +634,9 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 	attestor kyvernov1.Attestor,
 	image string,
 	attestation *kyvernov1.Attestation,
-) (images.ImageVerifier, *images.Options, string) {
+) (verifiers.ImageVerifier, *verifiers.Options, string) {
 	path := ""
-	opts := &images.Options{
+	opts := &verifiers.Options{
 		ImageRef:  image,
 		Cert:      attestor.Certificates.Certificate,
 		CertChain: attestor.Certificates.CertificateChain,
