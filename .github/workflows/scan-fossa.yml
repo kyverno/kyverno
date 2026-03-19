@@ -1,40 +1,37 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: PR update
+name: FOSSA
 
 permissions: {}
 
 on:
   push:
-    branches:
+    branches: 
       - main
-      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
 
 jobs:
-  autoupdate:
+  analysis:
+    name: FOSSA analysis
     runs-on: ubuntu-latest
     env:
-      PR_UPDATE_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Automatically update PR
-        if: env.PR_UPDATE_TOKEN != ''
-        uses: adRise/update-pr-branch@a51c014567e5be98445551cce9b8f5ad42dd8acf # v0.10.2
+      - name: Run FOSSA analysis
+        if: env.FOSSA_API_KEY != ''
+        uses: fossas/fossa-action@c414b9ad82eaad041e47a7cf62a4f02411f427a0 # v1.8.0
         with:
-          token: ${{ env.PR_UPDATE_TOKEN }}
-          base: ${{ github.ref_name }}
-          require_auto_merge_enabled: true
-          required_approval_count: 1
-          require_passed_checks: false
-          allow_ongoing_checks: true
-          sort: created
-          direction: desc
+          api-key: ${{ env.FOSSA_API_KEY }}
 
   sync-issue:
     if: always() && github.event_name == 'push'
     needs:
-      - autoupdate
+      - analysis
     permissions:
       issues: write
     runs-on: ubuntu-slim
