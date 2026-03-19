@@ -30,10 +30,12 @@ jobs:
       - name: Checking unused pkgs using go mod tidy
         run: make unused-package-check
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - check
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout

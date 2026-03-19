@@ -68,10 +68,12 @@ jobs:
           path: ${{ steps.setup-go.outputs.gobuild-cache }}
           cache-prefix: gobuild
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - cache
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout
