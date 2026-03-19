@@ -32,4 +32,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.networkpolicy)
+    - expression: generator.apply(variables.nsName, variables.networkpolicy)

@@ -13,7 +13,7 @@ spec:
   - name: has-corp-registry
     expression: |
       (
-        object.spec.containers.exists(container, 
+        object.spec.containers.exists(container,
           image(container.image).registry() == "corp.reg.com"
         ) ||
         object.spec.?initContainers.orValue([]).exists(initContainer,
@@ -42,4 +42,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.configmap)
+    - expression: generator.apply(variables.nsName, variables.configmap)
