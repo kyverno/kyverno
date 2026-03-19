@@ -33,10 +33,12 @@ jobs:
           allowlist: |
             slsa-framework/slsa-github-generator
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - check
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout

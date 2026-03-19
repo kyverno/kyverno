@@ -31,10 +31,12 @@ jobs:
           sort: created
           direction: desc
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - autoupdate
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout

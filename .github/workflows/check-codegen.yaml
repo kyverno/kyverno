@@ -45,11 +45,13 @@ jobs:
       - name: Verify codegen is up to date
         run: make verify-codegen
 
-  issue-sync:
+  sync-issue:
+    if: always() && github.event_name == 'push'
     needs:
       - verify-codegen-code
       - verify-codegen-docs
-    if: always() && github.event_name == 'push'
+    permissions:
+      issues: write
     runs-on: ubuntu-slim
     steps:
       - name: Checkout
