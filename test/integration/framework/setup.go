@@ -7,6 +7,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +25,7 @@ type TestEnv struct {
 	Mgr             ctrl.Manager
 	Client          client.Client
 	KubeClient      kubernetes.Interface
+	KyvernoClient   kyvernoclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
 	cancel          context.CancelFunc
@@ -70,6 +72,12 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
+	kyvernoClient, err := kyvernoclient.NewForConfig(cfg)
+	if err != nil {
+		_ = env.Stop()
+		return nil, fmt.Errorf("failed to create kyverno client: %w", err)
+	}
+
 	dynClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		_ = env.Stop()
@@ -96,6 +104,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Mgr:             mgr,
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
+		KyvernoClient:   kyvernoClient,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil
