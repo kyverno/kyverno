@@ -288,6 +288,9 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 				transform.Lib(
 					transform.Latest(),
 				),
+				gzip.Lib(
+					gzip.Latest(),
+				),
 			},
 		},
 	)
