@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: initdata-config
+  annotations:
+    description: |
+      This ConfigMap contains base64-gzip encoded initdata for CoCo.
+      To update, modify the plaintext TOML below, then:
+      echo '<your-toml>' | gzip | base64
+
+      Plaintext initdata example:
+      version = "0.1.0"
+      algorithm = "sha384"
+
+      [data]
+      "policy.rego" = """
+      package agent_policy
+      default allow = true
+      """
+
+      "aa.toml" = """
+      [token_configs.kbs]
+      url = "https://kbs.example.com:8080"
+      """
+
+      "cdh.toml" = """
+      [kbc]
+      name = "cc_kbc"
+      url = "https://kbs.example.com:8080"
+      """
+data:
+  # Base64-gzip encoded initdata TOML
+  data: H4sIAP7jhGkAA5WOSQ7CMAxF9z5F5QOEIlhUlTgJqiqTuoOaxFXiMtyeRIgFSxZe+P/nJ985pkVCdamwNkdTI5CbJC46+5KlmU7NGQGuAyl1gJu4xb5M5EmwAIiwkV1p4ipP0P4DwMAj7U4rck4eGdS4MxQakMioePc9v6qsHHorYVymZNZb6mCPrrSz6pbawyFnhp/kN8fGim+busmPfmx2mH916812EMhzCazt845/CN915//aEQEAAA==

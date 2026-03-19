@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod01
+  labels:
+    coco: enabled
+spec:
+  containers:
+  - name: pod01-01
+    image: nginx:latest
