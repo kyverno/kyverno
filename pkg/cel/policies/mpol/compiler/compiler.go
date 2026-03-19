@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/gzip"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
 	"github.com/kyverno/sdk/cel/libs/image"
@@ -181,6 +182,7 @@ func newCompositeCompiler(libCtx libs.Context, namespace string) (*plugincel.Com
 				x509.Lib(x509.Latest()),
 				time.Lib(time.Latest()),
 				transform.Lib(transform.Latest()),
+				gzip.Lib(gzip.Latest()),
 			},
 		},
 	)
