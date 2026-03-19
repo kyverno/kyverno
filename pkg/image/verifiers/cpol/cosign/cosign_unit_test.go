@@ -478,7 +478,7 @@ func TestBuildVerifyOptions(t *testing.T) {
 func TestDecodeStatementsFromBundles(t *testing.T) {
 	tests := []struct {
 		name    string
-		bundles []*VerificationResult
+		bundles []*verificationResult
 		wantLen int
 		wantErr bool
 	}{
@@ -490,7 +490,7 @@ func TestDecodeStatementsFromBundles(t *testing.T) {
 		},
 		{
 			name:    "empty bundles",
-			bundles: []*VerificationResult{},
+			bundles: []*verificationResult{},
 			wantLen: 0,
 			wantErr: false,
 		},
