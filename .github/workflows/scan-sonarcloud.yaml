@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Sonarcloud workflow
+name: Sonarcloud
 
 permissions: {}
 
@@ -11,11 +11,12 @@ on:
       - release-*
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
 
 jobs:
-  sonarcloud:
+  analysis:
+    name: Sonarcloud analysis
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -26,3 +27,16 @@ jobs:
       - name: SonarCloud Scan
         if: env.SONAR_TOKEN != ''
         uses: sonarsource/sonarcloud-github-action@ffc3010689be73b8e5ae0c57ce35968afd7909e8 # v5.0.0
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - analysis
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue

@@ -9,10 +9,14 @@ on:
     branches:
       - main
       - release-*
+  push:
+    branches:
+      - main
+      - release-*
 
 concurrency:
-  group: ${{ github.workflow_ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -21,9 +25,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          fetch-tags: true
       - name: Setup python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -37,4 +38,17 @@ jobs:
           helm repo add kyverno-api https://kyverno.github.io/api
           helm repo update
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=${{ github.base_ref }} --check-version-increment=false --validate-maintainers=false
+        run: ct lint --all --check-version-increment=false --validate-maintainers=false
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - check
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
