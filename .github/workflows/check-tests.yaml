@@ -62,6 +62,8 @@ jobs:
     needs:
       - images
       - cli
+    permissions:
+      packages: read
     uses: ./.github/workflows/tests-conformance.yaml
 
   conformance-policy-library-tests:
