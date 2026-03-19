@@ -179,39 +179,9 @@ func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeC
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
-	t.Run("error in matcher", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.NotNil(t, res)
-		assert.EqualError(t, res.Error, "match error")
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: false,
-				},
-			},
-		}
-
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.Nil(t, resp)
-	})
-
 	t.Run("patch error", func(t *testing.T) {
 		p := Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: nil,
@@ -230,9 +200,6 @@ func TestEvaluate(t *testing.T) {
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: patchedObj,
@@ -245,48 +212,6 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
-	})
-}
-
-func TestMatchesConditions(t *testing.T) {
-	ctx := context.TODO()
-	t.Run("no matcher", func(t *testing.T) {
-		p := Policy{}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, libs.NewFakeContextProvider())
-		assert.False(t, res)
-	})
-
-	t.Run("with error", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, libs.NewFakeContextProvider())
-		assert.False(t, res)
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: false},
-			},
-		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, libs.NewFakeContextProvider())
-		assert.False(t, res)
-	})
-
-	t.Run("match successfully", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: true},
-			},
-		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{}, libs.NewFakeContextProvider())
-		assert.True(t, res)
 	})
 }
 

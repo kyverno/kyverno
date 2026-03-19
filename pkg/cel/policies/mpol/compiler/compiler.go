@@ -68,8 +68,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	spec := policy.GetSpec()
 
 	path := field.NewPath("spec")
-	// append a place holder error to the errors list to be displayed in case the error list was returned
-	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
 	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
 	if errs != nil {
@@ -154,7 +152,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		variables:        variables,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
-	}, nil
+	}, allErrs
 }
 
 func newCompositeCompiler(libCtx libs.Context, namespace string) (*plugincel.CompositedCompiler, error) {
