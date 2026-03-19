@@ -29,4 +29,8 @@ spec:
   - name: sleep
     try:
     - sleep:
-        duration: 150s
+        duration: 5s
+  - name: verify-pod-mutated
+    try:
+    - assert:
+        file: pod-mutated.yaml
