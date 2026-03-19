@@ -23,7 +23,7 @@ spec:
   - expression: "object.metadata.labels['coco'] == 'enabled'"
     name: has-coco-label
   - expression: "has(object.metadata.annotations) && has(object.metadata.annotatiations['coco.io/initdata-configmap'])"
-    name: has-coco-label
+    name: has-coco-configmap-annotation
   matchConstraints:
     resourceRules:
     - apiGroups:
