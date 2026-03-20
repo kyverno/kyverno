@@ -5,6 +5,7 @@ name: Tests
 permissions: {}
 
 on:
+  workflow_dispatch: {}
   push:
     branches:
       - main

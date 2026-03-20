@@ -501,7 +501,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, err
 				}
-				eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+				eng := vpolengine.NewEngine(provider, nil, p.Variables.Namespace, matching.NewMatcher())
 				// map gvk to gvr
 				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 				if err != nil {
@@ -570,7 +570,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, err
 				}
-				eng := vpolengine.NewEngine(provider, nil, nil)
+				eng := vpolengine.NewEngine(provider, nil, nil, nil)
 				request := celengine.RequestFromJSON(contextProvider, &resource)
 				reps, err := eng.Handle(ctx, request, nil)
 				if err != nil {
@@ -602,7 +602,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, err
 				}
-				eng := vpolengine.NewEngine(provider, nil, nil)
+				eng := vpolengine.NewEngine(provider, nil, nil, nil)
 				request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
 				reps, err := eng.Handle(ctx, request, nil)
 				if err != nil {

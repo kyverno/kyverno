@@ -2,6 +2,7 @@ package framework
 
 import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/polex"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	corev1 "k8s.io/api/core/v1"
@@ -17,9 +18,13 @@ func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, er
 	if err != nil {
 		return nil, nil, err
 	}
-
+	polexCompiler := polex.NewCompiler()
+	polexProvider, err := polex.NewKubeProvider(polexCompiler, mgr)
+	if err != nil {
+		return nil, nil, err
+	}
 	nsResolver := func(ns string) *corev1.Namespace { return nil }
 	matcher := matching.NewMatcher()
 
-	return vpolengine.NewEngine(provider, nsResolver, matcher), provider, nil
+	return vpolengine.NewEngine(provider, polexProvider, nsResolver, matcher), provider, nil
 }

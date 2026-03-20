@@ -5,6 +5,7 @@ name: Conformance
 permissions: {}
 
 on:
+  workflow_dispatch: {}
   issue_comment:
     types:
       - created

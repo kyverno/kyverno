@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/polex"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -33,16 +34,18 @@ type (
 )
 
 type engineImpl struct {
-	provider   Provider
-	nsResolver engine.NamespaceResolver
-	matcher    matching.Matcher
+	provider      Provider
+	polexProvider polex.Provider
+	nsResolver    engine.NamespaceResolver
+	matcher       matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
+func NewEngine(provider Provider, polexProvider polex.Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engineImpl{
-		provider:   provider,
-		nsResolver: nsResolver,
-		matcher:    matcher,
+		provider:      provider,
+		polexProvider: polexProvider,
+		nsResolver:    nsResolver,
+		matcher:       matcher,
 	}
 }
 
@@ -128,9 +131,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	var result *compiler.EvaluationResult
 	var err error
 	if jsonPayload != nil {
-		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, e.polexProvider, jsonPayload, nil, nil, nil, context)
 	} else {
-		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, e.polexProvider, nil, attr, request, namespace, context)
 	}
 	// TODO: error is about match conditions here ?
 	if err != nil {

@@ -5,6 +5,7 @@ name: Conformance tests
 permissions: {}
 
 on:
+  workflow_dispatch: {}
   workflow_call: {}
 
 jobs:
