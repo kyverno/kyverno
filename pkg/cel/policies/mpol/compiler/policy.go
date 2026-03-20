@@ -2,8 +2,6 @@ package compiler
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 	"time"
 
 	cel "github.com/google/cel-go/cel"
@@ -29,6 +27,8 @@ import (
 
 type Policy struct {
 	evaluator        mutating.PolicyEvaluator
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
 	exceptions       []compiler.Exception
 	matchConstraints *admissionregistrationv1.MatchResources
 }
@@ -39,49 +39,12 @@ func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 
 type compositionContext struct {
 	ctx             context.Context //nolint:containedctx
-	evaluator       *mutating.PolicyEvaluator
-	contextProvider libs.Context
+	variables       *lazy.MapValue
 	accumulatedCost int64
 }
 
 func (c *compositionContext) Variables(activation any) ref.Val {
-	// Create lazy map using the composition environment's map type
-	lazyMap := lazy.NewMapValue(c.evaluator.CompositionEnv.MapType)
-
-	// Extract object and oldObject from the activation context
-	var objectVal, oldObjectVal interface{}
-	if evalActivation, ok := activation.(interface {
-		ResolveName(string) (interface{}, bool)
-	}); ok {
-		if obj, found := evalActivation.ResolveName("object"); found {
-			objectVal = obj
-		}
-		if oldObj, found := evalActivation.ResolveName("oldObject"); found {
-			oldObjectVal = oldObj
-		}
-	}
-
-	// Set up context data for variable evaluation
-	ctxData := map[string]any{
-		compiler.VariablesKey: lazyMap,
-		compiler.ObjectKey:    objectVal,
-		compiler.OldObjectKey: oldObjectVal,
-	}
-
-	for name, result := range c.evaluator.CompositionEnv.CompiledVariables {
-		lazyMap.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := result.Program.ContextEval(c.ctx, ctxData)
-			if out != nil {
-				return out
-			}
-			if err != nil {
-				return types.WrapErr(err)
-			}
-			return nil
-		})
-	}
-
-	return lazyMap
+	return c.variables
 }
 
 func (c *compositionContext) GetAndResetCost() int64 {
@@ -106,21 +69,70 @@ func (c *compositionContext) Value(key interface{}) interface{} {
 	return c.ctx.Value(key)
 }
 
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) bool {
-	if p.evaluator.Matcher != nil {
-		versionedAttributes := &admission.VersionedAttributes{
-			Attributes:      attr,
-			VersionedObject: attr.GetObject(),
-			VersionedKind:   attr.GetKind(),
+func (p *Policy) match(ctx context.Context, data map[string]any, matchConditions []cel.Program) (bool, error) {
+	var errs []error
+
+	for _, matchCondition := range matchConditions {
+		// evaluate the condition
+		out, _, err := matchCondition.ContextEval(ctx, data)
+		// check error
+		if err != nil {
+			errs = append(errs, err)
+			continue
 		}
-		matchResult := p.evaluator.Matcher.Match(ctx, versionedAttributes, namespace, nil)
-		if matchResult.Error != nil || !matchResult.Matches {
-			return false
+		// try to convert to a bool
+		result, err := utils.ConvertToNative[bool](out)
+		// check error
+		if err != nil {
+			errs = append(errs, err)
+			continue
 		}
-		return true
+		// if condition is false, skip
+		if !result {
+			return false, nil
+		}
+	}
+	if err := multierr.Combine(errs...); err != nil {
+		return false, err
 	}
 
-	return false
+	return true, nil
+}
+
+func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy.MapValue {
+	vars := lazy.NewMapValue(compiler.VariablesType)
+	data[compiler.VariablesKey] = vars
+
+	for name, variable := range p.variables {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.ContextEval(ctx, data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+
+	return vars
+}
+
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, contextProvider libs.Context) bool {
+	data, err := prepareData(attr, nil, namespace, contextProvider)
+	if err != nil {
+		return false
+	}
+
+	p.appendVariables(ctx, data)
+
+	result, err := p.match(ctx, data, p.matchConditions)
+	if err != nil {
+		return false
+	}
+
+	return result
 }
 
 func (p *Policy) Evaluate(
@@ -136,31 +148,51 @@ func (p *Policy) Evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
+	data, err := prepareData(attr, &request, namespace, contextProvider)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
 
+	allowedImages := make([]string, 0)
+	allowedValues := make([]string, 0)
+	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
-		matchedExceptions, err := p.matchExceptions(ctx, attr, request, namespace)
-		if err != nil {
-			return &EvaluationResult{Error: err}
+		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		for _, polex := range p.exceptions {
+			match, err := p.match(ctx, data, polex.MatchConditions)
+			if err != nil {
+				return &EvaluationResult{Error: err}
+			}
+			if match {
+				matchedExceptions = append(matchedExceptions, polex.Exception)
+				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+			}
 		}
-		if len(matchedExceptions) > 0 {
+		// if there are matched exceptions and no allowed images, no need to evaluate the policy
+		// as the resource is excluded from policy evaluation
+		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
 			return &EvaluationResult{Exceptions: matchedExceptions}
 		}
 	}
-
-	compositionCtx := &compositionContext{
-		ctx:             ctx,
-		evaluator:       &p.evaluator,
-		contextProvider: contextProvider,
+	data[compiler.ExceptionsKey] = libs.Exception{
+		AllowedImages: allowedImages,
+		AllowedValues: allowedValues,
 	}
 
-	if p.evaluator.Matcher != nil {
-		matchResult := p.evaluator.Matcher.Match(compositionCtx, versionedAttributes, namespace, nil)
-		if matchResult.Error != nil {
-			return &EvaluationResult{Error: matchResult.Error}
-		}
-		if !matchResult.Matches {
-			return nil
-		}
+	vars := p.appendVariables(ctx, data)
+
+	match, err := p.match(ctx, data, p.matchConditions)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+	if !match {
+		return nil
+	}
+
+	compositionCtx := &compositionContext{
+		ctx:       ctx,
+		variables: vars,
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
@@ -186,69 +218,6 @@ func (p *Policy) Evaluate(
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
 }
 
-func (p *Policy) matchExceptions(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) ([]*policiesv1beta1.PolicyException, error) {
-	var errs []error
-	matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-
-	data := map[string]any{
-		compiler.NamespaceObjectKey: namespaceVal,
-		compiler.ObjectKey:          objectVal,
-	}
-
-	if attr.GetOldObject() != nil {
-		oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-		}
-		data[compiler.OldObjectKey] = oldObjectVal
-	}
-
-	if reflect.DeepEqual(request, admissionv1.AdmissionRequest{}) {
-		requestVal, err := utils.ConvertObjectToUnstructured(request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-		data[compiler.RequestKey] = requestVal
-	}
-	for _, polex := range p.exceptions {
-		for _, condition := range polex.MatchConditions {
-			out, _, err := condition.ContextEval(ctx, data)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			result, err := utils.ConvertToNative[bool](out)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if !result {
-				break
-			}
-			if err := multierr.Combine(errs...); err == nil {
-				matchedExceptions = append(matchedExceptions, polex.Exception)
-			}
-		}
-	}
-	return matchedExceptions, multierr.Combine(errs...)
-}
-
 func (p *Policy) GetCompiledVariables() map[string]cel.Program {
-	allvars := p.evaluator.CompositionEnv.CompiledVariables
-	varsMap := make(map[string]cel.Program, len(allvars))
-	for variableName, compiledVariable := range allvars {
-		if compiledVariable.Error != nil {
-			continue
-		}
-		varsMap[variableName] = compiledVariable.Program
-	}
-	return varsMap
+	return p.variables
 }

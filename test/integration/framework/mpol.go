@@ -19,7 +19,7 @@ func NewMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.
 	compiler := mpolcompiler.NewCompiler()
 	openapiClient := kubeClient.Discovery().OpenAPIV3()
 
-	provider, typeConverter, err := mpolengine.NewKubeProvider(ctx, compiler, mgr, openapiClient, nil, false)
+	provider, typeConverter, err := mpolengine.NewKubeProvider(ctx, compiler, contextProvider, mgr, openapiClient, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
