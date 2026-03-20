@@ -12,7 +12,7 @@ spec:
   variables:
     - name: pod
       expression: >-
-        resource.Get("v1", "pods", object.metadata.namespace, "policy-pod")
+        resource.get("v1", "pods", object.metadata.namespace, "policy-pod")
     - name: envLabel
       expression: >-
         has(variables.pod) && has(variables.pod.metadata) && has(variables.pod.metadata.labels) && 'env' in variables.pod.metadata.labels ? variables.pod.metadata.labels.env : 'unknown'
@@ -26,4 +26,4 @@ spec:
                 env: variables.envLabel
               }
             }
-          } 
+          }
