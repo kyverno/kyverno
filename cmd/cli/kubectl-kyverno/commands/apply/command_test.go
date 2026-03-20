@@ -1509,9 +1509,13 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy JWT (3 requests: 2 denied, 1 allowed)
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
-				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/request.json"},
-				PolicyReport:      true,
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				EnvoyPayloadPaths: []string{
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-empty.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-forbidden.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-pass.json",
+				},
+				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1522,16 +1526,7 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		},
 	}
 	for i, tc := range testcases {
-		tc := tc
 		t.Run(fmt.Sprintf("authz-case-%d", i), func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
-						t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
-					}
-					panic(r)
-				}
-			}()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
