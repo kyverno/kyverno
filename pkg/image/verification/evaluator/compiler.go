@@ -14,6 +14,7 @@ import (
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/gzip"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
 	"github.com/kyverno/sdk/cel/libs/image"
@@ -254,6 +255,9 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 				),
 				transform.Lib(
 					transform.Latest(),
+				),
+				gzip.Lib(
+					gzip.Latest(),
 				),
 			},
 		},
