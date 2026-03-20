@@ -371,29 +371,21 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, resourceCount)
 		}
 	}
-	var envoyRequests []*authv3.CheckRequest
+	envoyRequests := make([]*authv3.CheckRequest, 0, len(c.EnvoyPayloadPaths))
 	for _, path := range c.EnvoyPayloadPaths {
-		content, err := os.ReadFile(filepath.Clean(path))
-		if err != nil {
-			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to read envoy payload file %s: %w", path, err)
-		}
-		reqs, err := processor.LoadEnvoyRequests(string(content))
+		request, err := processor.LoadEnvoyRequests(path)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to parse envoy payload from %s: %w", path, err)
 		}
-		envoyRequests = append(envoyRequests, reqs...)
+		envoyRequests = append(envoyRequests, request)
 	}
-	var httpRequests []*authzhttp.CheckRequest
+	httpRequests := make([]*authzhttp.CheckRequest, 0, len(c.HTTPPayloadPaths))
 	for _, path := range c.HTTPPayloadPaths {
-		content, err := os.ReadFile(filepath.Clean(path))
-		if err != nil {
-			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to read HTTP payload file %s: %w", path, err)
-		}
-		reqs, err := processor.LoadHTTPRequests(string(content))
+		request, err := processor.LoadHTTPRequests(path)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to parse HTTP payload from %s: %w", path, err)
 		}
-		httpRequests = append(httpRequests, reqs...)
+		httpRequests = append(httpRequests, request)
 	}
 
 	rc, resources1, responses1, err := c.applyPolicies(
@@ -411,10 +403,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		resources,
 		parameterResources,
 		jsonPayloads,
-		envoyPols,
-		httpPols,
-		envoyRequests,
-		httpRequests,
 		exceptions,
 		celexceptions,
 		&skippedInvalidPolicies,
@@ -440,11 +428,25 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
+	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
+
+	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses4, err
+	}
+
+	envoyResponses, err := authzProcessor.ApplyEnvoyPolicies(envoyRequests)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses4, err
+	}
+
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses4...)
 	responses = append(responses, responses5...)
 	responses = append(responses, responses6...)
+	responses = append(responses, httpResponses...)
+	responses = append(responses, envoyResponses...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -471,10 +473,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	resources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
-	envoyPols []*policiesv1beta1.ValidatingPolicy,
-	httpPols []*policiesv1beta1.ValidatingPolicy,
-	envoyRequests []*authv3.CheckRequest,
-	httpRequests []*authzhttp.CheckRequest,
 	exceptions []*kyvernov2.PolicyException,
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -522,10 +520,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
-			EnvoyPolicies:                     envoyPols,
-			HTTPPolicies:                      httpPols,
-			EnvoyRequests:                     envoyRequests,
-			HTTPRequests:                      httpRequests,
 			Resource:                          *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -568,10 +562,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
-			EnvoyPolicies:                     envoyPols,
-			HTTPPolicies:                      httpPols,
-			EnvoyRequests:                     envoyRequests,
-			HTTPRequests:                      httpRequests,
 			JsonPayload:                       *resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
@@ -600,24 +590,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 				continue
 			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-	}
-	if len(resources) == 0 && len(jsonPayloads) == 0 && (len(envoyPols) > 0 || len(httpPols) > 0) {
-		processor := processor.PolicyProcessor{
-			Store:         store,
-			EnvoyPolicies: envoyPols,
-			HTTPPolicies:  httpPols,
-			EnvoyRequests: envoyRequests,
-			HTTPRequests:  httpRequests,
-			PolicyReport:  c.PolicyReport,
-			Rc:            &rc,
-			Client:        dClient,
-			Out:           out,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			return &rc, resources, responses, fmt.Errorf("failed to apply authz policies (%w)", err)
 		}
 		responses = append(responses, ers...)
 	}
