@@ -15,7 +15,6 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -1510,9 +1509,13 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy JWT (3 requests: 2 denied, 1 allowed)
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
-				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/request.json"},
-				PolicyReport:      true,
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				EnvoyPayloadPaths: []string{
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-empty.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-forbidden.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-pass.json",
+				},
+				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1523,16 +1526,7 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		},
 	}
 	for i, tc := range testcases {
-		tc := tc
 		t.Run(fmt.Sprintf("authz-case-%d", i), func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
-						t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
-					}
-					panic(r)
-				}
-			}()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
@@ -1560,24 +1554,4 @@ func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
-}
-
-func Test_loadEnvoyRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"empty"}}}}},
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"bearer token"}}}}}
-	]`
-	reqs, err := processor.LoadEnvoyRequests(content)
-	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
-}
-
-func Test_loadHTTPRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"method":"GET","host":"example.com","path":"/"}},
-	  {"attributes":{"method":"POST","host":"example.com","path":"/submit"}}
-	]`
-	reqs, err := processor.LoadHTTPRequests(content)
-	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
 }
