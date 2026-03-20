@@ -80,7 +80,7 @@ security-testing:
     tool-url: https://github.com/sigstore/cosign
     integration:
       ad-hoc: false
-      ci: false
+      ci: true
       before-release: true
   - tool-type: provenance
     tool-name: SLSA GitHub Generator
