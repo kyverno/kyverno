@@ -13,7 +13,7 @@ import (
 // The returned provider exposes Fetch() to check reconciliation status in tests.
 func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, error) {
 	compiler := vpolcompiler.NewCompiler()
-	provider, err := vpolengine.NewKubeProvider(compiler, mgr, nil, false)
+	provider, err := vpolengine.NewKubeProvider(compiler, mgr)
 	if err != nil {
 		return nil, nil, err
 	}

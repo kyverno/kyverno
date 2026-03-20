@@ -689,8 +689,8 @@ func main() {
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
 				mgr,
-				celExceptionLister,
-				internal.PolicyExceptionEnabled(),
+				// celExceptionLister,
+				// internal.PolicyExceptionEnabled(),
 			)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")

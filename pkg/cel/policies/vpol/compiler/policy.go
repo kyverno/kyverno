@@ -28,7 +28,6 @@ type Policy struct {
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
-	exceptions       []compiler.Exception
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -88,26 +87,26 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 	}
-	// check if the resource matches an exception
-	if len(p.exceptions) > 0 {
-		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
-		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, dataNew, polex.MatchConditions)
-			if err != nil {
-				return nil, err
-			}
-			if match {
-				matchedExceptions = append(matchedExceptions, polex.Exception)
-				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
-				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
-			}
-		}
-		// if there are matched exceptions and no allowed images, no need to evaluate the policy
-		// as the resource is excluded from policy evaluation
-		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
-			return &EvaluationResult{Exceptions: matchedExceptions}, nil
-		}
-	}
+	// // check if the resource matches an exception
+	// if len(p.exceptions) > 0 {
+	// 	matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+	// 	for _, polex := range p.exceptions {
+	// 		match, err := p.match(ctx, dataNew, polex.MatchConditions)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		if match {
+	// 			matchedExceptions = append(matchedExceptions, polex.Exception)
+	// 			allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+	// 			allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+	// 		}
+	// 	}
+	// 	// if there are matched exceptions and no allowed images, no need to evaluate the policy
+	// 	// as the resource is excluded from policy evaluation
+	// 	if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
+	// 		return &EvaluationResult{Exceptions: matchedExceptions}, nil
+	// 	}
+	// }
 	dataNew[compiler.ExceptionsKey] = libs.Exception{
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
