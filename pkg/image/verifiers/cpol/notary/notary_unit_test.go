@@ -6,7 +6,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/notaryproject/notation-core-go/signature"
 	notation "github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
@@ -15,32 +15,32 @@ import (
 func TestCombineCerts(t *testing.T) {
 	tests := []struct {
 		name     string
-		opts     images.Options
+		opts     verifiers.Options
 		expected string
 	}{
 		{
 			name:     "cert only",
-			opts:     images.Options{Cert: "cert-data"},
+			opts:     verifiers.Options{Cert: "cert-data"},
 			expected: "cert-data",
 		},
 		{
 			name:     "cert chain only",
-			opts:     images.Options{CertChain: "chain-data"},
+			opts:     verifiers.Options{CertChain: "chain-data"},
 			expected: "chain-data",
 		},
 		{
 			name:     "both cert and chain",
-			opts:     images.Options{Cert: "cert-data", CertChain: "chain-data"},
+			opts:     verifiers.Options{Cert: "cert-data", CertChain: "chain-data"},
 			expected: "cert-data\nchain-data",
 		},
 		{
 			name:     "neither cert nor chain",
-			opts:     images.Options{},
+			opts:     verifiers.Options{},
 			expected: "",
 		},
 		{
 			name:     "empty cert with chain",
-			opts:     images.Options{Cert: "", CertChain: "chain-data"},
+			opts:     verifiers.Options{Cert: "", CertChain: "chain-data"},
 			expected: "chain-data",
 		},
 	}
@@ -252,17 +252,14 @@ func TestNewVerifier(t *testing.T) {
 	}
 
 	// Verify it implements the ImageVerifier interface
-	var _ images.ImageVerifier = v
+	var _ verifiers.ImageVerifier = v
 }
 
 func TestNewVerifierType(t *testing.T) {
 	v := NewVerifier()
-	nv, ok := v.(*notaryVerifier)
+	_, ok := v.(*notaryVerifier)
 	if !ok {
 		t.Fatal("NewVerifier() did not return a *notaryVerifier")
-	}
-	if nv.log.GetSink() == nil {
-		t.Error("NewVerifier() logger sink is nil")
 	}
 }
 
@@ -274,7 +271,7 @@ MIIB+jCCAaCgAwIBAgIUTest
 MIIB+jCCAaCgAwIBAgIUChain
 -----END CERTIFICATE-----`
 
-	opts := images.Options{
+	opts := verifiers.Options{
 		Cert:      certPEM,
 		CertChain: chainPEM,
 	}
