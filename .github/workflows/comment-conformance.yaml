@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Conformance
+
+permissions: {}
+
+on:
+  issue_comment:
+    types:
+      - created
+      - edited
+
+jobs:
+  images:
+    name: Build test images
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/conformance')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Install Ko
+        uses: ./.github/actions/tools/ko
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          if-no-files-found: error
+
+  cli:
+    name: Build test CLI
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/conformance')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: Upload
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          if-no-files-found: error
+
+  conformance-tests:
+    name: Conformance tests
+    needs:
+      - images
+      - cli
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/conformance')
+    permissions:
+      packages: read
+    uses: ./.github/workflows/tests-conformance.yaml

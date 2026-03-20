@@ -794,6 +794,153 @@ func TestStopWatchers(t *testing.T) {
 	assert.Empty(t, wm.refCount, "Expected refCount to be empty")
 }
 
+func TestHandleDelete_SourceDeleted(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "networkpolicies"}
+
+	makeSource := func(uid, name, ns string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetAPIVersion("v1")
+		u.SetKind("Namespace")
+		u.SetUID(types.UID(uid))
+		u.SetName(name)
+		u.SetNamespace(ns)
+		// No kyverno managed-by label — this is a source resource.
+		return u
+	}
+
+	makeDownstream := func(uid, name, ns, sourceUID string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetAPIVersion("networking.k8s.io/v1")
+		u.SetKind("NetworkPolicy")
+		u.SetUID(types.UID(uid))
+		u.SetName(name)
+		u.SetNamespace(ns)
+		u.SetLabels(map[string]string{common.GenerateSourceUIDLabel: sourceUID})
+		return u
+	}
+
+	tests := []struct {
+		name          string
+		deleteErr     error
+		wantCacheSize int
+	}{
+		{
+			name:          "delete succeeds: downstream removed from cache",
+			deleteErr:     nil,
+			wantCacheSize: 0,
+		},
+		{
+			name:          "delete fails: downstream must remain in cache",
+			deleteErr:     fmt.Errorf("permission denied"),
+			wantCacheSize: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			downstream := makeDownstream("down-uid", "np-default", "default", "src-uid")
+
+			mockClient := &MockClient{
+				err: tt.deleteErr,
+				// ListResource returns the downstream so handleDelete can find it.
+				// The mock ListResource always returns a fixed item; override here
+				// to return our downstream.
+			}
+			// Override ListResource to return the downstream keyed by source UID.
+			_ = mockClient
+
+			// Build a WatchManager whose watcher for gvr tracks the downstream.
+			w := &watcher{
+				metadataCache: map[types.UID]Resource{
+					"down-uid": {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+						Data:      downstream,
+					},
+				},
+			}
+
+			// We need ListResource to return our downstream. The default MockClient
+			// always returns a single blank item, which won't match "down-uid" in the
+			// cache check. Use a custom deleteFn-style mock for the list instead by
+			// constructing a specialised client inline.
+			type listAndDeleteClient struct {
+				MockClient
+				listFn func() (*unstructured.UnstructuredList, error)
+			}
+
+			specialClient := &MockClient{
+				deleteFn: func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
+					return tt.deleteErr
+				},
+			}
+			// Patch ListResource on the WatchManager directly using a closure client.
+			_ = specialClient
+
+			// Use a simpler approach: build the WatchManager and call handleDelete
+			// with a pre-seeded metadataCache that already contains the downstream.
+			// handleDelete's source path calls ListResource to find downstreams; we
+			// need the list to return "down-uid". The default MockClient.ListResource
+			// returns a blank Unstructured (empty UID), so the cache lookup at line
+			// 490 returns !exists → the downstream is skipped.
+			//
+			// To exercise the delete path, use a MockClient whose ListResource returns
+			// the real downstream object.
+			realClient := &struct {
+				MockClient
+			}{}
+			realClient.MockClient = MockClient{
+				deleteFn: func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
+					return tt.deleteErr
+				},
+			}
+
+			wm := &WatchManager{
+				log:    logging.WithName("test"),
+				client: &realClient.MockClient,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: w,
+				},
+			}
+
+			// Override ListResource to return the downstream so that handleDelete
+			// finds it and attempts to delete it. We achieve this by seeding the
+			// mock's return value via a custom listFn wrapper. Since MockClient
+			// does not support per-call list overrides, we test handleDelete directly
+			// with a MockClient that returns our downstream from ListResource by
+			// temporarily replacing the client on the WatchManager.
+			listClient := &fullMockClient{
+				listResult: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream}},
+				deleteErr:  tt.deleteErr,
+			}
+			wm.client = listClient
+
+			src := makeSource("src-uid", "prod-ns", "")
+			wm.handleDelete(src, gvr)
+
+			assert.Equal(t, tt.wantCacheSize, len(w.metadataCache),
+				"metadataCache size after handleDelete with deleteErr=%v", tt.deleteErr)
+		})
+	}
+}
+
+// fullMockClient is a purpose-built mock that allows controlling both
+// ListResource and DeleteResource return values independently.
+type fullMockClient struct {
+	MockClient
+	listResult *unstructured.UnstructuredList
+	deleteErr  error
+}
+
+func (f *fullMockClient) ListResource(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return f.listResult, nil
+}
+
+func (f *fullMockClient) DeleteResource(_ context.Context, _, _, _, _ string, _ bool, _ metav1.DeleteOptions) error {
+	return f.deleteErr
+}
+
 func TestHandleAdd(t *testing.T) {
 	tests := []struct {
 		name    string

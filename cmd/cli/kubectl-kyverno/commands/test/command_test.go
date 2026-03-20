@@ -8,9 +8,16 @@ import (
 	"strings"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestCommandWithInvalidArg(t *testing.T) {
@@ -91,6 +98,153 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+
+func TestCheckResultDetectsMismatch(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("test-policy")
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		ruleStatus     engineapi.RuleStatus
+		expectedResult string
+		wantOk         bool
+		wantReason     string
+	}{
+		{
+			name:           "expect fail but got pass - should detect mismatch",
+			ruleStatus:     engineapi.RuleStatusPass,
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "Want fail, got pass",
+		},
+		{
+			name:           "expect fail and got fail - should match",
+			ruleStatus:     engineapi.RuleStatusFail,
+			expectedResult: openreports.StatusFail,
+			wantOk:         true,
+			wantReason:     "Ok",
+		},
+		{
+			name:           "expect pass and got pass - should match",
+			ruleStatus:     engineapi.RuleStatusPass,
+			expectedResult: openreports.StatusPass,
+			wantOk:         true,
+			wantReason:     "Ok",
+		},
+		{
+			name:           "expect pass but got fail - should detect mismatch",
+			ruleStatus:     engineapi.RuleStatusFail,
+			expectedResult: openreports.StatusPass,
+			wantOk:         false,
+			wantReason:     "Want pass, got fail",
+		},
+		{
+			name:           "expect fail but got error - should detect mismatch",
+			ruleStatus:     engineapi.RuleStatusError,
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "Want fail, got error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var rule engineapi.RuleResponse
+			switch tt.ruleStatus {
+			case engineapi.RuleStatusPass:
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+			case engineapi.RuleStatusFail:
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+			case engineapi.RuleStatusError:
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+			}
+
+			response := engineapi.NewEngineResponse(
+				resource,
+				engineapi.NewKyvernoPolicy(policy),
+				nil,
+			).WithPolicyResponse(engineapi.PolicyResponse{
+				Rules: []engineapi.RuleResponse{rule},
+			})
+
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(tt.expectedResult),
+				},
+			}
+
+			ok, _, reason := checkResult(testResult, nil, "", response, rule, resource, true)
+			assert.Equal(t, tt.wantOk, ok, "checkResult ok")
+			assert.Contains(t, reason, tt.wantReason, "checkResult reason")
+		})
+	}
+}
+
+func TestResultCountsOnMismatch(t *testing.T) {
+	color.Init(true)
+
+	tests := []struct {
+		name     string
+		ok       bool
+		expected string
+		wantPass int
+		wantFail int
+	}{
+		{
+			name:     "mismatch with expected fail should count as failure",
+			ok:       false,
+			expected: openreports.StatusFail,
+			wantPass: 0,
+			wantFail: 1,
+		},
+		{
+			name:     "match with expected fail should count as pass",
+			ok:       true,
+			expected: openreports.StatusFail,
+			wantPass: 1,
+			wantFail: 0,
+		},
+		{
+			name:     "mismatch with expected pass should count as failure",
+			ok:       false,
+			expected: openreports.StatusPass,
+			wantPass: 0,
+			wantFail: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &resultCounts{}
+			testCount := 1
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(tt.expected),
+				},
+			}
+
+			createRowsAccordingToResults(testResult, rc, &testCount, "test-rule", tt.ok, "msg", "reason", "v1/Pod/default/test-pod")
+
+			assert.Equal(t, tt.wantPass, rc.Pass, "pass count")
+			assert.Equal(t, tt.wantFail, rc.Fail, "fail count")
+		})
+	}
 }
 
 func Test_JSONPayload(t *testing.T) {
