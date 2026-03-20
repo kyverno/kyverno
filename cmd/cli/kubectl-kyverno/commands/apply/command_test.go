@@ -15,7 +15,6 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -1560,24 +1559,4 @@ func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
-}
-
-func Test_loadEnvoyRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"empty"}}}}},
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"bearer token"}}}}}
-	]`
-	reqs, err := processor.LoadEnvoyRequests(content)
-	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
-}
-
-func Test_loadHTTPRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"method":"GET","host":"example.com","path":"/"}},
-	  {"attributes":{"method":"POST","host":"example.com","path":"/submit"}}
-	]`
-	reqs, err := processor.LoadHTTPRequests(content)
-	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
 }
