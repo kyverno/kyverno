@@ -122,3 +122,5 @@ dependencies:
     - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
   dependencies-lifecycle:
     policy-url: 'https://kyverno.io/docs/installation/#compatibility-matrix'
+  env-dependencies-policy:
+    policy-url: 'https://github.com/kyverno/kyverno/blob/main/DEPENDENCY-POLICY.md'
