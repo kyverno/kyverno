@@ -715,7 +715,7 @@ func main() {
 				os.Exit(1)
 			}
 			mpolcompiler := mpolcompiler.NewCompiler()
-			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
+			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)

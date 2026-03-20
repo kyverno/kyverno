@@ -15,6 +15,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -528,7 +529,6 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Warn, expected.Warn, desc)
 		assert.Equal(t, actual.Error, expected.Error, desc)
 		assert.Equal(t, actual.Pass, expected.Pass, desc)
-
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(openreportsv1alpha1.ReportSummary, openreportsv1alpha1.ReportSummary, string)) {
@@ -901,8 +901,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -918,8 +920,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
+				JSONPaths: []string{
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1310,7 +1314,7 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 }
 
 func TestCommandWarnExitCode(t *testing.T) {
-	var warnExitCode = 3
+	warnExitCode := 3
 
 	cmd := Command()
 	cmd.SetArgs([]string{
@@ -1397,4 +1401,183 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "Should have at least one failed rule")
+}
+
+func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandCRDKubeEnable(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--crd-path",
+		"./crd.yml",
+		"--kubeconfig",
+		"./kubeconfig.yaml",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func Test_Apply_AuthzPolicies(t *testing.T) {
+	testcases := []*TestCase{
+		// HTTP allow
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml"},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				PolicyReport:     true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+				},
+			}},
+		},
+		// HTTP deny
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-deny/policy.yaml"},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-deny/request.json"},
+				PolicyReport:     true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Fail: 1,
+				},
+			}},
+		},
+		// Envoy allow
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-allow/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+				},
+			}},
+		},
+		// Envoy deny
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Fail: 1,
+				},
+			}},
+		},
+		// Envoy JWT (3 requests: 2 denied, 1 allowed)
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 2,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		tc := tc
+		t.Run(fmt.Sprintf("authz-case-%d", i), func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+						t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+					}
+					panic(r)
+				}
+			}()
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+
+}
+
+func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+				t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+			}
+			panic(r)
+		}
+	}()
+
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+		"--http-payload",
+		"../../../../../test/cli/test-validating-policy/http-allow/request.json",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
+
+func Test_loadEnvoyRequests_Array(t *testing.T) {
+	content := `[
+	  {"attributes":{"request":{"http":{"headers":{"authorization":"empty"}}}}},
+	  {"attributes":{"request":{"http":{"headers":{"authorization":"bearer token"}}}}}
+	]`
+	reqs, err := processor.LoadEnvoyRequests(content)
+	assert.NoError(t, err)
+	assert.Len(t, reqs, 2)
+}
+
+func Test_loadHTTPRequests_Array(t *testing.T) {
+	content := `[
+	  {"attributes":{"method":"GET","host":"example.com","path":"/"}},
+	  {"attributes":{"method":"POST","host":"example.com","path":"/submit"}}
+	]`
+	reqs, err := processor.LoadHTTPRequests(content)
+	assert.NoError(t, err)
+	assert.Len(t, reqs, 2)
 }

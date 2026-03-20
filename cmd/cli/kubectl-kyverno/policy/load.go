@@ -90,6 +90,8 @@ type LoaderResults struct {
 	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MAPBindings             []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies      []policiesv1beta1.ValidatingPolicyLike
+	EnvoyPolicies           []*policiesv1beta1.ValidatingPolicy
+	HTTPPolicies            []*policiesv1beta1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1beta1.ImageValidatingPolicyLike
 	GeneratingPolicies      []policiesv1beta1.GeneratingPolicyLike
 	DeletingPolicies        []policiesv1beta1.DeletingPolicyLike
@@ -106,6 +108,8 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+	l.EnvoyPolicies = append(l.EnvoyPolicies, results.EnvoyPolicies...)
+	l.HTTPPolicies = append(l.HTTPPolicies, results.HTTPPolicies...)
 	l.MAPs = append(l.MAPs, results.MAPs...)
 	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
@@ -295,7 +299,14 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 		if err != nil {
 			return err
 		}
-		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+		switch typed.Spec.EvaluationMode() {
+		case "Envoy":
+			results.EnvoyPolicies = append(results.EnvoyPolicies, typed)
+		case "HTTP":
+			results.HTTPPolicies = append(results.HTTPPolicies, typed)
+		default:
+			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+		}
 	case nvpV1beta1, nvpV1:
 		typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
 		if err != nil {
