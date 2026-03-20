@@ -38,7 +38,7 @@ security-artifacts:
   self-assessment:
     self-assessment-created: true
     evidence-url:
-      - https://github.com/kyverno/kyverno/pull/15575/changes#diff-837157aac8b8468284b63108ab93e110bbfec0beca42fa4251cc47d9dcab1c23
+      - https://github.com/cncf/tag-security/blob/main/community/assessments/projects/kyverno/self-assessment.md
 security-testing:
   - tool-type: sca
     tool-name: Dependabot
