@@ -190,6 +190,7 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
+				internal.ExceptionNamespace(),
 				gcstore,
 				restMapper,
 				typeConverter,

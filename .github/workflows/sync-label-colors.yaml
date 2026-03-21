@@ -11,6 +11,7 @@ on:
       - main
     paths:
       - .github/labels.yml
+      - .github/workflows/sync-label-colors.yaml
   workflow_dispatch:
 
 permissions:
@@ -34,8 +35,17 @@ jobs:
             const fs = require('fs');
             const yaml = require('js-yaml');
 
-            const file = fs.readFileSync('.github/labels.yml', 'utf8');
-            const labels = yaml.load(file);
+            const raw = yaml.load(fs.readFileSync('.github/labels.yml', 'utf8'));
+            if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+              core.setFailed('.github/labels.yml must be a mapping of label name → { color, description, ... }');
+              return;
+            }
+
+            const labels = Object.entries(raw).map(([name, spec]) => ({
+              name,
+              color: spec && spec.color != null ? String(spec.color) : '',
+              description: spec && spec.description != null ? String(spec.description) : '',
+            }));
 
             for (const label of labels) {
               try {

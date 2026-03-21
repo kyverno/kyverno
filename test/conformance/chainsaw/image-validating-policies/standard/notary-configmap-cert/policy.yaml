@@ -21,7 +21,7 @@ spec:
   variables:
     - name: cm
       expression: >-
-        resource.Get("v1", "configmaps", object.metadata.namespace, "keys")
+        resource.get("v1", "configmaps", object.metadata.namespace, "keys")
   matchImageReferences:
     - glob: ghcr.io/*
   attestors:

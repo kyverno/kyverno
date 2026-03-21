@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"gomodules.xyz/jsonpatch/v2"
 )

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/cel-go/common/types"
@@ -11,6 +12,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -22,6 +24,7 @@ import (
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	utilsslices "github.com/kyverno/kyverno/pkg/utils/slices"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
@@ -47,6 +50,11 @@ type processor struct {
 	statusControl common.StatusControlInterface
 
 	eventGen event.Interface
+}
+
+type gvkItem struct {
+	gvk           schema.GroupVersionKind
+	resourceNames []string
 }
 
 func NewProcessor(client dclient.Interface,
@@ -87,16 +95,29 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
 		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		list := make([]unstructured.Unstructured, 0)
 		for ns, gvks := range results {
 			for r := range gvks {
-				if r.Kind == "Namespace" || ns == "*" {
+				if r.gvk.Kind == "Namespace" || ns == "*" {
 					ns = ""
 				}
-				targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
+
+				resources, err := p.client.ListResource(context.TODO(), r.gvk.GroupVersion().String(), r.gvk.Kind, ns, targetConstraints.ObjectSelector)
 				if err != nil {
-					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.String(), ur.Spec.GetPolicyKey(), err))
+					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.gvk.String(), ur.Spec.GetPolicyKey(), err))
+					continue
 				}
+
+				if len(r.resourceNames) > 0 {
+					resources.Items = utilsslices.Filter(resources.Items, func(u unstructured.Unstructured) bool {
+						return slices.Contains(r.resourceNames, u.GetName())
+					})
+				}
+				list = append(list, resources.Items...)
 			}
+		}
+		if len(list) > 0 {
+			targets = &unstructured.UnstructuredList{Items: list}
 		}
 	} else {
 		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
@@ -129,8 +150,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			admission.Operation(""),
 			nil,
 			false,
-			// TODO
-			nil,
+			admissionpolicy.NewUser(ar.UserInfo),
 		)
 
 		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(ur.Spec.Policy), mpolengine.Or(mpolengine.ClusteredPolicy(), mpolengine.NamespacedPolicy(attr.GetNamespace()))))
@@ -197,10 +217,10 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	return nil
 }
 
-func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[schema.GroupVersionKind] {
-	result := make(map[string]sets.Set[schema.GroupVersionKind])
+func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[*gvkItem] {
+	result := make(map[string]sets.Set[*gvkItem])
 
-	gvkSet := sets.New[schema.GroupVersionKind]()
+	gvkSet := sets.New[*gvkItem]()
 	for _, rule := range m.ResourceRules {
 		for _, group := range rule.APIGroups {
 			for _, version := range rule.APIVersions {
@@ -218,7 +238,7 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 					if err != nil {
 						continue
 					}
-					gvkSet.Insert(gvk)
+					gvkSet.Insert(&gvkItem{gvk: gvk, resourceNames: rule.ResourceNames})
 				}
 			}
 		}
