@@ -35,13 +35,13 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	if patch == nil {
 		return resource
 	}
-	resource, err := engineutils.ApplyPatchNew(resource, patch)
+	patchedResource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
 		log.Error(err, "failed to patch resource:", "patch", string(patch), "resource", string(resource))
-		return nil
+		return resource
 	}
-	log.V(6).Info("", "patchedResource", string(resource))
-	return resource
+	log.V(6).Info("", "patchedResource", string(patchedResource))
+	return patchedResource
 }
 
 func applyUpdateRequest(
