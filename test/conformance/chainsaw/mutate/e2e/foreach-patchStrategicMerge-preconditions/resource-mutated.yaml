@@ -6,4 +6,4 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: my-private-registry/nginx:1.14.2
+    image: my-private-registry/docker/library/nginx:1.14.2

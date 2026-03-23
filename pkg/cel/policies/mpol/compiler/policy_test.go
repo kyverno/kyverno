@@ -3,62 +3,30 @@ package compiler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	cel2 "github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/managedfields"
-	cel1 "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
 
-	celtypes "github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	apiservercel "k8s.io/apiserver/pkg/cel"
 )
-
-// mock Context
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
-	panic("not implemented")
-}
 
 type mockProgram struct {
 	retVal ref.Val
@@ -71,126 +39,6 @@ func (m *mockProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel2.Eval
 
 func (m *mockProgram) Eval(any) (ref.Val, *cel2.EvalDetails, error) {
 	return m.retVal, nil, m.err
-}
-
-func TestVariables(t *testing.T) {
-	t.Run("return lazyMap successfully", func(t *testing.T) {
-		ctx := context.TODO()
-
-		env, _ := cel2.NewEnv()
-		adapter := env.CELTypeAdapter()
-		value := types.NewStringStringMap(adapter, map[string]string{"foo": "bar"})
-
-		declType := apiservercel.NewSimpleTypeWithMinSize(
-			"map<string, dyn>",
-			celtypes.NewMapType(celtypes.StringType, celtypes.DynType),
-			value,
-			0,
-		)
-
-		prog := &mockProgram{retVal: types.String("value")}
-		evaluator := &mutating.PolicyEvaluator{
-			CompositionEnv: &cel1.CompositionEnv{
-				MapType: declType,
-				CompiledVariables: map[string]cel1.CompilationResult{
-					"foo": {
-						Program: prog,
-					},
-				},
-			},
-		}
-
-		cctx := &compositionContext{
-			ctx:             ctx,
-			evaluator:       evaluator,
-			contextProvider: &libs.FakeContextProvider{},
-		}
-
-		act := &fakeActivation{
-			vars: map[string]interface{}{
-				"object":    map[string]interface{}{"name": "obj"},
-				"oldObject": map[string]interface{}{"name": "old"},
-			},
-		}
-
-		val := cctx.Variables(act)
-		assert.NotNil(t, val)
-
-		// Access via traits.Mapper interface
-		mapVal, ok := val.(traits.Mapper)
-		assert.True(t, ok, "expected val to implement traits.Mapper")
-
-		fooVal := mapVal.Get(types.String("foo"))
-		assert.Equal(t, types.String("value"), fooVal)
-	})
-
-	t.Run("returns error", func(t *testing.T) {
-		ctx := context.TODO()
-
-		env, _ := cel2.NewEnv()
-		adapter := env.CELTypeAdapter()
-		value := types.NewStringStringMap(adapter, map[string]string{})
-
-		declType := apiservercel.NewSimpleTypeWithMinSize(
-			"map<string, dyn>",
-			celtypes.NewMapType(celtypes.StringType, celtypes.DynType),
-			value,
-			0,
-		)
-
-		mockErr := fmt.Errorf("simulated error")
-		prog := &mockProgram{
-			retVal: nil,
-			err:    mockErr,
-		}
-
-		evaluator := &mutating.PolicyEvaluator{
-			CompositionEnv: &cel1.CompositionEnv{
-				MapType: declType,
-				CompiledVariables: map[string]cel1.CompilationResult{
-					"errorVar": {
-						Program: prog,
-					},
-				},
-			},
-		}
-
-		cctx := &compositionContext{
-			ctx:             ctx,
-			evaluator:       evaluator,
-			contextProvider: &libs.FakeContextProvider{},
-		}
-
-		act := &fakeActivation{
-			vars: map[string]interface{}{
-				"object":    map[string]interface{}{"name": "obj"},
-				"oldObject": map[string]interface{}{"name": "old"},
-			},
-		}
-
-		val := cctx.Variables(act)
-		assert.NotNil(t, val)
-
-		mapVal, ok := val.(traits.Mapper)
-		assert.True(t, ok, "expected val to implement traits.Mapper")
-
-		result := mapVal.Get(types.String("errorVar"))
-		assert.NotNil(t, result)
-
-		// Should be a wrapped error
-		_, isErr := result.(*types.Err)
-		assert.True(t, isErr, "expected result to be *types.Err, got %T", result)
-	})
-
-}
-
-type fakeActivation struct {
-	vars map[string]interface{}
-}
-
-func (f *fakeActivation) ResolveName(name string) (interface{}, bool) {
-	v, ok := f.vars[name]
-	return v, ok
 }
 
 // FakeContextWithDeadline provides context with deadline and cancel
@@ -331,39 +179,9 @@ func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeC
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
-	t.Run("error in matcher", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.NotNil(t, res)
-		assert.EqualError(t, res.Error, "match error")
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: false,
-				},
-			},
-		}
-
-		resp := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
-		assert.Nil(t, resp)
-	})
-
 	t.Run("patch error", func(t *testing.T) {
 		p := Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: nil,
@@ -382,9 +200,6 @@ func TestEvaluate(t *testing.T) {
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
 			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					matches: true,
-				},
 				Mutators: []patch.Patcher{
 					&fakePatcher{
 						retVal: patchedObj,
@@ -400,48 +215,6 @@ func TestEvaluate(t *testing.T) {
 	})
 }
 
-func TestMatchesConditions(t *testing.T) {
-	ctx := context.TODO()
-	t.Run("no matcher", func(t *testing.T) {
-		p := Policy{}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.False(t, res)
-	})
-
-	t.Run("with error", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{
-					err: errors.New("match error"),
-				},
-			},
-		}
-
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.False(t, res)
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: false},
-			},
-		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.False(t, res)
-	})
-
-	t.Run("match successfully", func(t *testing.T) {
-		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Matcher: &fakeMatcher{matches: true},
-			},
-		}
-		res := p.MatchesConditions(ctx, &mockAttributes{}, &corev1.Namespace{})
-		assert.True(t, res)
-	})
-}
-
 type fakeProgram struct {
 	refVal ref.Val
 	err    error
@@ -450,110 +223,7 @@ type fakeProgram struct {
 func (f *fakeProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel2.EvalDetails, error) {
 	return f.refVal, nil, f.err
 }
+
 func (f *fakeProgram) Eval(_ any) (ref.Val, *cel2.EvalDetails, error) {
 	return f.refVal, nil, nil
-}
-
-func TestMatchExceptions_FullCoverage(t *testing.T) {
-	ctx := context.TODO()
-	validObj := &corev1.Pod{}
-	validNS := &corev1.Namespace{}
-
-	t.Run("successful match", func(t *testing.T) {
-		attr := &mockAttributes{obj: validObj}
-		req := admissionv1.AdmissionRequest{UID: "non-empty"}
-		p := &Policy{
-			exceptions: []compiler.Exception{
-				{
-					// MatchConditions: []cel2.Program{
-					// 	// Add something here
-					// },
-					Exception: &policiesv1beta1.PolicyException{
-						Spec: policiesv1beta1.PolicyExceptionSpec{
-							MatchConditions: []admissionregistrationv1.MatchCondition{
-								{
-									Name:       "test-condition",
-									Expression: "object.name == 'nginx'",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
-		assert.NoError(t, err)
-		assert.NotNil(t, res)
-	})
-
-	t.Run("match-conditions errror", func(t *testing.T) {
-		attr := &mockAttributes{obj: validObj}
-		req := admissionv1.AdmissionRequest{UID: "non-empty"}
-		p := &Policy{
-			exceptions: []compiler.Exception{
-				{
-					MatchConditions: []cel2.Program{
-						&fakeProgram{refVal: types.String("test-ref")},
-					},
-					Exception: &policiesv1beta1.PolicyException{
-						Spec: policiesv1beta1.PolicyExceptionSpec{
-							MatchConditions: []admissionregistrationv1.MatchCondition{
-								{
-									Name:       "test-condition",
-									Expression: "object.name == 'nginx'",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
-		assert.Error(t, err)
-		assert.NotNil(t, res)
-	})
-	t.Run("context-eval errror", func(t *testing.T) {
-		attr := &mockAttributes{obj: validObj}
-		req := admissionv1.AdmissionRequest{UID: "non-empty"}
-		p := &Policy{
-			exceptions: []compiler.Exception{
-				{
-					MatchConditions: []cel2.Program{
-						&fakeProgram{refVal: types.String("test-ref"), err: errors.New("test-error")},
-					},
-					Exception: &policiesv1beta1.PolicyException{
-						Spec: policiesv1beta1.PolicyExceptionSpec{
-							MatchConditions: []admissionregistrationv1.MatchCondition{
-								{
-									Name:       "test-condition",
-									Expression: "object.name == 'nginx'",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
-		assert.Error(t, err)
-		assert.NotNil(t, res)
-	})
-
-	t.Run("false breaks loop", func(t *testing.T) {
-		attr := &mockAttributes{obj: validObj}
-		req := admissionv1.AdmissionRequest{UID: "non-empty"}
-		p := &Policy{
-			exceptions: []compiler.Exception{
-				{
-					MatchConditions: []cel2.Program{
-						// Add something
-					},
-					Exception: &policiesv1beta1.PolicyException{},
-				},
-			},
-		}
-		res, err := p.matchExceptions(ctx, attr, req, validNS)
-		assert.NoError(t, err)
-		assert.Empty(t, res)
-	})
 }

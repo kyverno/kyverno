@@ -1,0 +1,526 @@
+# Combined GitHub label definitions for Kyverno.
+# The document root is a mapping: each key is a GitHub label name; each value has
+# color, description, and optional rules (PR path matchers for actions/labeler).
+
+##############################################################################
+# Area labels — based on which part of the codebase a PR touches
+##############################################################################
+
+# ── Area: Core Engine (deep blue #0052cc) ────────────────────────────────────
+# ── API & CRDs ──────────────────────────────────────────────────────────────
+area/api:
+  color: 1d76db
+  description: API type definitions
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - api/**
+
+area/crds:
+  color: 1d76db
+  description: CRD manifests
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - config/crds/**
+
+# ── Policy Engine ───────────────────────────────────────────────────────────
+area/engine:
+  color: 0052cc
+  description: Policy engine core
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/engine/**
+
+area/validation:
+  color: 0052cc
+  description: Validation logic
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/engine/validate/**
+            - pkg/engine/validation.go
+            - pkg/engine/validation_test.go
+            - pkg/validation/**
+
+area/mutation:
+  color: 0052cc
+  description: Mutation logic
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/engine/mutate/**
+            - pkg/engine/mutation.go
+            - pkg/engine/mutation_test.go
+            - pkg/engine/forceMutate.go
+            - pkg/engine/forceMutate_test.go
+
+area/generation:
+  color: 0052cc
+  description: Generation / background rules
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/engine/generation.go
+            - pkg/background/**
+
+# ── Area: Image Verification (indigo #3F51B5) ───────────────────────────────
+area/image-verify:
+  color: 3F51B5
+  description: Image verification
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/engine/image_verify.go
+            - pkg/engine/image_verify_test.go
+            - pkg/imageverification/**
+            - pkg/imageverifycache/**
+            - pkg/images/**
+
+area/cosign:
+  color: 3F51B5
+  description: Cosign integration
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/cosign/**
+
+area/notary:
+  color: 3F51B5
+  description: Notary integration
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/notary/**
+
+# ── Area: CEL (cyan #00BCD4) ─────────────────────────────────────────────────
+# ── CEL ─────────────────────────────────────────────────────────────────────
+area/cel:
+  color: 00BCD4
+  description: CEL expressions / engine
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/cel/**
+
+# ── Area: Webhooks & Controllers (teal #009688) ─────────────────────────────
+# ── Webhooks ────────────────────────────────────────────────────────────────
+area/webhooks:
+  color: "009688"
+  description: Webhook handlers
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/webhooks/**
+            - cmd/kyverno/**
+
+# ── Controllers ─────────────────────────────────────────────────────────────
+area/controllers:
+  color: "009688"
+  description: Controller logic
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/controllers/**
+
+area/background-controller:
+  color: "009688"
+  description: Background controller
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/background-controller/**
+            - pkg/controllers/report/**
+
+area/cleanup-controller:
+  color: "009688"
+  description: Cleanup controller
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/cleanup-controller/**
+            - pkg/controllers/cleanup/**
+            - pkg/controllers/ttl/**
+
+area/reports-controller:
+  color: "009688"
+  description: Reports controller
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/reports-controller/**
+            - pkg/openreports/**
+
+# ── Area: CLI (green #0e8a16) ────────────────────────────────────────────────
+# ── CLI (kubectl-kyverno) ──────────────────────────────────────────────────
+area/cli:
+  color: 0e8a16
+  description: kubectl-kyverno CLI
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/cli/**
+            - pkg/cli/**
+
+# ── Area: Policy (sea green #2E7D32) ────────────────────────────────────────
+# ── Policy & Policy Cache ──────────────────────────────────────────────────
+area/policy:
+  color: 2E7D32
+  description: Policy / policy cache
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/policy/**
+            - pkg/policycache/**
+
+area/exceptions:
+  color: 2E7D32
+  description: Policy exceptions
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/exceptions/**
+            - pkg/controllers/exceptions/**
+            - pkg/webhooks/exception/**
+            - pkg/webhooks/celexception/**
+
+area/admission-policy:
+  color: 2E7D32
+  description: Admission policy
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/admissionpolicy/**
+
+# ── Area: Autogen (light green #4CAF50) ──────────────────────────────────────
+# ── Autogen ─────────────────────────────────────────────────────────────────
+area/autogen:
+  color: 4CAF50
+  description: Autogen rules
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/autogen/**
+            - pkg/cel/autogen/**
+
+# ── Area: Global Context (olive #827717) ─────────────────────────────────────
+# ── Global Context ──────────────────────────────────────────────────────────
+area/global-context:
+  color: "827717"
+  description: Global context entries
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/globalcontext/**
+            - pkg/controllers/globalcontext/**
+            - pkg/webhooks/globalcontext/**
+
+# ── Area: Events (amber #FFA000) ─────────────────────────────────────────────
+# ── Events ──────────────────────────────────────────────────────────────────
+area/events:
+  color: FFA000
+  description: Event recording
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/event/**
+
+# ── Area: Auth & TLS (steel blue #5C6BC0) ───────────────────────────────────
+# ── Auth & UserInfo ─────────────────────────────────────────────────────────
+area/auth:
+  color: 5C6BC0
+  description: Auth / user-info
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/auth/**
+            - pkg/userinfo/**
+
+# ── TLS / Certificates ─────────────────────────────────────────────────────
+area/tls:
+  color: 5C6BC0
+  description: TLS / certificates
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/tls/**
+            - pkg/controllers/certmanager/**
+
+# ── Area: Observability (light blue #42A5F5) ─────────────────────────────────
+# ── Metrics & Tracing ──────────────────────────────────────────────────────
+area/metrics:
+  color: 42A5F5
+  description: Metrics
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/metrics/**
+            - pkg/controllers/metrics/**
+            - cmd/internal/metrics.go
+
+area/tracing:
+  color: 42A5F5
+  description: Tracing / OpenTelemetry
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/tracing/**
+            - cmd/internal/tracing.go
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+area/logging:
+  color: 42A5F5
+  description: Logging
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/logging/**
+            - cmd/internal/logging.go
+
+# ── Area: Config & Registry (grey-blue #546E7A) ─────────────────────────────
+# ── Config ──────────────────────────────────────────────────────────────────
+area/config:
+  color: 546E7A
+  description: Kyverno config
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/config/**
+            - cmd/internal/config.go
+            - cmd/internal/configmap.go
+
+# ── Registry Client ────────────────────────────────────────────────────────
+area/registry:
+  color: 546E7A
+  description: Registry client
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/registryclient/**
+            - cmd/internal/registry.go
+
+# ── Area: Infrastructure (blue-grey #607D8B) ────────────────────────────────
+# ── Clients ─────────────────────────────────────────────────────────────────
+area/clients:
+  color: 607D8B
+  description: Generated / wrapped clients
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/client/**
+            - pkg/clients/**
+
+# ── PSS (Pod Security Standards) ───────────────────────────────────────────
+area/pss:
+  color: 607D8B
+  description: Pod Security Standards
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/pss/**
+
+# ── Ext (extensions/utilities) ─────────────────────────────────────────────
+area/ext:
+  color: 607D8B
+  description: Ext utility packages
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - ext/**
+
+# ── Toggle / Feature Flags ─────────────────────────────────────────────────
+area/toggle:
+  color: 607D8B
+  description: Feature flags / toggles
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/toggle/**
+
+# ── Leader Election ────────────────────────────────────────────────────────
+area/leader-election:
+  color: 607D8B
+  description: Leader election
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/leaderelection/**
+
+# ── Circuit Breaker ────────────────────────────────────────────────────────
+area/breaker:
+  color: 607D8B
+  description: Circuit breaker
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - pkg/breaker/**
+
+# ── cmd/internal (shared controller setup) ─────────────────────────────────
+area/cmd-internal:
+  color: 607D8B
+  description: cmd/internal shared setup
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/internal/**
+
+# ── Init Container ─────────────────────────────────────────────────────────
+area/init-container:
+  color: 607D8B
+  description: Init container
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/kyverno-init/**
+
+# ── Readiness Checker ──────────────────────────────────────────────────────
+area/readiness:
+  color: 607D8B
+  description: Readiness checker
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - cmd/readiness-checker/**
+
+##############################################################################
+# Kind labels — what type of artifact is being changed
+##############################################################################
+
+# ── Kind: Helm (purple #7B1FA2) ─────────────────────────────────────────────
+kind/helm:
+  color: 7B1FA2
+  description: Helm charts
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - charts/**
+
+kind/helm-kyverno:
+  color: 7B1FA2
+  description: Kyverno Helm chart
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - charts/kyverno/**
+
+kind/helm-policies:
+  color: 7B1FA2
+  description: Kyverno-policies Helm chart
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - charts/kyverno-policies/**
+
+# ── Kind: Tests (magenta #D81B60) ───────────────────────────────────────────
+kind/tests:
+  color: D81B60
+  description: Unit / integration tests
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - test/**
+            - '**/*_test.go'
+            - pkg/**/fuzz_test.go
+
+kind/e2e-tests:
+  color: D81B60
+  description: E2E / Chainsaw tests
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - test/chainsaw/**
+            - test/conformance/**
+            - config/e2e/**
+
+kind/cli-tests:
+  color: D81B60
+  description: CLI tests
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - test/cli/**
+
+# ── Kind: Docs (light purple #CE93D8) ───────────────────────────────────────
+kind/documentation:
+  color: CE93D8
+  description: Documentation changes
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - docs/**
+            - '**/*.md'
+            - ADOPTERS.md
+            - CHANGELOG.md
+            - CODE_OF_CONDUCT.md
+            - CONTRIBUTING.md
+            - CONTRIBUTORS.md
+            - DEVELOPMENT.md
+            - GOVERNANCE.md
+            - LICENSE
+            - MAINTAINERS.md
+            - OWNERS.md
+            - README.md
+            - ROADMAP.md
+            - SECURITY.md
+            - Kyverno_Architecture_Roadmap.md
+
+# ── Kind: CI & Build (dark magenta #8E24AA) ─────────────────────────────────
+kind/ci:
+  color: 8E24AA
+  description: CI / GitHub Actions
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - .github/**
+            - Makefile
+            - codecov.yml
+            - sonar-project.properties
+
+kind/codegen:
+  color: 8E24AA
+  description: Code generation / scripts
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - hack/**
+            - scripts/**
+            - cmd/tools/**
+
+# ── Kind: Dependencies (brown #795548) ──────────────────────────────────────
+kind/dependencies:
+  color: "795548"
+  description: go.mod / go.sum changes
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - go.mod
+            - go.sum
+
+# ── Kind: Security (dark red #B71C1C) ───────────────────────────────────────
+kind/security:
+  color: B71C1C
+  description: Security-related changes
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - SECURITY.md
+            - SECURITY-INSIGHTS.yml
+
+# ── Kind: Config (plum #6A1B9A) ─────────────────────────────────────────────
+kind/config:
+  color: 6A1B9A
+  description: Config manifests (non-CRD)
+  rules:
+    - changed-files:
+        - any-glob-to-any-file:
+            - config/**
+
+# ── Special ──────────────────────────────────────────────────────────────────
+spam:
+  color: e11d48
+  description: Suspected spam / PR burst
+
+merge-conflicts:
+  color: E65100
+  description: PR has merge conflicts

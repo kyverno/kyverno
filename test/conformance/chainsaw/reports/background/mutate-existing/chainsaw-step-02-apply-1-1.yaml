@@ -8,4 +8,4 @@ metadata:
 spec: 
   containers:
   - name: nginx
-    image: nginx:latest
+    image: public.ecr.aws/docker/library/nginx:latest

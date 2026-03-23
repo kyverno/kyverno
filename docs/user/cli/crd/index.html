@@ -300,6 +300,28 @@ string
 </tr>
 <tr>
 <td>
+<code>httpPayloads</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>HTTPPayloads is the HTTP payloads to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>envoyPayloads</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>EnvoyPayloads is the Envoy payloads to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>targetResources</code><br/>
 <em>
 []string
@@ -1399,6 +1421,17 @@ string
 <td>
 <p>CloneSourceResource takes the resource configuration file in yaml format
 from the user which is meant to be cloned by the generate rule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>failOnMissingResources</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>FailOnMissingResources indicates if the test should fail if the patched/generated resources are missing.</p>
 </td>
 </tr>
 </tbody>

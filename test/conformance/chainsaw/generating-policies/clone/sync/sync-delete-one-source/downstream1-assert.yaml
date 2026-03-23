@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: sync-delete-one-source-1
+  namespace: sync-delete-one-source
+type: Opaque

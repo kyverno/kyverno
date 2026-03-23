@@ -27,13 +27,13 @@ spec:
           - "true"
         - controlName: "HostProcess"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.windowsOptions.hostProcess"
           values:
           - "true"
         - controlName: "HostProcess"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.initContainers[*].securityContext.windowsOptions.hostProcess"
           values:
           - "true"
