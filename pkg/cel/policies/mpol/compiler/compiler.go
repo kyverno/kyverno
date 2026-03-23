@@ -10,8 +10,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-  mpolpatch "github.com/kyverno/kyverno/pkg/cel/policies/mpol/patch"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/gzip"
@@ -144,7 +142,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 						err.Error(),
 					))
 				}
-				patchers = append(patchers, mpolpatch.NewApplyConfigurationPatcher(compileResult))
+				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
 			}
 		}
 	}
