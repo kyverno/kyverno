@@ -1,0 +1,10 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-allow
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: >
+      envoy.Allowed().Response()

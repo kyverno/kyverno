@@ -44,7 +44,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -74,6 +74,8 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicyLike
+	EnvoyPolicies                     []*policiesv1beta1.ValidatingPolicy
+	HTTPPolicies                      []*policiesv1beta1.ValidatingPolicy
 	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
@@ -304,7 +306,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
 		if err != nil {
 			return nil, err
 		}

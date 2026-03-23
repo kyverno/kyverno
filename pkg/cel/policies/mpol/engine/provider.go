@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -29,6 +30,7 @@ type Provider interface {
 func NewKubeProvider(
 	ctx context.Context,
 	compiler compiler.Compiler,
+	contextProvider libs.Context,
 	mgr ctrl.Manager,
 	c openapi.Client,
 	polexLister engine.PolicyExceptionLister,
@@ -101,6 +103,7 @@ func NewKubeProvider(
 
 type staticProvider struct {
 	policies []Policy
+	libCxt   libs.Context
 }
 
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
@@ -124,7 +127,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace, r.libCxt) {
 				continue
 			}
 		}
@@ -137,6 +140,7 @@ func NewProvider(
 	compiler compiler.Compiler,
 	policies []policiesv1beta1.MutatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
+	libCxt libs.Context,
 ) (Provider, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
@@ -175,5 +179,5 @@ func NewProvider(
 			})
 		}
 	}
-	return &staticProvider{policies: out}, nil
+	return &staticProvider{policies: out, libCxt: libCxt}, nil
 }
