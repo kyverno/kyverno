@@ -99,6 +99,7 @@ type PolicyProcessor struct {
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
+	RESTMapper                meta.RESTMapper
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
@@ -256,9 +257,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client)
-	if err != nil {
-		return nil, err
+	restMapper := p.RESTMapper
+	if restMapper == nil {
+		var err error
+		restMapper, err = utils.GetRESTMapper(p.Client)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {

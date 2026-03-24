@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources-widget
+spec:
+  crds:
+    - crds/widget-crd.yaml
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default

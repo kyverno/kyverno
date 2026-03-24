@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-app-label
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [example.com]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [widgets, gadgets]
+  validations:
+    - expression: "has(object.metadata.labels) && has(object.metadata.labels.app)"
+      message: "Resource must have an 'app' label."
