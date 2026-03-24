@@ -30,13 +30,9 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 
 		if len(errs) != 0 {
 			c.log.Error(multierr.Combine(errs...), "failed to clean up downstream resources on policy deletion")
-			_, err = c.statusControl.Failed(ur.GetName(),
-				fmt.Sprintf("failed to clean up downstream resources on policy deletion: %v", multierr.Combine(errs...)),
-				failedDownstreams)
-		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
+			return multierr.Combine(errs...)
 		}
-		return
+		return nil
 	}
 
 	if policy == nil {
@@ -71,25 +67,16 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			return nil
 		}
 		var errs []error
-		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, downstream := range downstreams {
 			spec := common.ResourceSpecFromUnstructured(downstream)
 			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				failedDownstreams = append(failedDownstreams, spec)
 				errs = append(errs, err)
 			} else {
 				logger.Info("downstream resource deleted", "spec", spec.String())
 			}
 		}
 		if len(errs) != 0 {
-			_, err = c.statusControl.Failed(ur.GetName(),
-				fmt.Sprintf("failed to clean up downstream resources on source deletion: %v", multierr.Combine(errs...)),
-				failedDownstreams)
-		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
-		}
-		if err != nil {
-			logger.Error(err, "failed to update ur status")
+			return multierr.Combine(errs...)
 		}
 	}
 
