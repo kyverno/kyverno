@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"maps"
 	"sync"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -126,7 +125,7 @@ func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	policies := make([]Policy, 0, len(r.policies))
-	for value := range maps.Values(r.policies) {
+	for _, value := range r.policies {
 		policies = append(policies, value...)
 	}
 	return policies, nil
