@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -25,23 +26,25 @@ func errorResponse(logger logr.Logger, uid types.UID, err error, message string)
 	return admissionutils.Response(uid, errors.New(message+": "+err.Error()))
 }
 
-func patchRequest(patches []byte, request admissionv1.AdmissionRequest, logger logr.Logger) admissionv1.AdmissionRequest {
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+func patchRequest(patches []byte, request admissionv1.AdmissionRequest, logger logr.Logger) (admissionv1.AdmissionRequest, error) {
+	patchedResource, err := processResourceWithPatches(patches, request.Object.Raw, logger)
+	if err != nil {
+		return request, err
+	}
 	request.Object.Raw = patchedResource
-	return request
+	return request, nil
 }
 
-func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
+func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) ([]byte, error) {
 	if patch == nil {
-		return resource
+		return resource, nil
 	}
 	patchedResource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
-		log.Error(err, "failed to patch resource:", "patch", string(patch), "resource", string(resource))
-		return resource
+		return nil, fmt.Errorf("failed to apply patches: %w", err)
 	}
 	log.V(6).Info("", "patchedResource", string(patchedResource))
-	return patchedResource
+	return patchedResource, nil
 }
 
 func applyUpdateRequest(
