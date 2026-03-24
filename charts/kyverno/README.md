@@ -886,6 +886,7 @@ The chart values are organised per component.
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
 | global.nodeSelector | object | `{}` | Global node labels for pod assignment. Non-global values will override the global value. |
 | global.tolerations | list | `[]` | Global List of node taints to tolerate. Non-global values will override the global value. |
+| global.priorityClassName | string | `""` | Optional priority class to be set for all deployments. Non-global values will override the global value. |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |

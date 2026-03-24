@@ -35,6 +35,9 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+  
+  # -- Global priority class name for pod priority. Non-global values will override the global value.
+  priorityClassName: ''
 
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
