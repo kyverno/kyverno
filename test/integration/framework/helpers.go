@@ -3,9 +3,11 @@ package framework
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -49,12 +51,39 @@ func ContextWithPolicies(ctx context.Context, policyNames ...string) context.Con
 	})
 }
 
+// MockURGenerator captures UpdateRequest specs created by the gpol handler.
+type MockURGenerator struct {
+	mu    sync.Mutex
+	Specs []kyvernov2.UpdateRequestSpec
+}
+
+func (m *MockURGenerator) Apply(_ context.Context, spec kyvernov2.UpdateRequestSpec) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Specs = append(m.Specs, spec)
+	return nil
+}
+
+// GetSpecs returns a snapshot of captured UpdateRequestSpecs (thread-safe).
+func (m *MockURGenerator) GetSpecs() []kyvernov2.UpdateRequestSpec {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]kyvernov2.UpdateRequestSpec, len(m.Specs))
+	copy(result, m.Specs)
+	return result
+}
+
 // PodMatchRules returns MatchResources that match pods on CREATE operations.
 func PodMatchRules() *admissionregistrationv1.MatchResources {
+	return PodMatchRulesWithOps(admissionregistrationv1.Create)
+}
+
+// PodMatchRulesWithOps returns MatchResources that match pods on the given operations.
+func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Operations: ops,
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{""},
 					APIVersions: []string{"v1"},
@@ -63,4 +92,26 @@ func PodMatchRules() *admissionregistrationv1.MatchResources {
 			},
 		}},
 	}
+}
+
+// PodAdmissionRequestWithOp builds a handlers.AdmissionRequest for a Pod with the given operation.
+// For DELETE, the resource is placed in OldObject (matching real K8s behavior).
+func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation, raw []byte) handlers.AdmissionRequest {
+	req := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID(uuid.New().String()),
+			Operation: op,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Name:      name,
+			Namespace: namespace,
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+	if op == admissionv1.Delete {
+		req.OldObject = runtime.RawExtension{Raw: raw}
+	} else {
+		req.Object = runtime.RawExtension{Raw: raw}
+	}
+	return req
 }
