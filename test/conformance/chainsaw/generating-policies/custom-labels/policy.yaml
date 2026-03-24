@@ -35,4 +35,4 @@ spec:
           })
         }
   generate:
-    - expression: generator.Apply(variables.targetNs, [variables.downstream])
+    - expression: generator.apply(variables.targetNs, [variables.downstream])

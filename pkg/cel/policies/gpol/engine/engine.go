@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -73,7 +74,7 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 	// resolve namespace
 	var namespace runtime.Object
