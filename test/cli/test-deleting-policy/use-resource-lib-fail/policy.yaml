@@ -11,5 +11,5 @@ spec:
   conditions:
     - name: check-cm-value
       expression: >-
-        resource.Get("v1", "configmaps", "default", "clusterregistries").data["registries"] == "enabled"
+        resource.get("v1", "configmaps", "default", "clusterregistries").data["registries"] == "enabled"
   schedule: "*/1 * * * *"

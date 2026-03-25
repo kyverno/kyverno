@@ -10,16 +10,19 @@ import (
 	"strings"
 	"time"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -41,7 +44,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -98,11 +101,14 @@ type ApplyCommandConfig struct {
 	GenerateExceptions        bool
 	GeneratedExceptionTTL     time.Duration
 	JSONPaths                 []string
+	HTTPPayloadPaths          []string
+	EnvoyPayloadPaths         []string
 	ClusterWideResources      bool
 	Concurrent                int
 	BatchSize                 int
 	ContinueOnError           bool
 	ShowPerformance           bool
+	CrdPath                   string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -191,6 +197,8 @@ func Command() *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.JSONPaths, "json", "", []string{}, "Path to JSON payload files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.HTTPPayloadPaths, "http-payload", "", []string{}, "Path to HTTP check request payload files (JSON)")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.EnvoyPayloadPaths, "envoy-payload", "", []string{}, "Path to Envoy check request payload files (JSON)")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resource", "", []string{}, "Path to individual files containing target resources files for policies that have mutate existing")
@@ -228,10 +236,12 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
 	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	cmd.Flags().BoolVarP(&applyCommandConfig.ClusterWideResources, "cluster-wide-resources", "", false, "If set to true, will apply policies to cluster-wide resources")
+
 	cmd.Flags().IntVar(&applyCommandConfig.Concurrent, "concurrent", 1, "Number of concurrent workers for resource loading")
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
+	cmd.Flags().StringVar(&applyCommandConfig.CrdPath, "crd-path", "", "crd path to be used for apply command")
 	return cmd
 }
 
@@ -248,6 +258,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
@@ -263,7 +275,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -348,6 +360,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
 		policyRulesCount += len(mps)
+		policyRulesCount += len(envoyPols)
+		policyRulesCount += len(httpPols)
 		exceptionsCount := len(exceptions)
 		exceptionsCount += len(celexceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
@@ -357,6 +371,23 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, resourceCount)
 		}
 	}
+	envoyRequests := make([]*authv3.CheckRequest, 0, len(c.EnvoyPayloadPaths))
+	for _, path := range c.EnvoyPayloadPaths {
+		request, err := processor.LoadEnvoyRequests(path)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to parse envoy payload from %s: %w", path, err)
+		}
+		envoyRequests = append(envoyRequests, request)
+	}
+	httpRequests := make([]*authzhttp.CheckRequest, 0, len(c.HTTPPayloadPaths))
+	for _, path := range c.HTTPPayloadPaths {
+		request, err := processor.LoadHTTPRequests(path)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to parse HTTP payload from %s: %w", path, err)
+		}
+		httpRequests = append(httpRequests, request)
+	}
+
 	rc, resources1, responses1, err := c.applyPolicies(
 		out,
 		&store,
@@ -397,11 +428,25 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
+	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
+
+	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses4, err
+	}
+
+	envoyResponses, err := authzProcessor.ApplyEnvoyPolicies(envoyRequests)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses4, err
+	}
+
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses4...)
 	responses = append(responses, responses5...)
 	responses = append(responses, responses6...)
+	responses = append(responses, httpResponses...)
+	responses = append(responses, envoyResponses...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -494,6 +539,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			CrdPath:                           c.CrdPath,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -534,6 +580,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
+			CrdPath:                           c.CrdPath,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -587,7 +634,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster)
 	if err != nil {
 		return nil, err
@@ -803,6 +849,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.GeneratingPolicyLike,
 	[]policiesv1beta1.DeletingPolicyLike,
 	[]policiesv1beta1.MutatingPolicyLike,
+	[]*policiesv1beta1.ValidatingPolicy, // Envoy policies
+	[]*policiesv1beta1.ValidatingPolicy, // HTTP policies
 	error,
 ) {
 	// load policies
@@ -818,17 +866,19 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var gps []policiesv1beta1.GeneratingPolicyLike
 	var dps []policiesv1beta1.DeletingPolicyLike
 	var mps []policiesv1beta1.MutatingPolicyLike
+	var envoyPols []*policiesv1beta1.ValidatingPolicy
+	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -841,11 +891,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -869,6 +919,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
+				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
+				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -892,6 +944,8 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
+				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
+				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		}
 		for _, policy := range policies {
@@ -900,7 +954,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, nil
+	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -975,8 +1029,11 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
 		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
 	}
-	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && !c.Cluster {
+	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
+	}
+	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
+		return fmt.Errorf("crdpath and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
 	return nil
 }

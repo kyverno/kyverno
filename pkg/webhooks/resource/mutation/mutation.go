@@ -134,6 +134,9 @@ func (v *mutationHandler) applyMutations(
 
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
+					if err := policyContext.JSONContext().AddResource(engineResponse.PatchedResource.Object); err != nil {
+						return fmt.Errorf("failed to update resource in context for policy %s: %v", policy.GetName(), err)
+					}
 					emitWarning := policy.GetSpec().EmitWarning
 					if emitWarning != nil && *emitWarning {
 						resp := engineResponse.WithWarning()

@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -54,6 +55,7 @@ type controller struct {
 	metrics         metrics.EventMetrics
 	maxQueuedEvents int
 	cfg             config.Configuration
+	warnOnce        sync.Once
 }
 
 // NewEventGenerator to generate a new event controller
@@ -92,6 +94,11 @@ func (gen *controller) Add(infos ...Info) {
 			continue
 		}
 		if gen.omitEvents.Has(string(info.Reason)) {
+			if info.Reason == PolicyApplied && gen.cfg.GetGenerateSuccessEvents() {
+				gen.warnOnce.Do(func() {
+					logger.Error(nil, "generateSuccessEvents is enabled but PolicyApplied is in omitEvents -- no success events will be generated, remove PolicyApplied from --omitEvents to fix this")
+				})
+			}
 			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 			continue
 		}

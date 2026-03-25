@@ -9,28 +9,30 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
 jobs:
-  gomod:
+  cache:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: ./.github/actions/go/setup
         with:
-          go-version-file: go.mod
-          cache: false
-      - name: Set cache variables
-        shell: bash
-        run: |
-          set -e
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-          echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-          echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-          echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+          gomod-cache-prefix: '' # disable gomod cache
+          gobuild-cache-prefix: '' # disable gobuild cache
+      - name: Check gomod cache exists
+        id: check-gomod
+        uses: ./.github/actions/go/lookup-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gomod-cache }}
+          cache-prefix: gomod
       - name: Download modules
+        if: steps.check-gomod.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -e
@@ -39,48 +41,42 @@ jobs:
           (cd hack/api-group-resources && go mod download && go mod tidy)
           make install-tools
       - name: Save gomod cache
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        if: steps.check-gomod.outputs.cache-hit != 'true'
+        uses: ./.github/actions/go/save-cache
         with:
-          path: ${{ env.GO_MOD_CACHE }}
-          key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+          path: ${{ steps.setup-go.outputs.gomod-cache }}
+          cache-prefix: gomod
+      - name: Check gobuild cache exists
+        id: check-gobuild
+        uses: ./.github/actions/go/lookup-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild
+      - name: Install Ko
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        uses: ./.github/actions/tools/ko
+      - name: Build all
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make image-build-all build-all
+      - name: Save gobuild cache
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild
 
-  gobuild:
-    runs-on: ubuntu-latest
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - cache
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        id: setup-go
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Set cache variables
-        shell: bash
-        run: |
-          set -e
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-          echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-          echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-          echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-      - name: Restore gomod cache
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ${{ env.GO_MOD_CACHE }}
-          key: gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-
-            gomod-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-
-      - name: Install Ko
-        uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
-      - name: Build all
-        shell: bash
-        run: |
-          set -e
-          KO=/usr/local/bin/ko VERSION=${{ github.ref_name }} make image-build-all build-all
-      - name: Save gobuild cache
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ${{ env.GO_BUILD_CACHE }}
-          key: gobuild-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ env.GO_CACHE_DATE }}-${{ hashFiles('**/go.sum') }}
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
