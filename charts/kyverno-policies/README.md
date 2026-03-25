@@ -73,29 +73,31 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
-| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
-| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
-| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
-| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
-| includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
-| includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| customPolicies | list | `[]` | Additional custom policies to include. |
-| failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
-| validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
-| validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
-| validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
-| validationAllowExistingViolations | bool | `true` | Validate already existing resources. For more info https://kyverno.io/docs/policy-types/. |
-| policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
-| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
 | autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/. |
-| nameOverride | string | `nil` | Name override. |
+| background | bool | `true` | Policies background mode |
 | customAnnotations | object | `{}` | Additional Annotations. |
 | customLabels | object | `{}` | Additional labels. |
-| background | bool | `true` | Policies background mode |
-| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
-| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
+| customPolicies | list | `[]` | Additional custom policies to include. |
+| emitWarningByPolicy | string | `nil` | Define emitWarningByPolicy for specific policies. Override the defined `emitWarnings` for individual Policies. |
+| emitWarnings | bool | `false` | Emit admission response warnings when the policy is violated Only supported for `ValidatingPolicy` policies. |
+| failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
+| includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
+| includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
+| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
+| nameOverride | string | `nil` | Name override. |
+| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
+| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
+| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
+| policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
+| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
+| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
+| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
+| validationAllowExistingViolations | bool | `true` | Validate already existing resources. For more info https://kyverno.io/docs/policy-types/. |
+| validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). Note that `Enforce` will be translated to `Deny` for `ValidatingPolicy` for backwards compatibility For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
+| validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
+| validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
 
 ## Source Code
 
