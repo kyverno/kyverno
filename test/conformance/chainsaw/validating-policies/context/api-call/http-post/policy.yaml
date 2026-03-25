@@ -14,7 +14,7 @@ spec:
   variables:
     - name: response
       expression: >-
-       http.Post(
+       http.post(
         "http://test-api-service.default.svc.cluster.local/",
         {"labels": object.metadata.labels.app},{"Content-Type": "application/json"})
   validations:

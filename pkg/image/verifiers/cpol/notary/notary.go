@@ -6,13 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
-	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/logging"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
@@ -31,18 +29,14 @@ var (
 	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
 )
 
-func NewVerifier() images.ImageVerifier {
-	return &notaryVerifier{
-		log: logging.WithName("Notary"),
-	}
+type notaryVerifier struct{}
+
+func NewVerifier() verifiers.ImageVerifier {
+	return &notaryVerifier{}
 }
 
-type notaryVerifier struct {
-	log logr.Logger
-}
-
-func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
-	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
+func (v *notaryVerifier) VerifySignature(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
+	logger.V(2).Info("verifying image", "reference", opts.ImageRef)
 
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
@@ -50,19 +44,19 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, errors.Wrapf(err, "failed to parse certificates")
 	}
 
-	trustStore := NewTrustStore("kyverno", certs)
+	trustStore := newTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to created verifier")
 	}
 
-	v.log.V(4).Info("creating notation repo", "reference", opts.ImageRef)
+	logger.V(4).Info("creating notation repo", "reference", opts.ImageRef)
 	parsedRef, err := parseReferenceCrane(ctx, opts.ImageRef, opts.Client)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	v.log.V(4).Info("created parsedRef", "reference", opts.ImageRef)
+	logger.V(4).Info("created parsedRef", "reference", opts.ImageRef)
 
 	ref := parsedRef.Ref.Name()
 	remoteVerifyOptions := notation.VerifyOptions{
@@ -70,7 +64,7 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		MaxSignatureAttempts: 10,
 	}
 
-	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, notary.NotaryLoggerAdapter(v.log.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, notary.NotaryLoggerAdapter(logger.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to verify %s", ref)
 	}
@@ -79,9 +73,9 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, err
 	}
 
-	v.log.V(2).Info("verified image", "type", targetDesc.MediaType, "digest", targetDesc.Digest, "size", targetDesc.Size)
+	logger.V(2).Info("verified image", "type", targetDesc.MediaType, "digest", targetDesc.Digest, "size", targetDesc.Size)
 
-	resp := &images.Response{
+	resp := &verifiers.Response{
 		Digest:     targetDesc.Digest.String(),
 		Statements: nil,
 	}
@@ -89,7 +83,83 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 	return resp, nil
 }
 
-func combineCerts(opts images.Options) string {
+func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts verifiers.Options) (*verifiers.Response, error) {
+	logger.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
+
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
+	}
+	remoteOpts, err := opts.Client.Options(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.V(4).Info("client setup done", "repo", ref)
+
+	repoDesc, err := gcrremote.Head(ref, remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	logger.V(4).Info("fetched repository", "repoDesc", repoDesc)
+
+	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	referrersDescs, err := referrers.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
+	if len(referrersDescs.Manifests) > maxReferrersCount {
+		return nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
+	}
+
+	logger.V(4).Info("fetched referrers", "referrers", referrersDescs)
+
+	var statements []map[string]interface{}
+
+	for _, referrer := range referrersDescs.Manifests {
+		match, _, err := matchArtifactType(referrer, opts.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		if !match {
+			logger.V(6).Info("type doesn't match, continue", "expected", opts.Type, "received", referrer.ArtifactType)
+			continue
+		}
+
+		targetDesc, err := verifyAttestators(ctx, v, ref, opts, referrer)
+		if err != nil {
+			logger.V(4).Info("failed to verify referrer", "digest", targetDesc.Digest.String(), "error", err.Error())
+			return nil, err
+		}
+
+		logger.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
+		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
+		if err != nil {
+			logger.V(4).Info("failed to extract statements", "error", err.Error())
+			return nil, err
+		}
+
+		logger.V(4).Info("verified attestators", "digest", targetDesc.Digest.String())
+
+		if len(statements) == 0 {
+			return nil, fmt.Errorf("failed to fetch attestations")
+		}
+		logger.V(6).Info("sending response")
+		return &verifiers.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
+	}
+
+	return nil, fmt.Errorf("no matching attestations found for image %s with type %s", opts.ImageRef, opts.Type)
+}
+
+func combineCerts(opts verifiers.Options) string {
 	certs := opts.Cert
 	if opts.CertChain != "" {
 		if certs != "" {
@@ -128,90 +198,14 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 		content := outcome.EnvelopeContent.Payload.Content
 		contentType := outcome.EnvelopeContent.Payload.ContentType
 
-		v.log.V(2).Info("content", "type", contentType, "data", content)
+		logger.V(2).Info("content", "type", contentType, "data", content)
 	}
 
 	return multierr.Combine(errs...)
 }
 
-func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
-
-	nameOpts := opts.Client.NameOptions()
-	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
-	}
-	remoteOpts, err := opts.Client.Options(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	v.log.V(4).Info("client setup done", "repo", ref)
-
-	repoDesc, err := gcrremote.Head(ref, remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-	v.log.V(4).Info("fetched repository", "repoDesc", repoDesc)
-
-	referrers, err := gcrremote.Referrers(ref.Context().Digest(repoDesc.Digest.String()), remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	referrersDescs, err := referrers.IndexManifest()
-	if err != nil {
-		return nil, err
-	}
-
-	// This check ensures that the manifest does not have an abnormal amount of referrers attached to it to protect against compromised images
-	if len(referrersDescs.Manifests) > maxReferrersCount {
-		return nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", maxReferrersCount)
-	}
-
-	v.log.V(4).Info("fetched referrers", "referrers", referrersDescs)
-
-	var statements []map[string]interface{}
-
-	for _, referrer := range referrersDescs.Manifests {
-		match, _, err := matchArtifactType(referrer, opts.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		if !match {
-			v.log.V(6).Info("type doesn't match, continue", "expected", opts.Type, "received", referrer.ArtifactType)
-			continue
-		}
-
-		targetDesc, err := verifyAttestators(ctx, v, ref, opts, referrer)
-		if err != nil {
-			v.log.V(4).Info("failed to verify referrer", "digest", targetDesc.Digest.String(), "error", err.Error())
-			return nil, err
-		}
-
-		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
-		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
-		if err != nil {
-			v.log.V(4).Info("failed to extract statements", "error", err.Error())
-			return nil, err
-		}
-
-		v.log.V(4).Info("verified attestators", "digest", targetDesc.Digest.String())
-
-		if len(statements) == 0 {
-			return nil, fmt.Errorf("failed to fetch attestations")
-		}
-		v.log.V(6).Info("sending response")
-		return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
-	}
-
-	return nil, fmt.Errorf("no matching attestations found for image %s with type %s", opts.ImageRef, opts.Type)
-}
-
-func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts images.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
-	v.log.V(2).Info("verifying attestations", "reference", opts.ImageRef, "opts", opts)
+func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts verifiers.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
+	logger.V(2).Info("verifying attestations", "reference", opts.ImageRef, "opts", opts)
 	if opts.Cert == "" && opts.CertChain == "" {
 		// skips the checks when no attestor is provided
 		v1Desc := ocispec.Descriptor{
@@ -227,36 +221,36 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
 	if err != nil {
-		v.log.V(4).Info("failed to parse certificates", "err", err)
+		logger.V(4).Info("failed to parse certificates", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
 	}
 
-	v.log.V(4).Info("parsed certificates")
-	trustStore := NewTrustStore("kyverno", certs)
+	logger.V(4).Info("parsed certificates")
+	trustStore := newTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
 	if err != nil {
-		v.log.V(4).Info("failed to created verifier", "err", err)
+		logger.V(4).Info("failed to created verifier", "err", err)
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
 	}
 
-	v.log.V(4).Info("created verifier")
+	logger.V(4).Info("created verifier")
 	reference := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
 	parsedRef, err := parseReferenceCrane(ctx, reference, opts.Client)
 	if err != nil {
 		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
-	v.log.V(4).Info("created notation repo", "reference", opts.ImageRef)
+	logger.V(4).Info("created notation repo", "reference", opts.ImageRef)
 
 	remoteVerifyOptions := notation.VerifyOptions{
 		ArtifactReference:    reference,
 		MaxSignatureAttempts: 10,
 	}
 
-	v.log.V(4).Info("verification started")
+	logger.V(4).Info("verification started")
 	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
-		v.log.V(4).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
+		logger.V(4).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
 		return targetDesc, err
 	}
 	if err := v.verifyOutcomes(outcomes); err != nil {
@@ -264,10 +258,10 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	if targetDesc.Digest.String() != desc.Digest.String() {
-		v.log.V(4).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
+		logger.V(4).Info("digest mismatch", "expected", desc.Digest.String(), "found", targetDesc.Digest.String())
 		return targetDesc, errors.Errorf("digest mismatch")
 	}
-	v.log.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())
+	logger.V(2).Info("attestator verified", "desc", targetDesc.Digest.String())
 
 	return targetDesc, nil
 }
@@ -286,7 +280,7 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) (map[string]interface{}, error) {
+func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
 	ref, err := name.ParseReference(refStr, nameOpts...)
 	if err != nil {

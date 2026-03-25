@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"reflect"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -38,7 +40,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -134,6 +136,31 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		json, err = payload.Load(jsonFullPath[0])
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+		}
+	}
+	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
+	if len(testCase.Test.HTTPPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading HTTP payloads", "...")
+		httpFullPaths := path.GetFullPaths(testCase.Test.HTTPPayloads, testDir, isGit)
+		for _, p := range httpFullPaths {
+			reqs, err := processor.LoadHTTPRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load HTTP payloads from path %s (%s)", p, err)
+			}
+			httpPayloads[p] = reqs
+		}
+	}
+
+	envoyPayloads := make(map[string]*authv3.CheckRequest, 0)
+	if len(testCase.Test.EnvoyPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading Envoy payloads", "...")
+		envoyFullPaths := path.GetFullPaths(testCase.Test.EnvoyPayloads, testDir, isGit)
+		for _, p := range envoyFullPaths {
+			reqs, err := processor.LoadEnvoyRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Envoy payloads from path %s (%s)", p, err)
+			}
+			envoyPayloads[p] = reqs
 		}
 	}
 
@@ -480,6 +507,29 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
+
+	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	if len(httpPayloads) > 0 {
+		for file, payload := range httpPayloads {
+			ers, err := authProzessor.ApplyHTTPPolicies([]*authzhttp.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on HTTP payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+	if len(envoyPayloads) > 0 {
+		for file, payload := range envoyPayloads {
+			ers, err := authProzessor.ApplyEnvoyPolicies([]*authv3.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on Envoy payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {

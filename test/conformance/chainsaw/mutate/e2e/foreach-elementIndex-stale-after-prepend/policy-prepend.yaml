@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: aaa-prepend-volume
+spec:
+  admission: true
+  background: false
+  rules:
+    - name: add-extra-volumes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              names:
+                - test-pod
+      preconditions:
+        all:
+          - key: "{{request.operation}}"
+            operator: AnyIn
+            value:
+              - CREATE
+      mutate:
+        patchStrategicMerge:
+          spec:
+            volumes:
+              - name: extra-config
+                configMap:
+                  name: extra-cm
+              - name: extra-cache
+                emptyDir:
+                  medium: ""
