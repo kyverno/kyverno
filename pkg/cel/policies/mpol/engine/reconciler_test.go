@@ -8,6 +8,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -226,7 +227,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 								MatchConstraints: &admissionregistrationv1.MatchResources{},
 								MatchConditions: []admissionregistrationv1.MatchCondition{
 									{
-										Expression: `request.object.metadata.labels.env == "dev"`,
+										Expression: `object.metadata.labels.env == "dev"`,
 									},
 								},
 							},
@@ -252,8 +253,16 @@ func TestMatchesMutateExisting(t *testing.T) {
 		},
 	}
 
+	compiler := mpolcompiler.NewCompiler()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			for k, l := range tt.policies {
+				for i, p := range l {
+					c, _ := compiler.Compile(p.Policy, nil)
+					tt.policies[k][i].CompiledPolicy = c
+				}
+			}
 			r := &reconciler{
 				lock:     &sync.RWMutex{},
 				policies: tt.policies,

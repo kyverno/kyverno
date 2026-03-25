@@ -29,7 +29,7 @@ spec:
         }
     - name: subjectaccessreview
       expression: >-
-        resource.Post("authorization.k8s.io/v1", "subjectaccessreviews", variables.res)
+        resource.post("authorization.k8s.io/v1", "subjectaccessreviews", variables.res)
   validations:
     - expression: >-
         has(variables.subjectaccessreview.status) && variables.subjectaccessreview.status.allowed == true

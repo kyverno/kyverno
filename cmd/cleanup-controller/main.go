@@ -14,6 +14,7 @@ import (
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -240,7 +241,7 @@ func main() {
 					compiler.NewCompiler(),
 					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
 					kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies().Lister(),
-					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
+					celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()),
 					internal.PolicyExceptionEnabled(),
 				)
 

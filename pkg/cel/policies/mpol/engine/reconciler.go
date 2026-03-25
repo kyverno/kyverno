@@ -6,10 +6,10 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -20,16 +20,17 @@ import (
 type reconciler struct {
 	client       client.Client
 	compiler     compiler.Compiler
+	libCxt       libs.Context
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	client client.Client,
 	compiler compiler.Compiler,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -82,7 +83,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	compiled, errs := r.compiler.Compile(policy, exceptions)
 	if len(errs) > 0 {
-		return ctrl.Result{}, errs[0]
+		return ctrl.Result{}, errs.ToAggregate()
 	}
 	policies := []Policy{{
 		Policy:         policy,
@@ -100,7 +101,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 		compiled, errs := r.compiler.Compile(autogenPolicy, exceptions)
 		if len(errs) > 0 {
-			return ctrl.Result{}, errs[0]
+			return ctrl.Result{}, errs.ToAggregate()
 		}
 		policies = append(policies, Policy{
 			Policy:         autogenPolicy,
@@ -149,7 +150,7 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 			continue
 		}
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace, r.libCxt) {
 				continue
 			}
 		}
