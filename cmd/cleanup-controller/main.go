@@ -59,13 +59,18 @@ var (
 
 // TODO:
 // - helm review labels / selectors
-// - implement probes
 // - supports certs in cronjob
 
-type probes struct{}
+type probes struct {
+	certValidator tls.CertValidator
+}
 
-func (probes) IsReady(context.Context) bool {
-	return true
+func (p probes) IsReady(ctx context.Context) bool {
+	valid, err := p.certValidator.ValidateCert(ctx)
+	if err != nil {
+		return false
+	}
+	return valid
 }
 
 func (probes) IsLive(context.Context) bool {
@@ -160,6 +165,21 @@ func main() {
 			os.Exit(1)
 		}
 		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
+		// cert validator for health probes
+		certValidator := tls.NewCertRenewer(
+			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			tls.CertRenewalInterval,
+			tls.CAValidityDuration,
+			tls.TLSValidityDuration,
+			renewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
@@ -439,7 +459,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			probes{certValidator: certValidator},
 			setup.Configuration,
 		)
 		// start server
