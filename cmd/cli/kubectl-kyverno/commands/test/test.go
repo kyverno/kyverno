@@ -100,6 +100,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
+	if results != nil && results.NonFatalErrors != nil {
+		for _, e := range results.NonFatalErrors {
+			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+		}
+	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
 	for _, pol := range results.Policies {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
