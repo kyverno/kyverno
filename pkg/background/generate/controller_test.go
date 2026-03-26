@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -16,11 +17,35 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+// mockGenerateDClient embeds dclient.Interface and selectively overrides
+// ListResource and DeleteResource for use in generate-controller tests.
+// All other methods delegate to the embedded Interface.
+type mockGenerateDClient struct {
+	dclient.Interface
+	listResource   func(ctx context.Context, apiVersion, kind, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
+	deleteResource func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+}
+
+func (m *mockGenerateDClient) ListResource(ctx context.Context, apiVersion, kind, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	if m.listResource != nil {
+		return m.listResource(ctx, apiVersion, kind, namespace, lselector)
+	}
+	return m.Interface.ListResource(ctx, apiVersion, kind, namespace, lselector)
+}
+
+func (m *mockGenerateDClient) DeleteResource(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error {
+	if m.deleteResource != nil {
+		return m.deleteResource(ctx, apiVersion, kind, namespace, name, dryRun, options)
+	}
+	return m.Interface.DeleteResource(ctx, apiVersion, kind, namespace, name, dryRun, options)
+}
 
 // fakeClusterPolicyLister returns NotFound for all policy lookups
 type fakeClusterPolicyLister struct {
@@ -541,6 +566,102 @@ func TestProcessUR_ApplyGenerateError_MultipleRules_StillFails(t *testing.T) {
 		"Failed() must be called when any rule fails")
 	assert.False(t, statusControl.successCalled,
 		"Success() must NOT be called when any rule fails")
+}
+
+// TestHandleNonPolicyChanges_StatusUpdateError_IsReturned is a regression test
+// for the silent error drop in handleNonPolicyChanges (cleanup.go:91-93).
+//
+// When a rule is deleted from a policy that still exists, deleteDownstream routes
+// through handleNonPolicyChanges. If the status PATCH fails (e.g. transient API
+// conflict), the error is currently only logged and never returned. The reconcile
+// loop therefore sees nil, skips requeue, and leaves the UpdateRequest in an
+// inconsistent state with no retry.
+//
+// The test injects a mockGenerateDClient whose ListResource returns one downstream
+// ConfigMap, ensuring getDownstreams produces a non-empty result and the
+// status-update code is actually reached. It then injects a successErr into
+// fakeStatusControl and asserts that deleteDownstream propagates the error.
+//
+// Expected behaviour: assert.Error fires.
+// Current behaviour:  handleNonPolicyChanges always returns nil at line 96, so
+//
+//	the assert.Error assertion fails — proving the bug exists.
+func TestHandleNonPolicyChanges_StatusUpdateError_IsReturned(t *testing.T) {
+	statusControl := &fakeStatusControl{
+		successErr: errors.New("conflict: resource version changed"),
+	}
+
+	// mockGenerateDClient.listResource returns one downstream ConfigMap so that
+	// getDownstreams produces len(downstreams) > 0, triggering the status-update
+	// call. The delete succeeds (no error), so statusControl.Success() is called.
+	downstream := unstructured.Unstructured{}
+	downstream.SetAPIVersion("v1")
+	downstream.SetKind("ConfigMap")
+	downstream.SetName("generated-cm")
+	downstream.SetNamespace("default")
+
+	mockClient := &mockGenerateDClient{
+		Interface: dclient.NewEmptyFakeClient(),
+		listResource: func(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+			return &unstructured.UnstructuredList{Items: []unstructured.Unstructured{downstream}}, nil
+		},
+	}
+
+	controller := &GenerateController{
+		client:        mockClient,
+		statusControl: statusControl,
+		policyLister:  &fakeClusterPolicyLister{},
+		npolicyLister: &fakePolicyLister{},
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "sync-policy"},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "sync-rule",
+					Generation: &kyvernov1.Generation{
+						GeneratePattern: kyvernov1.GeneratePattern{
+							ResourceSpec: kyvernov1.ResourceSpec{
+								APIVersion: "v1",
+								Kind:       "ConfigMap",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ruleContext := kyvernov2.RuleContext{
+		Rule: "sync-rule",
+		Trigger: kyvernov1.ResourceSpec{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+			Name:       "test-ns",
+		},
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ur-status-propagation", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy:      "sync-policy",
+			RuleContext: []kyvernov2.RuleContext{ruleContext},
+		},
+		// GeneratedResources must be nil so deleteDownstream falls through to
+		// handleNonPolicyChanges instead of taking the early-return path.
+		Status: kyvernov2.UpdateRequestStatus{},
+	}
+
+	err := controller.deleteDownstream(policy, ruleContext, ur)
+
+	// FAILS with the current code: handleNonPolicyChanges swallows the error at
+	// line 96 ("return nil") instead of returning it, so the workqueue never
+	// requeues on a transient status-update failure.
+	assert.Error(t, err, "status-update error from handleNonPolicyChanges must be propagated to the caller, not silently dropped")
+	assert.True(t, statusControl.successCalled, "Success() should have been called after downstream deletion with no errors")
 }
 
 // Ensure fake types satisfy the required interfaces
