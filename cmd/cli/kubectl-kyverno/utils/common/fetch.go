@@ -189,6 +189,20 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = ivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.GetDeletingPolicySpec().MatchConstraints
+			} else if cp := policy.AsCleanupPolicy(); cp != nil {
+				// CleanupPolicy match resources are Kyverno-specific match resources.
+				// For cluster fetching, translate the cleanup policy's match/exclude kinds into candidate GVKs.
+				if spec := cp.GetSpec(); spec != nil {
+					for _, kind := range spec.MatchResources.GetKinds() {
+						rf.addToresourceTypeInfo(kind, info)
+					}
+					if spec.ExcludeResources != nil {
+						for _, kind := range spec.ExcludeResources.GetKinds() {
+							rf.addToresourceTypeInfo(kind, info)
+						}
+					}
+				}
+				continue
 			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
 				converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
 				matchResources = converted
