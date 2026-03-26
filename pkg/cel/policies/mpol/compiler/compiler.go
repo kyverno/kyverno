@@ -155,46 +155,55 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, allErrs
 }
-
 func newCompositeCompiler(libCtx libs.Context, namespace string) (*plugincel.CompositedCompiler, error) {
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
+
+	// Build library options - conditionally include http.Lib only for cluster-scoped policies
+	// CVE-2026-4789: http.Lib lacks namespace scoping, enabling SSRF from namespaced policies
+	envOpts := []cel.EnvOption{
+		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.RequestKey, compiler.OriginRequestType.CelType()),
+		cel.Variable(compiler.ImagesKey, image.ImageType),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.OriginRequestType.CelType()),
+		globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
+	}
+	// Only include http.Lib for cluster-scoped policies (namespace == "")
+	if namespace == "" {
+		envOpts = append(envOpts, http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()))
+	}
+	envOpts = append(envOpts,
+		image.Lib(image.Latest()),
+		imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
+		math.Lib(math.Latest()),
+		resource.Lib(resource.Context{ContextInterface: libCtx}, namespace, resource.Latest()),
+		user.Lib(user.Latest()),
+		json.Lib(&json.JsonImpl{}, json.Latest()),
+		yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),
+		random.Lib(random.Latest()),
+		x509.Lib(x509.Latest()),
+		time.Lib(time.Latest()),
+		transform.Lib(transform.Latest()),
+		gzip.Lib(gzip.Latest()),
+	)
+
 	extendedEnvSet, err := baseEnvSet.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
-			EnvOptions: []cel.EnvOption{
-				cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-				cel.Variable(compiler.ObjectKey, cel.DynType),
-				cel.Variable(compiler.OldObjectKey, cel.DynType),
-				cel.Variable(compiler.RequestKey, compiler.OriginRequestType.CelType()),
-				cel.Variable(compiler.ImagesKey, image.ImageType),
-				cel.Types(compiler.NamespaceType.CelType()),
-				cel.Types(compiler.OriginRequestType.CelType()),
-				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
-				http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()),
-				image.Lib(image.Latest()),
-				imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
-				math.Lib(math.Latest()),
-				resource.Lib(resource.Context{ContextInterface: libCtx}, namespace, resource.Latest()),
-				user.Lib(user.Latest()),
-				json.Lib(&json.JsonImpl{}, json.Latest()),
-				yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),
-				random.Lib(random.Latest()),
-				x509.Lib(x509.Latest()),
-				time.Lib(time.Latest()),
-				transform.Lib(transform.Latest()),
-				gzip.Lib(gzip.Latest()),
-			},
+			EnvOptions:        envOpts,
 		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf(compileError, err)
 	}
-
 	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedEnvSet)
 	if err != nil {
 		return nil, fmt.Errorf(compileError, err)
 	}
-
+	return compositedCompiler, nil
+}
 	return compositedCompiler, nil
 }
 
@@ -222,11 +231,75 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 	if err != nil {
 		return nil, nil, err
 	}
-
 	baseOpts = append(baseOpts, declOptions...)
-
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
+
+	// Build library options - conditionally include http.Lib only for cluster-scoped policies
+	// CVE-2026-4789: http.Lib lacks namespace scoping, enabling SSRF from namespaced policies
+	libOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		generator.Lib(
+			generator.Context{ContextInterface: libCtx},
+			generator.Latest(),
+		),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libCtx},
+			globalcontext.Latest(),
+		),
+	}
+	// Only include http.Lib for cluster-scoped policies (namespace == "")
+	if namespace == "" {
+		libOpts = append(libOpts, http.Lib(
+			http.Context{ContextInterface: http.NewHTTP(nil)},
+			http.Latest(),
+		))
+	}
+	libOpts = append(libOpts,
+		resource.Lib(
+			resource.Context{ContextInterface: libCtx},
+			namespace,
+			resource.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libCtx},
+			imagedata.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+	)
+
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
@@ -235,64 +308,9 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				generator.Lib(
-					generator.Context{ContextInterface: libCtx},
-					generator.Latest(),
-				),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libCtx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libCtx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libCtx},
-					imagedata.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-			},
+			EnvOptions:        libOpts,
 		},
+	)
 	)
 	if err != nil {
 		return nil, nil, err

@@ -72,9 +72,74 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 	}
 
 	baseOpts = append(baseOpts, declOptions...)
-
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
+
+	// Build library options - conditionally include http.Lib only for cluster-scoped policies
+	// CVE-2026-4789: http.Lib lacks namespace scoping, enabling SSRF from namespaced policies
+	libOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		generator.Lib(
+			generator.Context{ContextInterface: libsctx},
+			generator.Latest(),
+		),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+	}
+	// Only include http.Lib for cluster-scoped policies (namespace == "")
+	if namespace == "" {
+		libOpts = append(libOpts, http.Lib(
+			http.Context{ContextInterface: http.NewHTTP(nil)},
+			http.Latest(),
+		))
+	}
+	libOpts = append(libOpts,
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+	)
+
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
@@ -83,62 +148,9 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				generator.Lib(
-					generator.Context{ContextInterface: libsctx},
-					generator.Latest(),
-				),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
+			EnvOptions:        libOpts,
+		},
+	)
 			},
 		},
 	)
