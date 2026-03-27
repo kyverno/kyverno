@@ -121,7 +121,7 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 }
 
 func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, nil, namespace, contextProvider)
+	data, err := prepareData(attr, nil, namespace)
 	if err != nil {
 		return false
 	}
@@ -149,7 +149,7 @@ func (p *Policy) Evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
-	data, err := prepareData(attr, &request, namespace, contextProvider)
+	data, err := prepareData(attr, &request, namespace)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
