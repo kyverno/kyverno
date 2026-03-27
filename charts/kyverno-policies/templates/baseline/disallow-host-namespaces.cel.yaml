@@ -34,7 +34,7 @@ spec:
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
-    {{- end }}
+  {{ end }}
   validations:
     - expression: >-
         (!has(object.spec.hostPID) || object.spec.hostPID == false) &&

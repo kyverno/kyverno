@@ -137,12 +137,42 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- if gt (len $namespaces) 0 -}}
   {{- $conditions = append $conditions (dict "name" "exclude-namespaces" "expression" (printf "!(object.metadata.namespace in [%s])" (include "kyverno-policies.celStringList" $namespaces))) -}}
 {{- end -}}
+{{- $subjects := .excludeSubjects | default list -}}
+{{- if gt (len $subjects) 0 -}}
+  {{- $fragments := list -}}
+  {{- range $subjects -}}
+    {{- $fragment := include "kyverno-policies.celSubjectFragment" . -}}
+    {{- $fragments = append $fragments $fragment -}}
+  {{- end -}}
+  {{- $conditions = append $conditions (dict "name" "exclude-subjects" "expression" (printf "!(%s)" (join " || " $fragments))) -}}
+{{- end -}}
 {{- if gt (len $conditions) 0 }}
 matchConditions:
 {{- range $conditions }}
   - name: {{ .name }}
     expression: {{ .expression | quote }}
 {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Generate a single CEL expression fragment for one subject entry.
+     Supported kinds: User, Group, ServiceAccount.
+     - User:           request.userInfo.username == '<name>'
+     - Group:          '<name>' in request.userInfo.groups
+     - ServiceAccount: (parseServiceAccount(request.userInfo.username).Namespace == '<ns>' && parseServiceAccount(request.userInfo.username).Name == '<name>')
+*/}}
+{{- define "kyverno-policies.celSubjectFragment" -}}
+{{- $kind := .kind | required "excludeSubjects entries must have a 'kind' (User, Group, or ServiceAccount)" -}}
+{{- $name := .name | required "excludeSubjects entries must have a 'name'" -}}
+{{- if eq $kind "User" -}}
+  request.userInfo.username == '{{ $name }}'
+{{- else if eq $kind "Group" -}}
+  '{{ $name }}' in request.userInfo.groups
+{{- else if eq $kind "ServiceAccount" -}}
+  {{- $ns := .namespace | required "excludeSubjects ServiceAccount entries must have a 'namespace'" -}}
+  (parseServiceAccount(request.userInfo.username).Namespace == '{{ $ns }}' && parseServiceAccount(request.userInfo.username).Name == '{{ $name }}')
+{{- else -}}
+  {{- fail (printf "excludeSubjects: unsupported kind '%s' — must be User, Group, or ServiceAccount" $kind) -}}
 {{- end -}}
 {{- end -}}
 

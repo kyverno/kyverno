@@ -111,6 +111,14 @@ vpolExclude: {}
   #   excludeNamespaces:
   #     - kube-system
   #     - monitoring
+  #   excludeSubjects:
+  #     - kind: Group
+  #       name: system:masters
+  #     - kind: User
+  #       name: admin@example.com
+  #     - kind: ServiceAccount
+  #       namespace: kube-system
+  #       name: default
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.

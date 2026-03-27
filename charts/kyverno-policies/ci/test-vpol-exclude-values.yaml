@@ -1,0 +1,38 @@
+policyType: ValidatingPolicy
+podSecurityStandard: restricted
+includeOtherPolicies:
+  - require-non-root-groups
+vpolExclude:
+  disallow-host-path:
+    excludeResourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+        resourceNames:
+          - sample
+    excludeNamespaces:
+      - kube-system
+      - monitoring
+    excludeSubjects:
+      - kind: Group
+        name: system:masters
+      - kind: ServiceAccount
+        namespace: kube-system
+        name: default
+  disallow-host-namespaces:
+    excludeNamespaces:
+      - ingress-nginx
+    excludeSubjects:
+      - kind: User
+        name: admin@example.com
+      - kind: Group
+        name: system:nodes
+      - kind: ServiceAccount
+        namespace: monitoring
+        name: prometheus
