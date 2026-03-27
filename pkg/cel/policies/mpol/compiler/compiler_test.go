@@ -25,7 +25,24 @@ func TestCompile(t *testing.T) {
 						{
 							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
 							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-								Expression: `Object{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+								Expression: `Object{ metadata: Object.metadata{ labels: Object.metadata.labels{ foo: resource.get("v1", "configmaps", request.object.metadata.namespace, request.object.metadata.labels["configmapName"]).data["foo"]}}}`,
+							},
+						},
+					},
+				},
+			},
+			polex:   nil,
+			wantErr: false,
+		},
+		{
+			name: "valid jsonpatch mutation",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
 							},
 						},
 					},
@@ -49,23 +66,6 @@ func TestCompile(t *testing.T) {
 				},
 			},
 			wantErr: true,
-		},
-		{
-			name: "valid jsonpatch mutation",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					Mutations: []admissionregistrationv1alpha1.Mutation{
-						{
-							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
-							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-								Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
-							},
-						},
-					},
-				},
-			},
-			polex:   nil,
-			wantErr: false,
 		},
 		{
 			name: "policy with variables",

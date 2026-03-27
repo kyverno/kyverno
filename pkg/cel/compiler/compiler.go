@@ -78,6 +78,25 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 	return result, allErrs
 }
 
+// do we also need to put the variables provider here ?
+func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
+	var allErrs field.ErrorList
+
+	ast, issues := env.Compile(expression)
+	if err := issues.Err(); err != nil {
+		return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+	}
+	if !ast.OutputType().IsExactType(returnType) {
+		msg := fmt.Sprintf("output is expected to be of type %s", returnType)
+		return nil, append(allErrs, field.Invalid(path, expression, msg))
+	}
+	prog, err := env.Program(ast)
+	if err != nil {
+		return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+	}
+	return prog, allErrs
+}
+
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{

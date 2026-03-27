@@ -172,7 +172,7 @@ type fakePatcher struct {
 	err    error
 }
 
-func (f *fakePatcher) Patch(ctx context.Context, request *admissionv1.AdmissionRequest, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
 	return f.retVal, f.err
 }
 

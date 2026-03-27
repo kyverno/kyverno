@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/google/cel-go/cel"
 	celgo "github.com/google/cel-go/cel"
 
 	"github.com/google/cel-go/common/types"
@@ -15,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,20 +46,24 @@ func (v *JSONPatchCondition) ReturnTypes() []*celgo.Type {
 var jsonPatchType = types.NewObjectType("JSONPatch")
 
 // NewJSONPatcher creates a patcher that performs a JSON Patch mutation.
-func newJSONPatcher(patchEvaluator plugincel.MutatingEvaluator) Patcher {
-	return &jsonPatcher{patchEvaluator}
+func newJSONPatcher(patchEvaluator plugincel.MutatingEvaluator, prog cel.Program) Patcher {
+	return &jsonPatcher{
+		PatchEvaluator: patchEvaluator,
+		prog:           prog,
+	}
 }
 
 type jsonPatcher struct {
 	PatchEvaluator plugincel.MutatingEvaluator
+	prog           cel.Program
 }
 
-func (e *jsonPatcher) Patch(ctx context.Context, request *admissionv1.AdmissionRequest, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
 	compileErrors := e.PatchEvaluator.CompilationErrors()
 	if len(compileErrors) > 0 {
 		return nil, errors.Join(compileErrors...)
 	}
-	patchObj, _, err := e.evaluatePatchExpression(ctx, e.PatchEvaluator, runtimeCELCostBudget, patchRequest, request)
+	patchObj, _, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
 	if err != nil {
 		return nil, err
 	}
@@ -95,17 +99,13 @@ func (e *jsonPatcher) Patch(ctx context.Context, request *admissionv1.AdmissionR
 	return newVersionedObject, nil
 }
 
-func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, patchEvaluator plugincel.MutatingEvaluator, remainingBudget int64, r patch.Request, admissionRequest *admissionv1.AdmissionRequest) (jsonpatch.Patch, int64, error) {
+func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, error) {
 	var err error
-	var eval plugincel.EvaluationResult
-	eval, remainingBudget, err = patchEvaluator.ForInput(ctx, r.VersionedAttributes, admissionRequest, r.OptionalVariables, r.Namespace, remainingBudget)
+
+	refVal, _, err := e.prog.ContextEval(ctx, evalData)
 	if err != nil {
 		return nil, -1, err
 	}
-	if eval.Error != nil {
-		return nil, -1, eval.Error
-	}
-	refVal := eval.EvalResult
 
 	// the return type can be any valid CEL value.
 	// Scalars, maps and lists are used to set the value when the path points to a field of that type.

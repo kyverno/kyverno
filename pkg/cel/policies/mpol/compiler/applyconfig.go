@@ -5,44 +5,48 @@ import (
 	"errors"
 	"fmt"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
-	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel/mutation/dynamic"
+
+	cel "github.com/google/cel-go/cel"
+	celtypes "github.com/google/cel-go/common/types"
 )
+
+var applyConfigObjectType = celtypes.NewObjectType("Object")
 
 type applyConfigPatcher struct {
 	evaluator plugincel.MutatingEvaluator
+	prog      cel.Program
 }
 
-func newApplyConfigPatcher(eval plugincel.MutatingEvaluator) Patcher {
+func newApplyConfigPatcher(eval plugincel.MutatingEvaluator, prog cel.Program) Patcher {
 	return &applyConfigPatcher{
 		evaluator: eval,
+		prog:      prog,
 	}
 }
 
-func (a *applyConfigPatcher) Patch(ctx context.Context, request *admissionv1.AdmissionRequest, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
 	compileErrors := a.evaluator.CompilationErrors()
 	if len(compileErrors) > 0 {
 		return nil, errors.Join(compileErrors...)
 	}
-	eval, _, err := a.evaluator.ForInput(ctx, patchRequest.VersionedAttributes, request, patchRequest.OptionalVariables, patchRequest.Namespace, celconfig.RuntimeCELCostBudget)
+	// can this just be replaced with context eval ?
+	// a map string any containing the same stuff the activation
+	// contained plus the variables
+	out, _, err := a.prog.ContextEval(ctx, map[string]any{})
 	if err != nil {
 		return nil, err
 	}
-	if eval.Error != nil {
-		return nil, eval.Error
-	}
-	v := eval.EvalResult
 
 	// The compiler ensures that the return type is an ObjectVal with type name of "Object".
-	objVal, ok := v.(*dynamic.ObjectVal)
+	objVal, ok := out.(*dynamic.ObjectVal)
 	if !ok {
 		// Should not happen since the compiler type checks the return type.
-		return nil, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", v.Type())
+		return nil, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", out.Type())
 	}
 
 	err = objVal.CheckTypeNamesMatchFieldPathNames()
@@ -52,7 +56,7 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, request *admissionv1.Adm
 
 	value, ok := objVal.Value().(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid return type: %T", v)
+		return nil, fmt.Errorf("invalid return type: %T", out)
 	}
 
 	patchObject := unstructured.Unstructured{Object: value}

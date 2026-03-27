@@ -30,7 +30,6 @@ type Policy struct {
 	variables        map[string]cel.Program
 	exceptions       []compiler.Exception
 	matchConstraints *admissionregistrationv1.MatchResources
-	compositionEnv   *plugincel.CompositionEnv
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -180,6 +179,7 @@ func (p *Policy) Evaluate(
 		AllowedValues: allowedValues,
 	}
 
+	// variables also get added to the input data map
 	vars := p.appendVariables(ctx, data)
 
 	match, err := p.match(ctx, data, p.matchConditions)
@@ -197,6 +197,8 @@ func (p *Policy) Evaluate(
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for _, patcher := range p.patchers {
+		// do we need to create to create this punk ass type ?
+		// can we just use the admission request ?
 		patchRequest := patch.Request{
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
@@ -205,17 +207,8 @@ func (p *Policy) Evaluate(
 			Namespace:           namespace,
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
-		// create an admission request in the format that the compiler expects
-		// admissionRequest := plugincel.CreateAdmissionRequest(
-		// 	patchRequest.VersionedAttributes.Attributes,
-		// 	metav1.GroupVersionResource(patchRequest.MatchedResource),
-		// 	metav1.GroupVersionKind(patchRequest.VersionedAttributes.VersionedKind))
 
-		// supply object and oldobject from the real request to enable access to request.object and oldObject in the cel expression
-		// admissionRequest.Object = request.Object
-		// admissionRequest.Object = request.OldObject
-
-		newVersionedObject, err := patcher.Patch(compositionCtx, &request, patchRequest, celconfig.RuntimeCELCostBudget)
+		newVersionedObject, err := patcher.Patch(compositionCtx, data, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
