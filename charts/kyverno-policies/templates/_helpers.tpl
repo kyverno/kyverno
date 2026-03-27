@@ -127,3 +127,30 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $action := default $defaultAction $policyAction -}}
 {{- include "kyverno-policies.validationActions" $action -}}
 {{- end -}}
+
+{{/* Generate matchConditions from a vpolExclude entry dict.
+     Receives the per-policy exclude dict (e.g. .excludeNamespaces, .excludeSubjects, .matchConditions).
+     Only emits the block when at least one condition is generated. */}}
+{{- define "kyverno-policies.vpolExcludeMatchConditions" -}}
+{{- $conditions := list -}}
+{{- $namespaces := .excludeNamespaces | default list -}}
+{{- if gt (len $namespaces) 0 -}}
+  {{- $conditions = append $conditions (dict "name" "exclude-namespaces" "expression" (printf "!(object.metadata.namespace in [%s])" (include "kyverno-policies.celStringList" $namespaces))) -}}
+{{- end -}}
+{{- if gt (len $conditions) 0 }}
+matchConditions:
+{{- range $conditions }}
+  - name: {{ .name }}
+    expression: {{ .expression | quote }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Convert a list of strings to a CEL list literal: 'a', 'b', 'c' */}}
+{{- define "kyverno-policies.celStringList" -}}
+{{- $items := list -}}
+{{- range . -}}
+  {{- $items = append $items (printf "'%s'" .) -}}
+{{- end -}}
+{{- join ", " $items -}}
+{{- end -}}

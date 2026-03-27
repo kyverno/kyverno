@@ -90,10 +90,9 @@ policyExclude: {}
 # NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
 # Each policy name maps to an object with the following optional keys:
 #   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)
-#   excludeNamespaces:    list of namespace names to exclude (planned)
-#   excludeNames:         list of resource names to exclude (planned)
-#   excludeSubjects:      list of subjects to exclude (planned)
-#   matchConditions:      list of CEL matchConditions for advanced filtering (planned)
+#   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)
+#   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)
+#   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition)
 vpolExclude: {}
   # disallow-host-path:
   #   excludeResourceRules:
@@ -109,6 +108,9 @@ vpolExclude: {}
   #       # optional - exact resource names to exclude
   #       resourceNames:
   #         - specific-pod-name
+  #   excludeNamespaces:
+  #     - kube-system
+  #     - monitoring
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.
