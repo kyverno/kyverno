@@ -21,13 +21,13 @@ type Rule struct {
 }
 
 type Store struct {
-	local                    bool
-	registryClient           registryclient.Client
-	allowApiCalls            bool
-	policies                 []Policy
-	foreachElement           int
-	mockAPICallResponses     []v1alpha1.MockAPICallResponse
-	mockGlobalContextEntries []v1alpha1.MockGlobalContextEntry
+	local                bool
+	registryClient       registryclient.Client
+	allowApiCalls        bool
+	policies             []Policy
+	foreachElement       int
+	apiCallResponses     []v1alpha1.APICallResponseEntry
+	globalContextEntries []v1alpha1.GlobalContextEntryValue
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -101,18 +101,18 @@ func (s *Store) IsApiCallAllowed() bool {
 	return s.allowApiCalls
 }
 
-func (s *Store) SetMockAPICallResponses(responses []v1alpha1.MockAPICallResponse) {
-	s.mockAPICallResponses = responses
+func (s *Store) SetAPICallResponses(responses []v1alpha1.APICallResponseEntry) {
+	s.apiCallResponses = responses
 }
 
-func (s *Store) GetMockAPICallResponses() []v1alpha1.MockAPICallResponse {
-	return s.mockAPICallResponses
+func (s *Store) GetAPICallResponses() []v1alpha1.APICallResponseEntry {
+	return s.apiCallResponses
 }
 
-func (s *Store) SetMockGlobalContextEntries(entries []v1alpha1.MockGlobalContextEntry) {
-	s.mockGlobalContextEntries = entries
+func (s *Store) SetGlobalContextEntries(entries []v1alpha1.GlobalContextEntryValue) {
+	s.globalContextEntries = entries
 }
 
-func (s *Store) GetMockGlobalContextEntries() []v1alpha1.MockGlobalContextEntry {
-	return s.mockGlobalContextEntries
+func (s *Store) GetGlobalContextEntries() []v1alpha1.GlobalContextEntryValue {
+	return s.globalContextEntries
 }

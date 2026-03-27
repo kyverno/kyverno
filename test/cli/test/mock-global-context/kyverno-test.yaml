@@ -8,7 +8,7 @@ policies:
 resources:
 - resources.yaml
 variables: values.yaml
-mockGlobalContextEntries:
+globalContextEntries:
   - name: gctxentry-deployments
     data:
       items:

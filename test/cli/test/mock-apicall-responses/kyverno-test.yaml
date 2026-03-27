@@ -7,8 +7,8 @@ policies:
 resources:
 - resources.yaml
 variables: values.yaml
-mockAPICallResponses:
-  - urlPath: "https://external-service.example.com/api/check"
+apiCallResponses:
+  - url: "https://external-service.example.com/api/check"
     response:
       statusCode: 200
       body:

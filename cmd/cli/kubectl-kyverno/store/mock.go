@@ -10,7 +10,7 @@ type mockGCtxStore struct {
 	entries map[string]gctxstore.Entry
 }
 
-func NewMockGCtxStore(mocks []v1alpha1.MockGlobalContextEntry) *mockGCtxStore {
+func NewMockGCtxStore(mocks []v1alpha1.GlobalContextEntryValue) *mockGCtxStore {
 	entries := make(map[string]gctxstore.Entry, len(mocks))
 	for _, m := range mocks {
 		entries[m.Name] = &mockEntry{data: m.Data}

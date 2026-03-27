@@ -1,4 +1,4 @@
-# ValidatingPolicy (CEL) using globalContext.Get() — mockGlobalContextEntries supplies the data offline.
+# ValidatingPolicy (CEL) using globalContext.Get() — globalContextEntries supplies the data offline.
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:

@@ -16,7 +16,7 @@ func TestNewMockGCtxStore(t *testing.T) {
 		},
 	})
 	assert.NoError(t, err)
-	mocks := []v1alpha1.MockGlobalContextEntry{
+	mocks := []v1alpha1.GlobalContextEntryValue{
 		{Name: "entry-1", Data: runtime.RawExtension{Raw: raw1}},
 		{Name: "entry-2", Data: runtime.RawExtension{Raw: []byte(`"simple-string-value"`)}},
 	}
@@ -45,38 +45,38 @@ func TestMockEntry_Stop(t *testing.T) {
 	e.Stop()
 }
 
-func TestBuildMockAPICallURLIndex(t *testing.T) {
+func TestBuildAPICallURLIndex(t *testing.T) {
 	t.Run("nil input", func(t *testing.T) {
-		index, err := buildMockAPICallURLIndex(nil)
+		index, err := buildAPICallURLIndex(nil)
 		assert.NoError(t, err)
 		assert.Nil(t, index)
 	})
 
 	t.Run("empty input", func(t *testing.T) {
-		index, err := buildMockAPICallURLIndex([]v1alpha1.MockAPICallResponse{})
+		index, err := buildAPICallURLIndex([]v1alpha1.APICallResponseEntry{})
 		assert.NoError(t, err)
 		assert.Nil(t, index)
 	})
 
-	t.Run("with entries", func(t *testing.T) {
+	t.Run("with entries no method", func(t *testing.T) {
 		body1, _ := json.Marshal(map[string]interface{}{"allowed": true})
-		mocks := []v1alpha1.MockAPICallResponse{
+		mocks := []v1alpha1.APICallResponseEntry{
 			{
-				URLPath: "https://service.example.com/api/check",
-				Response: v1alpha1.MockResponse{
+				URL: "https://service.example.com/api/check",
+				Response: v1alpha1.APICallResponse{
 					StatusCode: 200,
 					Body:       runtime.RawExtension{Raw: body1},
 				},
 			},
 			{
-				URLPath: "https://service.example.com/api/other",
-				Response: v1alpha1.MockResponse{
+				URL: "https://service.example.com/api/other",
+				Response: v1alpha1.APICallResponse{
 					StatusCode: 200,
 					Body:       runtime.RawExtension{Raw: []byte(`"plain-string"`)},
 				},
 			},
 		}
-		index, err := buildMockAPICallURLIndex(mocks)
+		index, err := buildAPICallURLIndex(mocks)
 		assert.NoError(t, err)
 		assert.Len(t, index, 2)
 
@@ -87,24 +87,80 @@ func TestBuildMockAPICallURLIndex(t *testing.T) {
 		body, ok = index["https://service.example.com/api/other"]
 		assert.True(t, ok)
 		assert.Equal(t, "plain-string", body)
+	})
 
-		_, ok = index["https://missing.example.com"]
-		assert.False(t, ok)
+	t.Run("with method-specific entries", func(t *testing.T) {
+		body1, _ := json.Marshal(map[string]interface{}{"read": true})
+		body2, _ := json.Marshal(map[string]interface{}{"created": true})
+		mocks := []v1alpha1.APICallResponseEntry{
+			{
+				URL:    "https://api.example.com/data",
+				Method: "GET",
+				Response: v1alpha1.APICallResponse{
+					Body: runtime.RawExtension{Raw: body1},
+				},
+			},
+			{
+				URL:    "https://api.example.com/data",
+				Method: "POST",
+				Response: v1alpha1.APICallResponse{
+					Body: runtime.RawExtension{Raw: body2},
+				},
+			},
+		}
+		index, err := buildAPICallURLIndex(mocks)
+		assert.NoError(t, err)
+		assert.Len(t, index, 2)
+
+		body, ok := index["GET:https://api.example.com/data"]
+		assert.True(t, ok)
+		assert.Equal(t, map[string]interface{}{"read": true}, body)
+
+		body, ok = index["POST:https://api.example.com/data"]
+		assert.True(t, ok)
+		assert.Equal(t, map[string]interface{}{"created": true}, body)
 	})
 }
 
-func TestStoreSetGetMockData(t *testing.T) {
+func TestLookupMockResponse(t *testing.T) {
+	index := map[string]interface{}{
+		"https://any.example.com":            "any-method",
+		"GET:https://specific.example.com":   "get-only",
+		"POST:https://specific.example.com":  "post-only",
+	}
+
+	body, ok := lookupMockResponse(index, "GET", "https://any.example.com")
+	assert.True(t, ok)
+	assert.Equal(t, "any-method", body)
+
+	body, ok = lookupMockResponse(index, "POST", "https://any.example.com")
+	assert.True(t, ok)
+	assert.Equal(t, "any-method", body)
+
+	body, ok = lookupMockResponse(index, "GET", "https://specific.example.com")
+	assert.True(t, ok)
+	assert.Equal(t, "get-only", body)
+
+	body, ok = lookupMockResponse(index, "POST", "https://specific.example.com")
+	assert.True(t, ok)
+	assert.Equal(t, "post-only", body)
+
+	_, ok = lookupMockResponse(index, "GET", "https://missing.example.com")
+	assert.False(t, ok)
+}
+
+func TestStoreSetGetData(t *testing.T) {
 	s := &Store{}
 
-	apiMocks := []v1alpha1.MockAPICallResponse{
-		{URLPath: "https://example.com/api", Response: v1alpha1.MockResponse{Body: runtime.RawExtension{Raw: []byte(`"data"`)}}},
+	apiMocks := []v1alpha1.APICallResponseEntry{
+		{URL: "https://example.com/api", Response: v1alpha1.APICallResponse{Body: runtime.RawExtension{Raw: []byte(`"data"`)}}},
 	}
-	s.SetMockAPICallResponses(apiMocks)
-	assert.Equal(t, apiMocks, s.GetMockAPICallResponses())
+	s.SetAPICallResponses(apiMocks)
+	assert.Equal(t, apiMocks, s.GetAPICallResponses())
 
-	gceMocks := []v1alpha1.MockGlobalContextEntry{
+	gceMocks := []v1alpha1.GlobalContextEntryValue{
 		{Name: "entry", Data: runtime.RawExtension{Raw: []byte(`"value"`)}},
 	}
-	s.SetMockGlobalContextEntries(gceMocks)
-	assert.Equal(t, gceMocks, s.GetMockGlobalContextEntries())
+	s.SetGlobalContextEntries(gceMocks)
+	assert.Equal(t, gceMocks, s.GetGlobalContextEntries())
 }

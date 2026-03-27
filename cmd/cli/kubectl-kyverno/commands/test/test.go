@@ -231,10 +231,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
 	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
-	store.SetMockAPICallResponses(testCase.Test.MockAPICallResponses)
-	store.SetMockGlobalContextEntries(testCase.Test.MockGlobalContextEntries)
-	// Set CEL http.Get() mock for offline tests; clear when done.
-	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.MockAPICallResponses)
+	store.SetAPICallResponses(testCase.Test.APICallResponses)
+	store.SetGlobalContextEntries(testCase.Test.GlobalContextEntries)
+	// Set CEL http mock for offline tests; clear when done.
+	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.APICallResponses)
 	if err != nil {
 		return nil, err
 	}
@@ -322,15 +322,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		Target:          map[string][]engineapi.EngineResponse{},
 		SkippedPolicies: skippedPolicyNames,
 	}
-	var mockGCEMap map[string]interface{}
-	if len(testCase.Test.MockGlobalContextEntries) > 0 {
-		mockGCEMap = make(map[string]interface{}, len(testCase.Test.MockGlobalContextEntries))
-		for _, m := range testCase.Test.MockGlobalContextEntries {
+	var gceMap map[string]interface{}
+	if len(testCase.Test.GlobalContextEntries) > 0 {
+		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
+		for _, m := range testCase.Test.GlobalContextEntries {
 			data, err := v1alpha1.RawExtensionToObject(m.Data)
 			if err != nil {
-				return nil, fmt.Errorf("mockGlobalContextEntries entry %q: invalid data: %w", m.Name, err)
+				return nil, fmt.Errorf("globalContextEntries entry %q: invalid data: %w", m.Name, err)
 			}
-			mockGCEMap[m.Name] = data
+			gceMap[m.Name] = data
 		}
 	}
 	for _, resource := range uniques {
@@ -354,7 +354,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
-			MockGlobalContextEntries:          mockGCEMap,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -385,7 +385,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				!(len(testCase.Test.ClusterResources) > 0),
-				mockGCEMap,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -405,7 +405,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				true,
-				mockGCEMap,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -438,7 +438,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
-			MockGlobalContextEntries:          mockGCEMap,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -468,7 +468,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				true,
-				mockGCEMap,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
@@ -488,7 +488,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				true,
-				mockGCEMap,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
@@ -511,7 +511,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	return &testResponse, nil
 }
 
-func buildHTTPMockIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]interface{}, error) {
+func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
 	}
@@ -519,11 +519,34 @@ func buildHTTPMockIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]interf
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			return nil, fmt.Errorf("mockAPICallResponses url %q: invalid body: %w", m.URLPath, err)
+			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
 		}
-		index[m.URLPath] = body
+		// Wrap body with statusCode to match the SDK HTTP response format:
+		// the real SDK injects statusCode into map bodies, or wraps non-map
+		// bodies as {"body": ..., "statusCode": ...}.
+		wrapped := wrapHTTPResponse(body, m.Response.StatusCode)
+		key := m.URL
+		if m.Method != "" {
+			key = m.Method + ":" + m.URL
+		}
+		index[key] = wrapped
 	}
 	return index, nil
+}
+
+// wrapHTTPResponse replicates the SDK's response format.
+func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
+	if statusCode == 0 {
+		statusCode = 200
+	}
+	if bodyMap, ok := body.(map[string]interface{}); ok {
+		bodyMap["statusCode"] = statusCode
+		return bodyMap
+	}
+	return map[string]interface{}{
+		"body":       body,
+		"statusCode": statusCode,
+	}
 }
 
 func applyImageValidatingPolicies(
@@ -540,7 +563,7 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 	isFake bool,
-	mockGlobalContextEntries map[string]interface{},
+	globalContextEntries map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -561,7 +584,7 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, mockGlobalContextEntries)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, globalContextEntries)
 	if err != nil {
 		return nil, err
 	}
@@ -673,13 +696,13 @@ func applyDeletingPolicies(
 	f billy.Filesystem,
 	contextPath string,
 	isFake bool,
-	mockGlobalContextEntries map[string]interface{},
+	globalContextEntries map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, mockGlobalContextEntries)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, globalContextEntries)
 	if err != nil {
 		return nil, err
 	}

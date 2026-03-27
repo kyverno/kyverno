@@ -38,7 +38,7 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 			return nil
 		}
 		opts := []factories.ContextLoaderFactoryOptions{factories.WithInitializer(init)}
-		if mocks := s.GetMockGlobalContextEntries(); len(mocks) > 0 {
+		if mocks := s.GetGlobalContextEntries(); len(mocks) > 0 {
 			opts = append(opts, factories.WithGlobalContextStore(NewMockGCtxStore(mocks)))
 		}
 		factory := factories.DefaultContextLoaderFactory(cmResolver, opts...)
@@ -68,23 +68,46 @@ func (w wrapper) Load(
 	if !w.store.GetRegistryAccess() {
 		rclientFactory = nil
 	}
-	mockURLIndex, err := buildMockAPICallURLIndex(w.store.GetMockAPICallResponses())
+	mockURLIndex, err := buildAPICallURLIndex(w.store.GetAPICallResponses())
 	if err != nil {
 		return err
 	}
 	if len(mockURLIndex) > 0 {
 		remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
 		for _, entry := range contextEntries {
-			if entry.APICall != nil && entry.APICall.Service != nil {
-				if body, ok := mockURLIndex[entry.APICall.Service.URL]; ok {
-					data, err := json.Marshal(body)
-					if err != nil {
-						return err
+			if entry.APICall != nil {
+				url := ""
+				if entry.APICall.Service != nil {
+					url = entry.APICall.Service.URL
+				} else if entry.APICall.URLPath != "" {
+					url = entry.APICall.URLPath
+				}
+				method := string(entry.APICall.Method)
+				if url != "" {
+					if body, ok := lookupMockResponse(mockURLIndex, method, url); ok {
+						data, err := json.Marshal(body)
+						if err != nil {
+							return err
+						}
+						if entry.APICall.JMESPath != "" {
+							var raw interface{}
+							if err := json.Unmarshal(data, &raw); err != nil {
+								return fmt.Errorf("failed to unmarshal mock body for %q: %w", entry.Name, err)
+							}
+							result, err := jp.Search(entry.APICall.JMESPath, raw)
+							if err != nil {
+								return fmt.Errorf("failed to apply JMESPath %q for context entry %q: %w", entry.APICall.JMESPath, entry.Name, err)
+							}
+							data, err = json.Marshal(result)
+							if err != nil {
+								return fmt.Errorf("failed to marshal JMESPath result for %q: %w", entry.Name, err)
+							}
+						}
+						if err := jsonContext.AddContextEntry(entry.Name, data); err != nil {
+							return err
+						}
+						continue
 					}
-					if err := jsonContext.AddContextEntry(entry.Name, data); err != nil {
-						return err
-					}
-					continue
 				}
 			}
 			remaining = append(remaining, entry)
@@ -94,7 +117,20 @@ func (w wrapper) Load(
 	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
 
-func buildMockAPICallURLIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]interface{}, error) {
+// lookupMockResponse searches the index by method:url first, then by url alone.
+func lookupMockResponse(index map[string]interface{}, method, url string) (interface{}, bool) {
+	if method != "" {
+		if body, ok := index[method+":"+url]; ok {
+			return body, true
+		}
+	}
+	if body, ok := index[url]; ok {
+		return body, true
+	}
+	return nil, false
+}
+
+func buildAPICallURLIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
 	}
@@ -102,9 +138,13 @@ func buildMockAPICallURLIndex(mocks []v1alpha1.MockAPICallResponse) (map[string]
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			return nil, fmt.Errorf("mockAPICallResponses url %q: invalid body: %w", m.URLPath, err)
+			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
 		}
-		index[m.URLPath] = body
+		key := m.URL
+		if m.Method != "" {
+			key = m.Method + ":" + m.URL
+		}
+		index[key] = body
 	}
 	return index, nil
 }

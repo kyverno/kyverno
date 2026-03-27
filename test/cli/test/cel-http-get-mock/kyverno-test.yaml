@@ -1,4 +1,4 @@
-# CEL ValidatingPolicy with http.Get() — mockAPICallResponses provides the response for offline test.
+# CEL ValidatingPolicy with http.Get() — apiCallResponses provides the response for offline test.
 apiVersion: cli.kyverno.io/v1alpha1
 kind: Test
 metadata:
@@ -7,8 +7,8 @@ policies:
 - policy.yaml
 resources:
 - resources.yaml
-mockAPICallResponses:
-  - urlPath: "http://test-api-service.default.svc.cluster.local:80"
+apiCallResponses:
+  - url: "http://test-api-service.default.svc.cluster.local:80"
     response:
       statusCode: 200
       body:

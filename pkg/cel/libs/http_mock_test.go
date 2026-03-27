@@ -3,16 +3,15 @@ package libs
 import (
 	"testing"
 
+	sdklibhttp "github.com/kyverno/sdk/cel/libs/http"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSetHTTPMockResponses_GetHTTPContext(t *testing.T) {
-	// No mock set -> GetHTTPContext returns default (non-mock)
 	SetHTTPMockResponses(nil)
 	ctx := GetHTTPContext()
 	assert.NotNil(t, ctx)
 
-	// Set mock -> GetHTTPContext returns mock implementation
 	mock := map[string]interface{}{
 		"https://example.com/api": map[string]interface{}{"allowed": true},
 	}
@@ -24,32 +23,44 @@ func TestSetHTTPMockResponses_GetHTTPContext(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]interface{}{"allowed": true}, body)
 
-	_, err = ctx.Get("https://other.com", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no mock response")
-
-	// Clear mock
 	SetHTTPMockResponses(nil)
 	ctx = GetHTTPContext()
 	assert.NotNil(t, ctx)
 }
 
-func TestMockHTTPContext_Post(t *testing.T) {
+func TestMockHTTPContext_MethodSpecific(t *testing.T) {
 	mock := map[string]interface{}{
-		"https://post.example.com": "ok",
+		"GET:https://api.example.com/data":  map[string]interface{}{"read": true},
+		"POST:https://api.example.com/data": map[string]interface{}{"created": true},
 	}
-	ctx := &mockHTTPContext{responses: mock}
+	ctx := &mockHTTPContext{responses: mock, fallback: sdklibhttp.NewHTTP(nil)}
 
-	body, err := ctx.Post("https://post.example.com", nil, nil)
+	body, err := ctx.Get("https://api.example.com/data", nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "ok", body)
+	assert.Equal(t, map[string]interface{}{"read": true}, body)
 
-	_, err = ctx.Post("https://missing.example.com", nil, nil)
-	assert.Error(t, err)
+	body, err = ctx.Post("https://api.example.com/data", nil, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"created": true}, body)
+}
+
+func TestMockHTTPContext_AnyMethod(t *testing.T) {
+	mock := map[string]interface{}{
+		"https://api.example.com/any": "ok-for-any",
+	}
+	ctx := &mockHTTPContext{responses: mock, fallback: sdklibhttp.NewHTTP(nil)}
+
+	body, err := ctx.Get("https://api.example.com/any", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "ok-for-any", body)
+
+	body, err = ctx.Post("https://api.example.com/any", nil, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "ok-for-any", body)
 }
 
 func TestMockHTTPContext_Client(t *testing.T) {
-	ctx := &mockHTTPContext{responses: map[string]interface{}{}}
+	ctx := &mockHTTPContext{responses: map[string]interface{}{}, fallback: sdklibhttp.NewHTTP(nil)}
 	got, err := ctx.Client("")
 	assert.NoError(t, err)
 	assert.Equal(t, ctx, got)

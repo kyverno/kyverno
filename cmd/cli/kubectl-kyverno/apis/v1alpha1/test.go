@@ -60,43 +60,47 @@ type Test struct {
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
 
-	// MockAPICallResponses provides static mock responses for HTTP calls (offline testing).
-	MockAPICallResponses []MockAPICallResponse `json:"mockAPICallResponses,omitempty"`
+	// APICallResponses provides static responses for HTTP/API calls during offline testing.
+	APICallResponses []APICallResponseEntry `json:"apiCallResponses,omitempty"`
 
-	// MockGlobalContextEntries provides static mock data for GlobalContextEntry references.
-	MockGlobalContextEntries []MockGlobalContextEntry `json:"mockGlobalContextEntries,omitempty"`
+	// GlobalContextEntries provides static data for GlobalContextEntry references during offline testing.
+	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
 }
 
-// MockAPICallResponse provides a static mock response
-type MockAPICallResponse struct {
-	// URLPath is the service URL to match against APICall context entries.
-	URLPath string `json:"urlPath"`
+// APICallResponseEntry maps a URL (and optional HTTP method) to a static response.
+type APICallResponseEntry struct {
+	// URL is the request URL to match (maps to APICall.Service.URL or APICall.URLPath).
+	URL string `json:"url"`
 
-	// Response is the mock HTTP response to return.
-	Response MockResponse `json:"response"`
+	// Method is the HTTP method to match (GET or POST). If empty, matches any method.
+	// +kubebuilder:validation:Enum=GET;POST;""
+	// +kubebuilder:validation:Optional
+	Method string `json:"method,omitempty"`
+
+	// Response is the static HTTP response to return.
+	Response APICallResponse `json:"response"`
 }
 
-// MockResponse represents a mock HTTP response body.
-type MockResponse struct {
-	// StatusCode is the HTTP status code
+// APICallResponse represents a static HTTP response.
+type APICallResponse struct {
+	// StatusCode is the HTTP status code (defaults to 200).
 	StatusCode int `json:"statusCode,omitempty"`
 
-	// Body is the response body that will be injected as the context entry value (arbitrary JSON).
+	// Body is the response body (arbitrary JSON).
 	Body runtime.RawExtension `json:"body"`
 }
 
-// MockGlobalContextEntry provides static mock data for a GlobalContextEntry
-// reference by name.
-type MockGlobalContextEntry struct {
-	// Name is the name of the GlobalContextEntry resource to mock.
+// GlobalContextEntryValue provides static data for a named GlobalContextEntry.
+type GlobalContextEntryValue struct {
+	// Name is the name of the GlobalContextEntry resource.
 	Name string `json:"name"`
 
 	// Data is the static data to return for this global context entry (arbitrary JSON).
 	Data runtime.RawExtension `json:"data"`
 }
 
-// RawExtensionToObject decodes a RawExtension (e.g. MockResponse.Body or MockGlobalContextEntry.Data) into a Go value.
-// Returns nil if raw.Raw is empty. Used when passing mock data to the engine.
+// RawExtensionToObject decodes a RawExtension into a Go value.
+// Returns nil if raw.Raw is empty.
 func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 	if len(raw.Raw) == 0 {
 		return nil, nil
