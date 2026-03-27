@@ -101,7 +101,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newJSONPatcher(nil, prog))
+				patchers = append(patchers, newJSONPatcher(prog))
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
@@ -109,7 +109,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newApplyConfigPatcher(nil, prog))
+				patchers = append(patchers, newApplyConfigPatcher(prog))
 			}
 		}
 	}

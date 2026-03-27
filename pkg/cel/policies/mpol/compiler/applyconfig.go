@@ -2,12 +2,10 @@ package compiler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/cel/mutation/dynamic"
 
@@ -18,22 +16,17 @@ import (
 var applyConfigObjectType = celtypes.NewObjectType("Object")
 
 type applyConfigPatcher struct {
-	evaluator plugincel.MutatingEvaluator
-	prog      cel.Program
+	prog cel.Program
 }
 
-func newApplyConfigPatcher(eval plugincel.MutatingEvaluator, prog cel.Program) Patcher {
+func newApplyConfigPatcher(prog cel.Program) Patcher {
 	return &applyConfigPatcher{
-		evaluator: eval,
-		prog:      prog,
+		prog: prog,
 	}
 }
 
 func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	compileErrors := a.evaluator.CompilationErrors()
-	if len(compileErrors) > 0 {
-		return nil, errors.Join(compileErrors...)
-	}
+
 	// can this just be replaced with context eval ?
 	// a map string any containing the same stuff the activation
 	// contained plus the variables

@@ -46,23 +46,17 @@ func (v *JSONPatchCondition) ReturnTypes() []*celgo.Type {
 var jsonPatchType = types.NewObjectType("JSONPatch")
 
 // NewJSONPatcher creates a patcher that performs a JSON Patch mutation.
-func newJSONPatcher(patchEvaluator plugincel.MutatingEvaluator, prog cel.Program) Patcher {
+func newJSONPatcher(prog cel.Program) Patcher {
 	return &jsonPatcher{
-		PatchEvaluator: patchEvaluator,
-		prog:           prog,
+		prog: prog,
 	}
 }
 
 type jsonPatcher struct {
-	PatchEvaluator plugincel.MutatingEvaluator
-	prog           cel.Program
+	prog cel.Program
 }
 
 func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	compileErrors := e.PatchEvaluator.CompilationErrors()
-	if len(compileErrors) > 0 {
-		return nil, errors.Join(compileErrors...)
-	}
 	patchObj, _, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
 	if err != nil {
 		return nil, err
