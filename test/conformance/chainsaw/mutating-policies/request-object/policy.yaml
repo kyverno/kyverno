@@ -21,7 +21,7 @@ spec:
         Object{
           metadata: Object.metadata{
             labels: Object.metadata.labels{
-              foo: resource.get("v1", "comfigmaps", request.object.metadata.namespace, request.object.metadata.labels["configmapName"]).data["foo"]
+              foo: resource.get("v1", "configmaps", request.object.metadata.namespace, request.object.metadata.labels["configmapName"]).data["foo"]
             }
           }
         }
