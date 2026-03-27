@@ -30,7 +30,7 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any,
 	// can this just be replaced with context eval ?
 	// a map string any containing the same stuff the activation
 	// contained plus the variables
-	out, _, err := a.prog.ContextEval(ctx, map[string]any{})
+	out, _, err := a.prog.ContextEval(ctx, evalData)
 	if err != nil {
 		return nil, err
 	}
