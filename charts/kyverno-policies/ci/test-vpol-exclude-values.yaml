@@ -36,3 +36,6 @@ vpolExclude:
       - kind: ServiceAccount
         namespace: monitoring
         name: prometheus
+    matchConditions:
+      - name: exclude-temp-resources
+        expression: "!object.metadata.name.startsWith('temp-')"

@@ -146,6 +146,10 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
   {{- end -}}
   {{- $conditions = append $conditions (dict "name" "exclude-subjects" "expression" (printf "!(%s)" (join " || " $fragments))) -}}
 {{- end -}}
+{{- $passthroughConditions := .matchConditions | default list -}}
+{{- range $passthroughConditions -}}
+  {{- $conditions = append $conditions (dict "name" (.name | required "matchConditions entries must have a 'name'") "expression" (.expression | required "matchConditions entries must have an 'expression'")) -}}
+{{- end -}}
 {{- if gt (len $conditions) 0 }}
 matchConditions:
 {{- range $conditions }}
