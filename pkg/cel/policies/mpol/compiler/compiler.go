@@ -23,13 +23,11 @@ import (
 	"github.com/kyverno/sdk/cel/libs/resource"
 	"github.com/kyverno/sdk/cel/libs/time"
 	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/user"
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
-	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/common"
 	environment "k8s.io/apiserver/pkg/cel/environment"
@@ -231,46 +229,4 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 		return nil, nil, err
 	}
 	return extendedEnv, variablesProvider, nil
-}
-
-func newCompositeCompiler(libCtx libs.Context, namespace string) (*plugincel.CompositedCompiler, error) {
-	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
-	extendedEnvSet, err := baseEnvSet.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: version.MajorMinor(1, 0),
-			EnvOptions: []cel.EnvOption{
-				cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-				cel.Variable(compiler.ObjectKey, cel.DynType),
-				cel.Variable(compiler.OldObjectKey, cel.DynType),
-				cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-				cel.Variable(compiler.ImagesKey, image.ImageType),
-				cel.Types(compiler.NamespaceType.CelType()),
-				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(globalcontext.Context{ContextInterface: libCtx}, globalcontext.Latest()),
-				http.Lib(http.Context{ContextInterface: http.NewHTTP(nil)}, http.Latest()),
-				image.Lib(image.Latest()),
-				imagedata.Lib(imagedata.Context{ContextInterface: libCtx}, imagedata.Latest()),
-				math.Lib(math.Latest()),
-				resource.Lib(resource.Context{ContextInterface: libCtx}, namespace, resource.Latest()),
-				user.Lib(user.Latest()),
-				json.Lib(&json.JsonImpl{}, json.Latest()),
-				yaml.Lib(&yaml.YamlImpl{}, yaml.Latest()),
-				random.Lib(random.Latest()),
-				x509.Lib(x509.Latest()),
-				time.Lib(time.Latest()),
-				transform.Lib(transform.Latest()),
-				gzip.Lib(gzip.Latest()),
-			},
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf(compileError, err)
-	}
-
-	compositedCompiler, err := plugincel.NewCompositedCompiler(extendedEnvSet)
-	if err != nil {
-		return nil, fmt.Errorf(compileError, err)
-	}
-
-	return compositedCompiler, nil
 }
