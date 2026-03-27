@@ -65,12 +65,13 @@ validationFailureActionOverrides:
 # For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true
 
-# -- Exclude resources from individual policies.
+# -- Exclude resources from individual policies (policyType: ClusterPolicy only).
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
+# NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude instead.
 policyExclude: {}
   # # Exclude resources from individual policies
   # disallow-host-path:
-  #   any:
+  #   all:
   #   - resources:
   #       kinds:
   #       - Pod
@@ -84,6 +85,30 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
+
+# -- Exclude resources from individual ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
+# Each policy name maps to an object with the following optional keys:
+#   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)
+#   excludeNamespaces:    list of namespace names to exclude (planned)
+#   excludeNames:         list of resource names to exclude (planned)
+#   excludeSubjects:      list of subjects to exclude (planned)
+#   matchConditions:      list of CEL matchConditions for advanced filtering (planned)
+vpolExclude: {}
+  # disallow-host-path:
+  #   excludeResourceRules:
+  #     - apiGroups:
+  #         - ""
+  #       apiVersions:
+  #         - v1
+  #       operations:
+  #         - CREATE
+  #         - UPDATE
+  #       resources:
+  #         - pods
+  #       # optional - exact resource names to exclude
+  #       resourceNames:
+  #         - specific-pod-name
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.

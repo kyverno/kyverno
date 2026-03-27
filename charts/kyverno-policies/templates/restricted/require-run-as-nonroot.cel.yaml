@@ -27,6 +27,10 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
+    {{- with (index .Values "vpolExclude" $name).excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
   validations:
     - expression: >-
         ((has(object.spec.securityContext) && 
