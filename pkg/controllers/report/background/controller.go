@@ -644,6 +644,17 @@ func (c *controller) reconcileReport(
 			label := policyNameToLabel[result.Policy]
 			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
+			// If the result belongs to a known policy/binding that has changed, discard it
+			// so that re-evaluation (which respects current exclude rules) produces fresh results.
+			// keepResult only applies to results whose owning policy is not tracked in the current
+			// label set (i.e. orphaned results that have no corresponding policy in the list).
+			policyChanged := (label != "" && expected[label] != actual[label]) ||
+				(vapBindingLabel != "" && expected[vapBindingLabel] != actual[vapBindingLabel]) ||
+				(mapBindingLabel != "" && expected[mapBindingLabel] != actual[mapBindingLabel])
+			if policyChanged {
+				// policy changed — drop the stale result; re-evaluation will produce correct results
+				continue
+			}
 			if (label != "" && expected[label] == actual[label]) ||
 				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
 				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
