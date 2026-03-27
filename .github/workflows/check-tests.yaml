@@ -9,6 +9,12 @@ on:
     branches:
       - main
       - release-*
+    paths:
+      - 'api/**'
+      - 'cmd/**'
+      - 'charts/**'
+      - 'ext/**'
+      - 'pkg/**'
 
 concurrency:
   group: ${{ github.workflow_ref }}
