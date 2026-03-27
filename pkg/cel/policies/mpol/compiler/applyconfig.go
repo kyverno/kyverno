@@ -25,7 +25,6 @@ func newApplyConfigPatcher(eval plugincel.MutatingEvaluator) Patcher {
 }
 
 func (a *applyConfigPatcher) Patch(ctx context.Context, request *admissionv1.AdmissionRequest, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	// panic on nil request?
 	compileErrors := a.evaluator.CompilationErrors()
 	if len(compileErrors) > 0 {
 		return nil, errors.Join(compileErrors...)

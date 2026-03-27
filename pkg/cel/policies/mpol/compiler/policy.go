@@ -15,7 +15,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	admission "k8s.io/apiserver/pkg/admission"
@@ -207,16 +206,16 @@ func (p *Policy) Evaluate(
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
 		// create an admission request in the format that the compiler expects
-		admissionRequest := plugincel.CreateAdmissionRequest(
-			patchRequest.VersionedAttributes.Attributes,
-			metav1.GroupVersionResource(patchRequest.MatchedResource),
-			metav1.GroupVersionKind(patchRequest.VersionedAttributes.VersionedKind))
+		// admissionRequest := plugincel.CreateAdmissionRequest(
+		// 	patchRequest.VersionedAttributes.Attributes,
+		// 	metav1.GroupVersionResource(patchRequest.MatchedResource),
+		// 	metav1.GroupVersionKind(patchRequest.VersionedAttributes.VersionedKind))
 
 		// supply object and oldobject from the real request to enable access to request.object and oldObject in the cel expression
-		admissionRequest.Object = request.Object
-		admissionRequest.Object = request.OldObject
+		// admissionRequest.Object = request.Object
+		// admissionRequest.Object = request.OldObject
 
-		newVersionedObject, err := patcher.Patch(compositionCtx, admissionRequest, patchRequest, celconfig.RuntimeCELCostBudget)
+		newVersionedObject, err := patcher.Patch(compositionCtx, &request, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
