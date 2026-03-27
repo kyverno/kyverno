@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/managedfields"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
@@ -173,7 +172,7 @@ type fakePatcher struct {
 	err    error
 }
 
-func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (f *fakePatcher) Patch(ctx context.Context, request *admissionv1.AdmissionRequest, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
 	return f.retVal, f.err
 }
 
@@ -181,12 +180,10 @@ func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
 	t.Run("patch error", func(t *testing.T) {
 		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Mutators: []patch.Patcher{
-					&fakePatcher{
-						retVal: nil,
-						err:    errors.New("patch failed"),
-					},
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: nil,
+					err:    errors.New("patch failed"),
 				},
 			},
 		}
@@ -199,12 +196,10 @@ func TestEvaluate(t *testing.T) {
 	t.Run("successful evaluation", func(t *testing.T) {
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Mutators: []patch.Patcher{
-					&fakePatcher{
-						retVal: patchedObj,
-						err:    nil,
-					},
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: patchedObj,
+					err:    nil,
 				},
 			},
 		}

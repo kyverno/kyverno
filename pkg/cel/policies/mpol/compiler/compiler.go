@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	environment "k8s.io/apiserver/pkg/cel/environment"
@@ -108,7 +107,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		})
 	}
 
-	var patchers []patch.Patcher
+	var patchers []Patcher
 	patchOptions := plugincel.OptionalVariableDeclarations{
 		HasParams:     false,
 		HasAuthorizer: false,
@@ -129,7 +128,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 					))
 				}
 
-				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
+				patchers = append(patchers, newJSONPatcher(compileResult))
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
@@ -142,17 +141,18 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 						err.Error(),
 					))
 				}
-				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
+				patchers = append(patchers, newApplyConfigPatcher(compileResult))
 			}
 		}
 	}
 
 	return &Policy{
-		evaluator:        mutating.PolicyEvaluator{Matcher: nil, Mutators: patchers, CompositionEnv: compositedCompiler.CompositionEnv},
 		matchConditions:  matchConditions,
 		variables:        variables,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
+		patchers:         patchers,
+		compositionEnv:   compositedCompiler.CompositionEnv,
 	}, allErrs
 }
 

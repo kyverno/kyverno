@@ -15,22 +15,23 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	admission "k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type Policy struct {
-	evaluator        mutating.PolicyEvaluator
+	patchers         []Patcher
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	exceptions       []compiler.Exception
 	matchConstraints *admissionregistrationv1.MatchResources
+	compositionEnv   *plugincel.CompositionEnv
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -196,7 +197,7 @@ func (p *Policy) Evaluate(
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	for _, patcher := range p.evaluator.Mutators {
+	for _, patcher := range p.patchers {
 		patchRequest := patch.Request{
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
@@ -205,8 +206,17 @@ func (p *Policy) Evaluate(
 			Namespace:           namespace,
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
+		// create an admission request in the format that the compiler expects
+		admissionRequest := plugincel.CreateAdmissionRequest(
+			patchRequest.VersionedAttributes.Attributes,
+			metav1.GroupVersionResource(patchRequest.MatchedResource),
+			metav1.GroupVersionKind(patchRequest.VersionedAttributes.VersionedKind))
 
-		newVersionedObject, err := patcher.Patch(compositionCtx, patchRequest, celconfig.RuntimeCELCostBudget)
+		// supply object and oldobject from the real request to enable access to request.object and oldObject in the cel expression
+		admissionRequest.Object = request.Object
+		admissionRequest.Object = request.OldObject
+
+		newVersionedObject, err := patcher.Patch(compositionCtx, admissionRequest, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
