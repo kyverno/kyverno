@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/sdk/cel/libs/resource"
 	"github.com/kyverno/sdk/cel/libs/time"
 	"github.com/kyverno/sdk/cel/libs/transform"
+	"github.com/kyverno/sdk/cel/libs/user"
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -217,6 +218,9 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 				),
 				gzip.Lib(
 					gzip.Latest(),
+				),
+				user.Lib(
+					user.Latest(),
 				),
 			},
 		},
