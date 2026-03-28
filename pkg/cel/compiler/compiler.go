@@ -86,7 +86,7 @@ func CompileMutation(path *field.Path, env *cel.Env, expression string, returnTy
 		return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
 	}
 	if !ast.OutputType().IsExactType(returnType) {
-		msg := fmt.Sprintf("output is expected to be of type %s", returnType)
+		msg := fmt.Sprintf("output is expected to be of type %s", returnType.TypeName())
 		return nil, append(allErrs, field.Invalid(path, expression, msg))
 	}
 	prog, err := env.Program(ast)
