@@ -105,6 +105,7 @@ type PolicyProcessor struct {
 	CrdPath                   string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
+	RESTMapper                meta.RESTMapper
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -256,9 +257,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client)
-	if err != nil {
-		return nil, err
+	restMapper := p.RESTMapper
+	if restMapper == nil {
+		var err error
+		restMapper, err = utils.GetRESTMapper(p.Client)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {
