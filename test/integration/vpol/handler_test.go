@@ -261,3 +261,132 @@ func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
 
 	assert.False(t, resp.Allowed, "pod without app label should be denied when using CEL variable")
 }
+
+func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
+	// Security team deploys a policy in audit mode to observe which pods would
+	// violate the rule before switching to enforce. Non-compliant pods should
+	// pass through, but the violation is recorded via events for review.
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "audit-require-team-label"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "has(object.metadata.labels) && 'team' in object.metadata.labels",
+				Message:    "pods must have a team label for cost tracking",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+		},
+	}
+
+	createPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("unlabeled-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "unlabeled-pod", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	// Audit mode: resource passes through even though it violates the policy.
+	assert.True(t, resp.Allowed, "audit policy should not block the resource")
+	assert.Empty(t, resp.Warnings, "audit policy should not produce warnings")
+
+	// Wait for the async audit goroutine to record the violation.
+	time.Sleep(200 * time.Millisecond)
+	assert.NotEmpty(t, eventGen.Events, "audit policy should still generate events for observability")
+}
+
+func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
+	// Real clusters have multiple policies from different teams. A security
+	// team's deny policy blocks latest tags while a platform team's warn policy
+	// flags missing resource limits. Both should fire on the same pod.
+	denyPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "deny-latest-image"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))",
+				Message:    "latest image tag is not allowed",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	warnPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "warn-missing-limits"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "object.spec.containers.all(c, has(c.resources) && has(c.resources.limits))",
+				Message:    "containers should have resource limits",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
+		},
+	}
+
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, denyPolicy))
+	require.NoError(t, testEnv.Client.Create(ctx, warnPolicy))
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), denyPolicy)
+		testEnv.Client.Delete(context.Background(), warnPolicy)
+		waitForPolicyGone(t)
+	})
+	waitForPolicyReady(t, 2)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	policyCtx := framework.ContextWithPolicies(context.Background(), "deny-latest-image", "warn-missing-limits")
+	resp := h.ValidateClustered(policyCtx, logr.Discard(), framework.PodAdmissionRequest("bad-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "bad-pod", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx:latest"}]}
+	}`)), "", time.Now())
+
+	assert.False(t, resp.Allowed, "deny policy should block the resource")
+	assert.NotEmpty(t, resp.Warnings, "warn policy should still produce warnings even when denied")
+}
+
+func TestValidate_MultipleValidations_PartialFailureDenies(t *testing.T) {
+	// Admin writes a policy with two compliance checks. A pod passes the image
+	// tag check but fails the label check. The deny should fire with a message
+	// about the specific failing validation.
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "multi-check-compliance"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))",
+					Message:    "containers must not use the latest tag",
+				},
+				{
+					Expression: "has(object.metadata.labels) && 'cost-center' in object.metadata.labels",
+					Message:    "pods must have a cost-center label",
+				},
+			},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	createPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	// Pod uses nginx:1.25 (passes image check) but has no cost-center label (fails label check)
+	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("partial-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "partial-pod", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx:1.25"}]}
+	}`)), "", time.Now())
+
+	assert.False(t, resp.Allowed, "pod missing cost-center label should be denied")
+	require.NotNil(t, resp.Result, "deny response should include result details")
+	assert.Contains(t, resp.Result.Message, "cost-center", "error should mention the failing validation")
+}
