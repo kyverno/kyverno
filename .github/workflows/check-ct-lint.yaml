@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Chart-testing
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Chart-testing (lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: 3.13.1
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+      - name: Add Helm repos and build dependencies
+        run: |
+          helm repo add openreports https://openreports.github.io/reports-api
+          helm repo add reports-server https://kyverno.github.io/reports-server
+          helm repo add kyverno-api https://kyverno.github.io/api
+          helm repo update
+      - name: Run chart-testing (lint)
+        run: ct lint --all --check-version-increment=false --validate-maintainers=false
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - check
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue

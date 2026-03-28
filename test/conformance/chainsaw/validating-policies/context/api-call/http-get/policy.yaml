@@ -14,7 +14,7 @@ spec:
   variables:
     - name: get
       expression: >-
-        http.Get("http://test-api-service.default.svc.cluster.local:80")
+        http.get("http://test-api-service.default.svc.cluster.local:80")
   validations:
     - expression: >-
         variables.get.metadata.labels.app == object.metadata.labels.app

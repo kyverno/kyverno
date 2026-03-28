@@ -44,7 +44,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -74,6 +74,8 @@ type PolicyProcessor struct {
 	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MutatingAdmissionPolicyBindings   []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies                []policiesv1beta1.ValidatingPolicyLike
+	EnvoyPolicies                     []*policiesv1beta1.ValidatingPolicy
+	HTTPPolicies                      []*policiesv1beta1.ValidatingPolicy
 	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
@@ -100,8 +102,10 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
+	CrdPath                   string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
+	RESTMapper                meta.RESTMapper
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -124,6 +128,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.NewOrDie()
 	}
 	isCluster := false
+	if p.CrdPath != "" {
+		if err := p.loadCrd(); err != nil {
+			return nil, err
+		}
+	}
 	eng := engine.NewEngine(
 		cfg,
 		jmespath.New(cfg),
@@ -248,9 +257,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		resource = validateResponse.PatchedResource
 	}
 
-	restMapper, err := utils.GetRESTMapper(p.Client)
-	if err != nil {
-		return nil, err
+	restMapper := p.RESTMapper
+	if restMapper == nil {
+		var err error
+		restMapper, err = utils.GetRESTMapper(p.Client)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {
@@ -298,7 +311,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions)
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
 		if err != nil {
 			return nil, err
 		}
@@ -956,13 +969,17 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 
 	if p.Cluster {
 		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
+	} else if p.CrdPath != "" {
+		absPath := getAbsPath(p.CrdPath)
+		diskCrds := os.DirFS(absPath)
+		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+	} else {
+		if crds, err := data.Crds(); err == nil {
+			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
+		}
 	}
 
 	clients = append(clients, openapiclient.NewHardcodedBuiltins("1.32"))
-
-	if crds, err := data.Crds(); err == nil {
-		clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
-	}
 
 	return openapiclient.NewComposite(clients...)
 }
@@ -1143,4 +1160,20 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 		return false
 	}
 	return true
+}
+
+func (p *PolicyProcessor) loadCrd() error {
+	return common.LoadCrdFromPath(p.CrdPath)
+}
+
+func getAbsPath(path string) string {
+	if path[len(path)-1] == '/' {
+		path = path[:len(path)-1]
+	}
+	absPath, _ := filepath.Abs(path)
+	fileInfo, err := os.Stat(absPath)
+	if err == nil && !fileInfo.IsDir() {
+		absPath = filepath.Dir(absPath)
+	}
+	return absPath
 }
