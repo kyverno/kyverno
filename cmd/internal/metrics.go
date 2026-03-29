@@ -69,6 +69,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 				metricsCASecretName,
 				metricsTLSSecretName,
 				config.KyvernoNamespace(),
+				30*time.Second,
 			),
 			certmanager.Workers,
 		)
