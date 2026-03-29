@@ -79,7 +79,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string, []engineapi.EngineResponse) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
-	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
+	logger := v.log.WithValues("action", "validate", "resource", resourceName)
 
 	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
