@@ -79,7 +79,10 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 
 		var reason string
 		if wantVap {
-			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
+			spec := pol.GetValidatingPolicySpec()
+			isAutogen := spec.AutogenConfiguration != nil &&
+				spec.AutogenConfiguration.PodControllers != nil &&
+				len(spec.AutogenConfiguration.PodControllers.Controllers) > 0
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
