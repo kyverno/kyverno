@@ -94,13 +94,20 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 	if att.Keyless != nil {
 		for _, id := range att.Keyless.Identities {
-			opts.Identities = append(opts.Identities,
-				cosign.Identity{
-					Issuer:        id.Issuer,
-					Subject:       id.Subject,
-					IssuerRegExp:  id.IssuerRegExp,
-					SubjectRegExp: id.SubjectRegExp,
-				})
+			identity := cosign.Identity{
+				Issuer:       id.Issuer,
+				IssuerRegExp: id.IssuerRegExp,
+			}
+			// Subject and SubjectRegExp support either a static string value or a
+			// CEL-evaluated expression (via StringOrExpression). The expression is
+			// evaluated before checkOptions is called, so we read the resolved Value.
+			if id.Subject != nil {
+				identity.Subject = id.Subject.Value
+			}
+			if id.SubjectRegExp != nil {
+				identity.SubjectRegExp = id.SubjectRegExp.Value
+			}
+			opts.Identities = append(opts.Identities, identity)
 		}
 		fulcioRoots, fulcioIntermediates, err := getFulcio(ctx)
 		if err != nil {
