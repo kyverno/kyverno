@@ -48,7 +48,7 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 				Identities: []v1beta1.Identity{
 					{
 						Issuer:  githubActionsIssuer,
-						Subject: githubWorkflowID,
+						Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 					},
 				},
 			},
@@ -81,7 +81,7 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 				Identities: []v1beta1.Identity{
 					{
 						Issuer:  githubActionsIssuer,
-						Subject: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main",
+						Subject: &v1beta1.StringOrExpression{Value: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main"},
 					},
 				},
 			},
@@ -206,7 +206,7 @@ func TestCosign_V3_Keyless(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -304,7 +304,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -363,7 +363,7 @@ func TestBundleAutoDetection(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},
@@ -515,7 +515,7 @@ func TestNegative_WrongKeylessIdentity(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main",
+							Subject: &v1beta1.StringOrExpression{Value: "https://github.com/wrong/repo/.github/workflows/wrong.yml@refs/heads/main"},
 						},
 					},
 				},
@@ -777,7 +777,7 @@ func Test_GitHubAttestationVerification(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  githubActionsIssuer,
-							Subject: githubWorkflowID,
+							Subject: &v1beta1.StringOrExpression{Value: githubWorkflowID},
 						},
 					},
 				},

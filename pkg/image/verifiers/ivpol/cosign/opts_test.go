@@ -108,7 +108,7 @@ func TestCheckOptions_Keyless(t *testing.T) {
 			Identities: []v1beta1.Identity{
 				{
 					Issuer:  testIssuer,
-					Subject: testSubject,
+					Subject: &v1beta1.StringOrExpression{Value: testSubject},
 				},
 			},
 		},
@@ -138,8 +138,8 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 				{
 					Issuer:        testIssuer,
 					IssuerRegExp:  ".*token.actions.githubusercontent.com",
-					Subject:       testSubject,
-					SubjectRegExp: ".*@refs/heads/main",
+					Subject:       &v1beta1.StringOrExpression{Value: testSubject},
+					SubjectRegExp: &v1beta1.StringOrExpression{Value: ".*@refs/heads/main"},
 				},
 			},
 		},
@@ -165,11 +165,11 @@ func TestCheckOptions_MultipleIdentities(t *testing.T) {
 			Identities: []v1beta1.Identity{
 				{
 					Issuer:  testIssuer,
-					Subject: testSubject,
+					Subject: &v1beta1.StringOrExpression{Value: testSubject},
 				},
 				{
 					Issuer:  "https://oauth2.sigstore.dev/auth",
-					Subject: "user@example.com",
+					Subject: &v1beta1.StringOrExpression{Value: "user@example.com"},
 				},
 			},
 		},
@@ -457,7 +457,7 @@ func TestCheckOptions_VerifierTypes(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  testIssuer,
-							Subject: testSubject,
+							Subject: &v1beta1.StringOrExpression{Value: testSubject},
 						},
 					},
 				},
@@ -542,4 +542,74 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCheckOptions_KeylessWithCELSubject verifies that a Subject field using
+// StringOrExpression with a pre-evaluated Value is correctly passed to cosign.
+func TestCheckOptions_KeylessWithCELSubject(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	// Simulate a CEL-evaluated subject: the expression has already been evaluated
+	// and the result stored in Value before checkOptions is called.
+	evaluatedSubject := "https://github.com/myorg/.github/workflows/release.yml@refs/heads/main"
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer: testIssuer,
+					Subject: &v1beta1.StringOrExpression{
+						Expression: `"https://github.com/" + image.split("/")[1] + "/.github/workflows/release.yml@refs/heads/main"`,
+						Value:      evaluatedSubject, // pre-evaluated by EvaluateWithImage
+					},
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts.Identities, 1)
+	assert.Equal(t, testIssuer, opts.Identities[0].Issuer)
+	// The evaluated value should be used, not the expression string
+	assert.Equal(t, evaluatedSubject, opts.Identities[0].Subject)
+}
+
+// TestCheckOptions_KeylessWithCELSubjectRegExp verifies that a SubjectRegExp field
+// using StringOrExpression with a pre-evaluated Value is correctly passed to cosign.
+func TestCheckOptions_KeylessWithCELSubjectRegExp(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	evaluatedRegExp := `https://github\.com/myorg/myrepo/.*`
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer: testIssuer,
+					SubjectRegExp: &v1beta1.StringOrExpression{
+						Expression: `"https://github\\.com/" + image.split("/")[1] + "/" + image.split("/")[2] + "/.*"`,
+						Value:      evaluatedRegExp, // pre-evaluated by EvaluateWithImage
+					},
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts.Identities, 1)
+	assert.Equal(t, evaluatedRegExp, opts.Identities[0].SubjectRegExp)
 }
