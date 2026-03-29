@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/sdk/cel/utils"
@@ -28,6 +29,9 @@ type ivfuncs struct {
 	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
+	// compiledAttestors maps attestor name to its CompiledAttestor, used to
+	// evaluate per-image identity CEL expressions at verification time.
+	compiledAttestors map[string]*ivpolvar.CompiledAttestor
 }
 
 func ImageVerifyCELFuncs(
@@ -49,14 +53,42 @@ func ImageVerifyCELFuncs(
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
+
+	// Build a CEL environment with "image" variable for identity expression evaluation.
+	identityEnv, err := compiler.NewIdentityExprEnv()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create identity expression CEL env: %v", err)
+	}
+
+	// Compile identity expressions for all cosign keyless attestors.
+	compiledAttestors := make(map[string]*ivpolvar.CompiledAttestor)
+	for i := range spec.Attestors {
+		att := &spec.Attestors[i]
+		if !att.IsCosign() || att.Cosign.Keyless == nil {
+			continue
+		}
+		compiled, errs := ivpolvar.CompileAttestorIdentities(
+			field.NewPath("spec", "attestors").Index(i),
+			att,
+			identityEnv,
+		)
+		if errs != nil {
+			return nil, fmt.Errorf("failed to compile identity expressions for attestor %q: %v", att.Name, errs.ToAggregate())
+		}
+		if compiled != nil {
+			compiledAttestors[att.Name] = compiled
+		}
+	}
+
 	return &ivfuncs{
-		Adapter:         adapter,
-		imgCtx:          imgCtx,
-		creds:           spec.Credentials,
-		imgRules:        imgRules,
-		attestationList: attestationMap(ivpol),
-		cosignVerifier:  cosign.NewVerifier(lister, logger),
-		notaryVerifier:  notary.NewVerifier(logger),
+		Adapter:           adapter,
+		imgCtx:            imgCtx,
+		creds:             spec.Credentials,
+		imgRules:          imgRules,
+		attestationList:   attestationMap(ivpol),
+		cosignVerifier:    cosign.NewVerifier(lister, logger),
+		notaryVerifier:    notary.NewVerifier(logger),
+		compiledAttestors: compiledAttestors,
 	}, nil
 }
 
@@ -74,6 +106,16 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			return f.NativeToValue(count)
 		}
 		for _, attestor := range attestors {
+			// If this attestor has identity CEL expressions, evaluate them with
+			// the current image reference so Subject/SubjectRegExp are resolved.
+			if compiled, ok := f.compiledAttestors[attestor.Name]; ok {
+				evaluated, err := compiled.EvaluateWithImage(nil, image)
+				if err != nil {
+					return types.NewErr("failed to evaluate identity expressions for attestor %q: %v", attestor.Name, err)
+				}
+				attestor = evaluated
+			}
+
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
 			if err != nil {
@@ -127,6 +169,15 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			attest, ok := f.attestationList[attestation]
 			if !ok {
 				return types.NewErr("attestation not found in policy: %s", attestation)
+			}
+			// If this attestor has identity CEL expressions, evaluate them with
+			// the current image reference so Subject/SubjectRegExp are resolved.
+			if compiled, ok := f.compiledAttestors[attestor.Name]; ok {
+				evaluated, err := compiled.EvaluateWithImage(nil, image)
+				if err != nil {
+					return types.NewErr("failed to evaluate identity expressions for attestor %q: %v", attestor.Name, err)
+				}
+				attestor = evaluated
 			}
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
