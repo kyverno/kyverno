@@ -36,9 +36,9 @@ type controller struct {
 	caEnqueue  controllerutils.EnqueueFunc
 	tlsEnqueue controllerutils.EnqueueFunc
 
-	caSecretName  string
-	tlsSecretName string
-	namespace     string
+	caSecretName       string
+	tlsSecretName      string
+	namespace          string
 	certRenewalTimeout time.Duration
 }
 
@@ -58,12 +58,12 @@ func NewController(
 	caEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue)
 	tlsEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue)
 	c := controller{
-		renewer:       certRenewer,
-		caLister:      caInformer.Lister(),
-		tlsLister:     tlsInformer.Lister(),
-		queue:         queue,
-		caEnqueue:     caEnqueue,
-		tlsEnqueue:    tlsEnqueue,
+		renewer:            certRenewer,
+		caLister:           caInformer.Lister(),
+		tlsLister:          tlsInformer.Lister(),
+		queue:              queue,
+		caEnqueue:          caEnqueue,
+		tlsEnqueue:         tlsEnqueue,
 		caSecretName:       caSecretName,
 		tlsSecretName:      tlsSecretName,
 		namespace:          namespace,
