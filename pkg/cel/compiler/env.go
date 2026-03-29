@@ -51,3 +51,21 @@ func NewMatchImageEnv() (*cel.Env, error) {
 		image.Lib(image.Latest()),
 	)
 }
+
+// NewIdentityExprEnv creates a CEL environment suitable for evaluating
+// identity field expressions (subject, subjectRegExp). The environment
+// includes the "image" variable (string) so expressions can reference
+// the image being verified.
+//
+// Example expression:
+//
+//	'"https://github.com/" + image.split("/")[1] + "/.github/workflows/release.yml@refs/heads/main"'
+func NewIdentityExprEnv() (*cel.Env, error) {
+	base, err := NewBaseEnv()
+	if err != nil {
+		return nil, err
+	}
+	return base.Extend(
+		cel.Variable(ImageKey, cel.StringType),
+	)
+}

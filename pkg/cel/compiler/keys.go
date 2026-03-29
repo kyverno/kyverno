@@ -16,4 +16,7 @@ const (
 	GeneratorKey       = "generator"
 	VariablesKey       = "variables"
 	ExceptionsKey      = "exceptions"
+	// ImageKey is the variable name for the image reference string available
+	// in identity CEL expression evaluation contexts (subject, subjectRegExp).
+	ImageKey = "image"
 )
