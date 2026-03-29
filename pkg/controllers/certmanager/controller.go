@@ -39,6 +39,7 @@ type controller struct {
 	caSecretName  string
 	tlsSecretName string
 	namespace     string
+	certRenewalTimeout time.Duration
 }
 
 func NewController(
@@ -48,6 +49,7 @@ func NewController(
 	caSecretName string,
 	tlsSecretName string,
 	namespace string,
+	certRenewalTimeout time.Duration,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -62,9 +64,10 @@ func NewController(
 		queue:         queue,
 		caEnqueue:     caEnqueue,
 		tlsEnqueue:    tlsEnqueue,
-		caSecretName:  caSecretName,
-		tlsSecretName: tlsSecretName,
-		namespace:     namespace,
+		caSecretName:       caSecretName,
+		tlsSecretName:      tlsSecretName,
+		namespace:          namespace,
+		certRenewalTimeout: certRenewalTimeout,
 	}
 	return &c
 }
@@ -138,10 +141,10 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 }
 
 func (c *controller) renewCertificates(ctx context.Context) error {
-	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
+	if err := retryutils.RetryFunc(ctx, time.Second, c.certRenewalTimeout, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
 		return err
 	}
-	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
+	if err := retryutils.RetryFunc(ctx, time.Second, c.certRenewalTimeout, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
 		return err
 	}
 	return nil
