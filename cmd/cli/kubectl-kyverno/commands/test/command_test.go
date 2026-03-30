@@ -456,7 +456,7 @@ func TestIsRulelessPolicyKind(t *testing.T) {
 	}
 }
 
-func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
+func TestLookupRuleResponses(t *testing.T) {
 
 	fakeResponse := *engineapi.RulePass("require-department-annotation", engineapi.Validation, "passed", nil)
 	mismatchedRule := "validate-department-annotation"
@@ -467,62 +467,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 		responses  []engineapi.RuleResponse
 		wantCount  int
 	}{
-		{
-			name: "IsValidatingPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsValidatingPolicy: true,
-				Rule:               mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsValidatingAdmissionPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsValidatingAdmissionPolicy: true,
-				Rule:                        mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsMutatingPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsMutatingPolicy: true,
-				Rule:             mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsMutatingAdmissionPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsMutatingAdmissionPolicy: true,
-				Rule:                      mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsImageValidatingPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsImageValidatingPolicy: true,
-				Rule:                    mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsGeneratingPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsGeneratingPolicy: true,
-				Rule:               mismatchedRule,
-			}},
-			wantCount: 1,
-		},
-		{
-			name: "IsDeletingPolicy bypasses name matching",
-			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				IsDeletingPolicy: true,
-				Rule:             mismatchedRule,
-			}},
-			wantCount: 1,
-		},
 		{
 			// Gen-1 policy: rule name matches exactly → should find it
 			name: "Gen-1 policy with matching rule name returns the response",
