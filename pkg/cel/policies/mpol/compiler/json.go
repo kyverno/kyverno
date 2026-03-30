@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/google/cel-go/cel"
-	celgo "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -37,8 +36,8 @@ func (v *JSONPatchCondition) GetExpression() string {
 	return v.Expression
 }
 
-func (v *JSONPatchCondition) ReturnTypes() []*celgo.Type {
-	return []*celgo.Type{celgo.ListType(jsonPatchType)}
+func (v *JSONPatchCondition) ReturnTypes() []*cel.Type {
+	return []*cel.Type{cel.ListType(jsonPatchType)}
 }
 
 var jsonPatchType = types.NewObjectType("JSONPatch")
