@@ -6,11 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestDClient_ListDoesNotPanicWithWildcardMutateExisting(t *testing.T) {
+func TestDClient_ConstructionDoesNotPanicWithWildcardMutateExisting(t *testing.T) {
 	ns := &unstructured.Unstructured{}
 	ns.SetAPIVersion("v1")
 	ns.SetKind("Namespace")
@@ -114,6 +116,44 @@ func TestDClient_ConfigMapListDoesNotPanic(t *testing.T) {
 	require.NotPanics(t, func() {
 		_, err = client.ListResource(context.Background(), "v1", "ConfigMap", "default", nil)
 	}, "ListResource on ConfigMap must not panic")
+
+	assert.NoError(t, err)
+}
+
+// TestDClient_CRDListDoesNotPanic verifies the list behavior works for custom resources.
+func TestDClient_CRDListDoesNotPanic(t *testing.T) {
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "widgets.example.com",
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "example.com",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "widgets",
+				Singular: "widget",
+				Kind:     "Widget",
+			},
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+		},
+	}
+
+	cluster := fakeCluster{}
+	client, err := cluster.DClient([]runtime.Object{crd})
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() {
+		_, err = client.ListResource(context.Background(), "example.com/v1", "Widget", "default", nil)
+	}, "ListResource on CRD must not panic")
 
 	assert.NoError(t, err)
 }
