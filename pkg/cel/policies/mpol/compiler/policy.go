@@ -176,19 +176,8 @@ func (p *Policy) Evaluate(
 		versionedAttributes.Dirty = true
 		versionedAttributes.VersionedObject = newVersionedObject
 
-		requestVal, ok := data[compiler.RequestKey]
-		// should never happen because prepareData always creates that key
-		// but add the check for extra safety
-		if !ok {
-			continue
-		}
-
 		// the program data (the object) is supplied through the data map. we need to update
 		// the map to get the patched object from the previous patch
-		if requestMap, ok := requestVal.(map[string]any); ok {
-			requestMap["object"] = newVersionedObject.(*unstructured.Unstructured).Object
-			data[compiler.RequestKey] = requestMap
-		}
 		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
 	}
 
