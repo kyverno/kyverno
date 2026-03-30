@@ -201,98 +201,76 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	}
 }
 
+// retryStatusUpdate wraps a get+update function with RetryOnConflict, silently
+// dropping NotFound errors (the policy was deleted before we could update it).
+func retryStatusUpdate(ctx context.Context, logger logr.Logger, fn func() error) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := fn(); err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("policy not found, skipping status update")
+				return nil
+			}
+			return err
+		}
+		return nil
+	})
+}
+
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, _ string, _ string) error {
 	polType, name, namespace := webhook.ParseRecorderKey(key)
-	if polType == webhook.ValidatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	switch polType {
+	case webhook.ValidatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			vpol, err := c.client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("validating policy not found", "name", name)
-					return nil
-				}
 				return err
 			}
 			return c.updateVpolStatus(ctx, vpol)
 		})
-	}
-	if polType == webhook.NamespacedValidatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.NamespacedValidatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("namespaced validating policy not found", "name", name, "namespace", namespace)
-					return nil
-				}
 				return err
 			}
 			return c.updateNVpolStatus(ctx, nvpol)
 		})
-	}
-	if polType == webhook.ImageValidatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.ImageValidatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			ivpol, err := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("image validating policy not found", "name", name)
-					return nil
-				}
 				return err
 			}
 			return c.updateIvpolStatus(ctx, ivpol)
 		})
-	}
-
-	if polType == webhook.NamespacedImageValidatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.NamespacedImageValidatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			nivpol, err := c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("namespaced image validating policy not found", "name", name, "namespace", namespace)
-					return nil
-				}
 				return err
 			}
 			return c.updateNivpolStatus(ctx, nivpol)
 		})
-	}
-
-	if polType == webhook.MutatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.MutatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			mpol, err := c.client.PoliciesV1beta1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("mutating policy not found", "name", name)
-					return nil
-				}
 				return err
 			}
 			return c.updateMpolStatus(ctx, mpol)
 		})
-	}
-
-	if polType == webhook.NamespacedMutatingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.NamespacedMutatingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			nmpol, err := c.client.PoliciesV1beta1().NamespacedMutatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("namespaced mutating policy not found", "name", name, "namespace", namespace)
-					return nil
-				}
 				return err
 			}
 			return c.updateNMpolStatus(ctx, nmpol)
 		})
-	}
-
-	if polType == webhook.GeneratingPolicyType {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	case webhook.GeneratingPolicyType:
+		return retryStatusUpdate(ctx, logger, func() error {
 			gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
-					logger.V(4).Info("generating policy not found", "name", name)
-					return nil
-				}
 				return err
 			}
 			return c.updateGpolStatus(ctx, gpol)
