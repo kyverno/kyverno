@@ -234,7 +234,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			ivpol, err := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					logger.V(4).Info("imageVerification policy not found", "name", name)
+					logger.V(4).Info("image validating policy not found", "name", name)
 					return nil
 				}
 				return err
@@ -248,7 +248,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			nivpol, err := c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					logger.V(4).Info("namespaced image verification policy not found", "name", name, "namespace", namespace)
+					logger.V(4).Info("namespaced image validating policy not found", "name", name, "namespace", namespace)
 					return nil
 				}
 				return err
