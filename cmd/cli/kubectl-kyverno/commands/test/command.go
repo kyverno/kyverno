@@ -260,7 +260,7 @@ func isRulelessPolicyKind(kind string) bool {
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
-	var matches []engineapi.RuleResponse
+	matches := make([]engineapi.RuleResponse, 0, len(responses))
 	for _, response := range responses {
 		rule := response.Name()
 		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
