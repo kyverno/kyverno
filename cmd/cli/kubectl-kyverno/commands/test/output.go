@@ -247,7 +247,7 @@ func printTestResult(
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
 					)
-					if test.Rule == "" {
+					if test.Rule == "" || isRulelessPolicyKind(response.Policy().GetKind()) {
 						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
@@ -256,8 +256,8 @@ func printTestResult(
 						r := response.Resource
 						ruleName = rule.Name()
 
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
-							if test.IsMutatingPolicy {
+						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
+							if test.IsMutatingPolicy || test.IsMutatingAdmissionPolicy {
 								r = response.PatchedResource
 							}
 

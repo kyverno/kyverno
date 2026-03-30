@@ -417,3 +417,153 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 		assert.True(t, found, "expected engine response for policy envoy-allow")
 	})
 }
+
+func TestIsRulelessPolicyKind(t *testing.T) {
+	rulelessKinds := []string{
+		// cluster-scoped CEL kinds
+		"ValidatingPolicy",
+		"ValidatingAdmissionPolicy",
+		"MutatingPolicy",
+		"MutatingAdmissionPolicy",
+		"ImageValidatingPolicy",
+		"GeneratingPolicy",
+		"DeletingPolicy",
+		// namespaced variants
+		"NamespacedValidatingPolicy",
+		"NamespacedMutatingPolicy",
+		"NamespacedImageValidatingPolicy",
+		"NamespacedGeneratingPolicy",
+		"NamespacedDeletingPolicy",
+	}
+	for _, kind := range rulelessKinds {
+		t.Run(kind+"_is_ruleless", func(t *testing.T) {
+			assert.True(t, isRulelessPolicyKind(kind),
+				"expected %q to be detected as a ruleless policy kind", kind)
+		})
+	}
+
+	ruleBasedKinds := []string{
+		"ClusterPolicy",
+		"Policy",
+		"",        // empty string must not match
+		"Unknown", // arbitrary unknown kind must not match
+	}
+	for _, kind := range ruleBasedKinds {
+		t.Run(kind+"_is_NOT_ruleless", func(t *testing.T) {
+			assert.False(t, isRulelessPolicyKind(kind),
+				"expected %q to NOT be detected as a ruleless policy kind", kind)
+		})
+	}
+}
+
+func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
+
+	fakeResponse := *engineapi.RulePass("require-department-annotation", engineapi.Validation, "passed", nil)
+	mismatchedRule := "validate-department-annotation"
+
+	tests := []struct {
+		name       string
+		testResult v1alpha1.TestResult
+		wantCount  int
+		wantMatch  bool
+	}{
+		{
+			name: "IsValidatingPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsValidatingPolicy: true,
+				Rule:               mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsValidatingAdmissionPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsValidatingAdmissionPolicy: true,
+				Rule:                        mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsMutatingPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsMutatingPolicy: true,
+				Rule:             mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsMutatingAdmissionPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsMutatingAdmissionPolicy: true,
+				Rule:                      mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsImageValidatingPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsImageValidatingPolicy: true,
+				Rule:                    mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsGeneratingPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsGeneratingPolicy: true,
+				Rule:               mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			name: "IsDeletingPolicy bypasses name matching",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				IsDeletingPolicy: true,
+				Rule:             mismatchedRule,
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			// Gen-1 policy: rule name matches exactly → should find it
+			name: "Gen-1 policy with matching rule name returns the response",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				Rule: "require-department-annotation", // matches fakeResponse name
+			}},
+			wantCount: 1,
+			wantMatch: true,
+		},
+		{
+			// Gen-1 policy: rule name does NOT match → correctly filtered out
+			name: "Gen-1 policy with wrong rule name returns nothing",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				Rule: mismatchedRule, // "validate-department-annotation" != engine response name
+			}},
+			wantCount: 0,
+			wantMatch: false,
+		},
+		{
+
+			name: "Gen-1 policy autogen rule name matches",
+			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
+				Rule: "autogen-require-department-annotation",
+			}},
+			wantCount: 0,
+			wantMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := lookupRuleResponses(tt.testResult, fakeResponse)
+			assert.Len(t, result, tt.wantCount,
+				"lookupRuleResponses returned unexpected number of responses")
+		})
+	}
+}

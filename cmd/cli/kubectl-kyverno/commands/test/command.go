@@ -245,6 +245,20 @@ func checkResult(
 	return true, result.Description, "Ok"
 }
 
+func isRulelessPolicyKind(kind string) bool {
+	switch kind {
+	case "ValidatingPolicy", "NamespacedValidatingPolicy",
+		"ValidatingAdmissionPolicy",
+		"MutatingPolicy", "NamespacedMutatingPolicy",
+		"MutatingAdmissionPolicy",
+		"ImageValidatingPolicy", "NamespacedImageValidatingPolicy",
+		"GeneratingPolicy", "NamespacedGeneratingPolicy",
+		"DeletingPolicy", "NamespacedDeletingPolicy":
+		return true
+	}
+	return false
+}
+
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.

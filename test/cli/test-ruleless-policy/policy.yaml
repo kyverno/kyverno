@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/description: Ensures that pods have the required corp.org/department
+      annotation for proper organizational tagging and governance.
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/title: Require Department Annotation
+  name: require-department-annotation
+spec:
+  evaluation:
+    background:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+  validationActions:
+  - Audit
+  validations:
+  - expression: has(object.metadata.annotations) && 'corp.org/department' in object.metadata.annotations
+      && variables.trimmedValue != ''
+    messageExpression: '''Pod must have the corp.org/department annotation with
+      a non-empty value. Current value: "'' + variables.departmentAnnotation + ''"'''
+  variables:
+  - expression: object.metadata.?annotations['corp.org/department'].orValue('')
+    name: departmentAnnotation
+  - expression: variables.departmentAnnotation.trim()
+    name: trimmedValue

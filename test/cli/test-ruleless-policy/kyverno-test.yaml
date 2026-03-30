@@ -1,0 +1,64 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: require-department-annotation-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - default/pod-with-valid-department
+  result: pass
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - default/pod-with-multiple-annotations
+  result: pass
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - production/pod-valid-hr-department
+  result: pass
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - default/pod-missing-department-annotation
+  result: fail
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - default/pod-empty-department-value
+  result: fail
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - default/pod-no-annotations
+  result: fail
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - production/pod-whitespace-department
+  result: fail
+  rule: validate-department-annotation
+
+- kind: Pod
+  policy: require-department-annotation
+  resources:
+  - test/pod-similar-annotation-name
+  result: fail
+  rule: validate-department-annotation
