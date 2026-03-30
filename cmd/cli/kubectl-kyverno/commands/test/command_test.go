@@ -464,8 +464,8 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 	tests := []struct {
 		name       string
 		testResult v1alpha1.TestResult
+		responses  []engineapi.RuleResponse
 		wantCount  int
-		wantMatch  bool
 	}{
 		{
 			name: "IsValidatingPolicy bypasses name matching",
@@ -474,7 +474,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:               mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsValidatingAdmissionPolicy bypasses name matching",
@@ -483,7 +482,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:                        mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsMutatingPolicy bypasses name matching",
@@ -492,7 +490,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:             mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsMutatingAdmissionPolicy bypasses name matching",
@@ -501,7 +498,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:                      mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsImageValidatingPolicy bypasses name matching",
@@ -510,7 +506,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:                    mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsGeneratingPolicy bypasses name matching",
@@ -519,7 +514,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:               mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			name: "IsDeletingPolicy bypasses name matching",
@@ -528,7 +522,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule:             mismatchedRule,
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			// Gen-1 policy: rule name matches exactly → should find it
@@ -537,7 +530,6 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule: "require-department-annotation", // matches fakeResponse name
 			}},
 			wantCount: 1,
-			wantMatch: true,
 		},
 		{
 			// Gen-1 policy: rule name does NOT match → correctly filtered out
@@ -546,22 +538,26 @@ func TestLookupRuleResponses_IgnoresRuleNameForRulelessPolicies(t *testing.T) {
 				Rule: mismatchedRule, // "validate-department-annotation" != engine response name
 			}},
 			wantCount: 0,
-			wantMatch: false,
 		},
 		{
-
 			name: "Gen-1 policy autogen rule name matches",
 			testResult: v1alpha1.TestResult{TestResultBase: v1alpha1.TestResultBase{
-				Rule: "autogen-require-department-annotation",
+				Rule: "require-department-annotation",
 			}},
-			wantCount: 0,
-			wantMatch: false,
+			responses: []engineapi.RuleResponse{
+				*engineapi.RulePass("autogen-require-department-annotation", engineapi.Validation, "passed", nil),
+			},
+			wantCount: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := lookupRuleResponses(tt.testResult, fakeResponse)
+			responses := tt.responses
+			if len(responses) == 0 {
+				responses = []engineapi.RuleResponse{fakeResponse}
+			}
+			result := lookupRuleResponses(tt.testResult, responses...)
 			assert.Len(t, result, tt.wantCount,
 				"lookupRuleResponses returned unexpected number of responses")
 		})

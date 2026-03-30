@@ -28,8 +28,9 @@ spec:
   validations:
   - expression: has(object.metadata.annotations) && 'corp.org/department' in object.metadata.annotations
       && variables.trimmedValue != ''
-    messageExpression: '''Pod must have the corp.org/department annotation with
-      a non-empty value. Current value: "'' + variables.departmentAnnotation + ''"'''
+    messageExpression: >-
+      'Pod must have the corp.org/department annotation with a non-empty value. Current value: "'
+      + variables.departmentAnnotation + '"'
   variables:
   - expression: object.metadata.?annotations['corp.org/department'].orValue('')
     name: departmentAnnotation
