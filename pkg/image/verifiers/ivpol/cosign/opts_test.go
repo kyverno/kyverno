@@ -108,7 +108,7 @@ func TestCheckOptions_Keyless(t *testing.T) {
 			Identities: []v1beta1.Identity{
 				{
 					Issuer:  testIssuer,
-					Subject: &v1beta1.StringOrExpression{Value: testSubject},
+					Subject: testSubject,
 				},
 			},
 		},
@@ -138,8 +138,8 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 				{
 					Issuer:        testIssuer,
 					IssuerRegExp:  ".*token.actions.githubusercontent.com",
-					Subject:       &v1beta1.StringOrExpression{Value: testSubject},
-					SubjectRegExp: &v1beta1.StringOrExpression{Value: ".*@refs/heads/main"},
+					Subject:       testSubject,
+					SubjectRegExp: ".*@refs/heads/main",
 				},
 			},
 		},
@@ -165,11 +165,11 @@ func TestCheckOptions_MultipleIdentities(t *testing.T) {
 			Identities: []v1beta1.Identity{
 				{
 					Issuer:  testIssuer,
-					Subject: &v1beta1.StringOrExpression{Value: testSubject},
+					Subject: testSubject,
 				},
 				{
 					Issuer:  "https://oauth2.sigstore.dev/auth",
-					Subject: &v1beta1.StringOrExpression{Value: "user@example.com"},
+					Subject: "user@example.com",
 				},
 			},
 		},
@@ -457,7 +457,7 @@ func TestCheckOptions_VerifierTypes(t *testing.T) {
 					Identities: []v1beta1.Identity{
 						{
 							Issuer:  testIssuer,
-							Subject: &v1beta1.StringOrExpression{Value: testSubject},
+							Subject: testSubject,
 						},
 					},
 				},
@@ -544,14 +544,14 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 	}
 }
 
-// TestCheckOptions_KeylessWithCELSubject verifies that a Subject field using
-// StringOrExpression with a pre-evaluated Value is correctly passed to cosign.
+// TestCheckOptions_KeylessWithCELSubject verifies that a SubjectExpression field
+// containing a pre-evaluated CEL result stored in SubjectRegExp is correctly passed to cosign.
 func TestCheckOptions_KeylessWithCELSubject(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
 	// Simulate a CEL-evaluated subject: the expression has already been evaluated
-	// and the result stored in Value before checkOptions is called.
+	// and the result stored in SubjectRegExp before checkOptions is called.
 	evaluatedSubject := "https://github.com/myorg/.github/workflows/release.yml@refs/heads/main"
 
 	cosignCfg := &v1beta1.Cosign{
@@ -559,10 +559,9 @@ func TestCheckOptions_KeylessWithCELSubject(t *testing.T) {
 			Identities: []v1beta1.Identity{
 				{
 					Issuer: testIssuer,
-					Subject: &v1beta1.StringOrExpression{
-						Expression: `"https://github.com/" + image.split("/")[1] + "/.github/workflows/release.yml@refs/heads/main"`,
-						Value:      evaluatedSubject, // pre-evaluated by EvaluateWithImage
-					},
+					// SubjectExpression was evaluated by EvaluateWithImage and
+					// the result was written into SubjectRegExp.
+					SubjectRegExp: evaluatedSubject,
 				},
 			},
 		},
@@ -577,12 +576,11 @@ func TestCheckOptions_KeylessWithCELSubject(t *testing.T) {
 	assert.NotNil(t, opts)
 	assert.Len(t, opts.Identities, 1)
 	assert.Equal(t, testIssuer, opts.Identities[0].Issuer)
-	// The evaluated value should be used, not the expression string
-	assert.Equal(t, evaluatedSubject, opts.Identities[0].Subject)
+	assert.Equal(t, evaluatedSubject, opts.Identities[0].SubjectRegExp)
 }
 
-// TestCheckOptions_KeylessWithCELSubjectRegExp verifies that a SubjectRegExp field
-// using StringOrExpression with a pre-evaluated Value is correctly passed to cosign.
+// TestCheckOptions_KeylessWithCELSubjectRegExp verifies that a SubjectExpression field
+// with a pre-evaluated regexp value is correctly passed to cosign.
 func TestCheckOptions_KeylessWithCELSubjectRegExp(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
@@ -593,11 +591,8 @@ func TestCheckOptions_KeylessWithCELSubjectRegExp(t *testing.T) {
 		Keyless: &v1beta1.Keyless{
 			Identities: []v1beta1.Identity{
 				{
-					Issuer: testIssuer,
-					SubjectRegExp: &v1beta1.StringOrExpression{
-						Expression: `"https://github\\.com/" + image.split("/")[1] + "/" + image.split("/")[2] + "/.*"`,
-						Value:      evaluatedRegExp, // pre-evaluated by EvaluateWithImage
-					},
+					Issuer:        testIssuer,
+					SubjectRegExp: evaluatedRegExp,
 				},
 			},
 		},
