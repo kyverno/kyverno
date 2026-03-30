@@ -10,13 +10,12 @@ import (
 )
 
 // compiledIdentity holds compiled CEL programs for a single keyless identity entry.
-// It corresponds to a v1beta1.Identity whose Subject or SubjectRegExp fields
-// contain a CEL expression (via StringOrExpression) rather than a static string.
+// It corresponds to a v1beta1.Identity whose SubjectExpression field contains a
+// CEL expression that is evaluated per-image at verification time.
 type compiledIdentity struct {
 	// index is the position in Keyless.Identities this entry corresponds to.
-	index             int
-	subjectProg       cel.Program
-	subjectRegExpProg cel.Program
+	index           int
+	subjectExprProg cel.Program
 }
 
 type CompiledAttestor struct {
@@ -27,9 +26,7 @@ type CompiledAttestor struct {
 	certChainProg     cel.Program
 	notaryCertProg    cel.Program
 	notaryTSACertProg cel.Program
-	// identityProgs holds compiled CEL programs for keyless identity fields.
-	// Populated when Identity.Subject or Identity.SubjectRegExp is a StringOrExpression
-	// with a non-empty Expression field.
+	// identityProgs holds compiled CEL programs for keyless identity SubjectExpression fields.
 	identityProgs []compiledIdentity
 }
 
@@ -77,40 +74,11 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					compiledAtt.certChainProg = prg
 				}
 			}
-			// Compile CEL expressions for keyless identity fields.
-			// NOTE: This requires the kyverno/api Identity struct to have
-			// Subject and SubjectRegExp as *StringOrExpression (see kyverno/api#64).
-			if att.Cosign.Keyless != nil {
-				identPath := path.Child("keyless", "identities")
-				for j, id := range att.Cosign.Keyless.Identities {
-					ci := compiledIdentity{index: j}
-					if id.Subject != nil && id.Subject.Expression != "" {
-						ast, iss := env.Compile(id.Subject.Expression)
-						if iss.Err() != nil {
-							return nil, append(allErrs, field.Invalid(identPath.Index(j).Child("subject"), id.Subject, iss.Err().Error()))
-						}
-						prg, err := env.Program(ast)
-						if err != nil {
-							return nil, append(allErrs, field.Invalid(identPath.Index(j).Child("subject"), id.Subject, err.Error()))
-						}
-						ci.subjectProg = prg
-					}
-					if id.SubjectRegExp != nil && id.SubjectRegExp.Expression != "" {
-						ast, iss := env.Compile(id.SubjectRegExp.Expression)
-						if iss.Err() != nil {
-							return nil, append(allErrs, field.Invalid(identPath.Index(j).Child("subjectRegExp"), id.SubjectRegExp, iss.Err().Error()))
-						}
-						prg, err := env.Program(ast)
-						if err != nil {
-							return nil, append(allErrs, field.Invalid(identPath.Index(j).Child("subjectRegExp"), id.SubjectRegExp, err.Error()))
-						}
-						ci.subjectRegExpProg = prg
-					}
-					if ci.subjectProg != nil || ci.subjectRegExpProg != nil {
-						compiledAtt.identityProgs = append(compiledAtt.identityProgs, ci)
-					}
-				}
-			}
+			// Identity CEL expressions (Subject/SubjectRegExp) are compiled
+			// separately via CompileAttestorIdentities using the dedicated
+			// identity env (which declares "image" as a string). They must NOT
+			// be compiled here with the main policy env, which uses "image" for
+			// imagedata context and would produce incorrect type bindings.
 		} else if att.IsNotary() {
 			if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
 				ast, iss := env.Compile(att.Notary.Certs.Expression)
@@ -210,27 +178,13 @@ func (c *CompiledAttestor) EvaluateWithImage(data any, image string) (v1beta1.At
 		}
 		id := &att.Cosign.Keyless.Identities[ci.index]
 
-		if ci.subjectProg != nil {
-			result, err := evalProgramString(c.Key, ci.subjectProg, imageData)
+		if ci.subjectExprProg != nil {
+			result, err := evalProgramString(c.Key, ci.subjectExprProg, imageData)
 			if err != nil {
-				return v1beta1.Attestor{}, fmt.Errorf("failed to evaluate subject expression in identity[%d] for attestor %q: %w", ci.index, c.Key, err)
+				return v1beta1.Attestor{}, fmt.Errorf("failed to evaluate subjectExpression in identity[%d] for attestor %q: %w", ci.index, c.Key, err)
 			}
-			// NOTE: After kyverno/api#64, id.Subject will be *StringOrExpression.
-			// Set the resolved value so checkOptions can read it.
-			if id.Subject != nil {
-				id.Subject.Value = result
-			}
-		}
-
-		if ci.subjectRegExpProg != nil {
-			result, err := evalProgramString(c.Key, ci.subjectRegExpProg, imageData)
-			if err != nil {
-				return v1beta1.Attestor{}, fmt.Errorf("failed to evaluate subjectRegExp expression in identity[%d] for attestor %q: %w", ci.index, c.Key, err)
-			}
-			// NOTE: After kyverno/api#64, id.SubjectRegExp will be *StringOrExpression.
-			if id.SubjectRegExp != nil {
-				id.SubjectRegExp.Value = result
-			}
+			// The evaluated expression result is used as a SubjectRegExp match.
+			id.SubjectRegExp = result
 		}
 	}
 
