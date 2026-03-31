@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // mockClient implements the client interface for testing
@@ -24,7 +26,7 @@ func (m *mockClient) Get(_ context.Context, name string, _ metav1.GetOptions) (*
 	if s, ok := m.secrets[name]; ok {
 		return s, nil
 	}
-	return nil, nil
+	return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, name)
 }
 
 func (m *mockClient) Create(_ context.Context, s *corev1.Secret, _ metav1.CreateOptions) (*corev1.Secret, error) {
