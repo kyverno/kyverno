@@ -481,32 +481,103 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) isNamespaceExcludedByWebhookSelector(namespaceName string) (bool, error) {
-	webhookCfg := c.config.GetWebhook()
-	if webhookCfg.NamespaceSelector == nil {
-		return false, nil
+// mergeLabelSelectors merges two label selectors by AND-ing their requirements,
+// mirroring the logic in the webhook controller.
+func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
+	if a == nil {
+		return b
 	}
-	ns, err := c.nsLister.Get(namespaceName)
-	if err != nil {
-		return false, err
+	if b == nil {
+		return a
 	}
-	sel, err := metav1.LabelSelectorAsSelector(webhookCfg.NamespaceSelector)
-	if err != nil {
-		return false, fmt.Errorf("invalid webhookNamespaceSelector: %w", err)
+	merged := &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
 	}
-	return !sel.Matches(labels.Set(ns.GetLabels())), nil
+	for k, v := range a.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	for k, v := range b.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
+	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+	return merged
 }
 
-func (c *controller) isObjectExcludedByWebhookSelector(resourceLabels map[string]string) (bool, error) {
-	webhookCfg := c.config.GetWebhook()
-	if webhookCfg.ObjectSelector == nil {
-		return false, nil
+// policyWebhookSelectors returns the per-policy namespace and object selectors
+// for CEL-based and admission policy types. Returns (nil, nil) for kyverno v1
+// ClusterPolicy/Policy which use rule-level match, not webhook-level selectors.
+func policyWebhookSelectors(policy engineapi.GenericPolicy) (nsSelector, objSelector *metav1.LabelSelector) {
+	if p := policy.AsValidatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
 	}
-	sel, err := metav1.LabelSelectorAsSelector(webhookCfg.ObjectSelector)
-	if err != nil {
-		return false, fmt.Errorf("invalid webhookObjectSelector: %w", err)
+	if p := policy.AsMutatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
 	}
-	return !sel.Matches(labels.Set(resourceLabels)), nil
+	if p := policy.AsImageValidatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsGeneratingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsValidatingAdmissionPolicy(); p != nil {
+		if mc := p.GetDefinition().Spec.MatchConstraints; mc != nil {
+			return mc.NamespaceSelector, mc.ObjectSelector
+		}
+		return nil, nil
+	}
+	if p := policy.AsMutatingAdmissionPolicy(); p != nil {
+		if mc := p.GetDefinition().Spec.MatchConstraints; mc != nil {
+			return mc.NamespaceSelector, mc.ObjectSelector
+		}
+		return nil, nil
+	}
+	// kyverno v1 ClusterPolicy/Policy: no webhook-level selectors
+	return nil, nil
+}
+
+// filterPoliciesByWebhookSelectors returns only those policies whose effective
+// webhook namespace selector matches nsLabels AND whose effective object selector
+// matches resourceLabels. "Effective" means the per-policy selector merged with
+// the global webhook config selector, mirroring how the webhook controller builds
+// each webhook's NamespaceSelector/ObjectSelector.
+func (c *controller) filterPoliciesByWebhookSelectors(
+	nsLabels map[string]string,
+	resourceLabels map[string]string,
+	policies []engineapi.GenericPolicy,
+) ([]engineapi.GenericPolicy, error) {
+	globalWebhook := c.config.GetWebhook()
+	filtered := make([]engineapi.GenericPolicy, 0, len(policies))
+	for _, policy := range policies {
+		policyNsSel, policyObjSel := policyWebhookSelectors(policy)
+		effectiveNsSel := mergeLabelSelectors(policyNsSel, globalWebhook.NamespaceSelector)
+		effectiveObjSel := mergeLabelSelectors(policyObjSel, globalWebhook.ObjectSelector)
+		if effectiveNsSel != nil && nsLabels != nil {
+			sel, err := metav1.LabelSelectorAsSelector(effectiveNsSel)
+			if err != nil {
+				return nil, fmt.Errorf("invalid namespaceSelector for policy %s: %w", policy.GetName(), err)
+			}
+			if !sel.Matches(labels.Set(nsLabels)) {
+				continue
+			}
+		}
+		if effectiveObjSel != nil {
+			sel, err := metav1.LabelSelectorAsSelector(effectiveObjSel)
+			if err != nil {
+				return nil, fmt.Errorf("invalid objectSelector for policy %s: %w", policy.GetName(), err)
+			}
+			if !sel.Matches(labels.Set(resourceLabels)) {
+				continue
+			}
+		}
+		filtered = append(filtered, policy)
+	}
+	return filtered, nil
 }
 
 func (c *controller) needsReconcile(
@@ -609,11 +680,15 @@ func (c *controller) reconcileReport(
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	if c.respectWebhookSelector {
-		excluded, err := c.isObjectExcludedByWebhookSelector(target.GetLabels())
+		var nsLabels map[string]string
+		if ns != nil {
+			nsLabels = ns.GetLabels()
+		}
+		filteredPolicies, err := c.filterPoliciesByWebhookSelectors(nsLabels, target.GetLabels(), policies)
 		if err != nil {
 			return err
 		}
-		if excluded {
+		if len(filteredPolicies) == 0 && len(policies) > 0 {
 			if observed.GetResourceVersion() != "" {
 				if observed.GetNamespace() == "" {
 					return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
@@ -622,6 +697,7 @@ func (c *controller) reconcileReport(
 			}
 			return nil
 		}
+		policies = filteredPolicies
 	}
 	// build desired report
 	expected := map[string]string{}
@@ -821,22 +897,6 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			} else {
 				return c.kyvernoClient.ReportsV1().EphemeralReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			}
-		}
-	}
-	if c.respectWebhookSelector && namespace != "" {
-		excluded, err := c.isNamespaceExcludedByWebhookSelector(namespace)
-		if err != nil {
-			return err
-		}
-		if excluded {
-			report, err := c.getMeta(namespace, name)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					return nil
-				}
-				return err
-			}
-			return c.kyvernoClient.ReportsV1().EphemeralReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 		}
 	}
 	// load all kyverno policies

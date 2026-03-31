@@ -3,8 +3,11 @@ package background
 import (
 	"testing"
 
+	policiesv1beta1api "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,66 +46,269 @@ type fakeConfig struct {
 
 func (f *fakeConfig) GetWebhook() config.WebhookConfig { return f.webhook }
 
-func newController(webhookCfg config.WebhookConfig, namespaces map[string]*corev1.Namespace) *controller {
+func newTestController(webhookCfg config.WebhookConfig) *controller {
 	return &controller{
 		config:   &fakeConfig{webhook: webhookCfg},
-		nsLister: &fakeNamespaceLister{namespaces: namespaces},
+		nsLister: &fakeNamespaceLister{namespaces: map[string]*corev1.Namespace{}},
 	}
 }
 
-func ns(name string, lbls map[string]string) *corev1.Namespace {
+func nsObj(name string, lbls map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: lbls,
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: lbls},
 	}
 }
 
-// ---------------------------------------------------------------------------
-// isNamespaceExcludedByWebhookSelector
-// ---------------------------------------------------------------------------
-
-func TestIsNamespaceExcludedByWebhookSelector_NilSelector(t *testing.T) {
-	c := newController(config.WebhookConfig{NamespaceSelector: nil}, map[string]*corev1.Namespace{
-		"default": ns("default", map[string]string{"env": "prod"}),
-	})
-	excluded, err := c.isNamespaceExcludedByWebhookSelector("default")
-	assert.NoError(t, err)
-	assert.False(t, excluded)
+// makeValidatingPolicy wraps a ValidatingPolicy into a GenericPolicy.
+func makeValidatingPolicy(name string, nsSel, objSel *metav1.LabelSelector) engineapi.GenericPolicy {
+	vpol := &policiesv1beta1api.ValidatingPolicy{}
+	vpol.Name = name
+	vpol.Spec.MatchConstraints = &admissionregistrationv1.MatchResources{
+		NamespaceSelector: nsSel,
+		ObjectSelector:    objSel,
+	}
+	return engineapi.NewValidatingPolicy(vpol)
 }
 
-func TestIsNamespaceExcludedByWebhookSelector_Matches(t *testing.T) {
-	// Selector: env=prod → webhook applies → NOT excluded
-	c := newController(config.WebhookConfig{
+// ---------------------------------------------------------------------------
+// mergeLabelSelectors
+// ---------------------------------------------------------------------------
+
+func TestMergeLabelSelectors_BothNil(t *testing.T) {
+	assert.Nil(t, mergeLabelSelectors(nil, nil))
+}
+
+func TestMergeLabelSelectors_ANil(t *testing.T) {
+	b := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	assert.Equal(t, b, mergeLabelSelectors(nil, b))
+}
+
+func TestMergeLabelSelectors_BNil(t *testing.T) {
+	a := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	assert.Equal(t, a, mergeLabelSelectors(a, nil))
+}
+
+func TestMergeLabelSelectors_BothSet(t *testing.T) {
+	a := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	b := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "foo"}}
+	merged := mergeLabelSelectors(a, b)
+	assert.Equal(t, "prod", merged.MatchLabels["env"])
+	assert.Equal(t, "foo", merged.MatchLabels["app"])
+}
+
+func TestMergeLabelSelectors_ExpressionsAppended(t *testing.T) {
+	req1 := metav1.LabelSelectorRequirement{
+		Key: "env", Operator: metav1.LabelSelectorOpIn, Values: []string{"prod"},
+	}
+	req2 := metav1.LabelSelectorRequirement{
+		Key: "app", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"test"},
+	}
+	a := &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{req1}}
+	b := &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{req2}}
+	merged := mergeLabelSelectors(a, b)
+	assert.Len(t, merged.MatchExpressions, 2)
+}
+
+// ---------------------------------------------------------------------------
+// policyWebhookSelectors
+// ---------------------------------------------------------------------------
+
+func TestPolicyWebhookSelectors_ValidatingPolicy(t *testing.T) {
+	nsSel := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	objSel := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "foo"}}
+	policy := makeValidatingPolicy("test", nsSel, objSel)
+
+	gotNs, gotObj := policyWebhookSelectors(policy)
+	assert.Equal(t, nsSel, gotNs)
+	assert.Equal(t, objSel, gotObj)
+}
+
+func TestPolicyWebhookSelectors_ValidatingPolicyNilSelectors(t *testing.T) {
+	policy := makeValidatingPolicy("test", nil, nil)
+	gotNs, gotObj := policyWebhookSelectors(policy)
+	assert.Nil(t, gotNs)
+	assert.Nil(t, gotObj)
+}
+
+// ---------------------------------------------------------------------------
+// filterPoliciesByWebhookSelectors — global selector only (v1 policy returns nil)
+// ---------------------------------------------------------------------------
+
+func TestFilterPolicies_NoPolicies(t *testing.T) {
+	c := newTestController(config.WebhookConfig{})
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "prod"},
+		map[string]string{"app": "foo"},
+		nil,
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestFilterPolicies_GlobalNsSelectorMatches(t *testing.T) {
+	// Global namespace selector: env=prod; namespace has env=prod → included
+	c := newTestController(config.WebhookConfig{
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"env": "prod"},
 		},
-	}, map[string]*corev1.Namespace{
-		"default": ns("default", map[string]string{"env": "prod"}),
 	})
-	excluded, err := c.isNamespaceExcludedByWebhookSelector("default")
+	policy := makeValidatingPolicy("p1", nil, nil)
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "prod"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
 	assert.NoError(t, err)
-	assert.False(t, excluded)
+	assert.Len(t, result, 1)
 }
 
-func TestIsNamespaceExcludedByWebhookSelector_NoMatch(t *testing.T) {
-	// Selector: env=prod but namespace has env=dev → webhook does NOT apply → excluded
-	c := newController(config.WebhookConfig{
+func TestFilterPolicies_GlobalNsSelectorExcludes(t *testing.T) {
+	// Global namespace selector: env=prod; namespace has env=dev → excluded
+	c := newTestController(config.WebhookConfig{
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"env": "prod"},
 		},
-	}, map[string]*corev1.Namespace{
-		"staging": ns("staging", map[string]string{"env": "dev"}),
 	})
-	excluded, err := c.isNamespaceExcludedByWebhookSelector("staging")
+	policy := makeValidatingPolicy("p1", nil, nil)
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "dev"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
 	assert.NoError(t, err)
-	assert.True(t, excluded)
+	assert.Empty(t, result)
 }
 
-func TestIsNamespaceExcludedByWebhookSelector_MatchExpressionNotIn(t *testing.T) {
-	// Common pattern: exclude kube-system via NotIn
-	c := newController(config.WebhookConfig{
+func TestFilterPolicies_GlobalObjSelectorMatches(t *testing.T) {
+	c := newTestController(config.WebhookConfig{
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "foo"},
+		},
+	})
+	policy := makeValidatingPolicy("p1", nil, nil)
+	result, err := c.filterPoliciesByWebhookSelectors(
+		nil,
+		map[string]string{"app": "foo"},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
+func TestFilterPolicies_GlobalObjSelectorExcludes(t *testing.T) {
+	c := newTestController(config.WebhookConfig{
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "foo"},
+		},
+	})
+	policy := makeValidatingPolicy("p1", nil, nil)
+	result, err := c.filterPoliciesByWebhookSelectors(
+		nil,
+		map[string]string{"app": "bar"},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+// ---------------------------------------------------------------------------
+// filterPoliciesByWebhookSelectors — per-policy selectors
+// ---------------------------------------------------------------------------
+
+func TestFilterPolicies_PerPolicyNsSelectorExcludes(t *testing.T) {
+	// Policy has its own namespace selector: env=prod; namespace has env=dev → excluded
+	// Global config has no selector, so effective = policy selector only.
+	c := newTestController(config.WebhookConfig{})
+	nsSel := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	policy := makeValidatingPolicy("p1", nsSel, nil)
+
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "dev"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestFilterPolicies_PerPolicyNsSelectorMatches(t *testing.T) {
+	c := newTestController(config.WebhookConfig{})
+	nsSel := &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	policy := makeValidatingPolicy("p1", nsSel, nil)
+
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "prod"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
+func TestFilterPolicies_MergedSelectorsPartialMatch(t *testing.T) {
+	// Policy p1: ns selector env=prod → excluded for dev namespace
+	// Policy p2: no ns selector, no global → always included
+	// → only p2 survives
+	c := newTestController(config.WebhookConfig{})
+	p1 := makeValidatingPolicy("p1", &metav1.LabelSelector{
+		MatchLabels: map[string]string{"env": "prod"},
+	}, nil)
+	p2 := makeValidatingPolicy("p2", nil, nil)
+
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "dev"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{p1, p2},
+	)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "p2", result[0].GetName())
+}
+
+func TestFilterPolicies_GlobalAndPerPolicyBothMustMatch(t *testing.T) {
+	// Global ns selector: tier=backend
+	// Policy ns selector: env=prod
+	// Effective = env=prod AND tier=backend
+	// Namespace has env=prod but NOT tier=backend → excluded
+	c := newTestController(config.WebhookConfig{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"tier": "backend"},
+		},
+	})
+	policy := makeValidatingPolicy("p1", &metav1.LabelSelector{
+		MatchLabels: map[string]string{"env": "prod"},
+	}, nil)
+
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"env": "prod"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestFilterPolicies_NilNsLabelsSkipsNsCheck(t *testing.T) {
+	// nsLabels=nil means cluster-scoped resource → namespace selector is skipped
+	c := newTestController(config.WebhookConfig{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"env": "prod"},
+		},
+	})
+	policy := makeValidatingPolicy("p1", nil, nil)
+
+	result, err := c.filterPoliciesByWebhookSelectors(
+		nil, // cluster-scoped: no namespace labels
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
+func TestFilterPolicies_NotInExpression(t *testing.T) {
+	// Common pattern: exclude kube-system via NotIn expression
+	c := newTestController(config.WebhookConfig{
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
@@ -112,83 +318,24 @@ func TestIsNamespaceExcludedByWebhookSelector_MatchExpressionNotIn(t *testing.T)
 				},
 			},
 		},
-	}, map[string]*corev1.Namespace{
-		"kube-system": ns("kube-system", map[string]string{"kubernetes.io/metadata.name": "kube-system"}),
-		"default":     ns("default", map[string]string{"kubernetes.io/metadata.name": "default"}),
 	})
+	policy := makeValidatingPolicy("p1", nil, nil)
 
-	excluded, err := c.isNamespaceExcludedByWebhookSelector("kube-system")
+	// kube-system → excluded
+	result, err := c.filterPoliciesByWebhookSelectors(
+		map[string]string{"kubernetes.io/metadata.name": "kube-system"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
 	assert.NoError(t, err)
-	assert.True(t, excluded, "kube-system should be excluded")
+	assert.Empty(t, result)
 
-	excluded, err = c.isNamespaceExcludedByWebhookSelector("default")
+	// default → included
+	result, err = c.filterPoliciesByWebhookSelectors(
+		map[string]string{"kubernetes.io/metadata.name": "default"},
+		map[string]string{},
+		[]engineapi.GenericPolicy{policy},
+	)
 	assert.NoError(t, err)
-	assert.False(t, excluded, "default should not be excluded")
-}
-
-func TestIsNamespaceExcludedByWebhookSelector_NamespaceNotFound(t *testing.T) {
-	c := newController(config.WebhookConfig{
-		NamespaceSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"env": "prod"},
-		},
-	}, map[string]*corev1.Namespace{})
-	_, err := c.isNamespaceExcludedByWebhookSelector("missing")
-	assert.Error(t, err)
-}
-
-// ---------------------------------------------------------------------------
-// isObjectExcludedByWebhookSelector
-// ---------------------------------------------------------------------------
-
-func TestIsObjectExcludedByWebhookSelector_NilSelector(t *testing.T) {
-	c := newController(config.WebhookConfig{ObjectSelector: nil}, nil)
-	excluded, err := c.isObjectExcludedByWebhookSelector(map[string]string{"app": "foo"})
-	assert.NoError(t, err)
-	assert.False(t, excluded)
-}
-
-func TestIsObjectExcludedByWebhookSelector_Matches(t *testing.T) {
-	// Selector: app=foo → webhook applies → NOT excluded
-	c := newController(config.WebhookConfig{
-		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "foo"},
-		},
-	}, nil)
-	excluded, err := c.isObjectExcludedByWebhookSelector(map[string]string{"app": "foo"})
-	assert.NoError(t, err)
-	assert.False(t, excluded)
-}
-
-func TestIsObjectExcludedByWebhookSelector_NoMatch(t *testing.T) {
-	// Selector: app=foo but resource has app=bar → excluded
-	c := newController(config.WebhookConfig{
-		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "foo"},
-		},
-	}, nil)
-	excluded, err := c.isObjectExcludedByWebhookSelector(map[string]string{"app": "bar"})
-	assert.NoError(t, err)
-	assert.True(t, excluded)
-}
-
-func TestIsObjectExcludedByWebhookSelector_EmptyResourceLabels(t *testing.T) {
-	// Selector requires app=foo; resource has no labels → excluded
-	c := newController(config.WebhookConfig{
-		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app": "foo"},
-		},
-	}, nil)
-	excluded, err := c.isObjectExcludedByWebhookSelector(map[string]string{})
-	assert.NoError(t, err)
-	assert.True(t, excluded)
-}
-
-func TestIsObjectExcludedByWebhookSelector_EmptySelectorMatchesAll(t *testing.T) {
-	// Empty selector matches everything → nothing excluded
-	c := newController(config.WebhookConfig{
-		ObjectSelector: &metav1.LabelSelector{},
-	}, nil)
-	excluded, err := c.isObjectExcludedByWebhookSelector(map[string]string{})
-	assert.NoError(t, err)
-	assert.False(t, excluded)
+	assert.Len(t, result, 1)
 }
