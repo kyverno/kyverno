@@ -19,9 +19,9 @@ type scopedTokenClient struct {
 	inner *http.Client
 }
 
-// NewScopedTokenClient returns an http.ClientInterface that injects the scoped
-// APICall token into outbound HTTP requests. It satisfies the ClientInterface
-// expected by github.com/kyverno/sdk/cel/libs/http.NewHTTP.
+// NewScopedTokenClient returns a *scopedTokenClient that injects the scoped
+// APICall token into outbound HTTP requests. This concrete type satisfies the
+// ClientInterface expected by github.com/kyverno/sdk/cel/libs/http.NewHTTP.
 func NewScopedTokenClient() *scopedTokenClient {
 	return &scopedTokenClient{inner: &http.Client{}}
 }
