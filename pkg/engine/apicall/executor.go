@@ -166,7 +166,7 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 func (a *executor) getToken() string {
 	b, err := os.ReadFile(scopedTokenPath)
 	if err != nil {
-		a.logger.Info("failed to read scoped APICall token", "path", scopedTokenPath)
+		a.logger.V(4).Info("failed to read scoped APICall token", "path", scopedTokenPath, "error", err)
 		return ""
 	}
 	return strings.TrimSpace(string(b))
