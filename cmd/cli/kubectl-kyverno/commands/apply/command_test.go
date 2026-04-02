@@ -1594,6 +1594,33 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 
 }
 
+func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+					"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml",
+				},
+				HTTPPayloadPaths:  []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("mixed-authz-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
 func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1615,4 +1642,57 @@ func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
+}
+
+func TestCommandWithEnvoyPayloadNoResource(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+				t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+			}
+			panic(r)
+		}
+	}()
+
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"../../../../../test/cli/test-validating-policy/envoy-allow/request.json",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
+
+func TestCommandWithInvalidHTTPPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+		"--http-payload",
+		"./does-not-exist-http.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse HTTP payload from")
+}
+
+func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"./does-not-exist-envoy.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse envoy payload from")
 }
