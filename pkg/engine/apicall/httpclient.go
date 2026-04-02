@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // scopedTokenPath is the mount path of the projected ServiceAccount token used
@@ -12,7 +13,20 @@ import (
 // token carries a custom audience (configured via .Values.apiCallToken.audience)
 // so that if it is leaked to an external service it cannot be replayed against
 // the Kubernetes API server.
-const scopedTokenPath = "/var/run/secrets/kyverno/apicall/token"
+const (
+	scopedTokenPathEnvVar           = "KYVERNO_SCOPED_TOKEN_PATH"
+	defaultScopedTokenPath          = "/var/run/secrets/kyverno/apicall/token"
+	defaultScopedTokenClientTimeout = 30 * time.Second
+)
+
+var scopedTokenPath = getScopedTokenPath()
+
+func getScopedTokenPath() string {
+	if path := os.Getenv(scopedTokenPathEnvVar); path != "" {
+		return path
+	}
+	return defaultScopedTokenPath
+}
 
 // scopedTokenClient wraps http.Client and injects the scoped APICall token as
 // an Authorization Bearer header whenever the caller has not already set one.
@@ -24,7 +38,7 @@ type scopedTokenClient struct {
 // APICall token into outbound HTTP requests. This concrete type satisfies the
 // ClientInterface expected by github.com/kyverno/sdk/cel/libs/http.NewHTTP.
 func NewScopedTokenClient() *scopedTokenClient {
-	return &scopedTokenClient{inner: &http.Client{}}
+	return &scopedTokenClient{inner: &http.Client{Timeout: defaultScopedTokenClientTimeout}}
 }
 
 func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {
