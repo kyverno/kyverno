@@ -368,3 +368,111 @@ func Test_JSONPayloads(t *testing.T) {
 		assert.True(t, found, "deny-root-ca-enabled policy result not found for fail payload")
 	})
 }
+
+func TestRunTest_InvalidHTTPPayloadPath(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "http-allow")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	testCase.Test.HTTPPayloads = []string{"./missing-http-request.json"}
+	out := &bytes.Buffer{}
+
+	_, err = runTest(out, testCase, false)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to load HTTP payloads from path")
+}
+
+func TestRunTest_InvalidEnvoyPayloadPath(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "envoy-allow")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	testCase.Test.EnvoyPayloads = []string{"./missing-envoy-request.json"}
+	out := &bytes.Buffer{}
+
+	_, err = runTest(out, testCase, false)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to load Envoy payloads from path")
+}
+
+func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+
+	t.Run("http payload", func(t *testing.T) {
+		testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "http-allow")
+		_, statErr := os.Stat(testDir)
+		if os.IsNotExist(statErr) {
+			t.Skip("Test directory not found, skipping test")
+			return
+		}
+		testFile := filepath.Join(testDir, "kyverno-test.yaml")
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+		out := &bytes.Buffer{}
+		testResponse, err := runTest(out, testCases[0], false)
+		require.NoError(t, err, "runTest http-allow: %s", out.String())
+		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for HTTP payload")
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "http-allow" {
+					found = true
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy http-allow")
+	})
+
+	t.Run("envoy payload", func(t *testing.T) {
+		testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "envoy-allow")
+		_, statErr := os.Stat(testDir)
+		if os.IsNotExist(statErr) {
+			t.Skip("Test directory not found, skipping test")
+			return
+		}
+		testFile := filepath.Join(testDir, "kyverno-test.yaml")
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+		out := &bytes.Buffer{}
+		testResponse, err := runTest(out, testCases[0], false)
+		require.NoError(t, err, "runTest envoy-allow: %s", out.String())
+		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for Envoy payload")
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "envoy-allow" {
+					found = true
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy envoy-allow")
+	})
+}

@@ -70,9 +70,19 @@ spec:
           context:
             description: Context file containing context data for CEL policies
             type: string
+          envoyPayloads:
+            description: EnvoyPayloads is the Envoy payloads to be used in the test
+            items:
+              type: string
+            type: array
           exceptions:
             description: PolicyExceptions are the policy exceptions to be used in
               the test
+            items:
+              type: string
+            type: array
+          httpPayloads:
+            description: HTTPPayloads is the HTTP payloads to be used in the test
             items:
               type: string
             type: array

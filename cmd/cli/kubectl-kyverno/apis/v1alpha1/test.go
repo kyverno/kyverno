@@ -31,6 +31,12 @@ type Test struct {
 	// JSONPayloads are the JSON payloads to be used in the test
 	JSONPayloads []string `json:"jsonPayloads,omitempty"`
 
+	// HTTPPayloads is the HTTP payloads to be used in the test
+	HTTPPayloads []string `json:"httpPayloads,omitempty"`
+
+	// EnvoyPayloads is the Envoy payloads to be used in the test
+	EnvoyPayloads []string `json:"envoyPayloads,omitempty"`
+
 	// Target Resources are for policies that have mutate existing
 	TargetResources []string `json:"targetResources,omitempty"`
 
