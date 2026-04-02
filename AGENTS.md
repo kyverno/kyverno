@@ -99,6 +99,11 @@ Formatters enabled: `gci`, `gofmt`, `gofumpt`, `goimports`.
 - Run `make imports fmt` before committing.
 - Run `make imports-check fmt-check` and ensure both pass.
 
+**Pre-PR checks (required before opening/updating a PR):**
+
+- Run `make codegen-all-code` then `make verify-codegen`.
+- Run `./.tools/golangci-lint run` (install first with `make install-tools` if needed).
+
 
 ### Testing
 

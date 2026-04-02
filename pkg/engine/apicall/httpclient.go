@@ -18,14 +18,16 @@ import (
 // so that if it is leaked to an external service it cannot be replayed against
 // the Kubernetes API server.
 const (
-	scopedTokenPathEnvVar           = "KYVERNO_SCOPED_TOKEN_PATH"
-	defaultScopedTokenPath          = "/var/run/secrets/kyverno/apicall/token"
+	scopedTokenPathEnvVar           = "KYVERNO_SCOPED_TOKEN_PATH"              // #nosec G101 false positive: environment variable name
+	defaultScopedTokenPath          = "/var/run/secrets/kyverno/apicall/token" // #nosec G101 false positive: token file path, not a credential
 	defaultScopedTokenClientTimeout = 30 * time.Second
 )
 
-var scopedTokenPath = getScopedTokenPath()
-var scopedTokenClientTimeout = defaultScopedTokenClientTimeout
-var scopedTokenReadWarningOnce sync.Once
+var (
+	scopedTokenPath            = getScopedTokenPath()
+	scopedTokenClientTimeout   = defaultScopedTokenClientTimeout
+	scopedTokenReadWarningOnce sync.Once
+)
 
 func getScopedTokenPath() string {
 	if path := os.Getenv(scopedTokenPathEnvVar); path != "" {
