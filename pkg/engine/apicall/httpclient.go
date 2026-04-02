@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // scopedTokenPath is the mount path of the projected ServiceAccount token used
@@ -20,12 +23,19 @@ const (
 )
 
 var scopedTokenPath = getScopedTokenPath()
+var scopedTokenClientTimeout = defaultScopedTokenClientTimeout
 
 func getScopedTokenPath() string {
 	if path := os.Getenv(scopedTokenPathEnvVar); path != "" {
 		return path
 	}
 	return defaultScopedTokenPath
+}
+
+// SetScopedTokenClientTimeout configures timeout for outbound CEL HTTP calls
+// performed through the scoped token client. A value of 0 disables timeout.
+func SetScopedTokenClientTimeout(timeout time.Duration) {
+	scopedTokenClientTimeout = timeout
 }
 
 // scopedTokenClient wraps http.Client and injects the scoped APICall token as
@@ -38,7 +48,12 @@ type scopedTokenClient struct {
 // APICall token into outbound HTTP requests. This concrete type satisfies the
 // ClientInterface expected by github.com/kyverno/sdk/cel/libs/http.NewHTTP.
 func NewScopedTokenClient() *scopedTokenClient {
-	return &scopedTokenClient{inner: &http.Client{Timeout: defaultScopedTokenClientTimeout}}
+	return &scopedTokenClient{
+		inner: &http.Client{
+			Transport: tracing.Transport(http.DefaultTransport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+			Timeout:   scopedTokenClientTimeout,
+		},
+	}
 }
 
 func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {

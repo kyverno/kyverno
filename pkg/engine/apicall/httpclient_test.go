@@ -8,9 +8,36 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"gotest.tools/assert"
 )
+
+func Test_NewScopedTokenClient_Defaults(t *testing.T) {
+	withScopedTokenClientTimeout(t, defaultScopedTokenClientTimeout)
+	client := NewScopedTokenClient()
+
+	assert.Equal(t, client.inner.Timeout, defaultScopedTokenClientTimeout)
+	_, ok := client.inner.Transport.(*otelhttp.Transport)
+	assert.Check(t, ok)
+}
+
+func Test_NewScopedTokenClient_UsesConfiguredTimeout(t *testing.T) {
+	withScopedTokenClientTimeout(t, 7*time.Second)
+	client := NewScopedTokenClient()
+
+	assert.Equal(t, client.inner.Timeout, 7*time.Second)
+}
+
+func withScopedTokenClientTimeout(t *testing.T, timeout time.Duration) {
+	t.Helper()
+	old := scopedTokenClientTimeout
+	SetScopedTokenClientTimeout(timeout)
+	t.Cleanup(func() {
+		SetScopedTokenClientTimeout(old)
+	})
+}
 
 func withScopedTokenPath(t *testing.T, path string) {
 	t.Helper()
