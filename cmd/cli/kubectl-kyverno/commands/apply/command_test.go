@@ -1402,13 +1402,30 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 	assert.True(t, found, "Should have at least one failed rule")
 }
 
-func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+func Test_Apply_PoliciesWithCRD(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
 				CrdPaths:      []string{"../../_testdata/apply/test-3/crd/crd.yml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/widget.yaml"},
+				CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/crds/widget-crd.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
