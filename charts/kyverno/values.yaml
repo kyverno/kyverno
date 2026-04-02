@@ -252,6 +252,16 @@ crds:
         # If not set, the token will have no audience restriction.
         audience: ""
 
+# -- Scoped token injected into outbound APICall and CEL http requests.
+# This token carries a custom audience so that if leaked to an external service
+# it cannot be replayed against the Kubernetes API server.
+apiCallToken:
+  # -- Audience for the projected token. Should match what your backend services
+  # expect in the OIDC token's `aud` claim.
+  audience: "kyverno-svc.kyverno.io"
+  # -- Token lifetime in seconds. The kubelet rotates the token before expiry.
+  expirationSeconds: 3600
+
 # Configuration
 config:
 
