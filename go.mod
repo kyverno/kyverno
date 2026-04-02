@@ -56,10 +56,10 @@ require (
 	github.com/sigstore/rekor v1.5.1
 	github.com/sigstore/sigstore v1.10.5
 	github.com/sigstore/sigstore-go v1.1.4
-	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.4
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.4
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.10.4
-	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.10.4
+	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.5
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.5
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.10.5
+	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.10.5
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -77,7 +77,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.49.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -121,7 +121,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/iam v1.5.3 // indirect
-	cloud.google.com/go/kms v1.25.0 // indirect
+	cloud.google.com/go/kms v1.26.0 // indirect
 	cloud.google.com/go/longrunning v0.8.0 // indirect
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20250722084951-074d06050084 // indirect
 	cuelang.org/go v0.15.4 // indirect
@@ -176,7 +176,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.38.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.18 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.49.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.50.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.15 // indirect
