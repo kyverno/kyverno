@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -100,11 +99,13 @@ func Test_scopedTokenClient_Do_DoesNotOverrideAuthorizationWhenPresent(t *testin
 	assert.Equal(t, gotAuth, "Bearer provided-token")
 }
 
-func Test_scopedTokenClient_Do_ReturnsErrorWhenTokenMissing(t *testing.T) {
+func Test_scopedTokenClient_Do_TokenMissingDoesNotFailRequest(t *testing.T) {
 	missingTokenPath := filepath.Join(t.TempDir(), "missing-token")
 	withScopedTokenPath(t, missingTokenPath)
 
+	var gotAuth string
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer s.Close()
@@ -115,8 +116,10 @@ func Test_scopedTokenClient_Do_ReturnsErrorWhenTokenMissing(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, s.URL, nil)
 	assert.NilError(t, err)
 
-	_, err = client.Do(req)
-	assert.Check(t, err != nil)
-	assert.ErrorContains(t, err, "failed to read required scoped APICall token")
-	assert.Check(t, strings.Contains(err.Error(), missingTokenPath))
+	resp, err := client.Do(req)
+	assert.NilError(t, err)
+	defer resp.Body.Close()
+	_, _ = io.ReadAll(resp.Body)
+
+	assert.Equal(t, gotAuth, "")
 }

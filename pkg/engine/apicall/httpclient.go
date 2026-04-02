@@ -1,14 +1,15 @@
 package apicall
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"k8s.io/klog/v2"
 )
 
 // scopedTokenPath is the mount path of the projected ServiceAccount token used
@@ -24,6 +25,7 @@ const (
 
 var scopedTokenPath = getScopedTokenPath()
 var scopedTokenClientTimeout = defaultScopedTokenClientTimeout
+var scopedTokenReadWarningOnce sync.Once
 
 func getScopedTokenPath() string {
 	if path := os.Getenv(scopedTokenPathEnvVar); path != "" {
@@ -36,6 +38,21 @@ func getScopedTokenPath() string {
 // performed through the scoped token client. A value of 0 disables timeout.
 func SetScopedTokenClientTimeout(timeout time.Duration) {
 	scopedTokenClientTimeout = timeout
+}
+
+func readScopedToken() (string, bool) {
+	b, err := os.ReadFile(scopedTokenPath)
+	if err != nil {
+		scopedTokenReadWarningOnce.Do(func() {
+			if os.IsNotExist(err) {
+				klog.Warningf("optional scoped APICall token not found at %s; outbound calls will proceed without Authorization header unless explicitly provided", scopedTokenPath)
+			} else {
+				klog.Warningf("failed to read optional scoped APICall token at %s: %v", scopedTokenPath, err)
+			}
+		})
+		return "", false
+	}
+	return strings.TrimSpace(string(b)), true
 }
 
 // scopedTokenClient wraps http.Client and injects the scoped APICall token as
@@ -58,11 +75,10 @@ func NewScopedTokenClient() *scopedTokenClient {
 
 func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {
 	if req.Header.Get("Authorization") == "" {
-		b, err := os.ReadFile(scopedTokenPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read required scoped APICall token from %s: %w", scopedTokenPath, err)
+		token, ok := readScopedToken()
+		if ok && token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
-		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(b)))
 	}
 	return c.inner.Do(req)
 }

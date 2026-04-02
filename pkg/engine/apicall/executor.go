@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -154,25 +152,12 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	}
 
 	if req.Header.Get("Authorization") == "" {
-		token, err := a.getToken()
-		if err != nil {
-			return err
-		}
-		if token != "" {
+		if token, ok := readScopedToken(); ok && token != "" {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
 	}
 
 	return nil
-}
-
-func (a *executor) getToken() (string, error) {
-	b, err := os.ReadFile(scopedTokenPath)
-	if err != nil {
-		a.logger.V(4).Info("failed to read scoped APICall token", "path", scopedTokenPath, "error", err)
-		return "", fmt.Errorf("failed to read required scoped APICall token from %s: %w", scopedTokenPath, err)
-	}
-	return strings.TrimSpace(string(b)), nil
 }
 
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {

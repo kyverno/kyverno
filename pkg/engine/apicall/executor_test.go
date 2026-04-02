@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -123,12 +122,17 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 	assert.Equal(t, string(data), "{}")
 }
 
-func Test_ExecuteServiceCall_RequiresScopedTokenWhenAuthorizationMissing(t *testing.T) {
-	if _, err := os.Stat(scopedTokenPath); err == nil {
-		t.Skipf("token path %s exists on this host; skipping missing-token assertion", scopedTokenPath)
-	}
+func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t *testing.T) {
+	missingTokenPath := scopedTokenPath + ".missing"
+	oldPath := scopedTokenPath
+	scopedTokenPath = missingTokenPath
+	t.Cleanup(func() {
+		scopedTokenPath = oldPath
+	})
 
+	var gotAuth string
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -143,9 +147,8 @@ func Test_ExecuteServiceCall_RequiresScopedTokenWhenAuthorizationMissing(t *test
 	}
 
 	_, err := executor.Execute(context.TODO(), call)
-	assert.Check(t, err != nil)
-	assert.ErrorContains(t, err, "required scoped APICall token")
-	assert.ErrorContains(t, err, scopedTokenPath)
+	assert.NilError(t, err)
+	assert.Equal(t, gotAuth, "")
 }
 
 // Helper function to check if string contains substring
