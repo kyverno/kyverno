@@ -94,6 +94,12 @@ Linting is configured via `.golangci.yml` (golangci-lint v2). Enabled linters in
 
 Formatters enabled: `gci`, `gofmt`, `gofumpt`, `goimports`.
 
+**Pre-commit checklist (required for code changes):**
+
+- Run `make imports fmt` before committing.
+- Run `make imports-check fmt-check` and ensure both pass.
+
+
 ### Testing
 
 | Command | Description |
