@@ -1408,7 +1408,7 @@ func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
-				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				CrdPaths:      []string{"../../_testdata/apply/test-3/crd/crd.yml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1439,7 +1439,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 		"../../_testdata/apply/test-2/policy.yaml",
 		"--resource",
 		"../../_testdata/apply/test-2/resources.yaml",
-		"--crd-path",
+		"--crd-paths",
 		"./crd.yml",
 		"--kubeconfig",
 		"./kubeconfig.yaml",
@@ -1448,7 +1448,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	expected := `Error: crd-paths and kubeconfig flags are mutually exclusive, please use only one of them`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
