@@ -32,6 +32,7 @@ spec:
         !has(object.spec.volumes) || object.spec.volumes.all(v, !has(v.hostPath))
       message: >-
         HostPath volumes are forbidden. The field spec.volumes[*].hostPath must be unset.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}

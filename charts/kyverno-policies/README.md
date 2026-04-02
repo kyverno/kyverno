@@ -96,6 +96,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
 | kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
 | kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
+| auditAnnotations | object | `{}` | Default audit annotations applied to all ValidatingPolicy policies (policyType: ValidatingPolicy only). Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log. |
+| auditAnnotationsByPolicy | object | `{}` | Define audit annotations for specific ValidatingPolicy policies (policyType: ValidatingPolicy only). Per-policy entries override defaults when they share the same key. |
 
 ## Source Code
 
