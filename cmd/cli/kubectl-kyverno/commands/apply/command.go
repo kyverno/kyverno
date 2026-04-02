@@ -444,7 +444,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 
 	jsonCleanupResponses, err := c.applyCleanupPolicies(cps, jsonPayloads, variables.Namespace, rc, dClient, "json")
 	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses7, err
+		return rc, resources1, skippedInvalidPolicies, append(responses7, jsonCleanupResponses...), err
 	}
 	responses7 = append(responses7, jsonCleanupResponses...)
 
