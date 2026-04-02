@@ -439,7 +439,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 
 	responses7, err := c.applyCleanupPolicies(cps, resources1, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
+		return rc, resources1, skippedInvalidPolicies, responses7, err
 	}
 
 	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
@@ -882,6 +882,8 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 			}
 			return responses, err
 		}
+
+		engineCtx.Checkpoint()
 
 		for _, resource := range resources {
 			// Default to "not matched" unless all match/exclude checks pass and (if present) conditions evaluate to true.
