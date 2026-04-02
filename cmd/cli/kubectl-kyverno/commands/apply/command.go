@@ -442,6 +442,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses7, err
 	}
 
+	jsonCleanupResponses, err := c.applyCleanupPolicies(cps, jsonPayloads, variables.Namespace, rc, dClient, "json")
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses7, err
+	}
+	responses7 = append(responses7, jsonCleanupResponses...)
+
 	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
 
 	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
