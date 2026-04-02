@@ -1,6 +1,7 @@
 package apicall
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -28,9 +29,11 @@ func NewScopedTokenClient() *scopedTokenClient {
 
 func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {
 	if req.Header.Get("Authorization") == "" {
-		if b, err := os.ReadFile(scopedTokenPath); err == nil {
-			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(b)))
+		b, err := os.ReadFile(scopedTokenPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read required scoped APICall token from %s: %w", scopedTokenPath, err)
 		}
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(b)))
 	}
 	return c.inner.Do(req)
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -118,6 +121,31 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 	data, err := executor.Execute(context.TODO(), call)
 	assert.NilError(t, err)
 	assert.Equal(t, string(data), "{}")
+}
+
+func Test_ExecuteServiceCall_RequiresScopedTokenWhenAuthorizationMissing(t *testing.T) {
+	if _, err := os.Stat(scopedTokenPath); err == nil {
+		t.Skipf("token path %s exists on this host; skipping missing-token assertion", scopedTokenPath)
+	}
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.Check(t, err != nil)
+	assert.ErrorContains(t, err, "required scoped APICall token")
+	assert.ErrorContains(t, err, scopedTokenPath)
 }
 
 // Helper function to check if string contains substring

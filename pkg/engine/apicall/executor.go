@@ -154,7 +154,10 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	}
 
 	if req.Header.Get("Authorization") == "" {
-		token := a.getToken()
+		token, err := a.getToken()
+		if err != nil {
+			return err
+		}
 		if token != "" {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
@@ -163,13 +166,13 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) getToken() string {
+func (a *executor) getToken() (string, error) {
 	b, err := os.ReadFile(scopedTokenPath)
 	if err != nil {
 		a.logger.V(4).Info("failed to read scoped APICall token", "path", scopedTokenPath, "error", err)
-		return ""
+		return "", fmt.Errorf("failed to read required scoped APICall token from %s: %w", scopedTokenPath, err)
 	}
-	return strings.TrimSpace(string(b))
+	return strings.TrimSpace(string(b)), nil
 }
 
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
