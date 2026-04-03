@@ -10,6 +10,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/gzip"
@@ -95,7 +96,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 					globalcontext.Latest(),
 				),
 				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
+					http.Context{ContextInterface: http.NewHTTP(apicall.NewScopedTokenClient())},
 					http.Latest(),
 				),
 				resource.Lib(
