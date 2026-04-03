@@ -889,9 +889,11 @@ test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
 	@$(CLI_BIN) test ./test/cli/test-generating-policy
 
 .PHONY: test-cli-local-mpols
-test-cli-local-mpols: $(CLI_BIN) ## Run local CLI GPOL tests
+test-cli-local-mpols: $(CLI_BIN) ## Run local CLI MPOL tests
 	@echo Running local cli mpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-mpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-mpol
 
 .PHONY: test-cli-local-ivpols
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests

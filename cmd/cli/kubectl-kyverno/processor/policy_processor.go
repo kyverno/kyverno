@@ -321,7 +321,22 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				}
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -968,8 +983,15 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
-		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
-	} else if p.CrdPath != "" {
+		// Try to get OpenAPI from the cluster's discovery client.
+		// In CLI test mode the discovery client is a fake that panics
+		// on OpenAPIV3(), so we recover and fall through to local schemas.
+		if client := p.tryClusterOpenAPI(); client != nil {
+			return client
+		}
+	}
+
+	if p.CrdPath != "" {
 		absPath := getAbsPath(p.CrdPath)
 		diskCrds := os.DirFS(absPath)
 		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
@@ -984,11 +1006,37 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
+// tryClusterOpenAPI attempts to get the OpenAPI client from the cluster's
+// discovery endpoint. Returns nil if the call panics (e.g., fake discovery
+// client in CLI test mode) or if the client is nil.
+func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
+	defer func() {
+		if r := recover(); r != nil {
+			client = nil
+		}
+	}()
+	return p.Client.GetKubeClient().Discovery().OpenAPIV3()
+}
+
 func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 	kindPrefix := strings.ToLower(kind)
 
 	for _, newVp := range p.ValidatingPolicies {
 		mc := newVp.GetSpec().MatchConstraints
+		if mc == nil {
+			continue
+		}
+		resRules := mc.ResourceRules
+		for _, r := range resRules {
+			for _, newR := range r.Resources {
+				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+					return newR, nil
+				}
+			}
+		}
+	}
+	for _, mp := range p.MutatingPolicies {
+		mc := mp.GetSpec().MatchConstraints
 		if mc == nil {
 			continue
 		}
