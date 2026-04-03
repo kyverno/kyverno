@@ -330,6 +330,7 @@ func main() {
 		internal.WithDefaultQps(300),
 		internal.WithDefaultBurst(300),
 	)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
 	var wg wait.Group
 	func() {
 		// setup
