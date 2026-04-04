@@ -667,7 +667,22 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				}
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -1037,6 +1052,20 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 	}
 	for _, mp := range p.MutatingPolicies {
 		mc := mp.GetSpec().MatchConstraints
+		if mc == nil {
+			continue
+		}
+		resRules := mc.ResourceRules
+		for _, r := range resRules {
+			for _, newR := range r.Resources {
+				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
+					return newR, nil
+				}
+			}
+		}
+	}
+	for _, newGp := range p.GeneratingPolicies {
+		mc := newGp.GetSpec().MatchConstraints
 		if mc == nil {
 			continue
 		}

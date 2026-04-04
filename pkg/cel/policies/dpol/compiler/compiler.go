@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
+	"k8s.io/apiserver/pkg/cel/common"
+	environment "k8s.io/apiserver/pkg/cel/environment"
+	"k8s.io/apiserver/pkg/cel/mutation"
 )
 
 var (
@@ -128,6 +130,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 	}
 
 	baseOpts = append(baseOpts, declOptions...)
+	baseOpts = append(baseOpts, common.ResolverEnvOption(&mutation.DynamicTypeResolver{}))
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution

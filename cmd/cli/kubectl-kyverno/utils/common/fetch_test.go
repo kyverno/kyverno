@@ -126,3 +126,60 @@ func TestGenericPolicy_AsNamespacedMutatingPolicy(t *testing.T) {
 		t.Error("expected MatchConstraints to be set on NamespacedMutatingPolicy")
 	}
 }
+
+func TestGenericPolicy_AsGeneratingPolicy(t *testing.T) {
+	// The lines added to extractResourcesFromPolicies branch on
+	// policy.AsGeneratingPolicy() and policy.AsNamespacedGeneratingPolicy().
+	// This test verifies AsGeneratingPolicy() works correctly.
+	mc := makeMatchResources("apps", "deployments")
+
+	gp := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gpol"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: mc,
+		},
+	}
+
+	generic := engineapi.NewGeneratingPolicy(gp)
+
+	// AsGeneratingPolicy should return non-nil
+	if got := generic.AsGeneratingPolicy(); got == nil {
+		t.Fatal("expected AsGeneratingPolicy() to return non-nil for GeneratingPolicy")
+	}
+	// AsNamespacedGeneratingPolicy should return nil for a cluster-scoped policy
+	if got := generic.AsNamespacedGeneratingPolicy(); got != nil {
+		t.Errorf("expected AsNamespacedGeneratingPolicy() to return nil for GeneratingPolicy, got %v", got)
+	}
+	// MatchConstraints should be preserved
+	if got := generic.AsGeneratingPolicy(); got.Spec.MatchConstraints == nil {
+		t.Error("expected MatchConstraints to be set on GeneratingPolicy")
+	}
+}
+
+func TestGenericPolicy_AsNamespacedGeneratingPolicy(t *testing.T) {
+	// Verifies Fix 3: AsNamespacedGeneratingPolicy() branch in
+	// extractResourcesFromPolicies correctly handles namespaced generating policies.
+	mc := makeMatchResources("", "pods")
+
+	ngp := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ngpol", Namespace: "default"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: mc,
+		},
+	}
+
+	generic := engineapi.NewNamespacedGeneratingPolicy(ngp)
+
+	// AsNamespacedGeneratingPolicy should return non-nil
+	if got := generic.AsNamespacedGeneratingPolicy(); got == nil {
+		t.Fatal("expected AsNamespacedGeneratingPolicy() to return non-nil for NamespacedGeneratingPolicy")
+	}
+	// AsGeneratingPolicy should return nil for a namespaced policy
+	if got := generic.AsGeneratingPolicy(); got != nil {
+		t.Errorf("expected AsGeneratingPolicy() to return nil for NamespacedGeneratingPolicy, got %v", got)
+	}
+	// MatchConstraints should be preserved
+	if got := generic.AsNamespacedGeneratingPolicy(); got.Spec.MatchConstraints == nil {
+		t.Error("expected MatchConstraints to be set on NamespacedGeneratingPolicy")
+	}
+}

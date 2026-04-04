@@ -222,3 +222,74 @@ func Test_resolveResource_mutatingPolicyTakesPrecedence(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, "deployments", got)
 }
+
+func Test_resolveResource_fromGeneratingPolicy(t *testing.T) {
+	// resolveResource should find resource names by scanning GeneratingPolicies.
+	// This tests Fix 1: before this change, only ValidatingPolicies and
+	// MutatingPolicies were scanned, so GeneratingPolicy tests would fail with
+	// "failed to get resource from <Kind>".
+	mc := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						Resources: []string{"deployments"},
+					},
+				},
+			},
+		},
+	}
+	gp := &policiesv1beta1.GeneratingPolicy{}
+	gp.Spec.MatchConstraints = mc
+
+	p := &PolicyProcessor{
+		GeneratingPolicies: []policiesv1beta1.GeneratingPolicyLike{gp},
+	}
+
+	got, err := p.resolveResource("Deployment")
+	assert.NilError(t, err)
+	assert.Equal(t, "deployments", got)
+}
+
+func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
+	// When vpol+mpol only have pods, resolving "Deployment" should
+	// fall through to GeneratingPolicy which has deployments.
+	mcPods := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						Resources: []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+	mcDeploys := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						Resources: []string{"deployments"},
+					},
+				},
+			},
+		},
+	}
+	vp := &policiesv1beta1.ValidatingPolicy{}
+	vp.Spec.MatchConstraints = mcPods
+	mp := &policiesv1beta1.MutatingPolicy{}
+	mp.Spec.MatchConstraints = mcPods
+	gp := &policiesv1beta1.GeneratingPolicy{}
+	gp.Spec.MatchConstraints = mcDeploys
+
+	p := &PolicyProcessor{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+		MutatingPolicies:   []policiesv1beta1.MutatingPolicyLike{mp},
+		GeneratingPolicies: []policiesv1beta1.GeneratingPolicyLike{gp},
+	}
+
+	got, err := p.resolveResource("Deployment")
+	assert.NilError(t, err)
+	assert.Equal(t, "deployments", got)
+}

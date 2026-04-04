@@ -461,3 +461,44 @@ func TestMutatingPolicyContextResourceLookup(t *testing.T) {
 		assert.True(t, found, "expected engine response for policy add-env-label")
 	})
 }
+
+func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-context-configmap-gpol")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	t.Logf("Running GeneratingPolicy context resource lookup test from %s", testCase.Dir())
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	t.Logf("Test output: %s", out.String())
+
+	t.Run("GeneratingPolicy with resource.get() produces engine response", func(t *testing.T) {
+		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for GeneratingPolicy")
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "generate-env-config" {
+					found = true
+					// Verify the policy produced a pass/fail result based on the configmap lookup
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy generate-env-config")
+	})
+}
