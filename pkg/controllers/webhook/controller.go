@@ -1066,7 +1066,8 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 				readyPolicies = append(readyPolicies, p)
 			}
 		}
-		webhooks := []*webhook{ignoreWebhook, failWebhook}
+		webhooks := make([]*webhook, 0, 2+len(fineGrainedIgnoreList)+len(fineGrainedFailList))
+		webhooks = append(webhooks, ignoreWebhook, failWebhook)
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
@@ -1078,7 +1079,7 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 }
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
-	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook //nolint:prealloc
+	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
 		objectSelector = &metav1.LabelSelector{}
@@ -1334,7 +1335,8 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 		if c.admissionReports {
 			sideEffects = &noneOnDryRun
 		}
-		webhooks := []*webhook{ignoreWebhook, failWebhook}
+		webhooks := make([]*webhook, 0, 2+len(fineGrainedIgnoreList)+len(fineGrainedFailList))
+		webhooks = append(webhooks, ignoreWebhook, failWebhook)
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
@@ -1346,7 +1348,7 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
-	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook //nolint:prealloc
+	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
 		objectSelector = &metav1.LabelSelector{}
