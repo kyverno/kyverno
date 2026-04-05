@@ -25,7 +25,7 @@ func privateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 }
 
 func certificateToPem(certs ...*x509.Certificate) []byte {
-	raw := make([]byte, 0, len(certs))
+	var raw []byte
 	for _, cert := range certs {
 		certificate := &pem.Block{
 			Type:  "CERTIFICATE",
