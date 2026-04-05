@@ -72,14 +72,8 @@ func TestNewCELHTTPContextParsedFlags(t *testing.T) {
 	t.Run("parsed blocklist overrides env var", func(t *testing.T) {
 		t.Setenv("FLAG_HTTP_BLOCKLIST", "10.0.0.0/8")
 
-		saved := toggle.HTTPBlocklist.Values()
 		require.NoError(t, toggle.HTTPBlocklist.Parse("192.0.2.0/24"))
-		t.Cleanup(func() {
-			// restore: re-parse the saved values as a comma-joined string, or clear
-			_ = toggle.HTTPBlocklist.Parse("")
-			_ = saved // acknowledged; the flag now has hasValue=true with empty list,
-			// which is acceptable for test isolation within this package.
-		})
+		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
 
 		ctx, err := NewCELHTTPContext()
 		assert.NoError(t, err)
@@ -90,7 +84,7 @@ func TestNewCELHTTPContextParsedFlags(t *testing.T) {
 		t.Setenv("FLAG_HTTP_ALLOWLIST", "https://env.example.com")
 
 		require.NoError(t, toggle.HTTPAllowlist.Parse("https://flag.example.com"))
-		t.Cleanup(func() { _ = toggle.HTTPAllowlist.Parse("") })
+		t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
 
 		ctx, err := NewCELHTTPContext()
 		assert.NoError(t, err)
@@ -99,7 +93,7 @@ func TestNewCELHTTPContextParsedFlags(t *testing.T) {
 
 	t.Run("invalid parsed blocklist returns error", func(t *testing.T) {
 		require.NoError(t, toggle.HTTPBlocklist.Parse("999.999.999.999/32"))
-		t.Cleanup(func() { _ = toggle.HTTPBlocklist.Parse("") })
+		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
 
 		ctx, err := NewCELHTTPContext()
 		assert.Error(t, err)
@@ -109,7 +103,7 @@ func TestNewCELHTTPContextParsedFlags(t *testing.T) {
 
 	t.Run("invalid parsed allowlist returns error", func(t *testing.T) {
 		require.NoError(t, toggle.HTTPAllowlist.Parse("no-scheme-here"))
-		t.Cleanup(func() { _ = toggle.HTTPAllowlist.Parse("") })
+		t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
 
 		ctx, err := NewCELHTTPContext()
 		assert.Error(t, err)

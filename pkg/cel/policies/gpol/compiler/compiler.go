@@ -151,7 +151,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions: libEnvOpts,
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {

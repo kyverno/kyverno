@@ -153,11 +153,18 @@ func newStringSliceFlag(defaultValue []string, envVar string) *StringSliceFlag {
 	}
 }
 
-// Parse implements the flag.Value interface. The input is a comma-separated list of values.
+// Parse is used as the callback for flagset.Func(...). The input is a comma-separated list of values.
 func (f *StringSliceFlag) Parse(in string) error {
 	f.value = splitAndTrim(in)
 	f.hasValue = true
 	return nil
+}
+
+// Reset clears any parsed flag value, returning the flag to its unset state so that
+// env var and default precedence apply again. Intended for use in tests.
+func (f *StringSliceFlag) Reset() {
+	f.value = nil
+	f.hasValue = false
 }
 
 // Values returns the current slice value following CLI > env var > default precedence.
@@ -165,7 +172,7 @@ func (f *StringSliceFlag) Values() []string {
 	if f.hasValue {
 		return f.value
 	}
-	if env := os.Getenv(f.envVar); env != "" {
+	if env, ok := os.LookupEnv(f.envVar); ok {
 		return splitAndTrim(env)
 	}
 	return f.defaultValue
