@@ -1348,7 +1348,7 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
-	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook
+	validatingWebhooks := make([]admissionregistrationv1.ValidatingWebhook, 0, len(webhooks))
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
 		objectSelector = &metav1.LabelSelector{}
