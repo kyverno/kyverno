@@ -168,14 +168,24 @@ func (f *StringSliceFlag) Reset() {
 }
 
 // Values returns the current slice value following CLI > env var > default precedence.
+// The returned slice is always a defensive copy so callers cannot mutate internal state.
 func (f *StringSliceFlag) Values() []string {
 	if f.hasValue {
-		return f.value
+		return cloneStringSlice(f.value)
 	}
 	if env, ok := os.LookupEnv(f.envVar); ok {
 		return splitAndTrim(env)
 	}
-	return f.defaultValue
+	return cloneStringSlice(f.defaultValue)
+}
+
+func cloneStringSlice(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
 }
 
 func splitAndTrim(in string) []string {
