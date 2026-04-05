@@ -270,7 +270,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
+			EnvOptions: libEnvOpts,
 		},
 	)
 	if err != nil {

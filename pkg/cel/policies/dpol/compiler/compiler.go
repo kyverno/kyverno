@@ -200,7 +200,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
+			EnvOptions: libEnvOpts,
 		},
 	)
 	if err != nil {

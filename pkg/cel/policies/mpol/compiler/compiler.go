@@ -234,7 +234,7 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
+			EnvOptions: libEnvOpts,
 		},
 	)
 	if err != nil {

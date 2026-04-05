@@ -310,7 +310,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
+			EnvOptions: libEnvOpts,
 		},
 	)
 	if err != nil {

@@ -122,7 +122,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: targetConstraintsEnvironmentVersion,
-			EnvOptions:        libEnvOpts,
+			EnvOptions: libEnvOpts,
 		},
 	)
 	if err != nil {

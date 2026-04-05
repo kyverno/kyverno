@@ -411,6 +411,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
 	var wg wait.Group
 	func() {
 		// setup
