@@ -69,10 +69,10 @@ spec:
         timeout: 3m
         content: |
           set -e
-          # Persist the original args so the finally block can restore them.
+          # Persist the original args as a JSON array so the finally block can restore them.
           kubectl get deployment kyverno-admission-controller -n kyverno \
-            -o jsonpath='{range .spec.template.spec.containers[0].args[*]}{@}{"\n"}{end}' \
-            > /tmp/kyverno-original-args.txt
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]' \
+            > /tmp/kyverno-original-args.json
           kubectl patch deployment kyverno-admission-controller -n kyverno \
             --type=json \
             --patch='[
@@ -86,11 +86,7 @@ spec:
         timeout: 3m
         content: |
           set -e
-          ORIGINAL=$(python3 -c "
-          import sys, json
-          args = [l.rstrip('\n') for l in sys.stdin if l.strip()]
-          print(json.dumps(args))
-          " < /tmp/kyverno-original-args.txt)
+          ORIGINAL=$(cat /tmp/kyverno-original-args.json)
           kubectl patch deployment kyverno-admission-controller -n kyverno \
             --type=json \
             --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ORIGINAL}]"
