@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
@@ -65,7 +66,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 					globalcontext.Latest(),
 				),
 				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
+					http.Context{ContextInterface: http.NewHTTP(apicall.NewScopedTokenClient())},
 					http.Latest(),
 				),
 				image.Lib(

@@ -28,6 +28,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
@@ -125,6 +126,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
 	var wg wait.Group
 	func() {
 		// setup

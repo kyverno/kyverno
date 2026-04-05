@@ -11,6 +11,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
@@ -212,7 +213,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 					globalcontext.Latest(),
 				),
 				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
+					http.Context{ContextInterface: http.NewHTTP(apicall.NewScopedTokenClient())},
 					http.Latest(),
 				),
 				image.Lib(

@@ -152,6 +152,9 @@ func Test_servicePostRequest(t *testing.T) {
 				Method: "POST",
 				Service: &kyvernov1.ServiceCall{
 					URL: s.URL + "/resource",
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Authorization", Value: "Bearer 1234567890"},
+					},
 				},
 			},
 		},
@@ -285,6 +288,7 @@ func Test_serviceHeaders(t *testing.T) {
 			Service: &kyvernov1.ServiceCall{
 				URL: s.URL + "/resource",
 				Headers: []kyvernov1.HTTPHeader{
+					{Key: "Authorization", Value: "Bearer 1234567890"},
 					{Key: "Content-Type", Value: "application/json"},
 					{Key: "Custom-Key", Value: "CustomVal"},
 				},
@@ -302,7 +306,7 @@ func Test_serviceHeaders(t *testing.T) {
 	var responseHeaders map[string][]string
 	err = json.Unmarshal(data, &responseHeaders)
 	assert.NilError(t, err)
-	assert.Equal(t, 4, len(responseHeaders))
+	assert.Equal(t, 5, len(responseHeaders))
 	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
 }
@@ -406,6 +410,9 @@ func Test_contextCancellation(t *testing.T) {
 				Method: "GET",
 				Service: &kyvernov1.ServiceCall{
 					URL: s.URL,
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Authorization", Value: "Bearer 1234567890"},
+					},
 				},
 			},
 		},
