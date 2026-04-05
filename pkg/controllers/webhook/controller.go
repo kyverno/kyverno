@@ -1079,7 +1079,7 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 }
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
-	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook
+	mutatingWebhooks := make([]admissionregistrationv1.MutatingWebhook, 0, len(webhooks))
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
 		objectSelector = &metav1.LabelSelector{}
