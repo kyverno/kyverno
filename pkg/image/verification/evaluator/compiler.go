@@ -198,6 +198,70 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
+	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
+	namespace := ivpol.GetNamespace()
+	libEnvOpts := []cel.EnvOption{
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		imageverify.Lib(
+			imageverify.Latest(), c.ictx, ivpol, c.lister,
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		user.Lib(
+			user.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+	}
+	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
+		httpCtx, err := engine.NewCELHTTPContext()
+		if err != nil {
+			return nil, nil, err
+		}
+		libEnvOpts = append(libEnvOpts, http.Lib(
+			http.Context{ContextInterface: httpCtx},
+			http.Latest(),
+		))
+	}
+
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
@@ -206,60 +270,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				imageverify.Lib(
-					imageverify.Latest(), c.ictx, ivpol, c.lister,
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					ivpol.GetNamespace(),
-					resource.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {
