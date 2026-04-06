@@ -140,9 +140,10 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $merged := merge $defaults $overrides -}}
 {{- if gt (len $merged) 0 }}
 auditAnnotations:
-{{- range $key, $val := $merged }}
-  - key: {{ $key }}
-    valueExpression: {{ $val | quote }}
+{{- $keys := keys $merged | sortAlpha -}}
+{{- range $keys }}
+  - key: {{ . }}
+    valueExpression: {{ index $merged . | quote }}
 {{- end -}}
 {{- end -}}
 {{- end -}}
