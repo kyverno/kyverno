@@ -666,7 +666,7 @@ func executeTemplate(tpl string, data interface{}, folder string, file string) {
 				return toSnakeCase(in)
 			},
 			"Args": func(in reflect.Method) []arg {
-				var out []arg
+				out := make([]arg, 0, len(getIns(in)))
 				for i, a := range getIns(in) {
 					out = append(out, arg{
 						Type:       a,
