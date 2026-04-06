@@ -168,7 +168,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 }
 
 func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
-	var events []Info
+	events := make([]Info, 0, 1)
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
 		APIVersion: "kyverno.io/v1",

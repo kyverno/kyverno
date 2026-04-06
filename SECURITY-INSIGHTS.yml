@@ -59,7 +59,7 @@ security-testing:
       before-release: true
   - tool-type: sast
     tool-name: golangci-lint
-    tool-version: v2.6.0
+    tool-version: v2.11.4
     tool-url: https://github.com/golangci/golangci-lint
     tool-rulesets:
       - gosec

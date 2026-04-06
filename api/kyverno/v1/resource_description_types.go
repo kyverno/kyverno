@@ -70,7 +70,7 @@ func (r ResourceDescription) IsEmpty() bool {
 }
 
 func (r ResourceDescription) GetOperations() []string {
-	ops := []string{}
+	ops := make([]string, 0, len(r.Operations))
 	for _, op := range r.Operations {
 		ops = append(ops, string(op))
 	}
