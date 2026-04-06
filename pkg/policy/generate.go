@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -66,14 +65,14 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 		return multierr.Combine(errs...)
 	}
 	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errs = append(errs, err)
 	}
 	if created != nil {
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -102,7 +101,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		} else if !policy.GetSpec().GenerateExisting {
 			continue
 		}
-		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
+		triggers = getTriggers(pc.ctx, pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
 			namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policyNew}, pc.log)
@@ -115,7 +114,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
 				continue
 			}
-			engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
+			engineResponse := pc.engine.ApplyBackgroundChecks(pc.ctx, policyContext)
 			if len(engineResponse.PolicyResponse.Rules) == 0 {
 				continue
 			}
@@ -129,7 +128,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	}
 
 	logger.V(4).Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errors = append(errors, err)
 		return multierr.Combine(errors...)
@@ -137,7 +136,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	if created != nil {
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			errors = append(errors, err)
 			return multierr.Combine(errors...)
@@ -186,7 +185,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	}
 
 	pc.log.V(4).WithName("createURForDownstreamDeletion").Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -194,7 +193,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
 		updated.Status.GeneratedResources = ur.Status.GeneratedResources
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -235,7 +234,7 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 func (pc *policyController) unlabelDownstream(selector updatedResource) {
 	for _, ruleSelector := range selector.ruleResources {
 		for _, kind := range ruleSelector.kinds {
-			updated, err := pc.client.ListResource(context.TODO(), "", kind, "", &metav1.LabelSelector{
+			updated, err := pc.client.ListResource(pc.ctx, "", kind, "", &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					common.GeneratePolicyLabel:          selector.policy,
 					common.GeneratePolicyNamespaceLabel: selector.policyNamespace,
@@ -254,7 +253,7 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 				delete(labels, common.GeneratePolicyNamespaceLabel)
 				delete(labels, common.GenerateRuleLabel)
 				obj.SetLabels(labels)
-				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
+				_, err = pc.client.UpdateResource(pc.ctx, obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("failed to un-label old targets %s/%s/%s/%s: %v", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName(), err))
 					continue
