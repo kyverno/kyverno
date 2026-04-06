@@ -137,7 +137,7 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $values := index . "values" -}}
 {{- $defaults := $values.auditAnnotations | default dict -}}
 {{- $overrides := index $values.auditAnnotationsByPolicy $policyName | default dict -}}
-{{- $merged := merge $overrides $defaults -}}
+{{- $merged := merge $defaults $overrides -}}
 {{- if gt (len $merged) 0 }}
 auditAnnotations:
 {{- range $key, $val := $merged }}
