@@ -59,10 +59,12 @@ HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
 # Newer than v0.18.1: Docker 29+ requires API >= 1.44 when loading images; bump to next ko tag once released.
 KO_VERSION                         ?= v0.18.2-0.20260320010637-757161aaa19e
+GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
+GOLANGCI_LINT_VERSION              ?= v2.11.4
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -121,6 +123,10 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
+$(GOLANGCI_LINT):
+	@echo Install golangci-lint... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 $(API_GROUP_RESOURCES):
 	@echo Install api-group-resources... >&2
@@ -196,6 +202,12 @@ imports-check: imports
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make imports-check".' >&2
 	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
 	@git diff --quiet --exit-code .
+
+.PHONY: lint
+lint: ## Run golangci-lint
+lint: $(GOLANGCI_LINT)
+	@echo Run golangci-lint... >&2
+	@$(GOLANGCI_LINT) run ./... -c .golangci.yml
 
 .PHONY: unused-package-check
 unused-package-check:
@@ -629,6 +641,8 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_cleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clustercleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
