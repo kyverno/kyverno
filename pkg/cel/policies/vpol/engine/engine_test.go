@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestHandle(t *testing.T) {
@@ -40,26 +39,6 @@ func TestHandle(t *testing.T) {
 			},
 			Context: libs.NewFakeContextProvider(),
 		}
-	}
-
-	makeProvider := func(t *testing.T, policies []policiesv1beta1.ValidatingPolicyLike) ProviderFunc {
-		t.Helper()
-		compiledPolicies := make([]Policy, 0, len(policies))
-		comp := vpolcompiler.NewCompiler()
-		for _, p := range policies {
-			compiled, errs := comp.Compile(p, nil)
-			if len(errs) > 0 {
-				t.Fatalf("failed to compile policy %s: %v", p.GetName(), errs.ToAggregate())
-			}
-			compiledPolicies = append(compiledPolicies, Policy{
-				Policy:         p,
-				CompiledPolicy: compiled,
-				Actions:        sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			})
-		}
-		return ProviderFunc(func(context.Context) ([]Policy, error) {
-			return compiledPolicies, nil
-		})
 	}
 
 	tests := []struct {
@@ -303,6 +282,7 @@ func TestHandle(t *testing.T) {
 				&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "warn-missing-label"},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
+						ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn},
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -319,7 +299,7 @@ func TestHandle(t *testing.T) {
 						},
 						Validations: []admissionregistrationv1.Validation{
 							{
-								Expression:        "has(object.metadata.labels) && has(object.metadata.labels.env)",
+								Expression:        `has(object.metadata.labels) && has(object.metadata.labels.owner)`,
 								Message:           "Deployment should have 'owner' label",
 								MessageExpression: `"Warning: " + object.metadata.name + " is missing owner label"`,
 							},
@@ -373,7 +353,13 @@ func TestHandle(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			provider := makeProvider(t, tc.policies)
+			// Compile policies
+			provider, err := NewProvider(
+				vpolcompiler.NewCompiler(),
+				tc.policies,
+				nil,
+			)
+			assert.NoError(t, err)
 			eng := NewEngine(provider, nsResolver, matching.NewMatcher())
 			req := makeReq(tc.kind, tc.matchNamespace, tc.requestObject)
 
@@ -386,16 +372,20 @@ func TestHandle(t *testing.T) {
 			warnings := []string{}
 
 			for _, pol := range resp.Policies {
+				hasWarn := pol.Actions.Has(admissionregistrationv1.Warn)
+				hasDeny := pol.Actions.Has(admissionregistrationv1.Deny)
 				for _, rule := range pol.Rules {
+					status := rule.Status()
 					msg := rule.Message()
-					if strings.HasPrefix(msg, "Warning:") {
-						warnings = append(warnings, msg)
-						continue
-					}
-					if rule.Status() == engineapi.RuleStatusFail || rule.Status() == engineapi.RuleStatusError {
-						allowed = false
-						if msg != "" {
-							reasons = append(reasons, msg)
+					if status == engineapi.RuleStatusFail || status == engineapi.RuleStatusError {
+						if hasDeny {
+							allowed = false
+							if msg != "" {
+								reasons = append(reasons, msg)
+							}
+						}
+						if hasWarn && msg != "" {
+							warnings = append(warnings, msg)
 						}
 					}
 				}
