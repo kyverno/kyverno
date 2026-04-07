@@ -108,7 +108,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	if rf.ResourceOptions.Concurrency > 1 {
 		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
 		// Convert gvkMaps to slice
-		var gvks []schema.GroupVersionKind
+		gvks := make([]schema.GroupVersionKind, 0, len(info.gvkMap))
 		for gvk := range info.gvkMap {
 			gvks = append(gvks, gvk)
 		}
