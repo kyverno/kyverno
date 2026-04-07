@@ -68,6 +68,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cleanup
 
+  cel-http:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.3, v1.35.1]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: cel/http
+
   custom-sigstore:
     runs-on: ubuntu-latest
     strategy:

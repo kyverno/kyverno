@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.25.8
+go 1.26.1
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -22,7 +22,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.8.0
-	github.com/go-git/go-git/v5 v5.17.1
+	github.com/go-git/go-git/v5 v5.17.2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.7.0-rc.1
@@ -35,10 +35,10 @@ require (
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/api v0.0.1-alpha.2.0.20260129144402-7b64bcf2b1f7
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
-	github.com/kyverno/kyverno-authz v0.4.1-0.20260320121453-ad85a9c1c8c0
+	github.com/kyverno/kyverno-authz v0.4.1-0.20260403194244-37d6f8943fa8
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20260320143635-b97f8888f3b8
+	github.com/kyverno/sdk v0.0.0-20260403020150-29a100fa834c
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2

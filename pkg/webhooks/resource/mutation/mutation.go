@@ -157,7 +157,7 @@ func (v *mutationHandler) applyMutations(
 	v.eventGen.Add(events...)
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
-		go func() {
+		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
