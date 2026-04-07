@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -380,6 +381,9 @@ func main() {
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
+	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
+	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
+	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&webhookServerHost, "webhookServerHost", "", "Host used by the webhook server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
@@ -421,6 +425,12 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
+	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
+	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup

@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"context"
-	"time"
 
 	cel "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -19,14 +18,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	admission "k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type Policy struct {
-	evaluator        mutating.PolicyEvaluator
+	patchers         []Patcher
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	exceptions       []compiler.Exception
@@ -35,38 +33,6 @@ type Policy struct {
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 	return p.matchConstraints
-}
-
-type compositionContext struct {
-	ctx             context.Context //nolint:containedctx
-	variables       *lazy.MapValue
-	accumulatedCost int64
-}
-
-func (c *compositionContext) Variables(activation any) ref.Val {
-	return c.variables
-}
-
-func (c *compositionContext) GetAndResetCost() int64 {
-	cost := c.accumulatedCost
-	c.accumulatedCost = 0
-	return cost
-}
-
-func (c *compositionContext) Deadline() (deadline time.Time, ok bool) {
-	return c.ctx.Deadline()
-}
-
-func (c *compositionContext) Done() <-chan struct{} {
-	return c.ctx.Done()
-}
-
-func (c *compositionContext) Err() error {
-	return c.ctx.Err()
-}
-
-func (c *compositionContext) Value(key interface{}) interface{} {
-	return c.ctx.Value(key)
 }
 
 func (p *Policy) match(ctx context.Context, data map[string]any, matchConditions []cel.Program) (bool, error) {
@@ -120,7 +86,7 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 }
 
 func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, nil, namespace, contextProvider)
+	data, err := prepareData(attr, nil, namespace)
 	if err != nil {
 		return false
 	}
@@ -148,7 +114,7 @@ func (p *Policy) Evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
-	data, err := prepareData(attr, &request, namespace, contextProvider)
+	data, err := prepareData(attr, &request, namespace)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
@@ -180,7 +146,8 @@ func (p *Policy) Evaluate(
 		AllowedValues: allowedValues,
 	}
 
-	vars := p.appendVariables(ctx, data)
+	// variables also get added to the input data map
+	p.appendVariables(ctx, data)
 
 	match, err := p.match(ctx, data, p.matchConditions)
 	if err != nil {
@@ -190,13 +157,8 @@ func (p *Policy) Evaluate(
 		return nil
 	}
 
-	compositionCtx := &compositionContext{
-		ctx:       ctx,
-		variables: vars,
-	}
-
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	for _, patcher := range p.evaluator.Mutators {
+	for _, patcher := range p.patchers {
 		patchRequest := patch.Request{
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
@@ -206,13 +168,17 @@ func (p *Policy) Evaluate(
 			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
 		}
 
-		newVersionedObject, err := patcher.Patch(compositionCtx, patchRequest, celconfig.RuntimeCELCostBudget)
+		newVersionedObject, err := patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
 		if err != nil {
 			return &EvaluationResult{Error: err}
 		}
 
 		versionedAttributes.Dirty = true
 		versionedAttributes.VersionedObject = newVersionedObject
+
+		// the program data (the object) is supplied through the data map. we need to update
+		// the map to get the patched object from the previous patch
+		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
 	}
 
 	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}

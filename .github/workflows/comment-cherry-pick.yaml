@@ -1,32 +1,19 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Issue and PR comment commands
+name: Cherry pick
 
 permissions: {}
 
 on:
   issue_comment:
-    types: 
+    types:
       - created
       - edited
 
 jobs:
-  execute:
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
-        with:
-          prow-commands: '/assign 
-            /unassign
-            /lgtm 
-            /milestone'
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-
   # /cherry-pick command, only send a message if PR is unmerged, cherry-pick if PR was already merged
-  cherry-pick:
+  execute:
+    name: Cherry pick
     runs-on: ubuntu-latest
     if: |
       github.event.issue.pull_request &&
@@ -36,18 +23,18 @@ jobs:
       pull-requests: write
       contents: write
     steps:
-    # TODO(lucchmielowski): Fix issue for commands with dash in their name then reactivate for finer-grained controls
-    # - name: Check for Command
-    #    id: command
-    #    uses: xt0rted/slash-command-action@v2
-    #   continue-on-error: true
-    #   with:
-    #     command: cherry-pick
-    #     reaction: "true"
-    #     reaction-type: "+1"
-    #     allow-edits: "false"
-    #     permission-level: write
-    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+      # TODO(lucchmielowski): Fix issue for commands with dash in their name then reactivate for finer-grained controls
+      # - name: Check for Command
+      #    id: command
+      #    uses: xt0rted/slash-command-action@v2
+      #   continue-on-error: true
+      #   with:
+      #     command: cherry-pick
+      #     reaction: "true"
+      #     reaction-type: "+1"
+      #     allow-edits: "false"
+      #     permission-level: write
+      #     repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       # NOTE: can be removed if slash-command-action is uncommented
       - name: React to comment
@@ -79,24 +66,23 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          
+
           # Keep only the first line
           first_line="$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | head -n1)"
           candidate="$(printf '%s' "$first_line" | awk '{print $2}')"
-          
+
           if [ -z "${candidate:-}" ]; then
             echo "No branch in comment (expected: /cherry-pick <branch>)" >&2
             exit 1
           fi
-          
+
           # Validate branch format using git
           if ! git check-ref-format --branch "$candidate"; then
             echo "Invalid branch name: $candidate" >&2
             exit 1
           fi
-          
-          echo "branch=$candidate" >> "$GITHUB_OUTPUT"
 
+          echo "branch=$candidate" >> "$GITHUB_OUTPUT"
 
       - name: Comment PR Unmerged
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
@@ -129,8 +115,7 @@ jobs:
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
           GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
-          message: |            
+          message: |
             :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
-            
+
             Please check workflow logs.
-            

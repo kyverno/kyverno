@@ -6,7 +6,7 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -87,11 +87,11 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func generateKey(policy kyvernov1.PolicyInterface, ruleName string, imageRef string) string {
+func generateKey(policy metav1.Object, ruleName string, imageRef string) string {
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
-func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
@@ -109,7 +109,7 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil

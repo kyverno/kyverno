@@ -15,7 +15,6 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -1088,6 +1087,67 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
+func Test_Apply_CleanupPolicies(t *testing.T) {
+	type testCase struct {
+		name      string
+		config    ApplyCommandConfig
+		wantPass  int
+		wantFail  int
+		wantRules int
+	}
+
+	testcases := []*testCase{
+		{
+			name: "namespaced-cleanup-policy-match-vs-nomatch",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1, // cleanup-pod-1 would be deleted
+			wantFail:  1, // cleanup-pod-2 would NOT be deleted
+			wantRules: 2,
+		},
+		{
+			name: "cluster-cleanup-policy-match-only",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1,
+			wantFail:  0,
+			wantRules: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
+			assert.NoError(t, err)
+
+			passCount := 0
+			failCount := 0
+			rulesCount := 0
+			for _, resp := range responses {
+				for _, rule := range resp.PolicyResponse.Rules {
+					rulesCount++
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						passCount++
+					case engineapi.RuleStatusFail:
+						failCount++
+					}
+				}
+			}
+
+			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
+			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
+			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
+		})
+	}
+}
+
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -1510,9 +1570,13 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy JWT (3 requests: 2 denied, 1 allowed)
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
-				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/request.json"},
-				PolicyReport:      true,
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				EnvoyPayloadPaths: []string{
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-empty.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-forbidden.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-pass.json",
+				},
+				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1523,20 +1587,38 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		},
 	}
 	for i, tc := range testcases {
-		tc := tc
 		t.Run(fmt.Sprintf("authz-case-%d", i), func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
-						t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
-					}
-					panic(r)
-				}
-			}()
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
 
+}
+
+func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+					"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml",
+				},
+				HTTPPayloadPaths:  []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("mixed-authz-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
 }
 
 func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
@@ -1562,22 +1644,55 @@ func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_loadEnvoyRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"empty"}}}}},
-	  {"attributes":{"request":{"http":{"headers":{"authorization":"bearer token"}}}}}
-	]`
-	reqs, err := processor.LoadEnvoyRequests(content)
+func TestCommandWithEnvoyPayloadNoResource(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+				t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+			}
+			panic(r)
+		}
+	}()
+
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"../../../../../test/cli/test-validating-policy/envoy-allow/request.json",
+	})
+	err := cmd.Execute()
 	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
 }
 
-func Test_loadHTTPRequests_Array(t *testing.T) {
-	content := `[
-	  {"attributes":{"method":"GET","host":"example.com","path":"/"}},
-	  {"attributes":{"method":"POST","host":"example.com","path":"/submit"}}
-	]`
-	reqs, err := processor.LoadHTTPRequests(content)
-	assert.NoError(t, err)
-	assert.Len(t, reqs, 2)
+func TestCommandWithInvalidHTTPPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+		"--http-payload",
+		"./does-not-exist-http.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse HTTP payload from")
+}
+
+func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"./does-not-exist-envoy.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse envoy payload from")
 }
