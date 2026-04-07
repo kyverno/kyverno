@@ -20,6 +20,8 @@ const (
 	mutatingPoliciesAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicies"
 	mutatingBindingsBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicybindings"
 	mutatingBindingsAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicybindings"
+	validatingPoliciesV1  = "admissionregistration.k8s.io/v1/validatingadmissionpolicies"
+	validatingBindingsV1  = "admissionregistration.k8s.io/v1/validatingadmissionpolicybindings"
 )
 
 type mockAuthChecker struct {
@@ -226,7 +228,7 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
 				},
 			},
 			expect: true,
@@ -236,7 +238,7 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
 				},
 			},
 			expect: true,
@@ -264,6 +266,79 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 	}
 }
 
+func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources []*metav1.APIResourceList
+		expect    MutatingAdmissionPolicyVersion
+		expectErr bool
+	}{
+		{
+			name: "v1beta1 preferred when both resources are present",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1beta1,
+		},
+		{
+			name: "v1alpha1 fallback when beta resources are absent",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1alpha1,
+		},
+		{
+			name: "missing binding resource is treated as unsupported",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "fallback to v1alpha1 when v1beta1 is partial",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+				},
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1alpha1,
+		},
+		{
+			name:      "no supported version",
+			resources: []*metav1.APIResourceList{},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := fake.NewClientset()
+			client.Fake.Resources = tt.resources
+			version, err := PreferredMutatingAdmissionPolicyVersion(client)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.expect, version)
+		})
+	}
+}
+
 func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -276,7 +351,7 @@ func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1",
-					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}, {Name: "validatingadmissionpolicybindings"}},
 				},
 			},
 			expect: true,
@@ -286,10 +361,21 @@ func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}, {Name: "validatingadmissionpolicybindings"}},
 				},
 			},
 			expect: true,
+		},
+		{
+			name: "binding resource is required",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
+				},
+			},
+			expect:    false,
+			expectErr: true,
 		},
 		{
 			name:      "neither present",

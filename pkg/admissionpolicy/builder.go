@@ -15,6 +15,7 @@ import (
 	slicesutils "github.com/kyverno/kyverno/pkg/utils/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -317,6 +318,97 @@ func BuildMutatingAdmissionPolicyBinding(
 	}
 	// set binding spec
 	mapbinding.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	// set labels
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
+// BuildMutatingAdmissionPolicyBeta is used to build a Kubernetes MutatingAdmissionPolicy (v1beta1) from a MutatingPolicy
+func BuildMutatingAdmissionPolicyBeta(
+	mapol *admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := make([]admissionregistrationv1beta1.MatchCondition, 0)
+	// convert celexceptions if exist
+	for _, exception := range exceptions {
+		for _, matchCondition := range exception.Spec.MatchConditions {
+			// negate the match condition
+			expression := "!(" + matchCondition.Expression + ")"
+			matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition{
+				Name:       matchCondition.Name,
+				Expression: expression,
+			})
+		}
+	}
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition(mc))
+	}
+	// set owner reference
+	mapol.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1beta1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+
+	var fpt *admissionregistrationv1beta1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := admissionregistrationv1beta1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		fpt = &conv
+	}
+
+	// set policy spec
+	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
+		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
+				return admissionregistrationv1beta1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: rule.RuleWithOperations,
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
+			return admissionregistrationv1beta1.Mutation{
+				PatchType:          admissionregistrationv1beta1.PatchType(m.PatchType),
+				ApplyConfiguration: (*admissionregistrationv1beta1.ApplyConfiguration)(m.ApplyConfiguration),
+				JSONPatch:          (*admissionregistrationv1beta1.JSONPatch)(m.JSONPatch),
+			}
+		}),
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1beta1.Variable {
+			return admissionregistrationv1beta1.Variable(v)
+		}),
+		FailurePolicy:      fpt,
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+	}
+	// set labels
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
+}
+
+// BuildMutatingAdmissionPolicyBindingBeta is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1beta1) from a MutatingPolicy
+func BuildMutatingAdmissionPolicyBindingBeta(
+	mapbinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1beta1.MutatingPolicy,
+) {
+	// set owner reference
+	mapbinding.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: policiesv1beta1.GroupVersion.String(),
+			Kind:       mp.GetKind(),
+			Name:       mp.GetName(),
+			UID:        mp.GetUID(),
+		},
+	}
+	// set binding spec
+	mapbinding.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
 		PolicyName: "mpol-" + mp.GetName(),
 	}
 	// set labels

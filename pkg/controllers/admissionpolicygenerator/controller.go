@@ -26,9 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -50,17 +52,19 @@ type controller struct {
 	discoveryClient dclient.IDiscovery
 
 	// listers
-	cpolLister       kyvernov1listers.ClusterPolicyLister
-	vpolLister       policiesv1beta1listers.ValidatingPolicyLister
-	nvpolLister      policiesv1beta1listers.NamespacedValidatingPolicyLister
-	mpolLister       policiesv1beta1listers.MutatingPolicyLister
-	nmpolLister      policiesv1beta1listers.NamespacedMutatingPolicyLister
-	polexLister      kyvernov2listers.PolicyExceptionLister
-	celpolexLister   policiesv1beta1listers.PolicyExceptionLister
-	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
-	vapbindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	mapbindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
+	cpolLister            kyvernov1listers.ClusterPolicyLister
+	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
+	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
+	mpolLister            policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
+	polexLister           kyvernov2listers.PolicyExceptionLister
+	celpolexLister        policiesv1beta1listers.PolicyExceptionLister
+	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vapbindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
+	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapbindingLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
+	mapAlphaLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
+	mapbindingAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -82,8 +86,10 @@ func NewController(
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	mapbindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
+	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapbindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
+	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
+	mapbindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {
@@ -153,18 +159,34 @@ func NewController(
 		}
 	}
 
-	// Set up an event handler for when MutatingAdmissionPolicies change
+	// Set up an event handler for when MutatingAdmissionPolicies change (v1beta1)
 	if mapInformer != nil {
 		c.mapLister = mapInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapInformer.Informer(), c.addMAP, c.updateMAP, c.deleteMAP); err != nil {
+		if _, err := controllerutils.AddEventHandlersT(mapInformer.Informer(), c.addMAPBeta, c.updateMAPBeta, c.deleteMAPBeta); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
 
-	// Set up an event handler for when MutatingAdmissionPolicyBindings change
+	// Set up an event handler for when MutatingAdmissionPolicyBindings change (v1beta1)
 	if mapbindingInformer != nil {
 		c.mapbindingLister = mapbindingInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapbindingInformer.Informer(), c.addMAPbinding, c.updateMAPbinding, c.deleteMAPbinding); err != nil {
+		if _, err := controllerutils.AddEventHandlersT(mapbindingInformer.Informer(), c.addMAPbindingBeta, c.updateMAPbindingBeta, c.deleteMAPbindingBeta); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+
+	// Set up an event handler for when MutatingAdmissionPolicies change (v1alpha1)
+	if mapAlphaInformer != nil {
+		c.mapAlphaLister = mapAlphaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapAlphaInformer.Informer(), c.addMAPAlpha, c.updateMAPAlpha, c.deleteMAPAlpha); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+
+	// Set up an event handler for when MutatingAdmissionPolicyBindings change (v1alpha1)
+	if mapbindingAlphaInformer != nil {
+		c.mapbindingAlphaLister = mapbindingAlphaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapbindingAlphaInformer.Informer(), c.addMAPbindingAlpha, c.updateMAPbindingAlpha, c.deleteMAPbindingAlpha); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}

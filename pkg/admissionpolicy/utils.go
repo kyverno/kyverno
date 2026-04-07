@@ -3,6 +3,7 @@ package admissionpolicy
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -11,6 +12,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
+
+type MutatingAdmissionPolicyVersion string
+
+const (
+	MutatingAdmissionPolicyVersionV1alpha1 MutatingAdmissionPolicyVersion = "v1alpha1"
+	MutatingAdmissionPolicyVersionV1beta1  MutatingAdmissionPolicyVersion = "v1beta1"
+)
+
+var errMutatingAdmissionPolicyNotRegistered = fmt.Errorf("mutating admission policy API is not registered")
 
 func hasPermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
 	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "create", "update", "list", "delete")
@@ -58,15 +68,56 @@ func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
 	return hasPermissions(gvr, s)
 }
 
+func isRegistered(kubeClient kubernetes.Interface, group, version string, resources ...string) (bool, error) {
+	resourceList, err := kubeClient.Discovery().ServerResourcesForGroupVersion(schema.GroupVersion{Group: group, Version: version}.String())
+	if err != nil {
+		return false, err
+	}
+	available := make([]string, 0, len(resourceList.APIResources))
+	for _, resource := range resourceList.APIResources {
+		available = append(available, resource.Name)
+	}
+	for _, resource := range resources {
+		if !slices.Contains(available, resource) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (MutatingAdmissionPolicyVersion, error) {
+	versions := []MutatingAdmissionPolicyVersion{
+		MutatingAdmissionPolicyVersionV1beta1,
+		MutatingAdmissionPolicyVersionV1alpha1,
+	}
+	var lastErr error
+	for _, version := range versions {
+		registered, err := isRegistered(
+			kubeClient,
+			"admissionregistration.k8s.io",
+			string(version),
+			"mutatingadmissionpolicies",
+			"mutatingadmissionpolicybindings",
+		)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if registered {
+			return version, nil
+		}
+	}
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", errMutatingAdmissionPolicyNotRegistered
+}
+
 // IsMutatingAdmissionPolicyRegistered checks if MutatingAdmissionPolicies are registered in the API Server.
 // It checks for v1beta1 first, then falls back to v1alpha1.
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
-	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err == nil {
-		return true, nil
-	}
-	groupVersion = schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+	_, err := PreferredMutatingAdmissionPolicyVersion(kubeClient)
+	if err != nil {
 		return false, err
 	}
 	return true, nil
@@ -75,13 +126,16 @@ func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool,
 // IsValidatingAdmissionPolicyRegistered checks if ValidatingAdmissionPolicies are registered in the API Server.
 // It checks for v1 first, then falls back to v1beta1.
 func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
-	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err == nil {
+	registered, err := isRegistered(kubeClient, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "validatingadmissionpolicybindings")
+	if err == nil && registered {
 		return true, nil
 	}
-	groupVersion = schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+	registered, err = isRegistered(kubeClient, "admissionregistration.k8s.io", "v1beta1", "validatingadmissionpolicies", "validatingadmissionpolicybindings")
+	if err != nil {
 		return false, err
+	}
+	if !registered {
+		return false, fmt.Errorf("validating admission policy API is not registered")
 	}
 	return true, nil
 }
