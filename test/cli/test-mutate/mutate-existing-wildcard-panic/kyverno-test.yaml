@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mutate-existing-wildcard-panic
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Namespace
+  policy: warn-context-ns-label
+  resources:
+  - default
+  result: fail
+  rule: warn-on-invalid-or-missing-context-ns-label

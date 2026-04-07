@@ -112,7 +112,7 @@ func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value 
 func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
-		var valueSlice []string
+		valueSlice := make([]string, 0, len(valuesAvailable))
 		for _, val := range valuesAvailable {
 			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
