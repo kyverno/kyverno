@@ -1087,6 +1087,67 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
+func Test_Apply_CleanupPolicies(t *testing.T) {
+	type testCase struct {
+		name      string
+		config    ApplyCommandConfig
+		wantPass  int
+		wantFail  int
+		wantRules int
+	}
+
+	testcases := []*testCase{
+		{
+			name: "namespaced-cleanup-policy-match-vs-nomatch",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1, // cleanup-pod-1 would be deleted
+			wantFail:  1, // cleanup-pod-2 would NOT be deleted
+			wantRules: 2,
+		},
+		{
+			name: "cluster-cleanup-policy-match-only",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1,
+			wantFail:  0,
+			wantRules: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
+			assert.NoError(t, err)
+
+			passCount := 0
+			failCount := 0
+			rulesCount := 0
+			for _, resp := range responses {
+				for _, rule := range resp.PolicyResponse.Rules {
+					rulesCount++
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						passCount++
+					case engineapi.RuleStatusFail:
+						failCount++
+					}
+				}
+			}
+
+			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
+			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
+			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
+		})
+	}
+}
+
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
