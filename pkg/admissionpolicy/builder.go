@@ -373,11 +373,20 @@ func BuildMutatingAdmissionPolicyBeta(
 		},
 		MatchConditions: matchConditions,
 		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
-			return admissionregistrationv1beta1.Mutation{
-				PatchType:          admissionregistrationv1beta1.PatchType(m.PatchType),
-				ApplyConfiguration: (*admissionregistrationv1beta1.ApplyConfiguration)(m.ApplyConfiguration),
-				JSONPatch:          (*admissionregistrationv1beta1.JSONPatch)(m.JSONPatch),
+			mut := admissionregistrationv1beta1.Mutation{
+				PatchType: admissionregistrationv1beta1.PatchType(m.PatchType),
 			}
+			if m.ApplyConfiguration != nil {
+				mut.ApplyConfiguration = &admissionregistrationv1beta1.ApplyConfiguration{
+					Expression: m.ApplyConfiguration.Expression,
+				}
+			}
+			if m.JSONPatch != nil {
+				mut.JSONPatch = &admissionregistrationv1beta1.JSONPatch{
+					Expression: m.JSONPatch.Expression,
+				}
+			}
+			return mut
 		}),
 		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1beta1.Variable {
 			return admissionregistrationv1beta1.Variable(v)
