@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/image"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -124,6 +125,27 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
+	libEnvOpts := []cel.EnvOption{
+		globalcontext.Lib(
+			globalcontext.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Latest(),
+		),
+		resource.Lib(
+			namespace,
+			resource.Latest(),
+		),
+	}
+	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
+	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+		libEnvOpts = append(libEnvOpts, http.Lib(
+			http.Latest(),
+		))
+	}
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: dpolCompilerVersion,
@@ -132,24 +154,7 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				globalcontext.Lib(
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Latest(),
-				),
-				resource.Lib(
-					namespace,
-					resource.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {

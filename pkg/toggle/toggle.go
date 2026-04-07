@@ -41,6 +41,11 @@ const (
 	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
 	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
 	defaultAutogenV2     = false
+	// allow HTTP in namespaced policies
+	AllowHTTPInNamespacedPoliciesFlagName    = "allowHTTPInNamespacedPolicies"
+	AllowHTTPInNamespacedPoliciesDescription = "Set the flag to 'true', to enable HTTP calls in namespaced policies. This should only be set when combined with restrictive network policies."
+	allowHTTPInNamespacedPoliciesEnvVar      = "FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES"
+	defaultAllowHTTPInNamespacedPolicies     = false
 )
 
 var (
@@ -51,6 +56,7 @@ var (
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
+	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
 )
 
 type ToggleFlag interface {
