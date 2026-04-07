@@ -17,10 +17,10 @@ import (
 // based on which listers are initialised, with v1beta1 taking precedence.
 func TestPreferredMAPVersion(t *testing.T) {
 	tests := []struct {
-		name       string
-		setup      func(*controller)
-		wantVer    admissionpolicy.MutatingAdmissionPolicyVersion
-		wantOk     bool
+		name    string
+		setup   func(*controller)
+		wantVer admissionpolicy.MutatingAdmissionPolicyVersion
+		wantOk  bool
 	}{
 		{
 			name:    "v1beta1 preferred when only beta lister is set",
