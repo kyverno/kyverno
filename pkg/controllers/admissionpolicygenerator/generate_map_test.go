@@ -23,28 +23,42 @@ func TestPreferredMAPVersion(t *testing.T) {
 		wantOk  bool
 	}{
 		{
-			name:    "v1beta1 preferred when only beta lister is set",
-			setup:   func(c *controller) { c.mapLister = &mockMAPBetaLister{} },
-			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1beta1,
-			wantOk:  true,
-		},
-		{
-			name:    "v1alpha1 used when only alpha lister is set",
-			setup:   func(c *controller) { c.mapAlphaLister = &mockMAPAlphaLister{} },
-			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1,
-			wantOk:  true,
-		},
-		{
-			name: "v1beta1 preferred when both listers are set",
+			name: "v1beta1 when both beta listers are set",
 			setup: func(c *controller) {
 				c.mapLister = &mockMAPBetaLister{}
-				c.mapAlphaLister = &mockMAPAlphaLister{}
+				c.mapbindingLister = &mockMAPBindingBetaLister{}
 			},
 			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1beta1,
 			wantOk:  true,
 		},
 		{
-			name:    "no version when neither lister is set",
+			name: "v1alpha1 when both alpha listers are set",
+			setup: func(c *controller) {
+				c.mapAlphaLister = &mockMAPAlphaLister{}
+				c.mapbindingAlphaLister = &mockMAPBindingAlphaLister{}
+			},
+			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1,
+			wantOk:  true,
+		},
+		{
+			name: "v1beta1 preferred when all four listers are set",
+			setup: func(c *controller) {
+				c.mapLister = &mockMAPBetaLister{}
+				c.mapbindingLister = &mockMAPBindingBetaLister{}
+				c.mapAlphaLister = &mockMAPAlphaLister{}
+				c.mapbindingAlphaLister = &mockMAPBindingAlphaLister{}
+			},
+			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1beta1,
+			wantOk:  true,
+		},
+		{
+			name:    "not ok when only policy lister is set (binding missing)",
+			setup:   func(c *controller) { c.mapLister = &mockMAPBetaLister{} },
+			wantVer: "",
+			wantOk:  false,
+		},
+		{
+			name:    "not ok when neither lister is set",
 			setup:   func(c *controller) {},
 			wantVer: "",
 			wantOk:  false,

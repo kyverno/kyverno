@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -100,7 +101,9 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 			"mutatingadmissionpolicybindings",
 		)
 		if err != nil {
-			lastErr = err
+			if !apierrors.IsNotFound(err) {
+				lastErr = err
+			}
 			continue
 		}
 		if registered {
