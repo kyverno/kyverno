@@ -75,7 +75,7 @@ func TestHasValidatingAdmissionPolicyPermission(t *testing.T) {
 			name: "allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
-					"admissionregistration.k8s.io/v1/validatingadmissionpolicies": true,
+					validatingPoliciesV1: true,
 				},
 			},
 			expected: true,
@@ -109,7 +109,7 @@ func TestHasValidatingAdmissionPolicyBindingPermission(t *testing.T) {
 			name: "allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
-					"admissionregistration.k8s.io/v1/validatingadmissionpolicybindings": true,
+					validatingBindingsV1: true,
 				},
 			},
 			expected: true,
