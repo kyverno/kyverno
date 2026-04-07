@@ -202,14 +202,27 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if not $automountSAToken }}
           volumeMounts:
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
+            {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
-          {{- end }}
-      {{- if not $automountSAToken }}
+            {{- end }}
       volumes:
+        - name: apicall-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                  {{- with .Values.apiCallToken.audience }}
+                  audience: {{ . | quote }}
+                  {{- end }}
+        {{- if not $automountSAToken }}
         - name: serviceaccount-token
           projected:
             defaultMode: 0444
