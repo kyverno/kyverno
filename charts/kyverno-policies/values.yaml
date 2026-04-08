@@ -116,6 +116,12 @@ nameOverride:
 # -- Additional Annotations.
 customAnnotations: {}
 
+# -- Define custom annotations for specific policies.
+# Per-policy entries override defaults when they share the same key.
+customAnnotationsByPolicy: {}
+#  disallow-host-path:
+#    my-custom-annotation: "some-value"
+
 # -- Additional labels.
 customLabels: {}
 
