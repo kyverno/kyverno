@@ -91,6 +91,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/. |
 | nameOverride | string | `nil` | Name override. |
 | customAnnotations | object | `{}` | Additional Annotations. |
+| customAnnotationsByPolicy | object | `{}` | Define custom annotations for specific policies. Per-policy entries override defaults when they share the same key. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |
 | skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
