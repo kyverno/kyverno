@@ -121,7 +121,7 @@ vpolExclude: {}
   #       name: default
   #   matchConditions:
   #     - name: exclude-custom
-  #       expression: "object.metadata.name.startsWith('temp-')"
+  #       expression: "!object.metadata.name.startsWith('temp-')"
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.
