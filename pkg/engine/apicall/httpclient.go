@@ -82,5 +82,5 @@ func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
 	}
-	return c.inner.Do(req)
+	return c.inner.Do(req) //nolint:gosec // SSRF is mitigated by the SDK HTTP library's blocklist/allowlist filter before requests reach this client
 }

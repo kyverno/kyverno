@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+#
+# Combined test for CEL http.get() in NamespacedValidatingPolicies.
+#
+# Phase 1  – default (allowHTTPInNamespacedPolicies=false)
+#   The http.* CEL library is not registered for namespaced policies, so any
+#   policy that references http.get() fails to compile and is never added to
+#   the webhook. ConfigMap creation must succeed (policy has no effect).
+#
+# Phase 2  – flag enabled (allowHTTPInNamespacedPolicies=true, httpBlocklist=)
+#   The admission controller is patched to enable the flag and clear the
+#   default SSRF blocklist (necessary because any ClusterIP falls within the
+#   blocked 10.0.0.0/8 range). The policy compiles, http.get() calls the
+#   in-cluster json-server, and ConfigMap creation is denied. The denial
+#   message contains "statusCode=200" proving the http call succeeded.
+#
+#   The enable-flag step's finally block reverts the deployment to its
+#   original args regardless of pass/fail.
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-http-namespaced
+spec:
+  concurrent: false
+  steps:
+  - name: create-namespace-and-json-server
+    try:
+    - create:
+        file: namespace.yaml
+    - create:
+        file: json-server.yaml
+    - assert:
+        timeout: 90s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: json-server
+            namespace: test-cel-http
+          status:
+            (conditions[?type == 'Ready'])[0]:
+              status: "True"
+
+  - name: apply-policy
+    try:
+    - create:
+        file: policy.yaml
+
+  # Phase 1: policy not active – ConfigMap creation must succeed.
+  - name: phase-1-http-blocked-by-default
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-phase1
+            namespace: test-cel-http
+          data:
+            key: value
+
+  # Patch the admission controller to enable http in namespaced policies.
+  # --httpBlocklist= clears the default SSRF blocklist so the in-cluster
+  # json-server ClusterIP (10.x.x.x) is reachable.
+  # The finally block reverts the deployment to its original state.
+  - name: enable-allow-http-in-namespaced-policies
+    try:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          # Persist the original args as a JSON array so the finally block can restore them.
+          kubectl get deployment kyverno-admission-controller -n kyverno \
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]' \
+            > /tmp/kyverno-original-args.json
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch='[
+              {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--allowHTTPInNamespacedPolicies=true"},
+              {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--httpBlocklist="}
+            ]'
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+    finally:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          ORIGINAL=$(cat /tmp/kyverno-original-args.json)
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ORIGINAL}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+
+  # Wait for the policy to be compiled and installed in the webhook now that
+  # the http library is available.
+  - name: wait-for-policy-ready
+    use:
+      template: ../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: nvpol-cel-http-probe
+        - name: namespace
+          value: test-cel-http
+
+  # Phase 2: policy active – ConfigMap creation must be denied.
+  # The error message contains "statusCode=200" confirming the http.get()
+  # call actually reached the json-server.
+  - name: phase-2-http-enabled-policy-enforces
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-phase2
+            namespace: test-cel-http
+          data:
+            key: value
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cel-http-test')): true
+            (contains($error, 'statusCode=200')): true
