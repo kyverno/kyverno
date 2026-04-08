@@ -54,7 +54,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Types(compiler.NamespaceType.CelType()),
 		cel.Types(compiler.RequestType.CelType()),
-		globalcontext.Lib(image.Latest()),
+		globalcontext.Lib(globalcontext.Latest()),
 		image.Lib(image.Latest()),
 		imagedata.Lib(imagedata.Latest()),
 		resource.Lib(policy.GetNamespace(), resource.Latest()),
