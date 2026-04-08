@@ -41,6 +41,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "require-drop-all") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
@@ -95,6 +96,7 @@ spec:
         - resources:
             kinds:
               - Pod
+            {{- include "kyverno-policies.namespaceMatch" . | nindent 12 }}
       {{- with merge (index .Values "policyExclude" "adding-capabilities-strict") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
