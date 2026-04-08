@@ -93,7 +93,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 		),
 	}
 	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
-	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		libEnvOpts = append(libEnvOpts, http.Lib(
 			http.Latest(),
 		))
@@ -103,7 +103,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 			IntroducedVersion: gpolCompilerVersion,
 			EnvOptions:        baseOpts,
 		},
-		// libaries
+		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
 			EnvOptions:        libEnvOpts,

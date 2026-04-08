@@ -65,6 +65,7 @@ type ToggleFlag interface {
 
 type Toggle interface {
 	ToggleFlag
+	Enabled() bool
 	enabled() bool
 }
 
@@ -98,6 +99,10 @@ func (t *toggle) enabled() bool {
 		return *value
 	}
 	return t.defaultValue
+}
+
+func (t *toggle) Enabled() bool {
+	return t.enabled()
 }
 
 func getBool(in string) (*bool, error) {

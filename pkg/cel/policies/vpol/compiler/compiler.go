@@ -264,7 +264,7 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions:        baseOpts,
 		},
-		// libaries
+		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions:        libEnvOpts,
