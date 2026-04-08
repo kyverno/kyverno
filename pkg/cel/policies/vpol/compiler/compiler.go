@@ -254,7 +254,7 @@ func (c *compilerImpl) createBaseVpolEnv(namespace string) (*environment.EnvSet,
 		),
 	}
 	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
-	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		libEnvOpts = append(libEnvOpts, http.Lib(
 			http.Latest(),
 		))
