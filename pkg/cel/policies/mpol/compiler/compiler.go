@@ -61,7 +61,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 		user.Lib(user.Latest()),
 	}
 	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
-	if policy.GetNamespace() == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+	if policy.GetNamespace() == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		libEnvOpts = append(libEnvOpts, cel.Variable(compiler.HttpKey, http.ContextType), http.Lib(http.Latest()))
 	}
 	extendedEnvSet, err := baseEnvSet.Extend(
