@@ -172,18 +172,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
-			auditAnnotations := make(map[string]string, 0)
-			for key, annotation := range c.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
-				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
-				}
-				// evaluate only when rule fails
-				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
-					auditAnnotations[key] = outcome
-				} else if err != nil {
-					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
-				}
+			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+			if err != nil {
+				return nil, err
 			}
 			return &EvaluationResult{
 				Result:           outcome,
@@ -196,7 +187,27 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
-	return &EvaluationResult{Result: true}, nil
+	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
+	auditAnnotations := make(map[string]string, len(c.auditAnnotations))
+	for key, annotation := range c.auditAnnotations {
+		out, _, err := annotation.ContextEval(ctx, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+		}
+		if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+			auditAnnotations[key] = outcome
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+		}
+	}
+	return auditAnnotations, nil
 }
 
 func (p *compiledPolicy) match(
