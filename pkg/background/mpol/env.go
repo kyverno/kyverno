@@ -90,7 +90,7 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 			transform.Latest(),
 		),
 	}
-	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+	if namespace == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		libEnvOpts = append(libEnvOpts, http.Lib(
 			http.Latest(),
 		))
