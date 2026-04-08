@@ -103,7 +103,7 @@ func buildMpolTargetEvalEnv(namespace string) (*cel.Env, error) {
 			IntroducedVersion: targetConstraintsEnvironmentVersion,
 			EnvOptions:        baseOpts,
 		},
-		// libaries
+		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: targetConstraintsEnvironmentVersion,
 			EnvOptions:        libEnvOpts,
