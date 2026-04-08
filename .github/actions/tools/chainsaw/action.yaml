@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install Chainsaw
+description: Install Chainsaw (E2E test runner)
+
+runs:
+  using: composite
+  steps:
+    - uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      with:
+        verify: true
+        release: v0.2.15-beta.3

@@ -117,6 +117,7 @@ We’re here to help:
 Thank you for your interest in contributing to Kyverno!
 
 - ✅ Read the [Contribution Guidelines](/CONTRIBUTING.md)
+- 🤖 Read The [AI_Usage_Policy](https://github.com/kyverno/community/blob/main/AI_USAGE_POLICY.md)
 - 🧵 Join [GitHub Discussions](https://github.com/kyverno/kyverno/discussions)
 - 📖 Read the [Development Guide](/DEVELOPMENT.md)
 - 🏁 Check [Good First Issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) and request with `/assign`
@@ -141,7 +142,7 @@ _Made with [contributors-img](https://contrib.rocks)_
 
 ## 📄 License
 
-Copyright 2025, the Kyverno project. All rights reserved.  
+Copyright 2026, the Kyverno project. All rights reserved.  
 Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).

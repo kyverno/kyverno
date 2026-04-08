@@ -12,7 +12,7 @@ spec:
   variables:
     - name: apiResponse
       expression: >-
-        http.Get("http://test-api-service.default.svc.cluster.local:80")
+        http.get("http://test-api-service.default.svc.cluster.local:80")
     - name: envLabel
       expression: >-
         has(variables.apiResponse) && has(variables.apiResponse.metadata) && has(variables.apiResponse.metadata.labels) && 'app' in variables.apiResponse.metadata.labels ? variables.apiResponse.metadata.labels.app : 'unknown'
@@ -26,4 +26,4 @@ spec:
                 env: variables.envLabel
               }
             }
-          } 
+          }

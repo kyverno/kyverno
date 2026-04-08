@@ -92,10 +92,18 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
-{{/* Custom annotations */}}
+{{/* Custom annotations with per-policy overrides.
+     Merges default customAnnotations with per-policy overrides.
+     Per-policy entries override defaults when they share the same key.
+     Receives dict with "name" (policy name) and "values" (.Values). */}}
 {{- define "kyverno-policies.customAnnotations" -}}
-{{- with .Values.customAnnotations -}}
-{{- toYaml . -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaults := $values.customAnnotations | default dict -}}
+{{- $overrides := index $values.customAnnotationsByPolicy $policyName | default dict -}}
+{{- $merged := merge $overrides $defaults -}}
+{{- if gt (len $merged) 0 -}}
+{{- toYaml $merged -}}
 {{- end -}}
 {{- end -}}
 
@@ -112,9 +120,9 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
 {{- if eq . "Enforce" -}}
-{{- list "Deny" -}}
+{{- list "Deny" | toYaml -}}
 {{- else -}}
-{{- list "Audit" -}}
+{{- list "Audit" | toYaml -}}
 {{- end -}}
 {{- end -}}
 

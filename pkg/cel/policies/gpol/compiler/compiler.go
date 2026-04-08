@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -9,21 +10,23 @@ import (
 	"github.com/google/cel-go/ext"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	cellibs "github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/json"
-	"github.com/kyverno/kyverno/pkg/cel/libs/math"
-	"github.com/kyverno/kyverno/pkg/cel/libs/random"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/libs/time"
-	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
-	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
-	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/sdk/cel/libs/generator"
+	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/gzip"
+	"github.com/kyverno/sdk/cel/libs/hash"
+	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/imagedata"
+	"github.com/kyverno/sdk/cel/libs/json"
+	"github.com/kyverno/sdk/cel/libs/math"
+	"github.com/kyverno/sdk/cel/libs/random"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/libs/time"
+	"github.com/kyverno/sdk/cel/libs/transform"
+	"github.com/kyverno/sdk/cel/libs/x509"
+	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -45,7 +48,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -54,12 +57,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 		cel.Types(compiler.NamespaceType.CelType()),
 		cel.Types(compiler.RequestType.CelType()),
-		cel.Variable(compiler.GeneratorKey, generator.ContextType),
-		cel.Variable(compiler.ResourceKey, resource.ContextType),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 	)
 
 	base := environment.MustBaseEnvSet(gpolCompilerVersion)
@@ -77,6 +75,72 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
+	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
+	libEnvOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		generator.Lib(
+			generator.Context{ContextInterface: libsctx},
+			generator.Latest(),
+		),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+	}
+	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
+		httpCtx, err := compiler.NewCELHTTPContext()
+		if err != nil {
+			return nil, nil, err
+		}
+		libEnvOpts = append(libEnvOpts, http.Lib(
+			http.Context{ContextInterface: httpCtx},
+			http.Latest(),
+		))
+	}
+
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
 	extendedBase, err := base.Extend(
@@ -84,58 +148,10 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 			IntroducedVersion: gpolCompilerVersion,
 			EnvOptions:        baseOpts,
 		},
-		// libaries
+		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[cellibs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				generator.Lib(
-					generator.Latest(),
-				),
-				globalcontext.Lib(
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Latest(),
-				),
-				resource.Lib(
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {
@@ -146,7 +162,7 @@ func createBaseGpolEnv(namespace string) (*environment.EnvSet, *compiler.Variabl
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(policy.GetNamespace())
+	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}

@@ -125,7 +125,7 @@ func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value 
 func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
-		var valueSlice []string
+		valueSlice := make([]string, 0, len(valuesAvailable))
 		for _, val := range valuesAvailable {
 			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
@@ -135,7 +135,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		return false, isAnyIn(key, valueSlice)
 
 	case int, int32, int64, float32, float64, bool:
-		var valueSlice []string
+		valueSlice := make([]string, 0, 1)
 		valueSlice = append(valueSlice, fmt.Sprint(value))
 		if anyNotIn {
 			return false, isAnyNotIn(key, valueSlice)

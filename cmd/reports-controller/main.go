@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -27,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
@@ -117,6 +121,7 @@ func createReportControllers(
 			policiesV1beta1.ValidatingPolicies(),
 			policiesV1beta1.NamespacedValidatingPolicies(),
 			policiesV1beta1.MutatingPolicies(),
+			policiesV1beta1.NamespacedMutatingPolicies(),
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
@@ -188,6 +193,7 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
+				internal.ExceptionNamespace(),
 				gcstore,
 				restMapper,
 				typeConverter,
@@ -277,6 +283,7 @@ func main() {
 		omitEvents                       string
 		skipResourceFilters              bool
 		maxAPICallResponseLength         int64
+		apiCallTimeout                   time.Duration
 		maxBackgroundReports             int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
@@ -293,8 +300,12 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
+	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
+	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
+	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -325,6 +336,12 @@ func main() {
 		internal.WithDefaultQps(300),
 		internal.WithDefaultBurst(300),
 	)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
+	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
+	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup
@@ -347,6 +364,21 @@ func main() {
 			}
 		}
 		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
+
+		// call NewContextProvider to initialize the libraries context globally, needed during background scan
+		gcstore := store.New()
+		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
+		_, err := libs.NewContextProvider(
+			setup.KyvernoDynamicClient,
+			nil,
+			gcstore,
+			restMapper,
+			false,
+		)
+		if err != nil {
+			setup.Logger.Error(err, "failed to create cel context provider")
+			os.Exit(1)
+		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
@@ -362,7 +394,6 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		gcstore := store.New()
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
@@ -373,6 +404,7 @@ func main() {
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
+				apiCallTimeout,
 				false,
 				setup.Jp,
 			),
@@ -390,7 +422,7 @@ func main() {
 			setup.KubeClient,
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
 			polexCache,
 			gcstore,
 		)

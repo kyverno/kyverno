@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.35.0
+KIND_IMAGE           ?= kindest/node:v1.35.1
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -57,11 +57,14 @@ HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.18.1
+# Newer than v0.18.1: Docker 29+ requires API >= 1.44 when loading images; bump to next ko tag once released.
+KO_VERSION                         ?= v0.18.2-0.20260320010637-757161aaa19e
+GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
+GOLANGCI_LINT_VERSION              ?= v2.11.4
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -121,6 +124,10 @@ $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
 
+$(GOLANGCI_LINT):
+	@echo Install golangci-lint... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
 $(API_GROUP_RESOURCES):
 	@echo Install api-group-resources... >&2
 	@cd ./hack/api-group-resources && GOBIN=$(TOOLS_DIR) go install
@@ -142,24 +149,21 @@ clean-tools: ## Remove installed tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR            := cmd
-KYVERNO_DIR        := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR     := $(CMD_DIR)/kyverno-init
-CLI_DIR            := $(CMD_DIR)/cli/kubectl-kyverno
-CLEANUP_DIR        := $(CMD_DIR)/cleanup-controller
-REPORTS_DIR        := $(CMD_DIR)/reports-controller
-BACKGROUND_DIR     := $(CMD_DIR)/background-controller
-READINESS_DIR      := $(CMD_DIR)/readiness-checker
-WEBHOOK_CLEANUP_DIR := $(CMD_DIR)/tools/webhook-cleanup
-KYVERNO_BIN        := $(KYVERNO_DIR)/kyverno
-KYVERNOPRE_BIN     := $(KYVERNOPRE_DIR)/kyvernopre
-CLI_BIN            := $(CLI_DIR)/kubectl-kyverno
-CLEANUP_BIN        := $(CLEANUP_DIR)/cleanup-controller
-REPORTS_BIN        := $(REPORTS_DIR)/reports-controller
-BACKGROUND_BIN     := $(BACKGROUND_DIR)/background-controller
-READINESS_BIN      := $(READINESS_DIR)/readiness-checker
-WEBHOOK_CLEANUP_BIN := $(WEBHOOK_CLEANUP_DIR)/webhook-cleanup
-
+CMD_DIR        := cmd
+KYVERNO_DIR    := $(CMD_DIR)/kyverno
+KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
+CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
+CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR    := $(CMD_DIR)/reports-controller
+BACKGROUND_DIR := $(CMD_DIR)/background-controller
+READINESS_DIR  := $(CMD_DIR)/readiness-checker
+KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
+CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
+CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
+BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
+READINESS_BIN  := $(READINESS_DIR)/readiness-checker
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 ifdef VERSION
@@ -199,6 +203,12 @@ imports-check: imports
 	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
 	@git diff --quiet --exit-code .
 
+.PHONY: lint
+lint: ## Run golangci-lint
+lint: $(GOLANGCI_LINT)
+	@echo Run golangci-lint... >&2
+	@$(GOLANGCI_LINT) run ./... -c .golangci.yml
+
 .PHONY: unused-package-check
 unused-package-check:
 	@tidy=$$(go mod tidy); \
@@ -230,9 +240,6 @@ $(REPORTS_BIN): fmt
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
-$(WEBHOOK_CLEANUP_BIN): fmt
-	@echo Build webhook cleanup binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(WEBHOOK_CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(WEBHOOK_CLEANUP_DIR)
 $(READINESS_BIN): fmt vet
 	@echo Build readiness-checker binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(READINESS_BIN) -ldflags=$(LD_FLAGS) ./$(READINESS_DIR)
@@ -261,9 +268,6 @@ build-kyverno-init: $(KYVERNOPRE_BIN)
 build-reports-controller: ## Build reports controller binary
 build-reports-controller: $(REPORTS_BIN)
 
-.PHONY: build-webhook-cleanup
-build-webhook-cleanup: ## Build webhook cleanup binary
-build-webhook-cleanup: $(WEBHOOK_CLEANUP_BIN)
 .PHONY: build-readiness-checker
 build-readiness-checker: ## Build readiness-checker binary
 build-readiness-checker: $(READINESS_BIN)
@@ -275,7 +279,6 @@ build-all: build-cli
 build-all: build-kyverno
 build-all: build-kyverno-init
 build-all: build-reports-controller
-build-all: build-webhook-cleanup
 build-all: build-readiness-checker
 
 ##############
@@ -298,7 +301,6 @@ KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
-KO_WEBHOOK_CLEANUP_REPO := $(PACKAGE)/$(WEBHOOK_CLEANUP_DIR)
 KO_READINESS_REPO   := $(PACKAGE)/$(READINESS_DIR)
 
 .PHONY: ko-build-kyverno-init
@@ -337,12 +339,6 @@ ko-build-background-controller: $(KO) ## Build background controller local image
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
-.PHONY: ko-build-webhook-cleanup
-ko-build-webhook-cleanup: $(KO) ## Build webhook cleanup local image (with ko)
-	@echo Build webhook cleanup local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
-		$(KO) build ./$(WEBHOOK_CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
-
 .PHONY: ko-build-readiness-checker
 ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with ko)
 	@echo Build readiness-checker local image with ko... >&2
@@ -350,7 +346,7 @@ ko-build-readiness-checker: $(KO) ## Build readiness-checker local image (with k
 		$(KO) build ./$(READINESS_DIR) --preserve-import-paths --tags=$(KO_TAGS) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-webhook-cleanup ko-build-readiness-checker ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ko-build-readiness-checker ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -645,6 +641,8 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_cleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clustercleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
@@ -869,7 +867,7 @@ test-clean: ## Clean tests cache
 test-unit: ## Run unit tests
 test-unit:
 	@echo Running unit tests... >&2
-	@go test -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
+	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
 #############
 # CLI TESTS #
@@ -887,12 +885,17 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector test-cli-local-ruleless ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
+
+.PHONY: test-cli-local-ruleless
+test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
+	@echo Running local cli ruleless policy tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-ruleless-policy
 
 .PHONY: test-cli-local-vpols
 test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests

@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       Sysctls can disable security mechanisms or affect all containers on a host and should be
       restricted. This policy ensures only safe sysctls are allowed.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -34,7 +34,6 @@ spec:
       message: >-
         Sysctls must be restricted to safe values. The field spec.securityContext.sysctls[*].name
         must be one of the allowed safe sysctls.
-      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
-

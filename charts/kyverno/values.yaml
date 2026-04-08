@@ -238,8 +238,34 @@ crds:
         memory: 64Mi
 
     serviceAccount:
-      # -- Toggle automounting of the ServiceAccount
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
       automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
+
+# -- Scoped token injected into outbound APICall and CEL http requests.
+# This token carries a custom audience so that if leaked to an external service
+# it cannot be replayed against the Kubernetes API server.
+apiCallToken:
+  # -- Audience for the projected token used in outbound requests.
+  # Set this to the audience your receiving service validates in the OIDC token's
+  # `aud` claim. The default is `kyverno-svc.kyverno.io`, which is a Kyverno-specific
+  # audience and prevents the token from being accepted by the Kubernetes API server.
+  audience: "kyverno-svc.kyverno.io"
+  # -- Token lifetime in seconds for the projected outbound API call token.
+  # The default is `3600` (1 hour). The kubelet requests a replacement before the
+  # token expires, so lowering this reduces token lifetime while increasing rotation
+  # frequency.
+  expirationSeconds: 3600
 
 # Configuration
 config:
@@ -533,7 +559,7 @@ test:
     repository: kyverno/readiness-checker
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'v0.1.0'
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -566,8 +592,19 @@ test:
     seccompProfile:
       type: RuntimeDefault
 
-  # -- Toggle automounting of the ServiceAccount
+  # -- Toggle automounting of the ServiceAccount.
+  # When set to false, a projected service account token is used instead
+  # which provides time-limited and audience-bound tokens for improved security.
   automountServiceAccountToken: true
+
+  # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+  projectedServiceAccountToken:
+    # -- Token expiration time in seconds.
+    # The kubelet will request a new token before the token expires.
+    expirationSeconds: 3600
+    # -- Audience for the projected service account token.
+    # If not set, the token will have no audience restriction.
+    audience: ""
 
   # -- Node labels for pod assignment
   nodeSelector: {}
@@ -586,19 +623,14 @@ webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
 
-  autoDeleteWebhooks:
-    # -- Allow webhooks controller to delete webhooks using finalizers
-    enabled: false
-
   image:
     # -- (string) Image registry
-    registry: ~
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/kyverno/cmd/tools/webhook-cleanup
+    repository: kyverno/readiness-checker
     # -- Image tag
-    # Defaults to current release tag if omitted
-    tag: ~
     # Defaults to `latest` if omitted
+    tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -655,8 +687,19 @@ webhooksCleanup:
       memory: 64Mi
 
   serviceAccount:
-    # -- Toggle automounting of the ServiceAccount
+    # -- Toggle automounting of the ServiceAccount.
+    # When set to false, a projected service account token is used instead
+    # which provides time-limited and audience-bound tokens for improved security.
     automountServiceAccountToken: true
+
+    # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+    projectedServiceAccountToken:
+      # -- Token expiration time in seconds.
+      # The kubelet will request a new token before the token expires.
+      expirationSeconds: 3600
+      # -- Audience for the projected service account token.
+      # If not set, the token will have no audience restriction.
+      audience: ""
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -752,6 +795,8 @@ features:
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
+    # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
+    apiCallTimeout: 30s
   logging:
     # -- Logging format
     format: text
@@ -811,6 +856,9 @@ admissionController:
     # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 80
 
+    # -- (int) Target memory utilization percentage
+    targetMemoryUtilizationPercentage: ~
+
     # -- Configurable scaling behavior
     behavior: {}
 
@@ -838,8 +886,19 @@ admissionController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
       automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1129,6 +1188,8 @@ admissionController:
 
     # -- Container security context
     securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1174,6 +1235,8 @@ admissionController:
 
     # -- Container security context
     securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1341,8 +1404,19 @@ backgroundController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
       automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -1532,6 +1606,8 @@ backgroundController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -1690,8 +1766,19 @@ cleanupController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
       automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1927,6 +2014,8 @@ cleanupController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2088,8 +2177,19 @@ reportsController:
       annotations: {}
         # example.com/annotation: value
 
-      # -- Toggle automounting of the ServiceAccount
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
       automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
 
     coreClusterRole:
       # -- Extra resource permissions to add in the core cluster role.
@@ -2250,6 +2350,8 @@ reportsController:
 
   # -- Security context for the containers
   securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false

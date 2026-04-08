@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterCleanupPolicy
+metadata:
+  name: cluster-cleanup-namespace
+spec:
+  schedule: '*/1 * * * *'
+  match:
+    any:
+      - resources:
+          kinds:
+            - Namespace
+          name: cleanup-ns
+

@@ -5,7 +5,7 @@ metadata:
   namespace: test-audit-reports-namespacesselector
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: audit-pod
 ---
 apiVersion: v1
@@ -15,5 +15,5 @@ metadata:
   namespace: test-non-audit-reports-namespacesselector
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: non-audit-pod

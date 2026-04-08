@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: "exclude-images"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  matchConditions:
+  - name: allowed-images
+    expression: |
+        object.spec.containers.all(container,
+          string(container.image) in exceptions.allowedImages ||
+          (
+            has(container.securityContext) &&
+            has(container.securityContext.allowPrivilegeEscalation) &&
+            container.securityContext.allowPrivilegeEscalation == false
+          )
+        )
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              foo: "bar"
+            }
+          }
+        }

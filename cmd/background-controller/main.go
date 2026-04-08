@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -34,6 +37,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -126,6 +130,7 @@ func main() {
 		maxQueuedEvents                 int
 		omitEvents                      string
 		maxAPICallResponseLength        int64
+		apiCallTimeout                  time.Duration
 		maxBackgroundReports            int
 		controllerRuntimeMetricsAddress string
 	)
@@ -134,8 +139,12 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
+	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
+	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
+	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
 
 	// config
 	appConfig := internal.NewConfiguration(
@@ -160,6 +169,12 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
+	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
+	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup
@@ -209,6 +224,7 @@ func main() {
 				gcstore,
 				eventGenerator,
 				maxAPICallResponseLength,
+				apiCallTimeout,
 				false,
 				setup.Jp,
 			),
@@ -230,7 +246,7 @@ func main() {
 			setup.KubeClient,
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
 			polexCache,
 			gcstore,
 		)
@@ -285,7 +301,7 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 
-				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient, false)
+				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient)
 				if err != nil {
 					setup.Logger.Error(err, "failed to create RESTMapper")
 					os.Exit(1)
@@ -318,7 +334,7 @@ func main() {
 					compiler,
 					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
 					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
-					kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(),
+					celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()),
 					internal.PolicyExceptionEnabled(),
 				)
 				// create engine
@@ -356,7 +372,7 @@ func main() {
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, mgr, setup.KubeClient.Discovery().OpenAPIV3(), kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.PolicyExceptionEnabled())
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)

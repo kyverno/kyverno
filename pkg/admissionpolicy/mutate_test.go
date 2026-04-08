@@ -572,7 +572,7 @@ func Test_MutateResource(t *testing.T) {
 
 			gvk := resource.GroupVersionKind()
 
-			restMapper, err := utils.GetRESTMapper(nil, false)
+			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
 
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -735,7 +735,7 @@ func Test_MutateResourceWithBackgroundScanEnabled(t *testing.T) {
 
 			gvk := resource.GroupVersionKind()
 
-			restMapper, err := utils.GetRESTMapper(nil, false)
+			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
 
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -791,7 +791,7 @@ func Test_MutateResourceNilMatchConstraints(t *testing.T) {
 	assert.NilError(t, err)
 
 	gvk := resource.GroupVersionKind()
-	restMapper, err := utils.GetRESTMapper(nil, false)
+	restMapper, err := utils.GetRESTMapper(nil)
 	assert.NilError(t, err)
 
 	mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)

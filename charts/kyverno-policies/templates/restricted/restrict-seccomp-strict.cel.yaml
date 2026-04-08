@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       The seccomp profile must be explicitly set to `RuntimeDefault` or `Localhost`.
       This policy ensures that seccomp is set to one of these allowed values.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -55,7 +55,7 @@ spec:
         spec.initContainers[*].securityContext.seccompProfile.type, and
         spec.ephemeralContainers[*].securityContext.seccompProfile.type
         must be set to `RuntimeDefault` or `Localhost`.
-      {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
-      validationActions: {{ $actions | toYaml | nindent 8 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
 {{- end }}
 
