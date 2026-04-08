@@ -145,7 +145,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	options = append(options, declOptions...)
 	options = append(options, image.Lib(image.Latest()), resource.Lib(policy.GetNamespace(), resource.Latest()))
 	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
-	if policy.GetNamespace() == "" || toggle.AllowHTTPInNamespacedPolicies.enabled() {
+	if policy.GetNamespace() == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		options = append(options, http.Lib(http.Latest()))
 	}
 	env, err := base.Extend(options...)
