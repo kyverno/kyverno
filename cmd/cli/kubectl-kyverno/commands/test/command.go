@@ -9,6 +9,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -72,6 +73,9 @@ func testCommandExecute(
 	requireTests bool,
 	removeColor bool,
 ) (err error) {
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
+
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
