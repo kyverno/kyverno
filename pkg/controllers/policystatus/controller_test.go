@@ -24,8 +24,7 @@ import (
 
 func TestRetryStatusUpdate_swallowsNotFound(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	err := retryStatusUpdate(ctx, logr.Discard(), func() error {
+	err := retryStatusUpdate(logr.Discard(), func() error {
 		return apierrors.NewNotFound(schema.GroupResource{Resource: "validatingpolicies"}, "missing")
 	})
 	assert.NoError(t, err)
@@ -33,9 +32,8 @@ func TestRetryStatusUpdate_swallowsNotFound(t *testing.T) {
 
 func TestRetryStatusUpdate_conflictsThenSucceeds(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 	var calls atomic.Int32
-	err := retryStatusUpdate(ctx, logr.Discard(), func() error {
+	err := retryStatusUpdate(logr.Discard(), func() error {
 		if calls.Add(1) == 1 {
 			return apierrors.NewConflict(
 				schema.GroupResource{Group: policiesv1beta1.SchemeGroupVersion.Group, Resource: "validatingpolicies"},
