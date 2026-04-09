@@ -61,6 +61,19 @@ validationFailureActionOverrides:
   #     namespaces:
   #       - fluent
 
+# -- Default audit annotations applied to all ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log.
+# For more info https://kyverno.io/docs/policy-types/validating-policy/#using-auditannotations-to-add-custom-data
+auditAnnotations: {}
+  # policy-evaluated-by: "'kyverno-policies-helm'"
+
+# -- Define audit annotations for specific ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# Per-policy entries override defaults when they share the same key.
+auditAnnotationsByPolicy: {}
+  # disallow-host-path:
+  #   violation-details: >-
+  #     has(object.spec.volumes) ? 'hostPath volumes found: ' + object.spec.volumes.filter(v, has(v.hostPath)).map(v, v.name).join(', ') : 'no volumes'
+
 # -- Validate already existing resources.
 # For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true

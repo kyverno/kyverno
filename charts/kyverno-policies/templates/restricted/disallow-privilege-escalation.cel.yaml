@@ -46,6 +46,7 @@ spec:
         spec.initContainers[*].securityContext.allowPrivilegeEscalation,
         and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
         must be set to `false`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
