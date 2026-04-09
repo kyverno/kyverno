@@ -204,6 +204,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 
 	var cmResolver engineapi.ConfigmapResolver
 	var restMapper meta.RESTMapper
+	var crdPaths []string
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
@@ -216,7 +217,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
 			}
 			if len(src.Spec.CRDs) > 0 {
-				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
+				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
+				crdPaths = append(crdPaths, crdFullPaths...)
+
+				for _, crdFullPath := range crdFullPaths {
 					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
 						return &apiextensionsv1.CustomResourceDefinition{}
 					})
@@ -374,10 +378,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
+			IsFakeClient:                      true,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
+			CrdPaths:                          crdPaths,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

@@ -99,10 +99,11 @@ type PolicyProcessor struct {
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
+	IsFakeClient              bool
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
-	CrdPath                   string
+	CrdPaths                  []string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
@@ -128,8 +129,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.NewOrDie()
 	}
 	isCluster := false
-	if p.CrdPath != "" {
-		if err := p.loadCrd(); err != nil {
+	if len(p.CrdPaths) > 0 {
+		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
 	}
@@ -967,12 +968,23 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
-	if p.Cluster {
-		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
-	} else if p.CrdPath != "" {
-		absPath := getAbsPath(p.CrdPath)
-		diskCrds := os.DirFS(absPath)
-		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+	// Only attempt to call OpenAPIV3() if it is a real cluster client.
+	if p.Cluster && !p.IsFakeClient {
+		if clusterClient := p.Client.GetKubeClient().Discovery().OpenAPIV3(); clusterClient != nil {
+			return clusterClient
+		}
+	}
+	// Fall back to scanning the directories of the specific CRD files
+	if len(p.CrdPaths) > 0 {
+		visitedDirs := make(map[string]bool)
+		for _, crdPath := range p.CrdPaths {
+			absPath := getAbsPath(crdPath)
+			if !visitedDirs[absPath] {
+				diskCrds := os.DirFS(absPath)
+				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+				visitedDirs[absPath] = true
+			}
+		}
 	} else {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
@@ -1162,8 +1174,13 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	return true
 }
 
-func (p *PolicyProcessor) loadCrd() error {
-	return common.LoadCrdFromPath(p.CrdPath)
+func (p *PolicyProcessor) loadCrds() error {
+	for _, crdPath := range p.CrdPaths {
+		if err := common.LoadCrdFromPath(crdPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getAbsPath(path string) string {
