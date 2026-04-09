@@ -25,8 +25,8 @@ func TestPreferredMAPVersion(t *testing.T) {
 		{
 			name: "v1beta1 when both beta listers are set",
 			setup: func(c *controller) {
-				c.mapLister = &mockMAPBetaLister{}
-				c.mapbindingLister = &mockMAPBindingBetaLister{}
+				c.mapBetaLister = &mockMAPBetaLister{}
+				c.mapbindingBetaLister = &mockMAPBindingBetaLister{}
 			},
 			wantVer: admissionpolicy.MutatingAdmissionPolicyVersionV1beta1,
 			wantOk:  true,
@@ -43,8 +43,8 @@ func TestPreferredMAPVersion(t *testing.T) {
 		{
 			name: "v1beta1 preferred when all four listers are set",
 			setup: func(c *controller) {
-				c.mapLister = &mockMAPBetaLister{}
-				c.mapbindingLister = &mockMAPBindingBetaLister{}
+				c.mapBetaLister = &mockMAPBetaLister{}
+				c.mapbindingBetaLister = &mockMAPBindingBetaLister{}
 				c.mapAlphaLister = &mockMAPAlphaLister{}
 				c.mapbindingAlphaLister = &mockMAPBindingAlphaLister{}
 			},
@@ -53,7 +53,7 @@ func TestPreferredMAPVersion(t *testing.T) {
 		},
 		{
 			name:    "not ok when only policy lister is set (binding missing)",
-			setup:   func(c *controller) { c.mapLister = &mockMAPBetaLister{} },
+			setup:   func(c *controller) { c.mapBetaLister = &mockMAPBetaLister{} },
 			wantVer: "",
 			wantOk:  false,
 		},

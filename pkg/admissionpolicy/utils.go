@@ -86,7 +86,10 @@ func isRegistered(kubeClient kubernetes.Interface, group, version string, resour
 	return true, nil
 }
 
+// PreferredMutatingAdmissionPolicyVersion compares the kyverno-supported list of MAP versions to the cluster's versions
+// and returns the latest available one
 func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (MutatingAdmissionPolicyVersion, error) {
+	// TODO: Add MutatingAdmissionPolicyVersionV1 when released and remove alpha
 	versions := []MutatingAdmissionPolicyVersion{
 		MutatingAdmissionPolicyVersionV1beta1,
 		MutatingAdmissionPolicyVersionV1alpha1,

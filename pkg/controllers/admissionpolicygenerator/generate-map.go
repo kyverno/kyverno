@@ -18,7 +18,7 @@ import (
 // Both the policy and binding listers must be set for a version to be considered available.
 // v1beta1 takes precedence over v1alpha1 when both are fully available.
 func (c *controller) preferredMAPVersion() (admissionpolicy.MutatingAdmissionPolicyVersion, bool) {
-	if c.mapLister != nil && c.mapbindingLister != nil {
+	if c.mapBetaLister != nil && c.mapbindingBetaLister != nil {
 		return admissionpolicy.MutatingAdmissionPolicyVersionV1beta1, true
 	}
 	if c.mapAlphaLister != nil && c.mapbindingAlphaLister != nil {

@@ -61,8 +61,8 @@ type controller struct {
 	celpolexLister        policiesv1beta1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
-	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
-	mapbindingLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
+	mapBetaLister         admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
+	mapbindingBetaLister  admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
 	mapAlphaLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	mapbindingAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
 
@@ -86,8 +86,8 @@ func NewController(
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
-	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
-	mapbindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
+	mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
+	mapbindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	mapbindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -160,17 +160,17 @@ func NewController(
 	}
 
 	// Set up an event handler for when MutatingAdmissionPolicies change (v1beta1)
-	if mapInformer != nil {
-		c.mapLister = mapInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapInformer.Informer(), c.addMAPBeta, c.updateMAPBeta, c.deleteMAPBeta); err != nil {
+	if mapBetaInformer != nil {
+		c.mapBetaLister = mapBetaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapBetaInformer.Informer(), c.addMAPBeta, c.updateMAPBeta, c.deleteMAPBeta); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
 
 	// Set up an event handler for when MutatingAdmissionPolicyBindings change (v1beta1)
-	if mapbindingInformer != nil {
-		c.mapbindingLister = mapbindingInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(mapbindingInformer.Informer(), c.addMAPbindingBeta, c.updateMAPbindingBeta, c.deleteMAPbindingBeta); err != nil {
+	if mapbindingBetaInformer != nil {
+		c.mapbindingBetaLister = mapbindingBetaInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapbindingBetaInformer.Informer(), c.addMAPbindingBeta, c.updateMAPbindingBeta, c.deleteMAPbindingBeta); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}

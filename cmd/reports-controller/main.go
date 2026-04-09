@@ -93,9 +93,9 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-	var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+	var mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
 	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-	var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+	var mapBindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
 	var mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
@@ -105,12 +105,17 @@ func createReportControllers(
 		mapVersion, err := admissionpolicy.PreferredMutatingAdmissionPolicyVersion(client.GetKubeClient())
 		if err != nil {
 			logging.GlobalLogger().V(2).Info("MutatingAdmissionPolicy API is not registered, skipping MAP report informers", "error", err)
-		} else if mapVersion == admissionpolicy.MutatingAdmissionPolicyVersionV1beta1 {
-			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
 		} else {
-			mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-			mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+				mapBindingBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+				mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+				mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			default:
+				logging.GlobalLogger().Info("Unsupported MutatingAdmissionPolicy API version, skipping MAP report informers", "version", mapVersion)
+			}
 		}
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -128,7 +133,7 @@ func createReportControllers(
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
-			mapInformer,
+			mapBetaInformer,
 			mapAlphaInformer,
 			metaClient,
 		)
@@ -159,7 +164,7 @@ func createReportControllers(
 					policiesV1beta1.MutatingPolicies(),
 					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
-					mapInformer,
+					mapBetaInformer,
 					mapAlphaInformer,
 				),
 				aggregationWorkers,
@@ -185,9 +190,9 @@ func createReportControllers(
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
-				mapInformer,
+				mapBetaInformer,
 				mapAlphaInformer,
-				mapBindingInformer,
+				mapBindingBetaInformer,
 				mapAlphaBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,

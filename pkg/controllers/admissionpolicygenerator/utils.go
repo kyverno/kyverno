@@ -81,18 +81,18 @@ func (c *controller) getMutatingAdmissionPolicyBinding(name string) (*admissionr
 
 // getMutatingAdmissionPolicyBeta gets the Kubernetes MutatingAdmissionPolicy (v1beta1)
 func (c *controller) getMutatingAdmissionPolicyBeta(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
-	if c.mapLister == nil {
+	if c.mapBetaLister == nil {
 		return nil, fmt.Errorf("MutatingAdmissionPolicy v1beta1 lister is nil")
 	}
-	return c.mapLister.Get(name)
+	return c.mapBetaLister.Get(name)
 }
 
 // getMutatingAdmissionPolicyBindingBeta gets the Kubernetes MutatingAdmissionPolicyBinding (v1beta1)
 func (c *controller) getMutatingAdmissionPolicyBindingBeta(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
-	if c.mapbindingLister == nil {
+	if c.mapbindingBetaLister == nil {
 		return nil, fmt.Errorf("MutatingAdmissionPolicyBinding v1beta1 lister is nil")
 	}
-	return c.mapbindingLister.Get(name)
+	return c.mapbindingBetaLister.Get(name)
 }
 
 // getExceptions get PolicyExceptions that match both the ClusterPolicy and the rule if exists.

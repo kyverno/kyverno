@@ -239,35 +239,44 @@ func BuildValidatingAdmissionPolicyBinding(
 	return nil
 }
 
-// BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
-func BuildMutatingAdmissionPolicy(
-	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
-	mp *policiesv1beta1.MutatingPolicy,
-	exceptions []policiesv1beta1.PolicyException,
-) {
-	matchConditions := make([]admissionregistrationv1alpha1.MatchCondition, 0)
-	// convert celexceptions if exist
-	for _, exception := range exceptions {
-		for _, matchCondition := range exception.Spec.MatchConditions {
-			// negate the match condition
-			expression := "!(" + matchCondition.Expression + ")"
-			matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition{
-				Name:       matchCondition.Name,
-				Expression: expression,
-			})
-		}
-	}
-	for _, mc := range mp.Spec.MatchConditions {
-		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
-	}
-	// set owner reference
-	mapol.OwnerReferences = []metav1.OwnerReference{
+// mutatingPolicyOwnerRef returns the owner reference slice for a MutatingPolicy.
+func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
 		{
 			APIVersion: policiesv1beta1.GroupVersion.String(),
 			Kind:       mp.GetKind(),
 			Name:       mp.GetName(),
 			UID:        mp.GetUID(),
 		},
+	}
+}
+
+// negateExceptionMatchConditions returns negated match conditions for each exception,
+// using the v1 MatchCondition type which is structurally identical to the alpha/beta variants.
+func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
+	var result []admissionregistrationv1.MatchCondition
+	for _, exception := range exceptions {
+		for _, mc := range exception.Spec.MatchConditions {
+			result = append(result, admissionregistrationv1.MatchCondition{
+				Name:       mc.Name,
+				Expression: "!(" + mc.Expression + ")",
+			})
+		}
+	}
+	return result
+}
+
+// BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
+func BuildMutatingAdmissionPolicy(
+	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
+		return admissionregistrationv1alpha1.MatchCondition(mc)
+	})
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
 	}
 
 	var fpt *admissionregistrationv1alpha1.FailurePolicyType
@@ -276,6 +285,8 @@ func BuildMutatingAdmissionPolicy(
 		fpt = &conv
 	}
 
+	// set owner reference
+	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
 		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
@@ -307,20 +318,10 @@ func BuildMutatingAdmissionPolicyBinding(
 	mapbinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	mp *policiesv1beta1.MutatingPolicy,
 ) {
-	// set owner reference
-	mapbinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policiesv1beta1.GroupVersion.String(),
-			Kind:       mp.GetKind(),
-			Name:       mp.GetName(),
-			UID:        mp.GetUID(),
-		},
-	}
-	// set binding spec
+	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{
 		PolicyName: "mpol-" + mp.GetName(),
 	}
-	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
@@ -330,29 +331,11 @@ func BuildMutatingAdmissionPolicyBeta(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := make([]admissionregistrationv1beta1.MatchCondition, 0)
-	// convert celexceptions if exist
-	for _, exception := range exceptions {
-		for _, matchCondition := range exception.Spec.MatchConditions {
-			// negate the match condition
-			expression := "!(" + matchCondition.Expression + ")"
-			matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition{
-				Name:       matchCondition.Name,
-				Expression: expression,
-			})
-		}
-	}
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
+		return admissionregistrationv1beta1.MatchCondition(mc)
+	})
 	for _, mc := range mp.Spec.MatchConditions {
 		matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition(mc))
-	}
-	// set owner reference
-	mapol.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policiesv1beta1.GroupVersion.String(),
-			Kind:       mp.GetKind(),
-			Name:       mp.GetName(),
-			UID:        mp.GetUID(),
-		},
 	}
 
 	var fpt *admissionregistrationv1beta1.FailurePolicyType
@@ -361,6 +344,8 @@ func BuildMutatingAdmissionPolicyBeta(
 		fpt = &conv
 	}
 
+	// set owner reference
+	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
 		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
@@ -407,20 +392,10 @@ func BuildMutatingAdmissionPolicyBindingBeta(
 	mapbinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	mp *policiesv1beta1.MutatingPolicy,
 ) {
-	// set owner reference
-	mapbinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policiesv1beta1.GroupVersion.String(),
-			Kind:       mp.GetKind(),
-			Name:       mp.GetName(),
-			UID:        mp.GetUID(),
-		},
-	}
-	// set binding spec
+	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
 		PolicyName: "mpol-" + mp.GetName(),
 	}
-	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
