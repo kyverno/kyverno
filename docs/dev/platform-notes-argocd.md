@@ -3,13 +3,7 @@ title: Platform Notes (Argo CD)
 excerpt: Special considerations for deploying Kyverno with Argo CD.
 ---
 
-> **Note:** This document is the corrected version of the Argo CD section of
-> [platform-notes.md](https://github.com/kyverno/website/blob/main/src/content/docs/docs/installation/platform-notes.md),
-> addressing the issues raised in [kyverno/website#1925](https://github.com/kyverno/website/issues/1925).
->
-> The intended fix is a PR against `kyverno/website`.
 
----
 
 ArgoCD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Server Side Apply feature to resolve OutOfSync issues. This strategy ensures comparisons are handled on the server side, respecting fields like `skipBackgroundRequests` that Kubernetes sets by default, and fields set by mutating admission controllers like Kyverno, thereby preventing unnecessary `OutOfSync` errors caused by local manifest discrepancies.
 
