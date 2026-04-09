@@ -88,7 +88,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}
 
 	go func() {
-		if err := h.audit(context.TODO(), response, request); err != nil {
+		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
 		}
 	}()

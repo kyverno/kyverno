@@ -33,7 +33,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 		}
 		if creds != nil && len(creds.Providers) > 0 {
-			var providers []string
+			providers := make([]string, 0, len(creds.Providers))
 			for _, helper := range creds.Providers {
 				providers = append(providers, string(helper))
 			}
