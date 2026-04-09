@@ -10,7 +10,7 @@ resources:
   - widget.yaml
 results:
   - patchedResources: patched-widget.yaml
-    isMUtatingPolicy: true
+    isMutatingPolicy: true
     kind: Widget
     policy: set-annotations-for-widget
     resources:
