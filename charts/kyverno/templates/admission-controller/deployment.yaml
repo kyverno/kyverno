@@ -296,6 +296,9 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
             {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
@@ -317,6 +320,16 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- end }}
+      - name: apicall-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                path: token
+                expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                {{- with .Values.apiCallToken.audience }}
+                audience: {{ . | quote }}
+                {{- end }}
       {{- if not $automountSAToken }}
       - name: serviceaccount-token
         projected:
