@@ -31,6 +31,10 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 	version, ok := c.preferredMAPVersion()
 	if !ok {
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
+		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
+			genericPolicy := engineapi.NewMutatingPolicy(mpol)
+			c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available.")
+		}
 		return nil
 	}
 	logger.V(4).Info("Using MutatingAdmissionPolicy API", "version", version, "policy", mpol.GetName())
