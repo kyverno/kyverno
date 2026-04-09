@@ -22,6 +22,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -245,7 +246,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
-	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files or directories to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files to be used for apply command")
 	return cmd
 }
 
@@ -262,6 +263,8 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
 
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
