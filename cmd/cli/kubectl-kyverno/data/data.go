@@ -9,6 +9,10 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
+func init() {
+	InjectProcessor(NewCRDProcessor(nil))
+}
+
 const crdsFolder = "crds"
 
 //go:embed crds
