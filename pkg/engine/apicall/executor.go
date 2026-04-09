@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -156,14 +157,17 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 }
 
 func (a *executor) getToken() string {
-	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	// Use the scoped APICall token which carries a custom audience so that
+	// if leaked to an external service it cannot be replayed against the
+	// Kubernetes API server.
+	fileName := "/var/run/secrets/kyverno/apicall/token"
 	b, err := os.ReadFile(fileName)
 	if err != nil {
-		a.logger.Info("failed to read service account token", "path", fileName)
+		a.logger.V(2).Info("failed to read scoped APICall token, outbound request will proceed without Authorization header", "path", fileName, "error", err)
 		return ""
 	}
 
-	return string(b)
+	return strings.TrimSpace(string(b))
 }
 
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
