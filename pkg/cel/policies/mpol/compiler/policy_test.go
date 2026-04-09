@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/managedfields"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
@@ -44,74 +43,6 @@ func (m *mockProgram) Eval(any) (ref.Val, *cel2.EvalDetails, error) {
 // FakeContextWithDeadline provides context with deadline and cancel
 func FakeContextWithDeadline(duration time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), duration)
-}
-
-func TestGetAndResetCost(t *testing.T) {
-	cctx := &compositionContext{
-		accumulatedCost: 42,
-	}
-
-	// First call should return 42 and reset to 0
-	cost := cctx.GetAndResetCost()
-	assert.Equal(t, int64(42), cost)
-	assert.Equal(t, int64(0), cctx.accumulatedCost)
-
-	// Second call should return 0
-	cost = cctx.GetAndResetCost()
-	assert.Equal(t, int64(0), cost)
-}
-
-func TestDeadline(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	cctx := &compositionContext{
-		ctx: ctx,
-	}
-
-	deadline, ok := cctx.Deadline()
-	assert.True(t, ok, "Expected Deadline() to return true")
-	assert.WithinDuration(t, time.Now().Add(2*time.Second), deadline, time.Second)
-}
-
-func TestDoneAndErr(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cctx := &compositionContext{ctx: ctx}
-
-	// Not cancelled yet
-	select {
-	case <-cctx.Done():
-		t.Fatal("context should not be done")
-	default:
-		// expected
-	}
-
-	// Cancel and test
-	cancel()
-
-	select {
-	case <-cctx.Done():
-		// expected
-	case <-time.After(time.Second):
-		t.Fatal("context should be done after cancel")
-	}
-
-	assert.Equal(t, context.Canceled, cctx.Err())
-}
-
-func TestValue(t *testing.T) {
-	key := "testKey"
-	value := "testValue"
-
-	ctx := context.WithValue(context.Background(), key, value)
-	cctx := &compositionContext{ctx: ctx}
-
-	result := cctx.Value(key)
-	assert.Equal(t, value, result)
-
-	// Key not present
-	result = cctx.Value("nonexistent")
-	assert.Nil(t, result)
 }
 
 type fakeMatcher struct {
@@ -173,7 +104,7 @@ type fakePatcher struct {
 	err    error
 }
 
-func (f *fakePatcher) Patch(ctx context.Context, request patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
 	return f.retVal, f.err
 }
 
@@ -181,12 +112,10 @@ func TestEvaluate(t *testing.T) {
 	ctx := context.TODO()
 	t.Run("patch error", func(t *testing.T) {
 		p := Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Mutators: []patch.Patcher{
-					&fakePatcher{
-						retVal: nil,
-						err:    errors.New("patch failed"),
-					},
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: nil,
+					err:    errors.New("patch failed"),
 				},
 			},
 		}
@@ -199,12 +128,10 @@ func TestEvaluate(t *testing.T) {
 	t.Run("successful evaluation", func(t *testing.T) {
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{
-			evaluator: mutating.PolicyEvaluator{
-				Mutators: []patch.Patcher{
-					&fakePatcher{
-						retVal: patchedObj,
-						err:    nil,
-					},
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: patchedObj,
+					err:    nil,
 				},
 			},
 		}
