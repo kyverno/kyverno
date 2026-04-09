@@ -85,11 +85,9 @@ spec:
           # For Argo CD v3+ (annotation-based tracking, the default since v3):
           webhookLabels:
             app.kubernetes.io/managed-by: argocd
-          # Optionally also add this label to associate webhooks with the
-          # 'kyverno' application in both Argo CD v2 and v3:
-          # webhookLabels:
-          #   app.kubernetes.io/managed-by: argocd
-          #   argocd.argoproj.io/instance: kyverno
+            # Optionally also add this label to associate webhooks with the
+            # 'kyverno' application in both Argo CD v2 and v3:
+            # argocd.argoproj.io/instance: kyverno
   syncPolicy:
     automated:
       prune: true
