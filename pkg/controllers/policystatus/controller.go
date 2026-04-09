@@ -203,6 +203,8 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 
 // retryStatusUpdate wraps a get+update function with RetryOnConflict, silently
 // dropping NotFound errors (the policy was deleted before we could update it).
+// Pass a logger enriched with policy identity (e.g. policyKind, name, namespace)
+// so NotFound skips remain attributable in logs.
 func retryStatusUpdate(logger logr.Logger, fn func() error) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := fn(); err != nil {
@@ -218,9 +220,10 @@ func retryStatusUpdate(logger logr.Logger, fn func() error) error {
 
 func (c controller) reconcile(ctx context.Context, logger logr.Logger, key string, _ string, _ string) error {
 	polType, name, namespace := webhook.ParseRecorderKey(key)
+	l := logger.WithValues("policyKind", polType, "name", name, "namespace", namespace)
 	switch polType {
 	case webhook.ValidatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			vpol, err := c.client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -228,7 +231,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateVpolStatus(ctx, vpol)
 		})
 	case webhook.NamespacedValidatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -236,7 +239,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateNVpolStatus(ctx, nvpol)
 		})
 	case webhook.ImageValidatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			ivpol, err := c.client.PoliciesV1beta1().ImageValidatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -244,7 +247,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateIvpolStatus(ctx, ivpol)
 		})
 	case webhook.NamespacedImageValidatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			nivpol, err := c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -252,7 +255,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateNivpolStatus(ctx, nivpol)
 		})
 	case webhook.MutatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			mpol, err := c.client.PoliciesV1beta1().MutatingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -260,7 +263,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateMpolStatus(ctx, mpol)
 		})
 	case webhook.NamespacedMutatingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			nmpol, err := c.client.PoliciesV1beta1().NamespacedMutatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -268,7 +271,7 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return c.updateNMpolStatus(ctx, nmpol)
 		})
 	case webhook.GeneratingPolicyType:
-		return retryStatusUpdate(logger, func() error {
+		return retryStatusUpdate(l, func() error {
 			gpol, err := c.client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
