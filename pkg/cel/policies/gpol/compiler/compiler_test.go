@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 func TestCompile(t *testing.T) {
@@ -121,4 +122,53 @@ func TestCompile(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
+}
+
+func TestCreateBaseGpolEnv_HTTPNamespacedPolicyGating(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		envValue  string
+		wantErr   bool
+	}{
+		{
+			name:      "namespaced policy disallows http by default",
+			namespace: "default",
+			wantErr:   true,
+		},
+		{
+			name:      "cluster policy allows http by default",
+			namespace: "",
+			wantErr:   false,
+		},
+		{
+			name:      "namespaced policy allows http when toggle enabled",
+			namespace: "default",
+			envValue:  "true",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", tt.envValue)
+
+			envSet, _, err := createBaseGpolEnv(tt.namespace)
+			assert.NoError(t, err)
+
+			env, err := envSet.Env(environment.StoredExpressions)
+			assert.NoError(t, err)
+
+			_, issues := env.Compile("http.Get(\"http://localhost:8080\")")
+			if tt.wantErr {
+				if assert.NotNil(t, issues) {
+					assert.Error(t, issues.Err())
+				}
+			} else {
+				if issues != nil {
+					assert.NoError(t, issues.Err())
+				}
+			}
+		})
+	}
 }

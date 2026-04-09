@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCompile(t *testing.T) {
@@ -177,6 +178,53 @@ func TestCompile(t *testing.T) {
 			} else {
 				assert.Empty(t, errs, "expected no error but got some: %v", errs)
 				assert.NotNil(t, compiled, "expected compiled policy but got nil")
+			}
+		})
+	}
+}
+
+func TestCompile_HTTPNamespacedPolicyGating(t *testing.T) {
+	buildPolicy := func(namespace string) *v1alpha1.MutatingPolicy {
+		return &v1alpha1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace},
+			Spec: v1alpha1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1alpha1.Variable{
+					{
+						Name:       "apiResponse",
+						Expression: `http.Get("http://localhost:8080")`,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name      string
+		namespace string
+		envValue  string
+		wantErr   bool
+	}{
+		{
+			name:      "cluster policy allows http by default",
+			namespace: "",
+			wantErr:   false,
+		},
+		{
+			name:      "namespaced policy allows http when toggle enabled",
+			namespace: "default",
+			envValue:  "true",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", tt.envValue)
+			_, errs := NewCompiler().Compile(buildPolicy(tt.namespace), nil)
+			if tt.wantErr {
+				assert.NotEmpty(t, errs)
+			} else {
+				assert.Empty(t, errs)
 			}
 		})
 	}
