@@ -1133,7 +1133,6 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
-// 1. Update the return signature to include `bool`
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, bool, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
