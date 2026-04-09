@@ -135,3 +135,23 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $action := default $defaultAction $policyAction -}}
 {{- include "kyverno-policies.validationActions" $action -}}
 {{- end -}}
+
+{{/* Generate auditAnnotations for a specific ValidatingPolicy.
+     Merges default auditAnnotations with per-policy overrides.
+     Per-policy entries override defaults when they share the same key.
+     Receives dict with "name" (policy name) and "values" (.Values). */}}
+{{- define "kyverno-policies.policyAuditAnnotations" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaults := $values.auditAnnotations | default dict -}}
+{{- $overrides := index $values.auditAnnotationsByPolicy $policyName | default dict -}}
+{{- $merged := merge $defaults $overrides -}}
+{{- if gt (len $merged) 0 }}
+auditAnnotations:
+{{- $keys := keys $merged | sortAlpha -}}
+{{- range $keys }}
+  - key: {{ . }}
+    valueExpression: {{ index $merged . | quote }}
+{{- end -}}
+{{- end -}}
+{{- end -}}

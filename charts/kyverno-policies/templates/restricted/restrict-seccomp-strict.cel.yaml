@@ -55,6 +55,7 @@ spec:
         spec.initContainers[*].securityContext.seccompProfile.type, and
         spec.ephemeralContainers[*].securityContext.seccompProfile.type
         must be set to `RuntimeDefault` or `Localhost`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
