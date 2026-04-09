@@ -56,6 +56,7 @@ spec:
         spec.securityContext.seLinuxOptions, spec.containers[*].securityContext.seLinuxOptions,
         spec.initContainers[*].securityContext.seLinuxOptions, and
         spec.ephemeralContainers[*].securityContext.seLinuxOptions must be unset or restricted.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
