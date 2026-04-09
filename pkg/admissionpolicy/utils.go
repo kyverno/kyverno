@@ -94,7 +94,6 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 		MutatingAdmissionPolicyVersionV1beta1,
 		MutatingAdmissionPolicyVersionV1alpha1,
 	}
-	var lastErr error
 	for _, version := range versions {
 		registered, err := isRegistered(
 			kubeClient,
@@ -105,16 +104,13 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 		)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				lastErr = err
+				return "", err
 			}
 			continue
 		}
 		if registered {
 			return version, nil
 		}
-	}
-	if lastErr != nil {
-		return "", lastErr
 	}
 	return "", errMutatingAdmissionPolicyNotRegistered
 }
@@ -130,20 +126,19 @@ func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool,
 }
 
 // IsValidatingAdmissionPolicyRegistered checks if ValidatingAdmissionPolicies are registered in the API Server.
-// It checks for v1 first, then falls back to v1beta1.
+// It checks for v1 only since callers wire v1 informers.
 func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
 	registered, err := isRegistered(kubeClient, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "validatingadmissionpolicybindings")
-	if err == nil && registered {
-		return true, nil
-	}
-	registered, err = isRegistered(kubeClient, "admissionregistration.k8s.io", "v1beta1", "validatingadmissionpolicies", "validatingadmissionpolicybindings")
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
 		return false, err
 	}
-	if !registered {
-		return false, fmt.Errorf("validating admission policy API is not registered")
+	if registered {
+		return true, nil
 	}
-	return true, nil
+	return false, nil
 }
 
 // Collect params collects parameter resources from a live cluster

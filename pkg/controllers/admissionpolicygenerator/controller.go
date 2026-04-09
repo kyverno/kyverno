@@ -275,7 +275,8 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 
 		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
-			logging.Error(err, "failed to update cluster policy status", cpol.GetName(), "status", new.Status)
+			logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", latest.Status)
+			return
 		}
 		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
@@ -285,7 +286,8 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 
 		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
-			logging.Error(err, "failed to update validating policy status", vpol.GetName(), "status", new.Status)
+			logging.Error(err, "failed to update validating policy status", "name", vpol.GetName(), "status", latest.Status)
+			return
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
@@ -296,7 +298,8 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 
 		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
-			logging.Error(err, "failed to update mutating policy status", mpol.GetName(), "status", new.Status)
+			logging.Error(err, "failed to update mutating policy status", "name", mpol.GetName(), "status", latest.Status)
+			return
 		}
 
 		logging.V(3).Info("updated mutating policy status", "name", mpol.GetName(), "status", new.Status)

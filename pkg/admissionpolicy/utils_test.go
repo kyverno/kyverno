@@ -10,9 +10,13 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 const (
@@ -339,6 +343,19 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 	}
 }
 
+func TestPreferredMutatingAdmissionPolicyVersion_FailFastOnDiscoveryError(t *testing.T) {
+	client := fake.NewClientset()
+	errForbidden := apierrors.NewForbidden(schema.GroupResource{Group: "admissionregistration.k8s.io", Resource: "mutatingadmissionpolicies"}, "", errors.New("forbidden"))
+	client.Fake.PrependReactor("get", "*", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, errForbidden
+	})
+
+	version, err := PreferredMutatingAdmissionPolicyVersion(client)
+	assert.Empty(t, version)
+	assert.Error(t, err)
+	assert.True(t, apierrors.IsForbidden(err))
+}
+
 func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -364,7 +381,7 @@ func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}, {Name: "validatingadmissionpolicybindings"}},
 				},
 			},
-			expect: true,
+			expect: false,
 		},
 		{
 			name: "binding resource is required",
@@ -374,14 +391,12 @@ func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
 					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
 				},
 			},
-			expect:    false,
-			expectErr: true,
+			expect: false,
 		},
 		{
 			name:      "neither present",
 			resources: []*metav1.APIResourceList{},
 			expect:    false,
-			expectErr: true,
 		},
 	}
 
