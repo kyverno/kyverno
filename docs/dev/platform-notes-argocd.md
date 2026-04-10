@@ -5,11 +5,11 @@ excerpt: Special considerations for deploying Kyverno with Argo CD.
 
 
 
-ArgoCD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Server Side Apply feature to resolve OutOfSync issues. This strategy ensures comparisons are handled on the server side, respecting fields like `skipBackgroundRequests` that Kubernetes sets by default, and fields set by mutating admission controllers like Kyverno, thereby preventing unnecessary `OutOfSync` errors caused by local manifest discrepancies.
+Argo CD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Server Side Apply feature to resolve OutOfSync issues. This strategy ensures comparisons are handled on the server side, respecting fields like `skipBackgroundRequests` that Kubernetes sets by default, and fields set by mutating admission controllers like Kyverno, thereby preventing unnecessary `OutOfSync` errors caused by local manifest discrepancies.
 
-> **Argo CD v3 note:** Starting with Argo CD v3 (released May 2025), the default resource-tracking method changed from label-based tracking (`app.kubernetes.io/instance`) to **annotation-based tracking** ([see upgrade notes](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/#use-annotation-based-tracking-by-default)). For Argo CD v3+ deployments using default settings the label-tracking conflict described in the *Notes for ArgoCD users* section below no longer applies unless you have explicitly configured Argo CD to use label tracking.
+> **Argo CD v3 note:** Starting with Argo CD v3 (released May 2025), the default resource-tracking method changed from label-based tracking (`app.kubernetes.io/instance`) to **annotation-based tracking** ([see upgrade notes](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/#use-annotation-based-tracking-by-default)). For Argo CD v3+ deployments using default settings the label-tracking conflict described in the *Notes for Argo CD Users* section below no longer applies unless you have explicitly configured Argo CD to use label tracking.
 
-#### Configuration Best Practices
+## Configuration Best Practices
 
 1. **Server-Side Configuration**
    - Enable `ServerSideDiff` in one of two ways:
@@ -27,8 +27,8 @@ ArgoCD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Ser
 
 2. **RBAC and CRD Management**
    - [Enable ServerSideApply](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#server-side-apply) in the `syncOptions` to handle metadata properly
-   - Configure ArgoCD to [ignore differences in aggregated ClusterRoles](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#ignoring-rbac-changes-made-by-aggregateroles)
-   - Ensure proper RBAC permissions for ArgoCD to manage Kyverno CRDs
+   - Configure Argo CD to [ignore differences in aggregated ClusterRoles](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#ignoring-rbac-changes-made-by-aggregateroles)
+   - Ensure proper RBAC permissions for Argo CD to manage Kyverno CRDs
 
 3. **Sync Options Configuration**
    - Avoid using `Replace=true` as it may cause issues with existing resources
@@ -37,9 +37,9 @@ ArgoCD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Ser
 
 4. **Config Preservation**
    - By default, `config.preserve=true` is set in the Helm chart. This is useful for Helm-based install, upgrade, and uninstall scenarios.
-   - This setting enables a Helm post-delete hook, which can cause ArgoCD to show the application as out-of-sync if deployed using an App of Apps pattern.
-   - It may also prevent ArgoCD from cleaning up the Kyverno application when the parent application is deleted.
-   - **Recommendation:** Set `config.preserve=false` when deploying Kyverno via ArgoCD to ensure proper resource cleanup and sync status.
+   - This setting adds `helm.sh/resource-policy: "keep"` to the Kyverno ConfigMap, which prevents Helm and Argo CD from removing the ConfigMap on deletion. This can cause Argo CD to show the application as out-of-sync in App of Apps patterns.
+   - It may also prevent Argo CD from cleaning up the Kyverno application when the parent application is deleted, since the ConfigMap with the keep policy remains in the cluster.
+   - **Recommendation:** Set `config.preserve=false` when deploying Kyverno via Argo CD to ensure proper resource cleanup and sync status.
 
 5. **Webhook Labels (`config.webhookLabels`)**
    - Kyverno can add labels to its webhook configurations via the `config.webhookLabels` Helm value (nested under `config`, not at the top level).
@@ -47,7 +47,7 @@ ArgoCD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Ser
    - For Argo CD v2 (label-based tracking), set the `app.kubernetes.io/instance: kyverno` label so Argo CD can associate the webhooks with the app.
    - For Argo CD v3 (annotation-based tracking, the new default), setting `app.kubernetes.io/managed-by: argocd` is sufficient to indicate these resources are managed by Argo CD. If you also want them to appear as part of the `kyverno` application, add `argocd.argoproj.io/instance: kyverno` as well. Both labels can be set simultaneously.
 
-#### Complete Application Example
+## Complete Application Example
 
 The following example includes all recommended settings for deploying Kyverno via Argo CD:
 
@@ -70,7 +70,7 @@ spec:
     targetRevision: <my.target.version>
     helm:
       values: |
-        # Disable config preservation so ArgoCD can properly clean up on delete
+        # Disable config preservation so Argo CD can properly clean up on delete
         # and avoid out-of-sync status in App of Apps patterns.
         config:
           preserve: false
@@ -91,9 +91,9 @@ spec:
       - ServerSideApply=true
 ```
 
-> **Note on `webhookLabels`:** This Helm value is nested under `config` (i.e., `config.webhookLabels`), not at the top-level. Using a top-level `webhookLabels:` key in `helm.values` will have no effect.
+> **Note on `webhookLabels`:** This Helm value is nested under `config` (i.e., `config.webhookLabels`), not at the top level. Using a top-level `webhookLabels:` key in `helm.values` will have no effect.
 
-#### Troubleshooting Guide
+## Troubleshooting Guide
 
 1. **CRD Check Failures**
    - **Symptom**: Deployment fails during CRD validation
@@ -135,11 +135,11 @@ spec:
      - Configure appropriate resource limits
      - Enable background processing where applicable
 
-For considerations when using Argo CD along with Kyverno mutate policies, see the documentation [here](/docs/policy-types/cluster-policy/mutate#argocd).
+For considerations when using Argo CD along with Kyverno mutate policies, see [Kyverno mutate policy guidance for Argo CD](/docs/policy-types/cluster-policy/mutate#argocd).
 
-#### Resource Tracking and Ownership
+## Resource Tracking and Ownership
 
-### Notes for ArgoCD users
+## Notes for Argo CD Users
 
 **Argo CD v3+ (default: annotation-based tracking)**
 
