@@ -267,7 +267,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 }
 
 func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) ([]map[string]interface{}, error) {
-	statements := make([]map[string]interface{}, 0)
+	statements := make([]map[string]interface{}, 0, 1)
 	data, err := extractStatement(ctx, repoRef, desc, remoteOpts, nameOpts)
 	if err != nil {
 		return nil, err
