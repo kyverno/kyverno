@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root groups. This policy ensures
       `runAsGroup` is not set to `0` (root group).
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -49,6 +49,7 @@ spec:
         spec.containers[*].securityContext.runAsGroup,
         spec.initContainers[*].securityContext.runAsGroup, and
         spec.ephemeralContainers[*].securityContext.runAsGroup must not be set to `0`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}

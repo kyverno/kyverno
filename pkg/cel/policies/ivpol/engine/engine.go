@@ -10,11 +10,12 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"golang.org/x/exp/maps"
@@ -99,8 +100,7 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 	// resolve namespace
 	var namespace runtime.Object
@@ -160,8 +160,7 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 	// resolve namespace
 	var namespace runtime.Object
@@ -231,6 +230,10 @@ func (e *engineImpl) handleMutation(
 				results[pol.Policy.GetName()] = response
 			} else if matches {
 				filteredPolicies = append(filteredPolicies, pol)
+			} else {
+				if !matches {
+					results[pol.Policy.GetName()] = response
+				}
 			}
 		}
 	}
