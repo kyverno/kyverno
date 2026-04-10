@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -13,9 +14,11 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 // MockEventGen captures events for test assertions.
@@ -143,6 +146,19 @@ func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissi
 			},
 		}},
 	}
+}
+
+// CreateNamespace creates a namespace in the envtest cluster and registers cleanup.
+func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string) {
+	t.Helper()
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create namespace %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = kubeClient.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
+	})
 }
 
 // PodAdmissionRequestWithOp builds a handlers.AdmissionRequest for a Pod with the given operation.
