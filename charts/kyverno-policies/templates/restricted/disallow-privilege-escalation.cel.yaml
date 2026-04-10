@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       Privilege escalation, such as via set-user-ID or set-group-ID file mode, should not be allowed.
       This policy ensures the `allowPrivilegeEscalation` field is set to `false`.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -46,6 +46,7 @@ spec:
         spec.initContainers[*].securityContext.allowPrivilegeEscalation,
         and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
         must be set to `false`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
