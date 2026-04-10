@@ -25,7 +25,7 @@ spec:
   - name: step-04
     try:
     - sleep:
-        duration: 10s
+        duration: 20s
   - name: step-04
     try:
     - assert:
