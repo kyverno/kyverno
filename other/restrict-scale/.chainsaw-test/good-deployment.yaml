@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment
+  namespace: default
+  labels:
+    type: monitoring
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+      type: monitoring
+  template:
+    metadata:
+      labels:
+        app: myapp
+        type: monitoring
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest

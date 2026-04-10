@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: restrict-scale
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: ../restrict-scale.yaml
+    - patch:
+        resource:
+          apiVersion: kyverno.io/v2beta1
+          kind: ClusterPolicy
+          metadata:
+            name: restrict-scale
+          spec:
+            validationFailureAction: Enforce
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: good-deployment.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: bad-deployment-too-many-replicas.yaml

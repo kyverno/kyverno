@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment
+  namespace: default
+  labels:
+    type: monitoring
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: myapp
+      type: monitoring
+  template:
+    metadata:
+      labels:
+        app: myapp
+        type: monitoring
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
