@@ -2,7 +2,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: restrict-scale
 spec:
   steps:
@@ -27,5 +26,5 @@ spec:
     - apply:
         expect:
         - check:
-            ($error != null): true
+            ($error != null && (contains($error, 'restrict-scale') || contains($error, 'create-max-four'))): true
         file: bad-deployment-too-many-replicas.yaml
