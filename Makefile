@@ -57,11 +57,14 @@ HELM_VERSION                       ?= v3.19.0
 HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  ?= v1.14.2
 KO                                 ?= $(TOOLS_DIR)/ko
-KO_VERSION                         ?= v0.18.1
+# Newer than v0.18.1: Docker 29+ requires API >= 1.44 when loading images; bump to next ko tag once released.
+KO_VERSION                         ?= v0.18.2-0.20260320010637-757161aaa19e
+GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
+GOLANGCI_LINT_VERSION              ?= v2.11.4
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -120,6 +123,10 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
+$(GOLANGCI_LINT):
+	@echo Install golangci-lint... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 $(API_GROUP_RESOURCES):
 	@echo Install api-group-resources... >&2
@@ -195,6 +202,12 @@ imports-check: imports
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make imports-check".' >&2
 	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
 	@git diff --quiet --exit-code .
+
+.PHONY: lint
+lint: ## Run golangci-lint
+lint: $(GOLANGCI_LINT)
+	@echo Run golangci-lint... >&2
+	@$(GOLANGCI_LINT) run ./... -c .golangci.yml
 
 .PHONY: unused-package-check
 unused-package-check:
@@ -628,6 +641,8 @@ codegen-cli-crds: codegen-crds-cli
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_cleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clustercleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
@@ -870,12 +885,17 @@ test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector ## Run local CLI tests
+test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector test-cli-local-ruleless ## Run local CLI tests
 
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 	@echo Running local cli validation tests... >&2
 	@$(CLI_BIN) test ./test/cli/test
+
+.PHONY: test-cli-local-ruleless
+test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
+	@echo Running local cli ruleless policy tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-ruleless-policy
 
 .PHONY: test-cli-local-vpols
 test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests

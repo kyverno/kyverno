@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/gzip"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
 	"github.com/kyverno/sdk/cel/libs/image"
@@ -236,67 +237,80 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
+	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
+	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
+	libEnvOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		user.Lib(
+			user.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+	}
+	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
+		httpCtx, err := compiler.NewCELHTTPContext()
+		if err != nil {
+			return nil, nil, err
+		}
+		libEnvOpts = append(libEnvOpts, http.Lib(
+			http.Context{ContextInterface: httpCtx},
+			http.Latest(),
+		))
+	}
+
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions:        baseOpts,
 		},
-		// libaries
+		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {
