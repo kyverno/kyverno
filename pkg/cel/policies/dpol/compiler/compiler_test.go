@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 func TestCompile(t *testing.T) {
@@ -159,6 +160,55 @@ func TestCompile(t *testing.T) {
 			} else {
 				assert.NotNil(t, p)
 				assert.Empty(t, errs)
+			}
+		})
+	}
+}
+
+func TestCreateBaseDpolEnv_HTTPNamespacedPolicyGating(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		envValue  string
+		wantErr   bool
+	}{
+		{
+			name:      "namespaced policy disallows http by default",
+			namespace: "default",
+			wantErr:   true,
+		},
+		{
+			name:      "cluster policy allows http by default",
+			namespace: "",
+			wantErr:   false,
+		},
+		{
+			name:      "namespaced policy allows http when toggle enabled",
+			namespace: "default",
+			envValue:  "true",
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", tt.envValue)
+
+			envSet, _, err := (&compilerImpl{}).createBaseDpolEnv(tt.namespace)
+			assert.NoError(t, err)
+
+			env, err := envSet.Env(environment.StoredExpressions)
+			assert.NoError(t, err)
+
+			_, issues := env.Compile("http.Get(\"http://localhost:8080\")")
+			if tt.wantErr {
+				if assert.NotNil(t, issues) {
+					assert.Error(t, issues.Err())
+				}
+			} else {
+				if issues != nil {
+					assert.NoError(t, issues.Err())
+				}
 			}
 		})
 	}
