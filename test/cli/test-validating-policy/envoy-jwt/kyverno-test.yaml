@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+envoyPayloads:
+- ./request-empty.json
+- ./request-forbidden.json
+kind: Test
+metadata:
+  name: vpol-envoy-jwt-policy-fail
+policies:
+- ./policy.yaml
+results:
+- kind: ""
+  policy: envoy-jwt-policy
+  result: fail
+---
+apiVersion: cli.kyverno.io/v1alpha1
+envoyPayloads:
+- ./request-pass.json
+kind: Test
+metadata:
+  name: vpol-envoy-jwt-policy-pass
+policies:
+- ./policy.yaml
+results:
+- kind: ""
+  policy: envoy-jwt-policy
+  result: pass

@@ -12,7 +12,7 @@ spec:
   variables:
     - name: app
       expression: >-
-        globalContext.Get("gctxentry-apicall-gpol", "app_label")
+        globalContext.get("gctxentry-apicall-gpol", "app_label")
     - name: value
       expression: variables.app[0]
     - name: nsName
@@ -35,4 +35,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.configmap)
+    - expression: generator.apply(variables.nsName, variables.configmap)

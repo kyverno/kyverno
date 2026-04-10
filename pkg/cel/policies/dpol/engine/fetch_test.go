@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"gotest.tools/assert"
@@ -30,18 +31,10 @@ func (f fakePolexLister) List(selector labels.Selector) ([]*policiesv1beta1.Poli
 	return nil, fmt.Errorf("forced List error for testing")
 }
 
-func (f fakePolexLister) PolicyExceptions(namespace string) policiesv1beta1listers.PolicyExceptionNamespaceLister {
-	return fakePolexNsLister{}
-}
-
 type fakePolexNsLister struct{}
 
 func (f fakePolexNsLister) List(selector labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return nil, fmt.Errorf("forced namespace List error for testing")
-}
-
-func (f fakePolexNsLister) Get(name string) (*policiesv1beta1.PolicyException, error) {
-	return nil, fmt.Errorf("forced Get error for testing")
 }
 
 func TestGet(t *testing.T) {
@@ -68,14 +61,14 @@ func TestGet(t *testing.T) {
 	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	polexIndexer.Add(exception)
 
-	polexListers := policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer)
+	polexListers := policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer).PolicyExceptions("")
 	dpolListers := policiesv1beta1listers.NewDeletingPolicyLister(dpolIndexer)
 
 	tests := []struct {
 		name         string
 		polName      string
 		dpol         policiesv1beta1listers.DeletingPolicyLister
-		polex        policiesv1beta1listers.PolicyExceptionLister
+		polex        engine.PolicyExceptionLister
 		compiler     *compiler.Compiler
 		polexEnabled bool
 		wantErr      bool
