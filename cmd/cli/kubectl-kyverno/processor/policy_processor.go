@@ -999,10 +999,12 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 
 	if p.Cluster {
 		// Try to get OpenAPI from the cluster's discovery client.
+		// Prepend it to the composite so --crd-path and built-in schemas
+		// remain reachable even when cluster discovery succeeds.
 		// In CLI test mode the discovery client is a fake that panics
-		// on OpenAPIV3(), so we recover and fall through to local schemas.
+		// on OpenAPIV3(), so we recover and skip it gracefully.
 		if client := p.tryClusterOpenAPI(); client != nil {
-			return client
+			clients = append(clients, client)
 		}
 	}
 
