@@ -128,6 +128,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	filteredImages := make(map[string][]string, len(images))
 	imgList := []string{}
 	for category, imgs := range images {
+		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
 			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
 				return nil, err
