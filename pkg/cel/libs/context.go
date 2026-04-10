@@ -3,13 +3,13 @@ package libs
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/cel/libs/generator"
@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/sdk/cel/libs/imagedata"
 	"github.com/kyverno/sdk/cel/libs/resource"
 	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,8 +153,12 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
+	parts := strings.Split(resource, "/")
+	resource = parts[0]
+	subresources := parts[1:]
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
@@ -161,8 +166,12 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	if err != nil {
 		return nil, err
 	}
+	parts := strings.Split(resource, "/")
+	resource = parts[0]
+	subresources := parts[1:]
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
 }
 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {

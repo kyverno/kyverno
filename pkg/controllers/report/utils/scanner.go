@@ -218,9 +218,9 @@ func (s *scanner) ScanResource(
 	}
 
 	for i, policy := range mpols {
-		if pol := policy.AsMutatingPolicy(); pol != nil {
+		if pol := policy.AsMutatingPolicyLike(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions)
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions, libs.GetLibsCtx())
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -323,7 +323,7 @@ func (s *scanner) ScanResource(
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, nil, false)
+			res, err := admissionpolicy.Validate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, &authenticationv1.UserInfo{}, false)
 			results[&vaps[i]] = ScanResult{&res, err}
 		}
 	}
@@ -335,7 +335,7 @@ func (s *scanner) ScanResource(
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Mutate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, nil, false, true)
+			res, err := admissionpolicy.Mutate(policyData, resource, resource.GroupVersionKind(), gvr, map[string]map[string]string{}, s.client, &authenticationv1.UserInfo{}, false, true)
 			results[&maps[i]] = ScanResult{&res, err}
 		}
 	}

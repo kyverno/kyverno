@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -153,24 +152,12 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	}
 
 	if req.Header.Get("Authorization") == "" {
-		token := a.getToken()
-		if token != "" {
+		if token, ok := readScopedToken(); ok && token != "" {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
 	}
 
 	return nil
-}
-
-func (a *executor) getToken() string {
-	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	b, err := os.ReadFile(fileName)
-	if err != nil {
-		a.logger.Info("failed to read service account token", "path", fileName)
-		return ""
-	}
-
-	return string(b)
 }
 
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {

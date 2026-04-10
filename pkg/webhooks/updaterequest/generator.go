@@ -47,7 +47,7 @@ func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) e
 		return nil
 	}
 	logger.V(4).Info("apply Update Request", "request", ur)
-	go g.applyResource(context.TODO(), ur)
+	go g.applyResource(context.TODO(), ur) //nolint:gosec // background context is intentional: the goroutine outlives the request
 	return nil
 }
 
