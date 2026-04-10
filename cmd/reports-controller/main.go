@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -28,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
@@ -90,21 +93,29 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
-	var mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
+	var mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
 	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
-	var mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
+	var mapBindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
 	var mapAlphaBindingInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
 	}
 	if mutatingAdmissionPolicyReports {
-		mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
-		mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
-
-		if kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 34, 0) {
-			mapInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
-			mapBindingInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+		mapVersion, err := admissionpolicy.PreferredMutatingAdmissionPolicyVersion(client.GetKubeClient())
+		if err != nil {
+			logging.GlobalLogger().V(2).Info("MutatingAdmissionPolicy API is not registered, skipping MAP report informers", "error", err)
+		} else {
+			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
+				mapBindingBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+				mapAlphaInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicies()
+				mapAlphaBindingInformer = kubeInformer.Admissionregistration().V1alpha1().MutatingAdmissionPolicyBindings()
+			default:
+				logging.GlobalLogger().Info("Unsupported MutatingAdmissionPolicy API version, skipping MAP report informers", "version", mapVersion)
+			}
 		}
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -122,7 +133,7 @@ func createReportControllers(
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
-			mapInformer,
+			mapBetaInformer,
 			mapAlphaInformer,
 			metaClient,
 		)
@@ -153,7 +164,7 @@ func createReportControllers(
 					policiesV1beta1.MutatingPolicies(),
 					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
-					mapInformer,
+					mapBetaInformer,
 					mapAlphaInformer,
 				),
 				aggregationWorkers,
@@ -179,9 +190,9 @@ func createReportControllers(
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
-				mapInformer,
+				mapBetaInformer,
 				mapAlphaInformer,
-				mapBindingInformer,
+				mapBindingBetaInformer,
 				mapAlphaBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
@@ -300,6 +311,9 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
+	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
+	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
+	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -330,6 +344,12 @@ func main() {
 		internal.WithDefaultQps(300),
 		internal.WithDefaultBurst(300),
 	)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
+	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
+	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup
