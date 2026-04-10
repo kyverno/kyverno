@@ -45,7 +45,7 @@ Argo CD v2.10 introduced support for `ServerSideDiff`, leveraging Kubernetes' Se
    - Kyverno can add labels to its webhook configurations via the `config.webhookLabels` Helm value (nested under `config`, not at the top level).
    - This is helpful when viewing the Kyverno application in Argo CD — it links the webhook resources to the Kyverno application so they are visible in the Argo CD UI.
    - For Argo CD v2 (label-based tracking), set the `app.kubernetes.io/instance: kyverno` label so Argo CD can associate the webhooks with the app.
-   - For Argo CD v3 (annotation-based tracking, the new default), setting `app.kubernetes.io/managed-by: argocd` is sufficient to indicate these resources are managed by Argo CD. If you also want them to appear as part of the `kyverno` application, add `argocd.argoproj.io/instance: kyverno` as well. Both labels can be set simultaneously.
+   - For Argo CD v3 (annotation-based tracking, the new default), you generally do not need to set these labels, as Argo CD uses the `argocd.argoproj.io/tracking-id` annotation instead. However, if you have configured Argo CD v3 to use hybrid annotation+label tracking, setting `app.kubernetes.io/managed-by: argocd` and `argocd.argoproj.io/instance: kyverno` can be used.
 
 ## Complete Application Example
 
@@ -101,9 +101,9 @@ spec:
      - Insufficient RBAC permissions
      - CRDs not properly registered
    - **Resolution**:
-     - Verify RBAC permissions for ArgoCD service account
+     - Verify RBAC permissions for Argo CD service account
      - Ensure CRDs are installed before policies
-     - Check ArgoCD logs for specific permission errors
+     - Check Argo CD logs for specific permission errors
 
 2. **Sync Failures**
    - **Symptom**: Resources show as OutOfSync
@@ -113,7 +113,7 @@ spec:
    - **Resolution**:
      - Enable ServerSideDiff as shown above
      - Configure resource exclusions for aggregated roles
-     - Check resource health status in ArgoCD UI
+     - Check resource health status in Argo CD UI
 
 3. **Resource Management Issues**
    - **Symptom**: Resources not properly created or updated
@@ -151,7 +151,7 @@ If you are running Argo CD v3 with default settings, you do **not** need to chan
 
 In Argo CD v2, Argo CD automatically sets the `app.kubernetes.io/instance` label and uses it to determine which resources form the app. The Kyverno Helm chart also sets this label for the same purposes. To resolve this conflict:
 
-1. Configure ArgoCD to use annotation-based tracking instead of label-based tracking, as described in the [Argo CD documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/resource_tracking/#additional-tracking-methods-via-an-annotation). Add the following to `argocd-cm`:
+1. Configure Argo CD to use annotation-based tracking instead of label-based tracking, as described in the [Argo CD documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/resource_tracking/#additional-tracking-methods-via-an-annotation). Add the following to `argocd-cm`:
 
    ```yaml
    apiVersion: v1
