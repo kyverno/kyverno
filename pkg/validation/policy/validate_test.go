@@ -3511,6 +3511,53 @@ func Test_isMapStringString(t *testing.T) {
 	}
 }
 
+func Test_Validate_MatchConditions_NilClient(t *testing.T) {
+	rawPolicy := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "deny-sa-non-dryrun"
+  },
+  "spec": {
+    "background": false,
+    "webhookConfiguration": {
+      "matchConditions": [
+        {
+          "name": "only-my-sa",
+          "expression": "request.userInfo.username == \"system:serviceaccount:default:my-sa\""
+        }
+      ]
+    },
+    "rules": [
+      {
+        "name": "deny-non-dryrun-mutations",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": ["*"]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "failureAction": "Enforce",
+          "message": "dry-run only",
+          "deny": {}
+        }
+      }
+    ]
+  }
+}`)
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	// nil client must not panic
+	_, err = Validate(policy, nil, nil, true, "", "")
+	assert.Nil(t, err)
+}
+
 func Test_Shallow_Variable_Substitution(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`{
