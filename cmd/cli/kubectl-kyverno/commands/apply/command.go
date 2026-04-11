@@ -338,12 +338,27 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
+	// Separate GlobalContextEntry resources from regular resources
+	var gctxEntries []*kyvernov2.GlobalContextEntry
+	resources, gctxEntries, err = extractGlobalContextEntries(resources)
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
 	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
 		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
 		}
 		store.AllowApiCall(true)
+
+		if len(gctxEntries) > 0 && dClient != nil {
+			gctxStore, err := buildGlobalContextStore(context.Background(), gctxEntries, dClient, jmespath.New(config.NewDefaultConfiguration(false)))
+			if err != nil {
+				return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to build global context store: %w", err)
+			}
+			store.SetGlobalContextStore(gctxStore)
+		}
 	}
 
 	var exceptions []*kyvernov2.PolicyException
@@ -1248,6 +1263,9 @@ func createFakeClientFromResources(resources, targetResources, parameterResource
 	for _, r := range allResources {
 		objects = append(objects, r.DeepCopy())
 		gvk := r.GroupVersionKind()
+		if gvk.Kind == "" || gvk.Version == "" {
+			return nil, fmt.Errorf("resource %s/%s is missing TypeMeta (apiVersion=%q kind=%q)", r.GetNamespace(), r.GetName(), r.GetAPIVersion(), gvk.Kind)
+		}
 		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 		if !seen[gvr] {
 			seen[gvr] = true

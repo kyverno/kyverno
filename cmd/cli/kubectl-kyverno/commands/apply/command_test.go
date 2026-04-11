@@ -1774,6 +1774,22 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 				},
 			}},
 		},
+		{
+			// GlobalContextEntry: policy uses globalReference to read cached
+			// ConfigMaps. Both Deployments should pass because "app-config"
+			// ConfigMap exists in the default namespace.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-globalcontext/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-globalcontext/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 2,
+					Fail: 0,
+				},
+			}},
+		},
 	}
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {

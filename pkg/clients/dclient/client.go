@@ -253,7 +253,10 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 	if name == "" {
 		list, err := c.ListResource(ctx, resolvedAPIVersion, kind, namespace, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list resources %s/%s: %w", resolvedAPIVersion, kind, err)
+			if namespace == "" {
+				return nil, fmt.Errorf("failed to list resources %s/%s (cluster-scoped or all namespaces): %w", resolvedAPIVersion, kind, err)
+			}
+			return nil, fmt.Errorf("failed to list resources %s/%s in namespace %q: %w", resolvedAPIVersion, kind, namespace, err)
 		}
 		jsonData, err := json.Marshal(list)
 		if err != nil {

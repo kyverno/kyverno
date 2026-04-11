@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-configmap-via-gctx
+  annotations:
+    policies.kyverno.io/title: Require ConfigMap via GlobalContextEntry
+    policies.kyverno.io/description: >-
+      Uses a globalReference to read ConfigMaps cached by a
+      GlobalContextEntry and denies Deployments when the expected
+      ConfigMap is missing from the cached list.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: configmap-must-exist
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      context:
+        - name: cached_configmaps
+          globalReference:
+            name: configmap-cache
+            jmesPath: "[].metadata.name"
+      validate:
+        message: >-
+          Deployment {{ request.object.metadata.name }} requires a ConfigMap
+          named "app-config" but it was not found in the cached ConfigMaps.
+        deny:
+          conditions:
+            any:
+            - key: "app-config"
+              operator: AnyNotIn
+              value: "{{ cached_configmaps }}"

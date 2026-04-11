@@ -1028,18 +1028,24 @@ func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 }
 
 func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
-	kindPrefix := strings.ToLower(kind)
-
-	for _, newVp := range p.ValidatingPolicies {
-		mc := newVp.GetSpec().MatchConstraints
+	gvk := schema.GroupVersionKind{Kind: kind}
+	guessed, _ := meta.UnsafeGuessKindToResource(gvk)
+	if guessed.Resource != "" {
+		return guessed.Resource, nil
+	}
+	// Fallback: scan CEL policy match constraints for CRDs whose plural
+	// cannot be derived from the kind name alone.
+	kindLower := strings.ToLower(kind)
+	for _, vp := range p.ValidatingPolicies {
+		mc := vp.GetSpec().MatchConstraints
 		if mc == nil {
 			continue
 		}
-		resRules := mc.ResourceRules
-		for _, r := range resRules {
-			for _, newR := range r.Resources {
-				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-					return newR, nil
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
 				}
 			}
 		}
@@ -1049,30 +1055,30 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		if mc == nil {
 			continue
 		}
-		resRules := mc.ResourceRules
-		for _, r := range resRules {
-			for _, newR := range r.Resources {
-				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-					return newR, nil
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
 				}
 			}
 		}
 	}
-	for _, newGp := range p.GeneratingPolicies {
-		mc := newGp.GetSpec().MatchConstraints
+	for _, gp := range p.GeneratingPolicies {
+		mc := gp.GetSpec().MatchConstraints
 		if mc == nil {
 			continue
 		}
-		resRules := mc.ResourceRules
-		for _, r := range resRules {
-			for _, newR := range r.Resources {
-				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-					return newR, nil
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
 				}
 			}
 		}
 	}
-	return "", fmt.Errorf("failed to get resource from %s", kind)
+	return "", fmt.Errorf("failed to infer resource name for Kind %q: no RESTMapper available and no matching policy resource rule found", kind)
 }
 
 // targetMatchPredicate returns a predicate that checks whether a target resource

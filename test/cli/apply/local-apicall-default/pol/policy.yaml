@@ -6,7 +6,7 @@ metadata:
     policies.kyverno.io/title: Check Referenced Secret Type
     policies.kyverno.io/description: >-
       Validates that the Secret a Deployment references (via the
-      "secret-ref" label) has type "kubernetes.io/tls".
+      "secretRef" label) has type "kubernetes.io/tls".
       Both secrets exist so the apiCall always succeeds; the test
       exercises local GET resolution across different namespaced resources.
 spec:
