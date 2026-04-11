@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-secret-type
+  annotations:
+    policies.kyverno.io/title: Check Referenced Secret Type
+    policies.kyverno.io/description: >-
+      Validates that the Secret a Deployment references (via the
+      "secret-ref" label) has type "kubernetes.io/tls".
+      Both secrets exist so the apiCall always succeeds; the test
+      exercises local GET resolution across different namespaced resources.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: secret-must-be-tls
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      context:
+        - name: secret_type
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.object.metadata.namespace}}/secrets/{{request.object.metadata.labels.secretRef}}"
+            jmesPath: "type"
+      validate:
+        message: >-
+          Deployment {{ request.object.metadata.name }} references Secret
+          {{ request.object.metadata.labels.secretRef }} which must be of
+          type "kubernetes.io/tls" (got "{{ secret_type }}").
+        deny:
+          conditions:
+            any:
+            - key: "{{ secret_type }}"
+              operator: NotEquals
+              value: "kubernetes.io/tls"

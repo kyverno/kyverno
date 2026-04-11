@@ -1696,3 +1696,88 @@ func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to parse envoy payload from")
 }
+
+func Test_Apply_LocalApiCall(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			// GET by name: web-app has ConfigMap with environment=production (passes),
+			// api-server has ConfigMap with environment=staging (fails).
+			// Validates that GET-style apiCall context entries resolve against
+			// local resources supplied via --resource.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// LIST-based apiCall (the require-pdb use case from issue #8615):
+			// web-app Deployment has a matching PDB (passes),
+			// api-server Deployment has no PDB (fails).
+			// Validates that LIST-style apiCall context entries resolve
+			// against local resources without hitting the Kubernetes API server.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// Cross-resource GET: deploy-using-approved-sa uses ServiceAccount
+			// approved-sa (label approved=yes → passes). deploy-using-regular-sa
+			// uses ServiceAccount regular-sa (label approved=no → fails).
+			// Validates that apiCall can look up a related namespaced resource
+			// referenced by a field on the evaluated resource (Deployment →
+			// ServiceAccount), exercising cross-resource resolution without a
+			// running cluster.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// Cross-resource type GET: app-with-tls-secret Deployment references
+			// Secret tls-secret (type=kubernetes.io/tls → passes).
+			// app-with-opaque-secret references Secret opaque-secret
+			// (type=Opaque → fails).
+			// Both Secrets exist so the apiCall always succeeds; validates that
+			// the resolved context variable correctly reflects each resource's
+			// field value.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-default/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-default/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
