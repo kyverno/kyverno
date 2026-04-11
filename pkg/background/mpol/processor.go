@@ -329,7 +329,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
 	if err != nil {
 		if errors.IsNotFound(err) && ur.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
-			return nil, nil
+			return &unstructured.UnstructuredList{}, nil
 		}
 		return nil, err
 	}
