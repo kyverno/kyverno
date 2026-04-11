@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno/hack/api-group-resources
 
-go 1.26.1
+go 1.26.2
 
 require k8s.io/client-go v0.35.3
 
