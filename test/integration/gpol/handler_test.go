@@ -527,3 +527,137 @@ func TestGenerateFullFlow_MultiplePoliciesGenerateDifferentResources(t *testing.
 		testEnv.Client.Delete(context.Background(), monitorCM)
 	})
 }
+
+// --- Namespaced generating policy tests ---
+
+// waitForNgpolInLister waits until the informer cache has the namespaced policy.
+func waitForNgpolInLister(t *testing.T, namespace, name string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		_, err := ngpolLister.NamespacedGeneratingPolicies(namespace).Get(name)
+		return err == nil
+	}, 5*time.Second, 100*time.Millisecond, "ngpol %s/%s not found in lister cache", namespace, name)
+}
+
+// waitForNgpolGone waits until the informer cache no longer has the namespaced policy.
+func waitForNgpolGone(t *testing.T, namespace, name string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		_, err := ngpolLister.NamespacedGeneratingPolicies(namespace).Get(name)
+		return err != nil
+	}, 5*time.Second, 100*time.Millisecond, "ngpol %s/%s still in lister cache", namespace, name)
+}
+
+// createNgpolWithCleanup creates a NamespacedGeneratingPolicy and registers cleanup.
+func createNgpolWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedGeneratingPolicy) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, policy))
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), policy)
+		waitForNgpolGone(t, policy.Namespace, policy.Name)
+	})
+}
+
+func TestGenerateNamespaced_CreateTriggersURWithNamespacePrefix(t *testing.T) {
+	// A team deploys a namespace-scoped generate policy that auto-creates resources
+	// whenever a pod is created in their namespace. The handler should produce an
+	// UpdateRequest with policyKey = "namespace/policy" so the background controller
+	// knows which namespaced policy to fetch.
+	framework.CreateNamespace(t, testEnv.KubeClient, "team-gen")
+
+	policy := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gen-team-configmap",
+			Namespace: "team-gen",
+		},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Generation:       []policiesv1beta1.Generation{{Expression: "[]"}},
+		},
+	}
+
+	createNgpolWithCleanup(t, policy)
+	waitForNgpolInLister(t, "team-gen", "gen-team-configmap")
+
+	mock := &framework.MockURGenerator{}
+	h := gpol.New(mock, gpolLister, ngpolLister)
+
+	ctx := framework.ContextWithPolicies(context.Background(), "gen-team-configmap")
+	resp := h.GenerateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("app-pod", "team-gen", admissionv1.Create, podJSON), "", time.Now())
+
+	assert.True(t, resp.Allowed, "generate handler should always allow")
+
+	require.Eventually(t, func() bool {
+		return len(mock.GetSpecs()) >= 1
+	}, 2*time.Second, 50*time.Millisecond, "UpdateRequest not created in time")
+
+	specs := mock.GetSpecs()
+	require.Len(t, specs, 1)
+	assert.Equal(t, kyvernov2.CELGenerate, specs[0].Type)
+	assert.Equal(t, "team-gen/gen-team-configmap", specs[0].Policy, "namespaced policy key should be namespace/name")
+	require.Len(t, specs[0].RuleContext, 1)
+	assert.False(t, specs[0].RuleContext[0].DeleteDownstream)
+}
+
+func TestGenerateNamespaced_SkipsClusterScopedResources(t *testing.T) {
+	// Namespaced generate policies can only govern namespaced resources.
+	// When the admission request has no namespace (cluster-scoped resource),
+	// the handler should return success immediately without creating any URs.
+	mock := &framework.MockURGenerator{}
+	h := gpol.New(mock, gpolLister, ngpolLister)
+
+	// Empty namespace simulates a cluster-scoped resource like a Node or ClusterRole.
+	ctx := framework.ContextWithPolicies(context.Background(), "some-policy")
+	resp := h.GenerateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("my-node", "", admissionv1.Create, podJSON), "", time.Now())
+
+	assert.True(t, resp.Allowed, "cluster-scoped resource should be allowed immediately")
+
+	time.Sleep(300 * time.Millisecond)
+	assert.Empty(t, mock.GetSpecs(), "no URs should be created for cluster-scoped resources")
+}
+
+func TestGenerateNamespaced_DeleteWithSyncDeletesDownstream(t *testing.T) {
+	// Namespaced generate policy with synchronization enabled: when the trigger
+	// pod is deleted and the policy only matches CREATE (not DELETE), the handler
+	// should produce a UR with deleteDownstream=true and the correct namespace-prefixed
+	// policyKey so the background controller can clean up generated resources.
+	framework.CreateNamespace(t, testEnv.KubeClient, "team-cleanup")
+
+	policy := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gen-sync-ns",
+			Namespace: "team-cleanup",
+		},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: framework.PodMatchRulesWithOps(admissionregistrationv1.Create),
+			Generation:       []policiesv1beta1.Generation{{Expression: "[]"}},
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+	}
+
+	createNgpolWithCleanup(t, policy)
+	waitForNgpolInLister(t, "team-cleanup", "gen-sync-ns")
+
+	mock := &framework.MockURGenerator{}
+	h := gpol.New(mock, gpolLister, ngpolLister)
+
+	ctx := framework.ContextWithPolicies(context.Background(), "gen-sync-ns")
+	resp := h.GenerateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("cleanup-pod", "team-cleanup", admissionv1.Delete, podJSON), "", time.Now())
+
+	assert.True(t, resp.Allowed)
+
+	require.Eventually(t, func() bool {
+		return len(mock.GetSpecs()) >= 1
+	}, 2*time.Second, 50*time.Millisecond, "UpdateRequest not created in time")
+
+	specs := mock.GetSpecs()
+	require.Len(t, specs, 1)
+	assert.Equal(t, "team-cleanup/gen-sync-ns", specs[0].Policy, "namespaced policy key should be namespace/name")
+	assert.True(t, specs[0].RuleContext[0].DeleteDownstream, "should signal downstream deletion")
+	assert.False(t, specs[0].RuleContext[0].Synchronize)
+}
