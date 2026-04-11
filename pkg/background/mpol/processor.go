@@ -28,6 +28,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -303,19 +304,33 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 }
 
 func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.UpdateRequest, mpol v1beta1.MutatingPolicyLike) (*unstructured.UnstructuredList, error) {
-	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil ||
-		ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw == nil {
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil {
+		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
+	}
+
+	req := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	var raw []byte
+	if req.Object.Raw != nil && string(req.Object.Raw) != "null" {
+		raw = req.Object.Raw
+	} else if req.OldObject.Raw != nil && string(req.OldObject.Raw) != "null" {
+		raw = req.OldObject.Raw
+	}
+
+	if raw == nil {
 		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
 	}
 
 	var urResource unstructured.Unstructured
-	err := json.Unmarshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &urResource)
+	err := json.Unmarshal(raw, &urResource)
 	if err != nil {
 		return nil, err
 	}
 
 	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
 	if err != nil {
+		if errors.IsNotFound(err) && ur.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
+			return nil, nil
+		}
 		return nil, err
 	}
 	pol, err := p.engine.GetCompiledPolicy(mpol.GetName())
