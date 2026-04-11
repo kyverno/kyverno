@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       AppArmor profiles should be restricted to allowed values. This policy ensures
       AppArmor profiles are unset or set to allowed values.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -58,6 +58,7 @@ spec:
         spec.containers[*].securityContext.appArmorProfile.type,
         spec.initContainers[*].securityContext.appArmorProfile.type, and
         spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset or set to allowed values.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}

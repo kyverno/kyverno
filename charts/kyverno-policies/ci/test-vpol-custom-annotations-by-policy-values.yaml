@@ -1,0 +1,19 @@
+policyType: ValidatingPolicy
+
+# use restricted to test with all templates
+podSecurityStandard: restricted
+
+# include other policies to test all templates
+includeOtherPolicies:
+  - require-non-root-groups
+
+# Default annotations applied to all policies
+customAnnotations:
+  example.io/default: "value"
+  example.io/team: "platform"
+
+# Per-policy overrides — override default key + add new key
+customAnnotationsByPolicy:
+  disallow-host-path:
+    example.io/team: "security"
+    example.io/other: "value"

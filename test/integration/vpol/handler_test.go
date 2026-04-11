@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	vpol "github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
@@ -34,7 +35,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	engine, provider, err = framework.NewVpolEngine(testEnv.Mgr)
+	engine, provider, err = framework.NewVpolEngineWithExceptions(testEnv.Mgr)
 	if err != nil {
 		testEnv.Stop()
 		panic(err)
@@ -389,4 +390,209 @@ func TestValidate_MultipleValidations_PartialFailureDenies(t *testing.T) {
 	assert.False(t, resp.Allowed, "pod missing cost-center label should be denied")
 	require.NotNil(t, resp.Result, "deny response should include result details")
 	assert.Contains(t, resp.Result.Message, "cost-center", "error should mention the failing validation")
+}
+
+// --- Namespaced policy tests ---
+
+// createNamespacedPolicyWithCleanup creates a NamespacedValidatingPolicy and registers cleanup.
+func createNamespacedPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedValidatingPolicy) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, policy))
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), policy)
+		waitForPolicyGone(t)
+	})
+}
+
+func TestValidateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
+	// Multi-tenant cluster: team-a deploys a NamespacedValidatingPolicy that requires
+	// an "owner" label on all pods. team-b's pods in a different namespace should
+	// not be affected — the policy is scoped to team-a only.
+	framework.CreateNamespace(t, testEnv.KubeClient, "team-a")
+	framework.CreateNamespace(t, testEnv.KubeClient, "team-b")
+
+	policy := &policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "require-owner-label",
+			Namespace: "team-a",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "has(object.metadata.labels) && 'owner' in object.metadata.labels",
+				Message:    "pods must have an owner label",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	createNamespacedPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	// Pod in team-a (same namespace as policy) — should be denied.
+	ctx := framework.ContextWithPolicies(context.Background(), "require-owner-label")
+	resp := h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app-pod", "team-a", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "app-pod", "namespace": "team-a"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.False(t, resp.Allowed, "pod in team-a should be denied by namespaced policy")
+
+	// Pod in team-b (different namespace) — policy should not apply.
+	resp = h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app-pod", "team-b", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "app-pod", "namespace": "team-b"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.True(t, resp.Allowed, "pod in team-b should not be affected by team-a's namespaced policy")
+}
+
+func TestValidate_PolicyExceptionSkipsValidation(t *testing.T) {
+	// Break-glass scenario: a DB migration pod needs to bypass the label-enforcement
+	// policy temporarily. The platform team creates a PolicyException so the migration
+	// can proceed without being blocked.
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-team-label-ex"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "has(object.metadata.labels) && 'team' in object.metadata.labels",
+				Message:    "pods must have a team label",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, policy))
+	waitForPolicyReady(t, 1)
+
+	// Verify the policy actually denies before the exception is created.
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+	podJSON := []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "db-migration", "namespace": "default"},
+		"spec": {"containers": [{"name": "migrate", "image": "postgres:16"}]}
+	}`)
+
+	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
+	require.False(t, resp.Allowed, "policy should deny before exception is created")
+
+	// Now create the exception — the reconciler will re-compile the policy with exception data.
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "allow-db-migration",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{
+				Name: "require-team-label-ex",
+				Kind: "ValidatingPolicy",
+			}},
+		},
+	}
+
+	require.NoError(t, testEnv.Client.Create(ctx, exception))
+
+	// Manage cleanup explicitly: delete exception first and wait for the
+	// re-reconciliation it triggers to settle, then delete the policy.
+	// This avoids the race where exception-delete re-queues the policy
+	// right as we're trying to delete it.
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), exception)
+		// Wait for the exception-delete-triggered re-reconciliation to complete
+		// before deleting the policy.
+		time.Sleep(500 * time.Millisecond)
+		testEnv.Client.Delete(context.Background(), policy)
+		waitForPolicyGone(t)
+	})
+
+	// Wait for the exception to take effect by polling the handler.
+	// The exception watch re-queues the policy, and the reconciler re-compiles
+	// it with exception data from the same manager cache — no dual-cache race.
+	require.Eventually(t, func() bool {
+		resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
+		return resp.Allowed
+	}, 5*time.Second, 200*time.Millisecond, "exception should make the policy skip validation")
+}
+
+func TestValidate_FailurePolicy_FailBlocksOnMatchConditionError(t *testing.T) {
+	// An admin writes a match condition that references a field that doesn't exist
+	// on all resource types. With failurePolicy=Fail (the default), a CEL eval
+	// error in the match condition should block admission rather than silently
+	// letting non-matching resources through.
+	fail := admissionregistrationv1.Fail
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "fail-on-match-error"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy:    &fail,
+			MatchConstraints: framework.PodMatchRules(),
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "broken-condition",
+				Expression: "object.spec.nonExistentField == 'x'",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "true",
+				Message:    "always passes",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	createPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "test-pod", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.False(t, resp.Allowed, "failurePolicy=Fail should block when match condition errors")
+}
+
+func TestValidate_FailurePolicy_IgnoreSkipsOnMatchConditionError(t *testing.T) {
+	// Same broken match condition, but failurePolicy=Ignore. The policy should
+	// be skipped entirely — the pod goes through without being validated.
+	ignore := admissionregistrationv1.Ignore
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ignore-on-match-error"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy:    &ignore,
+			MatchConstraints: framework.PodMatchRules(),
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "broken-condition",
+				Expression: "object.spec.nonExistentField == 'x'",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "false",
+				Message:    "always fails if evaluated",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	createPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "test-pod", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.True(t, resp.Allowed, "failurePolicy=Ignore should skip policy when match condition errors")
 }
