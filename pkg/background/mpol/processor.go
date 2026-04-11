@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"bytes"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -310,13 +312,13 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 
 	req := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	var raw []byte
-	if req.Object.Raw != nil && string(req.Object.Raw) != "null" {
+	if len(req.Object.Raw) > 0 && !bytes.Equal(req.Object.Raw, []byte("null")) {
 		raw = req.Object.Raw
-	} else if req.OldObject.Raw != nil && string(req.OldObject.Raw) != "null" {
+	} else if len(req.OldObject.Raw) > 0 && !bytes.Equal(req.OldObject.Raw, []byte("null")) {
 		raw = req.OldObject.Raw
 	}
 
-	if raw == nil {
+	if len(raw) == 0 {
 		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
 	}
 
@@ -329,7 +331,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
 	if err != nil {
 		if errors.IsNotFound(err) && ur.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
-			return nil, nil
+			return &unstructured.UnstructuredList{}, nil
 		}
 		return nil, err
 	}
