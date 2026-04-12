@@ -80,7 +80,6 @@ type PolicyProcessor struct {
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
-	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
 	CELExceptions                     []*policiesv1beta1.PolicyException
 	MutateLogPath                     string
@@ -585,35 +584,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if len(r.Rules) == 0 {
 						continue
 					}
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
-					}
-					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
-					responses = append(responses, response)
-				}
-			}
-		}
-		if p.JsonPayload.Object != nil {
-			if len(k8sPolicies) > 0 {
-				log.Log.V(1).Info("skipping Kubernetes-mode validating policies for JSON payload (set spec.evaluation.mode to JSON for non-Kubernetes payloads)",
-					"skippedPolicies", len(k8sPolicies))
-			}
-			if len(jsonPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
-				if err != nil {
-					return nil, err
-				}
-				eng := vpolengine.NewEngine(provider, nil, nil)
-				request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
-				reps, err := eng.Handle(ctx, request, nil)
-				if err != nil {
-					return nil, err
-				}
-				for _, r := range reps.Policies {
 					response := engineapi.EngineResponse{
 						Resource: *reps.Resource,
 						PolicyResponse: engineapi.PolicyResponse{

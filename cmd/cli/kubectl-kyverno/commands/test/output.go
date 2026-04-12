@@ -1,14 +1,12 @@
 package test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -16,156 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/openreports"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-)
 
-func printCheckResult(
-	checks []v1alpha1.CheckResult,
-	responses TestResponse,
-	rc *resultCounts,
-	resultsTable *table.Table,
-) error {
-	ctx := context.Background()
-	testCount := 1
-	for _, check := range checks {
-		// filter engine responses
-		var matchingEngineResponses []engineapi.EngineResponse
-		for _, engineresponses := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
-		}
-		// 1. by resource
-		if check.Match.Resource != nil {
-			var filtered []engineapi.EngineResponse
-			for _, response := range matchingEngineResponses {
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Resource.Value), response.Resource.UnstructuredContent(), nil)
-				if err != nil {
-					return err
-				}
-				if len(errs) == 0 {
-					filtered = append(filtered, response)
-				}
-			}
-			matchingEngineResponses = filtered
-		}
-		// 2. by policy
-		if check.Match.Policy != nil {
-			var filtered []engineapi.EngineResponse
-			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
-				if err != nil {
-					return err
-				}
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Policy.Value), data, nil)
-				if err != nil {
-					return err
-				}
-				if len(errs) == 0 {
-					filtered = append(filtered, response)
-				}
-			}
-			matchingEngineResponses = filtered
-		}
-		for _, response := range matchingEngineResponses {
-			// filter rule responses
-			matchingRuleResponses := response.PolicyResponse.Rules
-			if check.Match.Rule != nil {
-				var filtered []engineapi.RuleResponse
-				for _, response := range matchingRuleResponses {
-					data := map[string]any{
-						"name": response.Name(),
-					}
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Rule.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					if len(errs) == 0 {
-						filtered = append(filtered, response)
-					}
-				}
-				matchingRuleResponses = filtered
-			}
-			for _, rule := range matchingRuleResponses {
-				// perform check
-				data := map[string]any{
-					"name":     rule.Name(),
-					"ruleType": rule.RuleType(),
-					"message":  rule.Message(),
-					"status":   string(rule.Status()),
-					// generatedResource unstructured.Unstructured
-					// patchedTarget *unstructured.Unstructured
-					// patchedTargetParentResourceGVR metav1.GroupVersionResource
-					// patchedTargetSubresourceName string
-					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
-					"podSecurityChecks": rule.PodSecurityChecks(),
-					"exceptions":        rule.Exceptions(),
-				}
-				if check.Assert.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
-					}
-					if len(errs) == 0 {
-						row.Result = color.ResultPass()
-						row.Reason = "Ok"
-						if rule.Status() == engineapi.RuleStatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
-						}
-					} else {
-						row.Result = color.ResultFail()
-						row.Reason = errs.ToAggregate().Error()
-						rc.Fail++
-					}
-					resultsTable.Add(row)
-					testCount++
-				}
-				if check.Error.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
-					}
-					if len(errs) != 0 {
-						row.Result = color.ResultPass()
-						row.Reason = errs.ToAggregate().Error()
-						if rule.Status() == engineapi.RuleStatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
-						}
-					} else {
-						row.Result = color.ResultFail()
-						row.Reason = "The assertion succeeded but was expected to fail"
-						rc.Fail++
-					}
-					resultsTable.Add(row)
-					testCount++
-				}
-			}
-		}
-	}
-	return nil
-}
+)
 
 // a test that contains a policy that may contain several rules
 func printTestResult(
