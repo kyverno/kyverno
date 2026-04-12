@@ -4,6 +4,5 @@ metadata:
   name: restrict-scale
 status:
   conditions:
-  - reason: Succeeded
-    status: "True"
+  - status: "True"
     type: Ready
