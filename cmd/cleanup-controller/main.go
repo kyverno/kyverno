@@ -280,6 +280,7 @@ func main() {
 						caSecretName,
 						tlsSecretName,
 						config.KyvernoNamespace(),
+						30*time.Second,
 					),
 					certmanager.Workers,
 				)

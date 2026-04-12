@@ -69,7 +69,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
-	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client)
+	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client, 30*time.Second)
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
