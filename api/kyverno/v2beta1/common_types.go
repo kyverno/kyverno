@@ -56,6 +56,11 @@ type Validation struct {
 	// +optional
 	CEL *kyvernov1.CEL `json:"cel,omitempty"`
 
+	// Assert is deprecated and retained for backwards compatibility with
+	// existing policies and API consumers. It has no effect and will be
+	// removed in a future release.
+	// +optional
+	Assert *kyverno.Any `json:"assert,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
