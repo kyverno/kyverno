@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -69,8 +70,13 @@ type contextProvider struct {
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
-	cliEvaluation      bool
-	restMapper         meta.RESTMapper
+	// genMu serialises the SetGenerateContext → GenerateResources →
+	// ClearGeneratedResources sequence. With 10 concurrent background workers
+	// sharing this singleton, two URs for different policies can otherwise race
+	// on genCtx and stamp each other's policy name onto generated resource labels.
+	genMu         sync.Mutex
+	cliEvaluation bool
+	restMapper    meta.RESTMapper
 }
 
 func NewContextProvider(
@@ -208,7 +214,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(namespace)
 			item.SetResourceVersion("")
 			// check if the resource is already generated
-			_, err := cp.client.GetResource(
+			existing, err := cp.client.GetResource(
 				context.TODO(),
 				item.GetAPIVersion(),
 				item.GetKind(),
@@ -216,8 +222,8 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				item.GetName(),
 			)
 
-			// if the resource is not found, create it
-			if err != nil && apierrors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
+				// Resource doesn't exist yet — create it.
 				if !cp.genCtx.restoreCache {
 					generatedRes, err := cp.client.CreateResource(
 						context.TODO(),
@@ -234,6 +240,28 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				}
 			} else if err != nil {
 				return err
+			} else {
+				// Already exists — return the actual cluster resource (with its real UID)
+				// so SyncWatchers can keep the metadataCache up to date.
+				// Correct the management labels if a prior race left them wrong.
+				prevPolicyLabel := existing.GetLabels()[common.GeneratePolicyLabel]
+				cp.addGenerateLabels(existing)
+				if existing.GetLabels()[common.GeneratePolicyLabel] != prevPolicyLabel {
+					updated, updateErr := cp.client.UpdateResource(
+						context.TODO(),
+						existing.GetAPIVersion(),
+						existing.GetKind(),
+						existing.GetNamespace(),
+						existing,
+						false,
+					)
+					if updateErr != nil {
+						return updateErr
+					}
+					cp.generatedResources = append(cp.generatedResources, updated)
+				} else {
+					cp.generatedResources = append(cp.generatedResources, existing)
+				}
 			}
 		}
 	}
@@ -267,6 +295,9 @@ func (cp *contextProvider) SetGenerateContext(
 	polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
 	restoreCache bool,
 ) {
+	// Hold the lock until ClearGeneratedResources to prevent concurrent workers
+	// from interleaving their genCtx writes and GenerateResources calls.
+	cp.genMu.Lock()
 	cp.genCtx.policyName = polName
 	cp.genCtx.triggerName = triggerName
 	cp.genCtx.triggerNamespace = triggerNamespace
@@ -297,6 +328,7 @@ func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionR
 
 func (cp *contextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
+	cp.genMu.Unlock()
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

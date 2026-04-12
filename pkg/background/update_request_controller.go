@@ -140,6 +140,10 @@ func (c *controller) Run(ctx context.Context, workers int) {
 		return
 	}
 
+	// Restore watchers for existing downstream resources; completed URs are gone
+	// after a restart so SyncWatchers won't run until the next trigger.
+	go c.watchManager.Bootstrap(ctx)
+
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}

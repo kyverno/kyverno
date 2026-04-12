@@ -40,6 +40,9 @@ func (p *Policy) Evaluate(
 	namespace runtime.Object,
 	context libs.Context,
 ) ([]*unstructured.Unstructured, []*policiesv1beta1.PolicyException, error) {
+	// Defer before prepareData so the mutex acquired by SetGenerateContext is
+	// released on every return path, including early errors.
+	defer context.ClearGeneratedResources()
 	data, err := prepareData(attr, request, namespace, context)
 	if err != nil {
 		return nil, nil, err
@@ -105,7 +108,6 @@ func (p *Policy) Evaluate(
 	}
 
 	generatedResources := data.Context.GetGeneratedResources()
-	data.Context.ClearGeneratedResources()
 	return generatedResources, nil, nil
 }
 

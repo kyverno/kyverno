@@ -254,6 +254,12 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
 			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
 		}
+		// If synchronization is re-enabled, restore watchers — SyncWatchers won't run
+		// on its own when downstream resources already exist.
+		if !oldgpol.Spec.SynchronizationEnabled() && newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("synchronization re-enabled, restoring watchers", "name", newgpol.GetName())
+			go pc.watchManager.Bootstrap(context.TODO())
+		}
 	}
 
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
