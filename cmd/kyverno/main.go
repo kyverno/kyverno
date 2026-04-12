@@ -399,7 +399,7 @@ func main() {
 	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
-	flagset.DurationVar(&certRenewalTimeout, "certRenewalTimeout", 30*time.Second, "Timeout per Kubernetes API server operation during CA and TLS certificate renewal.")
+	flagset.DurationVar(&certRenewalTimeout, "certRenewalTimeout", 30*time.Second, "Total time budget for CA and TLS certificate renewal retries.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
@@ -955,4 +955,3 @@ func main() {
 	wg.Wait()
 }
 
-// We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
