@@ -6,6 +6,7 @@ metadata:
 spec:
   steps:
   - name: step-01
+    timeout: 2m
     try:
     - apply:
         file: ../restrict-scale.yaml
