@@ -12,6 +12,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
+	certmanager "github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -69,7 +70,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
-	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client, 30*time.Second)
+	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client, certmanager.DefaultCertRenewalTimeout)
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)

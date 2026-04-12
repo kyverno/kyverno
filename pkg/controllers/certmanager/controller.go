@@ -19,9 +19,10 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 1
-	ControllerName = "certmanager-controller"
-	maxRetries     = 10
+	Workers                   = 1
+	ControllerName            = "certmanager-controller"
+	maxRetries                = 10
+	DefaultCertRenewalTimeout = 30 * time.Second
 )
 
 type controller struct {
