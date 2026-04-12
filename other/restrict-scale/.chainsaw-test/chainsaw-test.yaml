@@ -25,6 +25,6 @@ spec:
         file: good-deployment.yaml
     - apply:
         expect:
-        - check:
-            ($error != null && contains($error, 'restrict-scale')): true
+          - check:
+              ($error != null && (contains($error, 'restrict-scale') || contains($error, 'create-max-four'))): true
         file: bad-deployment-too-many-replicas.yaml
