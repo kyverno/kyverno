@@ -143,7 +143,7 @@ runs:
         set -e
         cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
         chainsaw test \
-          --config $GITHUB_WORKSPACE/.chainsaw.yaml \
+          --config "${GITHUB_WORKSPACE}/.chainsaw.yaml" \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}
