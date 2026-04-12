@@ -1,6 +1,9 @@
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
   name: restrict-scale
 status:
-  (conditions[?type == 'Ready'] | [0].status): "True"
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
