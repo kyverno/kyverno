@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
 	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
 	"github.com/kyverno/kyverno/pkg/cel/libs/user"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -41,28 +42,32 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.MutatingPolicy, exceptio
 	var allErrs field.ErrorList
 
 	baseEnvSet := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false)
+	// Build library environment options, gating HTTP on namespace scope and operator flag (CVE-2026-4789)
+	libEnvOpts := []cel.EnvOption{
+		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
+		cel.Variable(compiler.ObjectKey, cel.DynType),
+		cel.Variable(compiler.OldObjectKey, cel.DynType),
+		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
+		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
+		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
+		cel.Variable(compiler.ImagesKey, image.ImageType),
+		cel.Variable(compiler.ResourceKey, resource.ContextType),
+		cel.Types(compiler.NamespaceType.CelType()),
+		cel.Types(compiler.RequestType.CelType()),
+		globalcontext.Lib(globalcontext.Latest()),
+		image.Lib(image.Latest()),
+		imagedata.Lib(imagedata.Latest()),
+		resource.Lib(policy.GetNamespace(), resource.Latest()),
+		user.Lib(user.Latest()),
+	}
+	// http.Get/Post are gated by scope. Namespaced policies require explicit opt-in flag.
+	if policy.GetNamespace() == "" || toggle.AllowHTTPInNamespacedPolicies.Enabled() {
+		libEnvOpts = append(libEnvOpts, cel.Variable(compiler.HttpKey, http.ContextType), http.Lib(http.Latest()))
+	}
 	extendedEnvSet, err := baseEnvSet.Extend(
 		environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
-			EnvOptions: []cel.EnvOption{
-				cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
-				cel.Variable(compiler.ObjectKey, cel.DynType),
-				cel.Variable(compiler.OldObjectKey, cel.DynType),
-				cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
-				cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-				cel.Variable(compiler.HttpKey, http.ContextType),
-				cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
-				cel.Variable(compiler.ImagesKey, image.ImageType),
-				cel.Variable(compiler.ResourceKey, resource.ContextType),
-				cel.Types(compiler.NamespaceType.CelType()),
-				cel.Types(compiler.RequestType.CelType()),
-				globalcontext.Lib(image.Latest()),
-				http.Lib(image.Latest()),
-				image.Lib(image.Latest()),
-				imagedata.Lib(imagedata.Latest()),
-				resource.Lib(policy.GetNamespace(), resource.Latest()),
-				user.Lib(user.Latest()),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {
