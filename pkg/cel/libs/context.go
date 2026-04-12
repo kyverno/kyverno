@@ -3,6 +3,7 @@ package libs
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -241,26 +242,54 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			} else if err != nil {
 				return err
 			} else {
-				// Already exists — return the actual cluster resource (with its real UID)
-				// so SyncWatchers can keep the metadataCache up to date.
-				// Correct the management labels if a prior race left them wrong.
-				prevPolicyLabel := existing.GetLabels()[common.GeneratePolicyLabel]
-				cp.addGenerateLabels(existing)
-				if existing.GetLabels()[common.GeneratePolicyLabel] != prevPolicyLabel {
-					updated, updateErr := cp.client.UpdateResource(
-						context.TODO(),
-						existing.GetAPIVersion(),
-						existing.GetKind(),
-						existing.GetNamespace(),
-						existing,
-						false,
-					)
-					if updateErr != nil {
-						return updateErr
-					}
-					cp.generatedResources = append(cp.generatedResources, updated)
-				} else {
+				if cp.genCtx.restoreCache {
+					// Bootstrap mode — populate cache without writing to the cluster.
 					cp.generatedResources = append(cp.generatedResources, existing)
+				} else {
+					// Resource already exists — mirror the old ClusterPolicy behaviour:
+					// diff the desired state against the cluster and update only if needed,
+					// instead of the previous delete+recreate on every Synchronize UR.
+					//
+					// Build the desired object: existing metadata (UID, resourceVersion…)
+					// merged with the content from the CEL expression plus correct labels.
+					desired := existing.DeepCopy()
+					for k, v := range item.Object {
+						if k != "metadata" && k != "status" {
+							desired.Object[k] = v
+						}
+					}
+					cp.addGenerateLabels(desired)
+
+					// Determine whether the cluster state matches the desired state.
+					needsUpdate := desired.GetLabels()[common.GeneratePolicyLabel] != existing.GetLabels()[common.GeneratePolicyLabel]
+					if !needsUpdate {
+						for k := range item.Object {
+							if k == "metadata" || k == "status" {
+								continue
+							}
+							if !reflect.DeepEqual(desired.Object[k], existing.Object[k]) {
+								needsUpdate = true
+								break
+							}
+						}
+					}
+
+					if needsUpdate {
+						updated, err := cp.client.UpdateResource(
+							context.TODO(),
+							desired.GetAPIVersion(),
+							desired.GetKind(),
+							desired.GetNamespace(),
+							desired,
+							false,
+						)
+						if err != nil {
+							return err
+						}
+						cp.generatedResources = append(cp.generatedResources, updated)
+					} else {
+						cp.generatedResources = append(cp.generatedResources, existing)
+					}
 				}
 			}
 		}
