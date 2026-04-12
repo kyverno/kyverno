@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno/hack/api-group-resources
 
-go 1.26
+go 1.26.2
 
 toolchain go1.26.2
 
