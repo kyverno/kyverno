@@ -732,7 +732,6 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	return responses, nil
 }
 
-<<<<<<< HEAD
 func (c *ApplyCommandConfig) applyCleanupPolicies(
 	cps []kyvernov2.CleanupPolicyInterface,
 	resources []*unstructured.Unstructured,
