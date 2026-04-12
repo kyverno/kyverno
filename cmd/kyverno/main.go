@@ -437,7 +437,7 @@ func main() {
 	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
 	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
 		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
-                os.Exit(1)
+		os.Exit(1)
 	}
 	if certRenewalTimeout <= 0 {
 		fmt.Fprintf(os.Stderr, "error: --certRenewalTimeout must be greater than 0, got %v\n", certRenewalTimeout)
@@ -449,7 +449,7 @@ func main() {
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 		defer sdown()
 		if caSecretName == "" {
-                        setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
+			setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
 			os.Exit(1)
 		}
 		if tlsSecretName == "" {
