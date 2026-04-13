@@ -11,7 +11,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	certmanager "github.com/kyverno/pkg/certmanager"
+	sharedtls "github.com/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -63,12 +64,14 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		certController := NewController(
 			certmanager.ControllerName,
 			certmanager.NewController(
+				logging.WithName("metrics-certmanager"),
 				metricsCASecretInformer,
 				metricsTLSSecretInformer,
 				renewer,
-				metricsCASecretName,
-				metricsTLSSecretName,
-				config.KyvernoNamespace(),
+				&sharedtls.Config{
+					ServiceName: config.KyvernoServiceName(),
+					Namespace:   config.KyvernoNamespace(),
+				},
 			),
 			certmanager.Workers,
 		)
