@@ -252,5 +252,3 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	out = append(out, genRules...)
 	return out
 }
-
-

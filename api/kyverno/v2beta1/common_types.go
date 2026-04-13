@@ -57,9 +57,9 @@ type Validation struct {
 	// +optional
 	CEL *kyvernov1.CEL `json:"cel,omitempty"`
 
-	// Assert is deprecated and retained for backwards compatibility with
-	// existing policies and API consumers. It has no effect and will be
-	// removed in a future release.
+	// Deprecated: Assert is retained for backwards compatibility with existing
+	// policies and API consumers. It has no effect and will be removed in a
+	// future release.
 	// +optional
 	Assert *apiextv1.JSON `json:"assert,omitempty"`
 }
