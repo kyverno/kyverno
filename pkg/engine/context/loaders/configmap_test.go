@@ -90,7 +90,7 @@ func Test_CrossNamespaceConfigMapAccess_WithVariableSubstitution(t *testing.T) {
 	resolver := &mockConfigmapResolver{cm: makeCM("victim-ns")}
 	entry := makeEntry("{{ targetNs }}")
 	ctx := enginecontext.NewContext(jp)
-	_ = ctx.AddContextEntry("targetNs", []byte(`"victim-ns"`))
+	assert.NilError(t, ctx.AddContextEntry("targetNs", []byte(`"victim-ns"`)))
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "attacker-ns")
 	err := ldr.LoadData()
 	assert.ErrorContains(t, err, `configMap namespace "victim-ns" is different from policy namespace "attacker-ns"`)
