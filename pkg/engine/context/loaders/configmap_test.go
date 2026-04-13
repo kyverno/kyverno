@@ -17,11 +17,17 @@ import (
 var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 type mockConfigmapResolver struct {
-	cm  *corev1.ConfigMap
-	err error
+	cm      *corev1.ConfigMap
+	err     error
+	called  bool
+	gotNS   string
+	gotName string
 }
 
 func (m *mockConfigmapResolver) Get(_ context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+	m.called = true
+	m.gotNS = namespace
+	m.gotName = name
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -57,15 +63,19 @@ func Test_CrossNamespaceConfigMapAccess(t *testing.T) {
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "attacker-ns")
 	err := ldr.LoadData()
 	assert.ErrorContains(t, err, `configMap namespace "victim-ns" is different from policy namespace "attacker-ns"`)
+	assert.Equal(t, resolver.called, false)
 }
 
-func Test_CrossNamespaceConfigMapAccess_SameNamespace(t *testing.T) {
+func Test_SameNamespaceConfigMapAccess(t *testing.T) {
 	resolver := &mockConfigmapResolver{cm: makeCM("app-ns")}
 	entry := makeEntry("app-ns")
 	ctx := enginecontext.NewContext(jp)
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "app-ns")
 	err := ldr.LoadData()
 	assert.NilError(t, err)
+	assert.Equal(t, resolver.called, true)
+	assert.Equal(t, resolver.gotNS, "app-ns")
+	assert.Equal(t, resolver.gotName, "sensitive-config")
 }
 
 func Test_CrossNamespaceConfigMapAccess_EmptyNamespaceDefaultsToPolicyNS(t *testing.T) {
@@ -75,6 +85,9 @@ func Test_CrossNamespaceConfigMapAccess_EmptyNamespaceDefaultsToPolicyNS(t *test
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "app-ns")
 	err := ldr.LoadData()
 	assert.NilError(t, err)
+	assert.Equal(t, resolver.called, true)
+	assert.Equal(t, resolver.gotNS, "app-ns")
+	assert.Equal(t, resolver.gotName, "sensitive-config")
 }
 
 func Test_CrossNamespaceConfigMapAccess_ClusterPolicyUnrestricted(t *testing.T) {
@@ -84,14 +97,18 @@ func Test_CrossNamespaceConfigMapAccess_ClusterPolicyUnrestricted(t *testing.T) 
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "")
 	err := ldr.LoadData()
 	assert.NilError(t, err)
+	assert.Equal(t, resolver.called, true)
+	assert.Equal(t, resolver.gotNS, "any-ns")
+	assert.Equal(t, resolver.gotName, "sensitive-config")
 }
 
 func Test_CrossNamespaceConfigMapAccess_WithVariableSubstitution(t *testing.T) {
 	resolver := &mockConfigmapResolver{cm: makeCM("victim-ns")}
 	entry := makeEntry("{{ targetNs }}")
 	ctx := enginecontext.NewContext(jp)
-	_ = ctx.AddContextEntry("targetNs", []byte(`"victim-ns"`))
+	assert.NilError(t, ctx.AddContextEntry("targetNs", []byte(`"victim-ns"`)))
 	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "attacker-ns")
 	err := ldr.LoadData()
 	assert.ErrorContains(t, err, `configMap namespace "victim-ns" is different from policy namespace "attacker-ns"`)
+	assert.Equal(t, resolver.called, false)
 }

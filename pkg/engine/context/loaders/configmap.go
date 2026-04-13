@@ -76,34 +76,42 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entryName, cmName, err)
 	}
+	nameStr, ok := name.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: expected string, got %T", entryName, cmName, name)
+	}
 	namespace, err := variables.SubstituteAll(logger, cml.enginectx, cml.entry.ConfigMap.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entryName, cmNamespace, err)
 	}
-	if namespace == "" {
+	namespaceStr, ok := namespace.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: expected string, got %T", entryName, cmNamespace, namespace)
+	}
+	if namespaceStr == "" {
 		// For namespaced policies, default to the policy's own namespace.
 		// For ClusterPolicies (policyNamespace == ""), preserve the existing default of "default".
 		if cml.policyNamespace != "" {
-			namespace = cml.policyNamespace
+			namespaceStr = cml.policyNamespace
 		} else {
-			namespace = "default"
+			namespaceStr = "default"
 		}
 	}
 	// For namespaced policies, reject cross-namespace ConfigMap access.
 	// This mirrors the protection applied to apiCall.URLPath in CVE-2026-22039.
-	if cml.policyNamespace != "" && namespace.(string) != cml.policyNamespace {
-		return nil, fmt.Errorf("context entry %s: configMap namespace %q is different from policy namespace %q", entryName, namespace, cml.policyNamespace)
+	if cml.policyNamespace != "" && namespaceStr != cml.policyNamespace {
+		return nil, fmt.Errorf("context entry %s: configMap namespace %q is different from policy namespace %q", entryName, namespaceStr, cml.policyNamespace)
 	}
-	obj, err := cml.resolver.Get(cml.ctx, namespace.(string), name.(string))
+	obj, err := cml.resolver.Get(cml.ctx, namespaceStr, nameStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
+		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespaceStr, nameStr, err)
 	}
 	// extract configmap data
 	contextData["data"] = obj.Data
 	contextData["metadata"] = obj.ObjectMeta
 	data, err := json.Marshal(contextData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
+		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespaceStr, nameStr, err)
 	}
 	return data, nil
 }
