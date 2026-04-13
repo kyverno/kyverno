@@ -65,4 +65,3 @@ type TestResourceSpec struct {
 	Subresource string `json:"subresource,omitempty"`
 	Name        string `json:"name,omitempty"`
 }
-
