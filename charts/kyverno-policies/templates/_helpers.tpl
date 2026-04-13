@@ -107,6 +107,23 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Resolve severity for a specific policy.
+     Per-policy entry (podSecuritySeverityByPolicy.<name>) overrides the global default (podSecuritySeverity).
+     Always returns a string (handles numeric values like 1 being passed). */}}
+{{- define "kyverno-policies.policySeverity" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $byPolicy := $values.podSecuritySeverityByPolicy | default dict -}}
+{{- if hasKey $byPolicy $policyName -}}
+  {{- $perPolicy := index $byPolicy $policyName -}}
+  {{- if $perPolicy -}}
+    {{- $perPolicy | quote -}}
+  {{- end -}}
+{{- else -}}
+  {{- $values.podSecuritySeverity | quote -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Check if ValidatingPolicy should be used */}}
 {{- define "kyverno-policies.useValidatingPolicy" -}}
 {{- if eq .Values.policyType "ValidatingPolicy" -}}
