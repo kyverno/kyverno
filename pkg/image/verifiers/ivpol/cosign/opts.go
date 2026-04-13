@@ -25,6 +25,11 @@ import (
 
 var tufMu sync.Mutex
 
+// maxIntermediateCerts limits the number of intermediate certificates accepted
+// from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
+// unbounded work in crypto/x509 certificate chain building).
+const maxIntermediateCerts = 10
+
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	tufMu.Lock()
 	defer tufMu.Unlock()
@@ -82,6 +87,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 			if len(leaves) > 1 {
 				return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+			}
+			if len(intermediates) > maxIntermediateCerts {
+				return nil, fmt.Errorf("TSA certificate chain contains too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
 			}
 			if len(leaves) == 1 {
 				opts.TSACertificate = leaves[0]
@@ -151,6 +159,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				chain, err := certChainFromBytes([]byte(att.Certificate.CertificateChain.Value))
 				if err != nil {
 					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+				}
+				if len(chain) > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)
 				}
 				opts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, opts)
 				if err != nil {
