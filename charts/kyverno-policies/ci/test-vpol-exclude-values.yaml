@@ -5,6 +5,17 @@ includeOtherPolicies:
 
 # Global default — applies to all policies unless overridden
 vpolExclude:
+  excludeResourceRules:
+    - apiGroups:
+        - ""
+      apiVersions:
+        - v1
+      operations:
+        - CREATE
+      resources:
+        - pods
+      resourceNames:
+        - debug-pod
   excludeNamespaces:
     - kube-system
   excludeSubjects:
@@ -48,3 +59,5 @@ vpolExcludeByPolicy:
     matchConditions:
       - name: exclude-temp-resources
         expression: "!object.metadata.name.startsWith('temp-')"
+  # Empty override: explicitly disables global excludes for this policy
+  disallow-privileged-containers: {}

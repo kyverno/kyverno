@@ -143,9 +143,11 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- define "kyverno-policies.policyVpolExclude" -}}
 {{- $policyName := index . "name" -}}
 {{- $values := index . "values" -}}
-{{- $perPolicy := index $values.vpolExcludeByPolicy $policyName | default dict -}}
-{{- if gt (len $perPolicy) 0 -}}
-  {{- toYaml $perPolicy -}}
+{{- if hasKey $values.vpolExcludeByPolicy $policyName -}}
+  {{- $perPolicy := index $values.vpolExcludeByPolicy $policyName | default dict -}}
+  {{- if gt (len $perPolicy) 0 -}}
+    {{- toYaml $perPolicy -}}
+  {{- end -}}
 {{- else -}}
   {{- $global := $values.vpolExclude | default dict -}}
   {{- if gt (len $global) 0 -}}
@@ -213,6 +215,7 @@ matchConditions:
   {{- $items = append $items (printf "'%s'" .) -}}
 {{- end -}}
 {{- join ", " $items -}}
+{{- end -}}
 
 {{/* Generate auditAnnotations for a specific ValidatingPolicy.
      Merges default auditAnnotations with per-policy overrides.

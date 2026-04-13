@@ -29,7 +29,7 @@ spec:
     {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
     {{- with .excludeResourceRules }}
     excludeResourceRules:
-      {{- toYaml . | nindent 4 }}
+      {{- toYaml . | nindent 6 }}
     {{- end }}
   {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
   {{ end }}
