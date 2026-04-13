@@ -31,7 +31,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	certmanager "github.com/kyverno/pkg/certmanager"
-	sharedtls "github.com/kyverno/pkg/tls"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -156,10 +155,7 @@ func createrLeaderControllers(
 		caInformer,
 		tlsInformer,
 		certRenewer,
-		&sharedtls.Config{
-			ServiceName: config.KyvernoServiceName(),
-			Namespace:   config.KyvernoNamespace(),
-		},
+		internal.NewSharedTLSConfig(config.KyvernoServiceName()),
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),

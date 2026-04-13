@@ -40,6 +40,7 @@ require (
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260403194244-37d6f8943fa8
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/kyverno/pkg/certmanager v0.0.10
+	github.com/kyverno/pkg/tls v0.0.9
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
 	github.com/kyverno/sdk v0.0.0-20260403020150-29a100fa834c
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
@@ -109,7 +110,6 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/kyverno/pkg/tls v0.0.9 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mark3labs/mcp-go v0.43.2 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect

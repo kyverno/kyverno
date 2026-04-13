@@ -23,7 +23,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	certmanager "github.com/kyverno/pkg/certmanager"
-	sharedtls "github.com/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
@@ -279,10 +278,7 @@ func main() {
 						caSecret,
 						tlsSecret,
 						renewer,
-						&sharedtls.Config{
-							ServiceName: config.KyvernoServiceName(),
-							Namespace:   config.KyvernoNamespace(),
-						},
+						internal.NewSharedTLSConfig(config.KyvernoServiceName()),
 					),
 					certmanager.Workers,
 				)
