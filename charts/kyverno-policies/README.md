@@ -73,30 +73,31 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/. |
-| background | bool | `true` | Policies background mode |
-| customAnnotations | object | `{}` | Additional Annotations. |
-| customLabels | object | `{}` | Additional labels. |
-| customPolicies | list | `[]` | Additional custom policies to include. |
-| failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
+| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
+| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
+| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
+| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
-| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
-| nameOverride | string | `nil` | Name override. |
-| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
-| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
-| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
-| policyExclude | object | `{}` | Exclude resources from individual policies (policyType: ClusterPolicy only). Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude instead. |
-| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
-| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
-| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
-| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
-| validationAllowExistingViolations | bool | `true` | Validate already existing resources. For more info https://kyverno.io/docs/policy-types/. |
+| customPolicies | list | `[]` | Additional custom policies to include. |
+| failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
 | validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
-| vpolExclude | object | `{}` | Exclude resources from individual ValidatingPolicy policies (policyType: ValidatingPolicy only). NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead. Each policy name maps to an object with the following optional keys:   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition) |
+| validationAllowExistingViolations | bool | `true` | Validate already existing resources. For more info https://kyverno.io/docs/policy-types/. |
+| policyExclude | object | `{}` | Exclude resources from individual policies (policyType: ClusterPolicy only). Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude/vpolExcludeByPolicy instead. |
+| vpolExclude | object | `{}` | Default excludes applied to ALL ValidatingPolicy policies (policyType: ValidatingPolicy only). NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead. Supports the following optional keys:   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition) Per-policy overrides via vpolExcludeByPolicy replace these defaults entirely for that policy. |
+| vpolExcludeByPolicy | object | `{}` | Per-policy excludes for individual ValidatingPolicy policies (policyType: ValidatingPolicy only). When set for a policy, it completely replaces the global vpolExclude defaults for that policy. NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead. Each policy name maps to an object with the same keys as vpolExclude. |
+| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
+| autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/. |
+| nameOverride | string | `nil` | Name override. |
+| customAnnotations | object | `{}` | Additional Annotations. |
+| customLabels | object | `{}` | Additional labels. |
+| background | bool | `true` | Policies background mode |
+| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
+| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
+| kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
 
 ## Source Code
 

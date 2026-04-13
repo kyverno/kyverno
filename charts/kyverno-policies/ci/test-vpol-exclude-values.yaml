@@ -2,7 +2,18 @@ policyType: ValidatingPolicy
 podSecurityStandard: restricted
 includeOtherPolicies:
   - require-non-root-groups
+
+# Global default — applies to all policies unless overridden
 vpolExclude:
+  excludeNamespaces:
+    - kube-system
+  excludeSubjects:
+    - kind: Group
+      name: system:masters
+
+# Per-policy overrides — completely replace vpolExclude for that policy
+vpolExcludeByPolicy:
+  # Override: replaces global default entirely (kube-system NOT excluded here)
   disallow-host-path:
     excludeResourceRules:
       - apiGroups:
@@ -17,14 +28,12 @@ vpolExclude:
         resourceNames:
           - sample
     excludeNamespaces:
-      - kube-system
       - monitoring
     excludeSubjects:
-      - kind: Group
-        name: system:masters
       - kind: ServiceAccount
         namespace: kube-system
         name: default
+  # Additional per-policy override
   disallow-host-namespaces:
     excludeNamespaces:
       - ingress-nginx

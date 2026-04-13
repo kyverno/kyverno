@@ -128,6 +128,24 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- include "kyverno-policies.validationActions" $action -}}
 {{- end -}}
 
+{{/* Resolve vpolExclude for a specific policy.
+     Per-policy entry (vpolExcludeByPolicy.<name>) replaces the global default (vpolExclude) entirely.
+     Receives dict with "name" (policy name) and "values" (.Values).
+     Returns the resolved exclude dict (may be empty). */}}
+{{- define "kyverno-policies.policyVpolExclude" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $perPolicy := index $values.vpolExcludeByPolicy $policyName | default dict -}}
+{{- if gt (len $perPolicy) 0 -}}
+  {{- toYaml $perPolicy -}}
+{{- else -}}
+  {{- $global := $values.vpolExclude | default dict -}}
+  {{- if gt (len $global) 0 -}}
+    {{- toYaml $global -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Generate matchConditions from a vpolExclude entry dict.
      Receives the per-policy exclude dict (e.g. .excludeNamespaces, .excludeSubjects, .matchConditions).
      Only emits the block when at least one condition is generated. */}}

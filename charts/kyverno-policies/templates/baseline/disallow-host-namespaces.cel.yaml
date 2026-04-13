@@ -28,7 +28,7 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
-    {{- with index .Values "vpolExclude" $name }}
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
     {{- with .excludeResourceRules }}
     excludeResourceRules:
       {{- toYaml . | nindent 4 }}
