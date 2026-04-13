@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingAdmissionPolicy
 metadata:
   name: add-label-to-configmap-2
@@ -21,7 +21,7 @@ spec:
               Object{} :
               Object{ metadata: Object.metadata{ labels: {"lfx-mentorship": "kyverno"}}}
 ---
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingAdmissionPolicyBinding
 metadata:
   name: add-label-to-configmap-binding-2

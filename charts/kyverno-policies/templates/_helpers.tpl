@@ -92,10 +92,18 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
-{{/* Custom annotations */}}
+{{/* Custom annotations with per-policy overrides.
+     Merges default customAnnotations with per-policy overrides.
+     Per-policy entries override defaults when they share the same key.
+     Receives dict with "name" (policy name) and "values" (.Values). */}}
 {{- define "kyverno-policies.customAnnotations" -}}
-{{- with .Values.customAnnotations -}}
-{{- toYaml . -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaults := $values.customAnnotations | default dict -}}
+{{- $overrides := index $values.customAnnotationsByPolicy $policyName | default dict -}}
+{{- $merged := merge $overrides $defaults -}}
+{{- if gt (len $merged) 0 -}}
+{{- toYaml $merged -}}
 {{- end -}}
 {{- end -}}
 
@@ -205,4 +213,23 @@ matchConditions:
   {{- $items = append $items (printf "'%s'" .) -}}
 {{- end -}}
 {{- join ", " $items -}}
+
+{{/* Generate auditAnnotations for a specific ValidatingPolicy.
+     Merges default auditAnnotations with per-policy overrides.
+     Per-policy entries override defaults when they share the same key.
+     Receives dict with "name" (policy name) and "values" (.Values). */}}
+{{- define "kyverno-policies.policyAuditAnnotations" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaults := $values.auditAnnotations | default dict -}}
+{{- $overrides := index $values.auditAnnotationsByPolicy $policyName | default dict -}}
+{{- $merged := merge $defaults $overrides -}}
+{{- if gt (len $merged) 0 }}
+auditAnnotations:
+{{- $keys := keys $merged | sortAlpha -}}
+{{- range $keys }}
+  - key: {{ . }}
+    valueExpression: {{ index $merged . | quote }}
+{{- end -}}
+{{- end -}}
 {{- end -}}

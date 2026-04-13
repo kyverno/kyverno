@@ -16,7 +16,7 @@ metadata:
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root users. This policy ensures
       `runAsUser` is not set to `0` (root).
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -56,6 +56,7 @@ spec:
         spec.containers[*].securityContext.runAsUser,
         spec.initContainers[*].securityContext.runAsUser, and
         spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}

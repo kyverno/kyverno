@@ -10,6 +10,8 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
+var nonMatchingImage = "docker.io/library/nginx:latest"
+
 var (
 	obj = func(image string) map[string]any {
 		return map[string]any{
@@ -92,6 +94,12 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 )
+
+func Test_Eval_NonMatchingImage(t *testing.T) {
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(nonMatchingImage), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.Nil(t, result[ivpol.Name])
+}
 
 func Test_Eval(t *testing.T) {
 	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(signedImage), nil, nil, nil)
