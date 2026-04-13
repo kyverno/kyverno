@@ -21,6 +21,7 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/restmapper"
@@ -89,8 +90,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
-		if err != nil || trigger == nil {
-			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+		if trigger == nil || apierrors.IsNotFound(err) {
+			logger.V(4).Info("trigger resource not found, skipping")
+			continue
+		}
+		if err != nil {
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
