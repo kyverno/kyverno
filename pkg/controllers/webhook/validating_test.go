@@ -351,8 +351,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 
 // TestBuildWebhookRules_FineGrained_DeterministicOrdering asserts that calling
 // buildWebhookRules with the same set of 2+ fine-grained ValidatingPolicies
-// (those with matchConditions) always produces the same webhook slice regardless
-// of the order in which policies are supplied.
+// (those with matchConditions, matchConstraints.matchPolicy: Exact, or custom
+// timeoutSeconds) always produces the same webhook slice regardless of the order
+// in which policies are supplied.
 //
 // Background: the webhook controller reconciles every ~10 seconds via a watchdog.
 // On each cycle it rebuilds the desired ValidatingWebhookConfiguration and compares
