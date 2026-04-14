@@ -9,7 +9,29 @@ spec:
     timeout: 2m
     try:
     - apply:
-        file: ../restrict-scale.yaml
+        resource:
+          apiVersion: kyverno.io/v2beta1
+          kind: ClusterPolicy
+          metadata:
+            name: restrict-scale
+          spec:
+            validationFailureAction: Audit
+            background: false
+            rules:
+            - name: create-max-four
+              match:
+                any:
+                - resources:
+                    kinds:
+                    - Deployment
+              validate:
+                message: The number of replicas must not exceed 4.
+                deny:
+                  conditions:
+                    any:
+                    - key: "{{ request.object.spec.replicas || `1` }}"
+                      operator: GreaterThan
+                      value: 4
     - patch:
         resource:
           apiVersion: kyverno.io/v2beta1
