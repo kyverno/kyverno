@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -350,24 +351,22 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 }
 
 func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
-	makeFinegrainedVpol := func(name string, resource string) *policiesv1beta1.ValidatingPolicy {
+	makeFinegrainedVpol := func(name, resource string) *policiesv1beta1.ValidatingPolicy {
 		return &policiesv1beta1.ValidatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: policiesv1beta1.ValidatingPolicySpec{
 				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-						{
-							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{""},
-									APIVersions: []string{"v1"},
-									Resources:   []string{resource},
-								},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{resource},
 							},
 						},
-					},
+					}},
 				},
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{Name: "always-true", Expression: "true"},
@@ -375,11 +374,9 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 			},
 		}
 	}
-
 	policyA := makeFinegrainedVpol("policy-aardvark", "pods")
 	policyB := makeFinegrainedVpol("policy-zebra", "configmaps")
 	policyC := makeFinegrainedVpol("policy-mango", "services")
-
 	buildWith := func(policies []*policiesv1beta1.ValidatingPolicy) []admissionregistrationv1.ValidatingWebhook {
 		cache := NewExpressionCache()
 		var generic []engineapi.GenericPolicy
@@ -393,20 +390,23 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 			0, nil, generic, cache,
 		)
 	}
-
-	// Same three policies, three different input orderings
-	webhooksABC := buildWith([]*policiesv1beta1.ValidatingPolicy{policyA, policyB, policyC})
-	webhooksCBA := buildWith([]*policiesv1beta1.ValidatingPolicy{policyC, policyB, policyA})
-	webhooksBCA := buildWith([]*policiesv1beta1.ValidatingPolicy{policyB, policyC, policyA})
-
-	assert.Equal(t, len(webhooksABC), len(webhooksCBA), "webhook count must be equal regardless of input order")
-	assert.Equal(t, len(webhooksABC), len(webhooksBCA), "webhook count must be equal regardless of input order")
-
-	for i := range webhooksABC {
-		assert.Equal(t, webhooksABC[i].Name, webhooksCBA[i].Name,
-			"webhook[%d] name: ABC order vs CBA order", i)
-		assert.Equal(t, webhooksABC[i].Name, webhooksBCA[i].Name,
-			"webhook[%d] name: ABC order vs BCA order", i)
+	canonical := buildWith([]*policiesv1beta1.ValidatingPolicy{policyA, policyB, policyC})
+	tests := []struct {
+		name  string
+		input []*policiesv1beta1.ValidatingPolicy
+	}{
+		{name: "CBA order", input: []*policiesv1beta1.ValidatingPolicy{policyC, policyB, policyA}},
+		{name: "BCA order", input: []*policiesv1beta1.ValidatingPolicy{policyB, policyC, policyA}},
+		{name: "BAC order", input: []*policiesv1beta1.ValidatingPolicy{policyB, policyA, policyC}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildWith(tt.input)
+			require.Equal(t, len(canonical), len(result))
+			for i := range canonical {
+				assert.Equal(t, canonical[i].Name, result[i].Name)
+			}
+		})
 	}
 }
 
