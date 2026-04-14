@@ -67,6 +67,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	path := field.NewPath("spec")
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
 	conditions := make([]cel.Program, 0, len(spec.Conditions))
 	{
 		path := path.Child("conditions")
@@ -75,10 +79,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
-	}
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
