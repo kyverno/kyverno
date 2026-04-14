@@ -97,7 +97,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 				// Verify certificate with chain
 				chain, err := loadCertChain([]byte(opts.CertChain))
 				if err != nil {
-					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+					return nil, fmt.Errorf("failed to load certificate chain: %w", err)
 				}
 				if len(chain) > maxIntermediateCerts+1 {
 					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)

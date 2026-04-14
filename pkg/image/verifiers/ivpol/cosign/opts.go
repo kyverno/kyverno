@@ -149,8 +149,8 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				return nil, fmt.Errorf("failed to load certificate from %s: %w", att.Certificate.Certificate, err)
 			}
 
-			if att.Certificate.CertificateChain != nil && att.Certificate.CertificateChain.Value == "" {
-				opts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithmMap[att.Key.HashAlgorithm])
+			if att.Certificate.CertificateChain == nil || att.Certificate.CertificateChain.Value == "" {
+				opts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithmMap[""])
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
@@ -158,7 +158,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				// Verify certificate with chain
 				chain, err := certChainFromBytes([]byte(att.Certificate.CertificateChain.Value))
 				if err != nil {
-					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+					return nil, fmt.Errorf("failed to load certificate chain: %w", err)
 				}
 				if len(chain) > maxIntermediateCerts+1 {
 					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)
