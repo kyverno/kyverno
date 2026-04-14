@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -46,8 +47,9 @@ type WatchManager struct {
 	// refCount tracks the number of policies producing resources of a given GVR.
 	refCount map[schema.GroupVersionResource]int
 
-	log  logr.Logger
-	lock sync.Mutex
+	log           logr.Logger
+	lock          sync.Mutex
+	bootstrapping atomic.Bool // prevents concurrent Bootstrap runs (e.g. rapid sync toggle)
 }
 
 type watcher struct {
@@ -91,9 +93,12 @@ func (wm *WatchManager) untrackResource(uid types.UID, gvr schema.GroupVersionRe
 // SyncWatchers ensures a watcher is running for every GVR referenced by generatedResources,
 // updates ref-counts, and tears down watchers for GVRs the policy no longer produces.
 func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*unstructured.Unstructured) error {
-	// Concurrent URs for the same policy can race; the second one may find nothing
-	// to generate and must not tear down watchers the first one just started.
-	if len(generatedResources) == 0 {
+	// A nil slice means "no authoritative result for this run" (e.g. a concurrent UR
+	// whose engine found the downstream already up-to-date, or matchConditions filtered
+	// out the trigger) and must not tear down watchers another run just started.
+	// A non-nil empty slice means the policy now legitimately generates nothing and
+	// should be reconciled to an empty managed set (watchers torn down).
+	if generatedResources == nil {
 		return nil
 	}
 
@@ -120,28 +125,40 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 	wm.lock.Unlock()
 
 	// Phase 2 — outside lock: start new watchers (involves a List API call per GVR).
-	started := make(map[schema.GroupVersionResource]*watcher, len(toStart))
+	// startWatcher returns the watcher and a startLoop func; the goroutine is NOT
+	// started here so that Phase 3 can seed the correct cache before any events fire.
+	type pendingWatcher struct {
+		w         *watcher
+		startLoop func()
+	}
+	pending := make(map[schema.GroupVersionResource]pendingWatcher, len(toStart))
 	for _, gvr := range toStart {
-		w, err := wm.startWatcher(gvr)
+		w, startLoop, err := wm.startWatcher(gvr)
 		if err != nil {
-			for _, sw := range started {
-				sw.watcher.Stop()
+			for _, pw := range pending {
+				pw.w.watcher.Stop()
 			}
 			return err
 		}
-		started[gvr] = w
+		pending[gvr] = pendingWatcher{w, startLoop}
 	}
 
 	// Phase 3 — under lock: register new watchers and reconcile policy state.
 	wm.lock.Lock()
-	defer wm.lock.Unlock()
 
-	for gvr, w := range started {
+	var loopsToStart []func()
+	for gvr, pw := range pending {
 		if wm.dynamicWatchers[gvr] != nil {
 			// A concurrent SyncWatchers call already registered one; discard ours.
-			w.watcher.Stop()
+			pw.w.watcher.Stop()
 		} else {
-			wm.dynamicWatchers[gvr] = w
+			wm.dynamicWatchers[gvr] = pw.w
+			// Clear the stale initialCache seeded by the List in Phase 2. Phase 3's
+			// trackResource calls below will set the correct desired state so that
+			// events buffered between the List and goroutine start are compared against
+			// the right hashes and do not trigger spurious reverts.
+			pw.w.metadataCache = make(map[types.UID]Resource)
+			loopsToStart = append(loopsToStart, pw.startLoop)
 		}
 	}
 
@@ -149,7 +166,8 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 	// Resources returned by the engine carry the correct management labels (the
 	// genCtx mutex guarantees that) and the real cluster UID (the context now
 	// fetches existing resources instead of appending the bare input object).
-	// This corrects any stale cache entries left by a prior race.
+	// This corrects any stale cache entries left by a prior race, and seeds the
+	// correct desired state for newly started watchers before their goroutine fires.
 	for _, res := range generatedResources {
 		if res.GetUID() == "" {
 			continue
@@ -189,6 +207,15 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 	wm.policyRefs[policyName] = make([]schema.GroupVersionResource, 0, len(newGVRs))
 	for gvr := range newGVRs {
 		wm.policyRefs[policyName] = append(wm.policyRefs[policyName], gvr)
+	}
+
+	wm.lock.Unlock()
+
+	// Start goroutines after releasing the lock so that handleAdd/handleUpdate/handleDelete
+	// can acquire it. Events buffered in the RetryWatcher channel during Phase 2→Phase 3
+	// are processed against the correct cache set above, not the stale List seed.
+	for _, startLoop := range loopsToStart {
+		startLoop()
 	}
 
 	return nil
@@ -302,7 +329,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 	defer wm.lock.Unlock()
 
 	logger := wm.log.WithValues("policy", policyName)
-	logger.V(2).Info("removing policy watchers and resources")
+	logger.V(2).Info("clearing policy watcher state")
 
 	gvrList, ok := wm.policyRefs[policyName]
 	if !ok {
@@ -364,25 +391,29 @@ func (wm *WatchManager) StopWatchers() {
 	wm.refCount = make(map[schema.GroupVersionResource]int)
 }
 
-// startWatcher starts a list+watch for gvr, seeds the cache from the initial list,
-// and returns a watcher ready to process events.
-func (wm *WatchManager) startWatcher(gvr schema.GroupVersionResource) (*watcher, error) {
+// startWatcher starts a list+watch for gvr and seeds the cache from the initial list.
+// It returns the watcher and a startLoop function that launches the event-processing
+// goroutine. The caller is responsible for calling startLoop after the watcher's
+// metadataCache has been initialised to the correct desired state, so that events
+// buffered between the List and the goroutine start are compared against the right
+// hashes and do not trigger spurious reverts.
+func (wm *WatchManager) startWatcher(gvr schema.GroupVersionResource) (*watcher, func(), error) {
 	logger := wm.log.WithValues("gvr", gvr)
 
-	list, err := wm.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+	// Use the same label selector for the seed List as Bootstrap uses, so the API
+	// server filters out non-downstream objects (EphemeralReports, etc.) server-side
+	// instead of transferring them over the wire and discarding them client-side.
+	labelFilter := kyverno.LabelAppManagedBy + "=" + kyverno.ValueKyvernoApp + "," + common.GeneratePolicyLabel
+	list, err := wm.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelFilter,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list %s for watcher seed: %w", gvr, err)
+		return nil, nil, fmt.Errorf("failed to list %s for watcher seed: %w", gvr, err)
 	}
 
 	initialCache := make(map[types.UID]Resource, len(list.Items))
 	for i := range list.Items {
 		obj := &list.Items[i]
-		if obj.GetLabels()[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp {
-			continue
-		}
-		if obj.GetLabels()[common.GeneratePolicyLabel] == "" {
-			continue
-		}
 		cp := obj.DeepCopy()
 		initialCache[cp.GetUID()] = Resource{
 			Name:      cp.GetName(),
@@ -400,43 +431,42 @@ func (wm *WatchManager) startWatcher(gvr schema.GroupVersionResource) (*watcher,
 	logger.V(2).Info("starting watcher", "listRV", listRV, "seeded", len(initialCache))
 
 	watchFunc := func(opts metav1.ListOptions) (watch.Interface, error) {
-		wi, err := wm.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), opts)
-		if err != nil {
-			logger.Error(err, "watch call failed")
-		}
-		return wi, err
+		opts.LabelSelector = labelFilter
+		return wm.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), opts)
 	}
 	wi, err := watchTools.NewRetryWatcherWithContext(context.TODO(), listRV, &cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create retry watcher for %s: %w", gvr, err)
+		return nil, nil, fmt.Errorf("failed to create retry watcher for %s: %w", gvr, err)
 	}
 
 	w := &watcher{watcher: wi, metadataCache: initialCache}
 
-	go func() {
-		defer logger.V(2).Info("watcher stopped")
-		for event := range wi.ResultChan() {
-			obj, ok := event.Object.(*unstructured.Unstructured)
-			if !ok {
-				if event.Type == watch.Error {
+	startLoop := func() {
+		go func() {
+			defer logger.V(2).Info("watcher stopped")
+			for event := range wi.ResultChan() {
+				obj, ok := event.Object.(*unstructured.Unstructured)
+				if !ok {
+					if event.Type == watch.Error {
+						logger.Error(fmt.Errorf("watch error event"), "received watch error", "object", event.Object)
+					}
+					continue
+				}
+				switch event.Type {
+				case watch.Added:
+					wm.handleAdd(obj, gvr)
+				case watch.Modified:
+					wm.handleUpdate(obj, gvr)
+				case watch.Deleted:
+					wm.handleDelete(obj, gvr)
+				case watch.Error:
 					logger.Error(fmt.Errorf("watch error event"), "received watch error", "object", event.Object)
 				}
-				continue
 			}
-			switch event.Type {
-			case watch.Added:
-				wm.handleAdd(obj, gvr)
-			case watch.Modified:
-				wm.handleUpdate(obj, gvr)
-			case watch.Deleted:
-				wm.handleDelete(obj, gvr)
-			case watch.Error:
-				logger.Error(fmt.Errorf("watch error event"), "received watch error", "object", event.Object)
-			}
-		}
-	}()
+		}()
+	}
 
-	return w, nil
+	return w, startLoop, nil
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
@@ -467,9 +497,15 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 	if managedByKyverno {
 		cached, tracked := w.metadataCache[uid]
 		if !tracked {
-			// Resource wasn't in the initial seed (e.g. created after watcher started).
-			wm.trackResource(obj, gvr)
-			wm.log.V(4).Info("tracked downstream discovered on update", "name", obj.GetName(), "namespace", obj.GetNamespace())
+			// Resource is not in the desired-state cache.  Do NOT speculatively
+			// re-track it here: a stale watch event buffered just before
+			// RemoveWatchersForPolicy cleared the cache would otherwise re-seed a
+			// stale hash, causing the engine-update event that follows to trigger a
+			// spurious revert.  SyncWatchers (called synchronously in the UR goroutine
+			// right after the engine runs) is the sole authoritative writer for this
+			// policy's entries; it will seed the correct hash before any subsequent
+			// event is processed.
+			wm.log.V(4).Info("untracked downstream on update, skipping", "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return
 		}
 		if reportutils.CalculateResourceHash(*obj) == cached.Hash {
@@ -614,7 +650,15 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 
 // Bootstrap scans the cluster for existing downstream resources and restores watchers.
 // It should be called once at startup so the watch manager is not blind after a pod restart.
+// Concurrent calls (e.g. from rapid synchronize enable/disable toggles) are collapsed into
+// one: if a bootstrap is already in progress the second call returns immediately.
 func (wm *WatchManager) Bootstrap(ctx context.Context) {
+	if !wm.bootstrapping.CompareAndSwap(false, true) {
+		wm.log.V(4).Info("bootstrap: already in progress, skipping")
+		return
+	}
+	defer wm.bootstrapping.Store(false)
+
 	wm.log.V(2).Info("bootstrap: scanning cluster for existing downstream resources")
 
 	_, resourceLists, err := wm.client.GetKubeClient().Discovery().ServerGroupsAndResources()
@@ -657,7 +701,7 @@ func (wm *WatchManager) Bootstrap(ctx context.Context) {
 				continue
 			}
 
-			w, err := wm.startWatcher(gvr)
+			w, startLoop, err := wm.startWatcher(gvr)
 			if err != nil {
 				wm.log.Error(err, "bootstrap: failed to start watcher", "gvr", gvr)
 				continue
@@ -685,6 +729,10 @@ func (wm *WatchManager) Bootstrap(ctx context.Context) {
 				}
 			}
 			wm.lock.Unlock()
+
+			// Bootstrap seeds from the cluster's current state (initialCache from the
+			// List is already the correct desired state), so start the goroutine now.
+			startLoop()
 
 			wm.log.V(2).Info("bootstrap: watcher restored", "gvr", gvr, "resources", len(list.Items))
 		}

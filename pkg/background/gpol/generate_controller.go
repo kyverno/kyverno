@@ -90,12 +90,16 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
-		if trigger == nil || apierrors.IsNotFound(err) {
-			logger.V(4).Info("trigger resource not found, skipping")
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.V(4).Info("trigger resource not found, skipping")
+				continue
+			}
+			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
-		if err != nil {
-			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
+		if trigger == nil {
+			logger.V(4).Info("trigger resource not found, skipping")
 			continue
 		}
 		var request celengine.EngineRequest
@@ -162,13 +166,16 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					})
 				}
 				if isSync {
-					go func() {
-						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
-							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
-						} else {
-							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
-						}
-					}()
+					// SyncWatchers must run synchronously so that Phase 3 acquires
+					// wm.lock and seeds the new desired hash BEFORE the watch goroutine
+					// can process the engine-update event. An async goroutine here lets
+					// the watch goroutine race ahead, find the old hash in the cache, and
+					// revert the engine's update.
+					if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
+						logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+					} else {
+						logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+					}
 				}
 			}
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {

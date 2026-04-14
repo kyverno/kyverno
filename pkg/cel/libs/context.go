@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -75,7 +76,8 @@ type contextProvider struct {
 	// ClearGeneratedResources sequence. With 10 concurrent background workers
 	// sharing this singleton, two URs for different policies can otherwise race
 	// on genCtx and stamp each other's policy name onto generated resource labels.
-	genMu         sync.Mutex
+	genMu     sync.Mutex
+	genLocked atomic.Bool // true while genMu is held; guards against unlock-without-lock panics
 	cliEvaluation bool
 	restMapper    meta.RESTMapper
 }
@@ -261,7 +263,27 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 					cp.addGenerateLabels(desired)
 
 					// Determine whether the cluster state matches the desired state.
-					needsUpdate := desired.GetLabels()[common.GeneratePolicyLabel] != existing.GetLabels()[common.GeneratePolicyLabel]
+					// Check all management labels set by addGenerateLabels, not just the
+					// policy name, to catch stale trigger metadata from prior label races.
+					managedLabels := []string{
+						kyverno.LabelAppManagedBy,
+						common.GeneratePolicyLabel,
+						common.GenerateTriggerNameLabel,
+						common.GenerateTriggerNSLabel,
+						common.GenerateTriggerUIDLabel,
+						common.GenerateTriggerKindLabel,
+						common.GenerateTriggerGroupLabel,
+						common.GenerateTriggerVersionLabel,
+					}
+					existingLabels := existing.GetLabels()
+					desiredLabels := desired.GetLabels()
+					needsUpdate := false
+					for _, lbl := range managedLabels {
+						if desiredLabels[lbl] != existingLabels[lbl] {
+							needsUpdate = true
+							break
+						}
+					}
 					if !needsUpdate {
 						for k := range item.Object {
 							if k == "metadata" || k == "status" {
@@ -327,6 +349,7 @@ func (cp *contextProvider) SetGenerateContext(
 	// Hold the lock until ClearGeneratedResources to prevent concurrent workers
 	// from interleaving their genCtx writes and GenerateResources calls.
 	cp.genMu.Lock()
+	cp.genLocked.Store(true)
 	cp.genCtx.policyName = polName
 	cp.genCtx.triggerName = triggerName
 	cp.genCtx.triggerNamespace = triggerNamespace
@@ -357,7 +380,11 @@ func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionR
 
 func (cp *contextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
-	cp.genMu.Unlock()
+	// Only unlock if SetGenerateContext was called; guards against unlock-without-lock
+	// panics when Evaluate is called outside the normal engine path (e.g. CLI mode).
+	if cp.genLocked.CompareAndSwap(true, false) {
+		cp.genMu.Unlock()
+	}
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {
