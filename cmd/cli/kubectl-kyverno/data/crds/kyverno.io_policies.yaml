@@ -3020,9 +3020,9 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
                           description: |-
-                            Assert is deprecated and retained for backwards compatibility with
-                            existing policies and API consumers. It has no effect and will be
-                            removed in a future release.
+                            Deprecated: Assert is retained for backwards compatibility with existing
+                            policies and API consumers. It has no effect and will be removed in a
+                            future release.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -8148,9 +8148,9 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
                               description: |-
-                                Assert is deprecated and retained for backwards compatibility with
-                                existing policies and API consumers. It has no effect and will be
-                                removed in a future release.
+                                Deprecated: Assert is retained for backwards compatibility with existing
+                                policies and API consumers. It has no effect and will be removed in a
+                                future release.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -12991,9 +12991,9 @@ spec:
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
                           description: |-
-                            Assert is deprecated and retained for backwards compatibility with
-                            existing policies and API consumers. It has no effect and will be
-                            removed in a future release.
+                            Deprecated: Assert is retained for backwards compatibility with existing
+                            policies and API consumers. It has no effect and will be removed in a
+                            future release.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -18176,9 +18176,9 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
                               description: |-
-                                Assert is deprecated and retained for backwards compatibility with
-                                existing policies and API consumers. It has no effect and will be
-                                removed in a future release.
+                                Deprecated: Assert is retained for backwards compatibility with existing
+                                policies and API consumers. It has no effect and will be removed in a
+                                future release.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
