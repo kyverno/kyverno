@@ -349,22 +349,6 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
-// TestBuildWebhookRules_FineGrained_DeterministicOrdering asserts that calling
-// buildWebhookRules with the same set of 2+ fine-grained ValidatingPolicies
-// (those with matchConditions, matchConstraints.matchPolicy: Exact, or custom
-// timeoutSeconds) always produces the same webhook slice regardless of the order
-// in which policies are supplied.
-//
-// Background: the webhook controller reconciles every ~10 seconds via a watchdog.
-// On each cycle it rebuilds the desired ValidatingWebhookConfiguration and compares
-// it with the observed one using reflect.DeepEqual. If the fine-grained webhook
-// entries appear in a different order across cycles (because the informer lister
-// returns policies in a non-deterministic order), DeepEqual returns false and a
-// spurious full PUT is issued to the apiserver. This causes the apiserver to
-// rebuild its webhook dispatch table, elevating p99 latency for ALL webhooks in
-// the config — including unrelated ones such as validate.kyverno.svc-fail and
-// mutate.kyverno.svc-fail. The problem manifests only with 2+ fine-grained
-// policies; a single fine-grained policy has nothing to reorder.
 func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 	makeFinegrainedVpol := func(name string, resource string) *policiesv1beta1.ValidatingPolicy {
 		return &policiesv1beta1.ValidatingPolicy{
