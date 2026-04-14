@@ -351,7 +351,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 }
 
 func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
-	makeFinegrainedVpol := func(name, resource string) *policiesv1beta1.ValidatingPolicy {
+	makeFineGrainedVpol := func(name, resource string) *policiesv1beta1.ValidatingPolicy {
 		return &policiesv1beta1.ValidatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -374,9 +374,9 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 			},
 		}
 	}
-	policyA := makeFinegrainedVpol("policy-aardvark", "pods")
-	policyB := makeFinegrainedVpol("policy-zebra", "configmaps")
-	policyC := makeFinegrainedVpol("policy-mango", "services")
+	policyA := makeFineGrainedVpol("policy-aardvark", "pods")
+	policyB := makeFineGrainedVpol("policy-zebra", "configmaps")
+	policyC := makeFineGrainedVpol("policy-mango", "services")
 	buildWith := func(policies []*policiesv1beta1.ValidatingPolicy) []admissionregistrationv1.ValidatingWebhook {
 		cache := NewExpressionCache()
 		var generic []engineapi.GenericPolicy
