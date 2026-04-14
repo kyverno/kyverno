@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: good-deployment
+  namespace: restrict-scale
   labels:
     type: monitoring
 spec:
