@@ -5,6 +5,7 @@ import (
 	"maps"
 	"path"
 	"slices"
+	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -33,6 +34,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			basic = append(basic, policy)
 		}
 	}
+	// Sort fine-grained policies by name so the Webhooks slice is always in the
+	// same order regardless of informer lister iteration order. Without this,
+	// reflect.DeepEqual in the reconcile loop returns false on every 10-second
+	// watchdog cycle (because the order varies), causing a spurious full PUT to
+	// the apiserver and elevating p99 for all webhooks in the config.
+	slices.SortFunc(fineGrained, func(a, b engineapi.GenericPolicy) int {
+		return strings.Compare(extractGenericPolicy(a).GetName(), extractGenericPolicy(b).GetName())
+	})
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 	// process fine grained policies
 	if len(fineGrained) != 0 {

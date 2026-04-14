@@ -349,6 +349,82 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+// TestBuildWebhookRules_FineGrained_DeterministicOrdering asserts that calling
+// buildWebhookRules with the same set of 2+ fine-grained ValidatingPolicies
+// (those with matchConditions) always produces the same webhook slice regardless
+// of the order in which policies are supplied.
+//
+// Background: the webhook controller reconciles every ~10 seconds via a watchdog.
+// On each cycle it rebuilds the desired ValidatingWebhookConfiguration and compares
+// it with the observed one using reflect.DeepEqual. If the fine-grained webhook
+// entries appear in a different order across cycles (because the informer lister
+// returns policies in a non-deterministic order), DeepEqual returns false and a
+// spurious full PUT is issued to the apiserver. This causes the apiserver to
+// rebuild its webhook dispatch table, elevating p99 latency for ALL webhooks in
+// the config — including unrelated ones such as validate.kyverno.svc-fail and
+// mutate.kyverno.svc-fail. The problem manifests only with 2+ fine-grained
+// policies; a single fine-grained policy has nothing to reorder.
+func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
+	makeFinegrainedVpol := func(name string, resource string) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{resource},
+								},
+							},
+						},
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{Name: "always-true", Expression: "true"},
+				},
+			},
+		}
+	}
+
+	policyA := makeFinegrainedVpol("policy-aardvark", "pods")
+	policyB := makeFinegrainedVpol("policy-zebra", "configmaps")
+	policyC := makeFinegrainedVpol("policy-mango", "services")
+
+	buildWith := func(policies []*policiesv1beta1.ValidatingPolicy) []admissionregistrationv1.ValidatingWebhook {
+		cache := NewExpressionCache()
+		var generic []engineapi.GenericPolicy
+		for _, p := range policies {
+			cache.AddPolicyExpressions(p.GetMatchConditions())
+			generic = append(generic, engineapi.NewValidatingPolicy(p))
+		}
+		return buildWebhookRules(
+			config.NewDefaultConfiguration(false),
+			"", config.ValidatingPolicyWebhookName, "/vpol",
+			0, nil, generic, cache,
+		)
+	}
+
+	// Same three policies, three different input orderings
+	webhooksABC := buildWith([]*policiesv1beta1.ValidatingPolicy{policyA, policyB, policyC})
+	webhooksCBA := buildWith([]*policiesv1beta1.ValidatingPolicy{policyC, policyB, policyA})
+	webhooksBCA := buildWith([]*policiesv1beta1.ValidatingPolicy{policyB, policyC, policyA})
+
+	assert.Equal(t, len(webhooksABC), len(webhooksCBA), "webhook count must be equal regardless of input order")
+	assert.Equal(t, len(webhooksABC), len(webhooksBCA), "webhook count must be equal regardless of input order")
+
+	for i := range webhooksABC {
+		assert.Equal(t, webhooksABC[i].Name, webhooksCBA[i].Name,
+			"webhook[%d] name: ABC order vs CBA order", i)
+		assert.Equal(t, webhooksABC[i].Name, webhooksBCA[i].Name,
+			"webhook[%d] name: ABC order vs BCA order", i)
+	}
+}
+
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
