@@ -15,7 +15,7 @@ spec:
           metadata:
             name: restrict-scale
           spec:
-            validationFailureAction: Audit
+            validationFailureAction: Enforce
             background: false
             rules:
             - name: create-max-four
@@ -32,14 +32,6 @@ spec:
                     - key: "{{ request.object.spec.replicas || `1` }}"
                       operator: GreaterThan
                       value: 4
-    - patch:
-        resource:
-          apiVersion: kyverno.io/v2beta1
-          kind: ClusterPolicy
-          metadata:
-            name: restrict-scale
-          spec:
-            validationFailureAction: Enforce
     - assert:
         file: policy-ready.yaml
   - name: step-02
