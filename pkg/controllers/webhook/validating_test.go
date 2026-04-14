@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -371,14 +370,14 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 			},
 		}
 	}
-	buildWith := func(generic []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
+	buildWith := func(webhookName, queryPath string, generic []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
 		cache := NewExpressionCache()
 		for _, p := range generic {
 			cache.AddPolicyExpressions(extractGenericPolicy(p).GetMatchConditions())
 		}
 		return buildWebhookRules(
 			config.NewDefaultConfiguration(false),
-			"", config.ValidatingPolicyWebhookName, "/vpol",
+			"", webhookName, queryPath,
 			0, nil, generic, cache,
 		)
 	}
@@ -407,39 +406,46 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 		Spec:       fineGrainedSpec("configmaps"),
 	})
 	tests := []struct {
-		name      string
-		canonical []engineapi.GenericPolicy
-		shuffled  []engineapi.GenericPolicy
+		name        string
+		webhookName string
+		queryPath   string
+		canonical   []engineapi.GenericPolicy
+		shuffled    []engineapi.GenericPolicy
 	}{
 		{
-			name:      "cluster-scoped CBA order",
-			canonical: []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
-			shuffled:  []engineapi.GenericPolicy{vpolC, vpolB, vpolA},
+			name:        "cluster-scoped CBA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolC, vpolB, vpolA},
 		},
 		{
-			name:      "cluster-scoped BCA order",
-			canonical: []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
-			shuffled:  []engineapi.GenericPolicy{vpolB, vpolC, vpolA},
+			name:        "cluster-scoped BCA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolB, vpolC, vpolA},
 		},
 		{
-			name:      "namespaced beta-alphaB-alphaA order",
-			canonical: []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
-			shuffled:  []engineapi.GenericPolicy{nvpolBetaA, nvpolAlphaB, nvpolAlphaA},
+			name:        "namespaced beta-alphaB-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolBetaA, nvpolAlphaB, nvpolAlphaA},
 		},
 		{
-			name:      "namespaced alphaB-beta-alphaA order",
-			canonical: []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
-			shuffled:  []engineapi.GenericPolicy{nvpolAlphaB, nvpolBetaA, nvpolAlphaA},
+			name:        "namespaced alphaB-beta-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolAlphaB, nvpolBetaA, nvpolAlphaA},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expected := buildWith(tt.canonical)
-			result := buildWith(tt.shuffled)
-			require.Equal(t, len(expected), len(result))
-			for i := range expected {
-				assert.Equal(t, expected[i].Name, result[i].Name)
-			}
+			expected := buildWith(tt.webhookName, tt.queryPath, tt.canonical)
+			result := buildWith(tt.webhookName, tt.queryPath, tt.shuffled)
+			assert.Equal(t, expected, result)
 		})
 	}
 }
