@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -105,7 +104,6 @@ type ApplyCommandConfig struct {
 	exceptionsWithinPolicies  bool
 	GenerateExceptions        bool
 	GeneratedExceptionTTL     time.Duration
-	JSONPaths                 []string
 	HTTPPayloadPaths          []string
 	EnvoyPayloadPaths         []string
 	ClusterWideResources      bool
@@ -201,7 +199,6 @@ func Command() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceVarP(&applyCommandConfig.JSONPaths, "json", "", []string{}, "Path to JSON payload files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.HTTPPayloadPaths, "http-payload", "", []string{}, "Path to HTTP check request payload files (JSON)")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.EnvoyPayloadPaths, "envoy-payload", "", []string{}, "Path to Envoy check request payload files (JSON)")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
@@ -951,17 +948,6 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	}
 	resources = test.ProcessResources(resources)
 	var jsonPayloads []*unstructured.Unstructured
-	for _, path := range c.JSONPaths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read JSON payload %s (%w)", path, err)
-		}
-		var obj map[string]interface{}
-		if err := json.Unmarshal(data, &obj); err != nil {
-			return nil, nil, fmt.Errorf("failed to parse JSON payload %s (%w)", path, err)
-		}
-		jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: obj})
-	}
 	return resources, jsonPayloads, nil
 }
 
@@ -1159,10 +1145,7 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
-	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
-		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
-	}
-	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
+	if len(c.ResourcePaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
 	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
