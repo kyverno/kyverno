@@ -1,11 +1,11 @@
 package webhook
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"path"
 	"slices"
-	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -35,10 +35,10 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	slices.SortFunc(fineGrained, func(a, b engineapi.GenericPolicy) int {
-		if ns := strings.Compare(a.GetNamespace(), b.GetNamespace()); ns != 0 {
-			return ns
+		if x := cmp.Compare(a.GetNamespace(), b.GetNamespace()); x != 0 {
+			return x
 		}
-		return strings.Compare(a.GetName(), b.GetName())
+		return cmp.Compare(a.GetName(), b.GetName())
 	})
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 	// process fine grained policies
