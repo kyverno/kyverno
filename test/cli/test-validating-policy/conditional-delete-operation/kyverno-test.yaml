@@ -25,3 +25,21 @@ results:
   resources:
   - prod-app
   result: fail
+- kind: Pod
+  policy: deny-create-development-pod
+  resourceOperation: CREATE
+  resources:
+  - prod-app
+  result: pass
+- kind: Pod
+  policy: deny-create-production-pod
+  resourceOperation: CREATE
+  resources:
+  - dev-app
+  result: pass
+- kind: Pod
+  policy: deny-delete-production-pod
+  resourceOperation: DELETE
+  resources:
+  - dev-app
+  result: pass
