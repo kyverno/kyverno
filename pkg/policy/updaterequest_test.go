@@ -37,6 +37,8 @@ func TestSplitUR(t *testing.T) {
 		{"one over", 101, 100, 2, 1},
 		{"10k namespaces", 10000, 100, 100, 100},
 		{"uneven split", 250, 100, 3, 50},
+		{"zero batchSize clamped to 1", 3, 0, 3, 1},
+		{"negative batchSize clamped to 1", 3, -5, 3, 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -46,9 +48,13 @@ func TestSplitUR(t *testing.T) {
 			assert.Len(t, batches[len(batches)-1].Spec.RuleContext, tc.wantLastBatch)
 
 			// total entries across all batches must equal original
+			effectiveBatch := tc.batchSize
+			if effectiveBatch <= 0 {
+				effectiveBatch = 1
+			}
 			total := 0
 			for _, b := range batches {
-				assert.LessOrEqual(t, len(b.Spec.RuleContext), tc.batchSize)
+				assert.LessOrEqual(t, len(b.Spec.RuleContext), effectiveBatch)
 				total += len(b.Spec.RuleContext)
 			}
 			assert.Equal(t, tc.total, total)
