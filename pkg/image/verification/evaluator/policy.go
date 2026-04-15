@@ -120,11 +120,35 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	} else {
 		data[engine.ObjectKey] = request
 	}
+
 	images, err := engine.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImagesKey] = images
+	filteredImages := make(map[string][]string, len(images))
+	imgList := []string{}
+	for category, imgs := range images {
+		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
+		for _, img := range imgs {
+			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+				return nil, err
+			} else if apply {
+				filteredImages[category] = append(filteredImages[category], img)
+				imgList = append(imgList, img)
+			}
+		}
+	}
+
+	// no image match found, skip
+	if len(c.matchImageReferences) > 0 && len(imgList) == 0 {
+		return nil, nil
+	}
+
+	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+		return nil, err
+	}
+
+	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
@@ -138,19 +162,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	data[engine.AttestorsKey] = attestors
 
-	imgList := []string{}
-	for _, v := range images {
-		for _, img := range v {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
-				return nil, err
-			} else if apply {
-				imgList = append(imgList, img)
-			}
-		}
-	}
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
-		return nil, err
-	}
 	for i, v := range c.validations {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {

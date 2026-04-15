@@ -135,3 +135,104 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $action := default $defaultAction $policyAction -}}
 {{- include "kyverno-policies.validationActions" $action -}}
 {{- end -}}
+
+{{/* Resolve vpolExclude for a specific policy.
+     Per-policy entry (vpolExcludeByPolicy.<name>) replaces the global default (vpolExclude) entirely.
+     Receives dict with "name" (policy name) and "values" (.Values).
+     Returns the resolved exclude dict (may be empty). */}}
+{{- define "kyverno-policies.policyVpolExclude" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- if hasKey $values.vpolExcludeByPolicy $policyName -}}
+  {{- $perPolicy := index $values.vpolExcludeByPolicy $policyName | default dict -}}
+  {{- if gt (len $perPolicy) 0 -}}
+    {{- toYaml $perPolicy -}}
+  {{- end -}}
+{{- else -}}
+  {{- $global := $values.vpolExclude | default dict -}}
+  {{- if gt (len $global) 0 -}}
+    {{- toYaml $global -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Generate matchConditions from a vpolExclude entry dict.
+     Receives the per-policy exclude dict (e.g. .excludeNamespaces, .excludeSubjects, .matchConditions).
+     Only emits the block when at least one condition is generated. */}}
+{{- define "kyverno-policies.vpolExcludeMatchConditions" -}}
+{{- $conditions := list -}}
+{{- $namespaces := .excludeNamespaces | default list -}}
+{{- if gt (len $namespaces) 0 -}}
+  {{- $conditions = append $conditions (dict "name" "exclude-namespaces" "expression" (printf "!(object.metadata.namespace in [%s])" (include "kyverno-policies.celStringList" $namespaces))) -}}
+{{- end -}}
+{{- $subjects := .excludeSubjects | default list -}}
+{{- if gt (len $subjects) 0 -}}
+  {{- $fragments := list -}}
+  {{- range $subjects -}}
+    {{- $fragment := include "kyverno-policies.celSubjectFragment" . -}}
+    {{- $fragments = append $fragments $fragment -}}
+  {{- end -}}
+  {{- $conditions = append $conditions (dict "name" "exclude-subjects" "expression" (printf "!(%s)" (join " || " $fragments))) -}}
+{{- end -}}
+{{- $passthroughConditions := .matchConditions | default list -}}
+{{- range $passthroughConditions -}}
+  {{- $conditions = append $conditions (dict "name" (.name | required "matchConditions entries must have a 'name'") "expression" (.expression | required "matchConditions entries must have an 'expression'")) -}}
+{{- end -}}
+{{- if gt (len $conditions) 0 }}
+matchConditions:
+{{- range $conditions }}
+  - name: {{ .name }}
+    expression: {{ .expression | quote }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Generate a single CEL expression fragment for one subject entry.
+     Supported kinds: User, Group, ServiceAccount.
+     - User:           request.userInfo.username == '<name>'
+     - Group:          '<name>' in request.userInfo.groups
+     - ServiceAccount: (parseServiceAccount(request.userInfo.username).Namespace == '<ns>' && parseServiceAccount(request.userInfo.username).Name == '<name>')
+*/}}
+{{- define "kyverno-policies.celSubjectFragment" -}}
+{{- $kind := .kind | required "excludeSubjects entries must have a 'kind' (User, Group, or ServiceAccount)" -}}
+{{- $name := .name | required "excludeSubjects entries must have a 'name'" -}}
+{{- if eq $kind "User" -}}
+  request.userInfo.username == '{{ $name }}'
+{{- else if eq $kind "Group" -}}
+  '{{ $name }}' in request.userInfo.groups
+{{- else if eq $kind "ServiceAccount" -}}
+  {{- $ns := .namespace | required "excludeSubjects ServiceAccount entries must have a 'namespace'" -}}
+  (parseServiceAccount(request.userInfo.username).Namespace == '{{ $ns }}' && parseServiceAccount(request.userInfo.username).Name == '{{ $name }}')
+{{- else -}}
+  {{- fail (printf "excludeSubjects: unsupported kind '%s' — must be User, Group, or ServiceAccount" $kind) -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Convert a list of strings to a CEL list literal: 'a', 'b', 'c' */}}
+{{- define "kyverno-policies.celStringList" -}}
+{{- $items := list -}}
+{{- range . -}}
+  {{- $items = append $items (printf "'%s'" .) -}}
+{{- end -}}
+{{- join ", " $items -}}
+{{- end -}}
+
+{{/* Generate auditAnnotations for a specific ValidatingPolicy.
+     Merges default auditAnnotations with per-policy overrides.
+     Per-policy entries override defaults when they share the same key.
+     Receives dict with "name" (policy name) and "values" (.Values). */}}
+{{- define "kyverno-policies.policyAuditAnnotations" -}}
+{{- $policyName := index . "name" -}}
+{{- $values := index . "values" -}}
+{{- $defaults := $values.auditAnnotations | default dict -}}
+{{- $overrides := index $values.auditAnnotationsByPolicy $policyName | default dict -}}
+{{- $merged := merge $defaults $overrides -}}
+{{- if gt (len $merged) 0 }}
+auditAnnotations:
+{{- $keys := keys $merged | sortAlpha -}}
+{{- range $keys }}
+  - key: {{ . }}
+    valueExpression: {{ index $merged . | quote }}
+{{- end -}}
+{{- end -}}
+{{- end -}}

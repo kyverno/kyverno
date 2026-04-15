@@ -61,16 +61,30 @@ validationFailureActionOverrides:
   #     namespaces:
   #       - fluent
 
+# -- Default audit annotations applied to all ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log.
+# For more info https://kyverno.io/docs/policy-types/validating-policy/#using-auditannotations-to-add-custom-data
+auditAnnotations: {}
+  # policy-evaluated-by: "'kyverno-policies-helm'"
+
+# -- Define audit annotations for specific ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# Per-policy entries override defaults when they share the same key.
+auditAnnotationsByPolicy: {}
+  # disallow-host-path:
+  #   violation-details: >-
+  #     has(object.spec.volumes) ? 'hostPath volumes found: ' + object.spec.volumes.filter(v, has(v.hostPath)).map(v, v.name).join(', ') : 'no volumes'
+
 # -- Validate already existing resources.
 # For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true
 
-# -- Exclude resources from individual policies.
+# -- Exclude resources from individual policies (policyType: ClusterPolicy only).
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
+# NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude/vpolExcludeByPolicy instead.
 policyExclude: {}
   # # Exclude resources from individual policies
   # disallow-host-path:
-  #   any:
+  #   all:
   #   - resources:
   #       kinds:
   #       - Pod
@@ -84,6 +98,55 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
+
+# -- Default excludes applied to ALL ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
+# Supports the following optional keys:
+#   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)
+#   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)
+#   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)
+#   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition)
+# Per-policy overrides via vpolExcludeByPolicy replace these defaults entirely for that policy.
+vpolExclude: {}
+  # excludeNamespaces:
+  #   - kube-system
+  # excludeSubjects:
+  #   - kind: Group
+  #     name: system:masters
+
+# -- Per-policy excludes for individual ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# When set for a policy, it completely replaces the global vpolExclude defaults for that policy.
+# NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
+# Each policy name maps to an object with the same keys as vpolExclude.
+vpolExcludeByPolicy: {}
+  # disallow-host-path:
+  #   excludeResourceRules:
+  #     - apiGroups:
+  #         - ""
+  #       apiVersions:
+  #         - v1
+  #       operations:
+  #         - CREATE
+  #         - UPDATE
+  #       resources:
+  #         - pods
+  #       # optional - exact resource names to exclude
+  #       resourceNames:
+  #         - specific-pod-name
+  #   excludeNamespaces:
+  #     - kube-system
+  #     - monitoring
+  #   excludeSubjects:
+  #     - kind: Group
+  #       name: system:masters
+  #     - kind: User
+  #       name: admin@example.com
+  #     - kind: ServiceAccount
+  #       namespace: kube-system
+  #       name: default
+  #   matchConditions:
+  #     - name: exclude-custom
+  #       expression: "!object.metadata.name.startsWith('temp-')"
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.

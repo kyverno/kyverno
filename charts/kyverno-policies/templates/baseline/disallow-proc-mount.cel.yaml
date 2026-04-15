@@ -26,6 +26,13 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
+    {{- with .excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
+  {{ end }}
   validations:
     - expression: >-
         (!has(object.spec.containers) || object.spec.containers.all(c, 
@@ -45,6 +52,7 @@ spec:
         spec.containers[*].securityContext.procMount,
         spec.initContainers[*].securityContext.procMount, and
         spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
