@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Create cluster
+description: Create cluster
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -e
+
+        # create cluster
+        make kind-create-cluster
+
+        # install prometheus
+        helm upgrade --install --wait --timeout 15m \
+          --namespace monitoring --create-namespace \
+          --repo https://prometheus-community.github.io/helm-charts \
+          kube-prometheus-stack kube-prometheus-stack --values - <<EOF
+        prometheus:
+          prometheusSpec:
+            enableRemoteWriteReceiver: true
+            serviceMonitorSelectorNilUsesHelmValues: false
+        kubeEtcd:
+          service:
+            targetPort: 2382
+        EOF
+
+        # install kwok
+        kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/kwok.yaml"
+        kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/stage-fast.yaml"
+        kubectl apply -f "https://github.com/kubernetes-sigs/kwok/releases/download/v0.7.0/metrics-usage.yaml"
+
+        # create kwok node
+        kubectl create -f - <<EOF
+        apiVersion: v1
+        kind: Node
+        metadata:
+          annotations:
+            node.alpha.kubernetes.io/ttl: "0"
+            kwok.x-k8s.io/node: fake
+          labels:
+            beta.kubernetes.io/arch: amd64
+            beta.kubernetes.io/os: linux
+            kubernetes.io/arch: amd64
+            kubernetes.io/os: linux
+            kubernetes.io/role: agent
+            node-role.kubernetes.io/agent: ""
+            type: kwok
+          generateName: kwok-node-
+        spec:
+          taints: # Avoid scheduling actual running pods to fake Node
+          - effect: NoSchedule
+            key: kwok.x-k8s.io/node
+            value: fake
+        status:
+          allocatable:
+            cpu: 32
+            memory: 256Gi
+            pods: 110
+          capacity:
+            cpu: 32
+            memory: 256Gi
+            pods: 110
+          nodeInfo:
+            architecture: amd64
+            bootID: ""
+            containerRuntimeVersion: ""
+            kernelVersion: ""
+            kubeProxyVersion: fake
+            kubeletVersion: fake
+            machineID: ""
+            operatingSystem: linux
+            osImage: ""
+            systemUUID: ""
+          phase: Running
+        EOF

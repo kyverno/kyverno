@@ -3,6 +3,7 @@ package api
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -131,6 +132,8 @@ type GenericPolicy interface {
 	AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
 	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
+	// AsCleanupPolicy returns the cleanup policy
+	AsCleanupPolicy() kyvernov2.CleanupPolicyInterface
 }
 type genericPolicy struct {
 	metav1.Object
@@ -146,6 +149,7 @@ type genericPolicy struct {
 	GeneratingPolicy                *policiesv1beta1.GeneratingPolicy
 	NamespacedGeneratingPolicy      *policiesv1beta1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
+	CleanupPolicy                   kyvernov2.CleanupPolicyInterface
 	// originalAPIVersion tracks the original API version for converted policies
 	originalAPIVersion string
 }
@@ -242,6 +246,10 @@ func (p *genericPolicy) AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike {
 	return p.DeletingPolicy
 }
 
+func (p *genericPolicy) AsCleanupPolicy() kyvernov2.CleanupPolicyInterface {
+	return p.CleanupPolicy
+}
+
 func (p *genericPolicy) GetAPIVersion() string {
 	switch {
 	case p.PolicyInterface != nil:
@@ -281,6 +289,11 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return policiesv1beta1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
 		return policiesv1beta1.GroupVersion.String()
+	case p.CleanupPolicy != nil:
+		if apiVersion := p.CleanupPolicy.GetAPIVersion(); apiVersion != "" {
+			return apiVersion
+		}
+		return kyvernov2.GroupVersion.String()
 	}
 	return ""
 }
@@ -309,6 +322,8 @@ func (p *genericPolicy) GetKind() string {
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetKind()
+	case p.CleanupPolicy != nil:
+		return p.CleanupPolicy.GetKind()
 	}
 	return ""
 }
@@ -327,6 +342,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
+	case p.CleanupPolicy != nil:
+		return p.CleanupPolicy.IsNamespaced()
 	}
 	return false
 }
@@ -652,5 +669,15 @@ func NewDeletingPolicyFromLike(pol policiesv1beta1.DeletingPolicyLike) GenericPo
 		return NewNamespacedDeletingPolicy(typed)
 	default:
 		return nil
+	}
+}
+
+func NewCleanupPolicyFromInterface(pol kyvernov2.CleanupPolicyInterface) GenericPolicy {
+	if pol == nil {
+		return nil
+	}
+	return &genericPolicy{
+		Object:        pol,
+		CleanupPolicy: pol,
 	}
 }

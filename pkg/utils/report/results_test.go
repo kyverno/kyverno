@@ -1,9 +1,11 @@
 package report
 
 import (
+	"sync"
 	"testing"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -264,4 +266,51 @@ func Test_SortReportResults_single(t *testing.T) {
 	SortReportResults(results)
 
 	assert.Equal(t, "only-one", results[0].Policy)
+}
+
+func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	// Build a shared RuleResponse with properties -- this is the map that
+	// caused the concurrent-write panic in issue #15617.
+	sharedProps := map[string]string{
+		"passMessage": "resource is compliant",
+		"category":    "best-practices",
+	}
+	ruleResp := engineapi.NewRuleResponse(
+		"validate-labels",
+		engineapi.Validation,
+		"labels are valid",
+		engineapi.RuleStatusPass,
+		sharedProps,
+	)
+
+	// Minimal ClusterPolicy to satisfy GenericPolicy interface.
+	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "require-labels",
+		},
+	})
+
+	const goroutines = 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	results := make([]openreportsv1alpha1.ReportResult, goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			results[idx] = ToPolicyReportResult(pol, *ruleResp, nil)
+		}(i)
+	}
+	wg.Wait()
+
+	// Every goroutine should have produced a valid result with the
+	// overridden description from passMessage.
+	for i, r := range results {
+		assert.Equal(t, "require-labels", r.Policy, "goroutine %d", i)
+		assert.Equal(t, "validate-labels", r.Rule, "goroutine %d", i)
+		assert.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), r.Result, "goroutine %d", i)
+		assert.Equal(t, "resource is compliant", r.Description, "goroutine %d", i)
+	}
 }
