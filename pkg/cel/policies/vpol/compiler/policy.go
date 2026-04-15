@@ -11,6 +11,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/policies/polex"
 	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -28,7 +29,6 @@ type Policy struct {
 	variables        map[string]cel.Program
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
-	exceptions       []compiler.Exception
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -37,6 +37,7 @@ func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 
 func (p *Policy) Evaluate(
 	ctx context.Context,
+	polexProvider polex.Provider,
 	json any,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
@@ -45,25 +46,27 @@ func (p *Policy) Evaluate(
 ) (*EvaluationResult, error) {
 	switch p.mode {
 	case policieskyvernoio.EvaluationModeJSON:
-		return p.evaluateJson(ctx, json)
+		return p.evaluateJson(ctx, polexProvider, json)
 	default:
-		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
+		return p.evaluateKubernetes(ctx, polexProvider, attr, request, namespace, context)
 	}
 }
 
 func (p *Policy) evaluateJson(
 	ctx context.Context,
+	polexProvider polex.Provider,
 	json any,
 ) (*EvaluationResult, error) {
 	data := evaluationData{
 		Object:    json,
 		Variables: lazy.NewMapValue(compiler.VariablesType),
 	}
-	return p.evaluateWithData(ctx, data)
+	return p.evaluateWithData(ctx, polexProvider, data)
 }
 
 func (p *Policy) evaluateKubernetes(
 	ctx context.Context,
+	polexProvider polex.Provider,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
@@ -73,11 +76,12 @@ func (p *Policy) evaluateKubernetes(
 	if err != nil {
 		return nil, err
 	}
-	return p.evaluateWithData(ctx, data)
+	return p.evaluateWithData(ctx, polexProvider, data)
 }
 
 func (p *Policy) evaluateWithData(
 	ctx context.Context,
+	polexProvider polex.Provider,
 	data evaluationData,
 ) (*EvaluationResult, error) {
 	allowedImages := make([]string, 0)
@@ -89,9 +93,13 @@ func (p *Policy) evaluateWithData(
 		compiler.RequestKey:         data.Request,
 	}
 	// check if the resource matches an exception
-	if len(p.exceptions) > 0 {
+	if polexProvider != nil {
+		exceptions, err := polexProvider.Fetch(ctx)
+		if err != nil {
+			return nil, err
+		}
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
-		for _, polex := range p.exceptions {
+		for _, polex := range exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {
 				return nil, err

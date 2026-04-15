@@ -22,7 +22,7 @@ func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 	}
 
 	compiler := compiler.NewCompiler()
-	_, errList := compiler.Compile(vpol, nil)
+	_, errList := compiler.Compile(vpol)
 	if errList != nil {
 		err = errList
 	}

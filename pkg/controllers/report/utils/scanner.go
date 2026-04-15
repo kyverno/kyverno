@@ -183,6 +183,7 @@ func (s *scanner) ScanResource(
 			}
 			engine := vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				provider,
+				nil,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 			), metrics.BackgroundScan)

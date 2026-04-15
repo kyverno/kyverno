@@ -23,6 +23,7 @@ import (
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/policies/polex"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -717,8 +718,8 @@ func main() {
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
 				mgr,
-				celExceptionLister,
-				internal.PolicyExceptionEnabled(),
+				// celExceptionLister,
+				// internal.PolicyExceptionEnabled(),
 			)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
@@ -733,6 +734,12 @@ func main() {
 			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
+				os.Exit(1)
+			}
+			polexcompiler := polex.NewCompiler()
+			polexProvider, err := polex.NewKubeProvider(polexcompiler, mgr)
+			if err != nil {
+				setup.Logger.Error(err, "failed to create polex provider")
 				os.Exit(1)
 			}
 			// create a cancellable context
@@ -753,6 +760,7 @@ func main() {
 			}
 			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
+				polexProvider,
 				func(name string) *corev1.Namespace {
 					ns, err := nsLister.Get(name)
 					if err != nil {

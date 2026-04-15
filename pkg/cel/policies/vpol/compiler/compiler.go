@@ -45,7 +45,7 @@ type Exception struct {
 }
 
 type Compiler interface {
-	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -54,18 +54,18 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policieskyvernoio.EvaluationModeJSON:
-		return c.compileForJSON(policy, exceptions)
+		return c.compileForJSON(policy)
 	default:
-		return c.compileForKubernetes(policy, exceptions)
+		return c.compileForKubernetes(policy)
 	}
 }
 
-func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -111,18 +111,18 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	// exceptions' match conditions
-	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
-	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
-		})
-	}
+	// // exceptions' match conditions
+	// compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	// for _, polex := range exceptions {
+	// 	polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+	// 	if errs != nil {
+	// 		return nil, append(allErrs, errs...)
+	// 	}
+	// 	compiledExceptions = append(compiledExceptions, compiler.Exception{
+	// 		Exception:       polex,
+	// 		MatchConditions: polexMatchConditions,
+	// 	})
+	// }
 	return &Policy{
 		mode:             policieskyvernoio.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
@@ -131,13 +131,12 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		variables:        variables,
 		validations:      validations,
 		auditAnnotations: auditAnnotations,
-		exceptions:       compiledExceptions,
 	}, nil
 }
 
-func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -185,18 +184,18 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		}
 	}
 
-	// Compile exceptions' match conditions for JSON mode
-	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
-	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
-		})
-	}
+	// // Compile exceptions' match conditions for JSON mode
+	// compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
+	// for _, polex := range exceptions {
+	// 	polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+	// 	if errs != nil {
+	// 		return nil, append(allErrs, errs...)
+	// 	}
+	// 	compiledExceptions = append(compiledExceptions, compiler.Exception{
+	// 		Exception:       polex,
+	// 		MatchConditions: polexMatchConditions,
+	// 	})
+	// }
 
 	return &Policy{
 		mode:            policieskyvernoio.EvaluationModeJSON,
@@ -204,11 +203,10 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		matchConditions: matchConditions,
 		variables:       variables,
 		validations:     validations,
-		exceptions:      compiledExceptions,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func createBaseVpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
