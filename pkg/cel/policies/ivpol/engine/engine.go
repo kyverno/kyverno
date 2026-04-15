@@ -249,7 +249,7 @@ func (e *engineImpl) handleMutation(
 			Exceptions: ivpol.Exceptions,
 		}
 		startTime := time.Now()
-		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
+		if p, errList := c.Compile(ctx, ivpol.Policy, ivpol.Exceptions); errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
