@@ -12,4 +12,3 @@ podSecuritySeverityByPolicy:
   require-run-as-nonroot: 1
   # Empty string: suppresses severity annotation entirely for this policy
   disallow-host-namespaces: ""
-
