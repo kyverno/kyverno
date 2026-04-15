@@ -258,6 +258,7 @@ func Test_JSONPayload(t *testing.T) {
 		t.Skip("Test directory not found, skipping test")
 		return
 	}
+	require.NoError(t, err)
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
 	testCases := test.LoadTest(nil, testFile)

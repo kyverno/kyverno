@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -2317,6 +2318,66 @@ func Test_Validate_CustomWebhookMatchConditionsWithoutClientOutsideMockMode(t *t
 
 	_, err = Validate(policy, nil, nil, false, "", "")
 	assert.EqualError(t, err, "custom webhook configurations require a kubernetes client for version validation")
+}
+
+func Test_Validate_CustomWebhookMatchConditionsWithNilDiscoveryOutsideMockMode(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "require-team-label"
+		},
+		"spec": {
+			"background": false,
+			"webhookConfiguration": {
+				"matchConditions": [
+					{
+						"name": "default-namespace-only",
+						"expression": "object.metadata.namespace == 'default'"
+					}
+				]
+			},
+			"rules": [
+				{
+					"name": "require-team-label",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"failureAction": "Audit",
+						"message": "team label is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"team": "platform"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	client := dclient.NewEmptyFakeClient()
+
+	var validationErr error
+	assert.NotPanics(t, func() {
+		_, validationErr = Validate(policy, nil, client, false, "", "")
+	})
+	assert.EqualError(t, validationErr, "custom webhook configurations require a kubernetes client for version validation")
 }
 
 func Test_GenerateFieldsUpdates(t *testing.T) {
