@@ -552,9 +552,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					user = p.UserInfo.AdmissionUserInfo
 				}
 				policiesByOperation := map[admissionv1.Operation][]string{
-					admissionv1.Create: {},
-					admissionv1.Update: {},
-					admissionv1.Delete: {},
+					admissionv1.Create:  {},
+					admissionv1.Update:  {},
+					admissionv1.Delete:  {},
+					admissionv1.Connect: {},
 				}
 				if len(p.TestPoliciesByOperation) == 0 {
 					for _, pol := range k8sPolicies {
@@ -562,18 +563,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					}
 				} else {
 					for op, polNames := range p.TestPoliciesByOperation {
-						var operation admissionv1.Operation
-						switch strings.ToLower(op) {
-						case "delete":
-							operation = admissionv1.Delete
-						case "update":
-							operation = admissionv1.Update
-						case "connect":
-							operation = admissionv1.Connect
-						case "create":
-							operation = admissionv1.Create
-						default:
-							return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: create, update, delete, connect", op)
+						operation := admissionv1.Operation(strings.ToUpper(op))
+						if _, ok := policiesByOperation[operation]; !ok {
+							return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: CREATE, UPDATE, DELETE, CONNECT", op)
 						}
 						for _, polName := range polNames {
 							policiesByOperation[operation] = append(policiesByOperation[operation], polName)

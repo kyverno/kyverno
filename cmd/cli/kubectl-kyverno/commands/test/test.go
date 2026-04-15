@@ -451,13 +451,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			var found bool
 			oldResource, found = oldResourceMap[resourceKey]
 			if !found {
-				fmt.Printf("no matching old resource found for resource; evaluating without oldObject %v\n", resourceKey)
+				fmt.Fprintf(out, "no matching old resource found for %q; evaluating without oldObject\n", resourceKey)
 			}
 		}
 
 		policiesByOperation := map[string][]string{}
 		for _, res := range testCase.Test.Results {
-			if !slices.Contains(res.Resources, resource.GetName()) {
+			if res.Kind != resource.GetKind() || !slices.Contains(res.Resources, resource.GetName()) {
 				continue
 			}
 			op := res.ResourceOperation

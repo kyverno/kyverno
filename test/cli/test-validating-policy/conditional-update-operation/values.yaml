@@ -1,4 +1,2 @@
 apiVersion: cli.kyverno.io/v1alpha1
-globalValues:
-  request.operation: UPDATE
 kind: Values
