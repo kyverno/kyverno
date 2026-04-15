@@ -151,7 +151,7 @@ func (c *compilerImpl) Compile(ctx context.Context, ivpolicy policiesv1beta1.Ima
 	}
 
 	return &compiledPolicy{
-		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore()),
 		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
 		validations:          validations,
@@ -252,7 +252,7 @@ func (c *compilerImpl) createBaseIvpolEnv(ctx context.Context, libsctx libs.Cont
 			gzip.Latest(),
 		),
 	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
+	if namespace == "" || toggle.FromContext(ctx).AllowHTTPInNamespacedPolicies() {
 		httpCtx, err := engine.NewCELHTTPContext()
 		if err != nil {
 			return nil, nil, err
