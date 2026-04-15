@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: default
+  labels:
+    team: platform
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.36

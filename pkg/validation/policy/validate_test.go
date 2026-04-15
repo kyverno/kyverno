@@ -2209,6 +2209,116 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
 
+func Test_Validate_CustomWebhookMatchConditionsWithoutClientInMockMode(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "require-team-label"
+		},
+		"spec": {
+			"background": false,
+			"webhookConfiguration": {
+				"matchConditions": [
+					{
+						"name": "default-namespace-only",
+						"expression": "object.metadata.namespace == 'default'"
+					}
+				]
+			},
+			"rules": [
+				{
+					"name": "require-team-label",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"failureAction": "Audit",
+						"message": "team label is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"team": "platform"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	_, err = Validate(policy, nil, nil, true, "", "")
+	assert.NoError(t, err)
+}
+
+func Test_Validate_CustomWebhookMatchConditionsWithoutClientOutsideMockMode(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "require-team-label"
+		},
+		"spec": {
+			"background": false,
+			"webhookConfiguration": {
+				"matchConditions": [
+					{
+						"name": "default-namespace-only",
+						"expression": "object.metadata.namespace == 'default'"
+					}
+				]
+			},
+			"rules": [
+				{
+					"name": "require-team-label",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"failureAction": "Audit",
+						"message": "team label is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"team": "platform"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	_, err = Validate(policy, nil, nil, false, "", "")
+	assert.EqualError(t, err, "custom webhook configurations require a kubernetes client for version validation")
+}
+
 func Test_GenerateFieldsUpdates(t *testing.T) {
 	tests := []struct {
 		name          string
