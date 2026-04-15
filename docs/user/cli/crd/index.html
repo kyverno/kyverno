@@ -289,6 +289,18 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </tr>
 <tr>
 <td>
+<code>oldResources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OldResources are the &ldquo;before&rdquo; state resources for admission-style CEL policy tests.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>jsonPayload</code><br/>
 <em>
 string
@@ -1719,6 +1731,20 @@ bool
 </td>
 <td>
 <p>FailOnMissingResources indicates if the test should fail if the patched/generated resources are missing.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resourceOperation</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResourceOperation indicates the expected operation to be applied within the test.
+Expected values are CREATE, UPDATE, DELETE and CONNECT.
+This field is optional, if unset, it falls back to CREATE.</p>
 </td>
 </tr>
 </tbody>
