@@ -1,0 +1,43 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: deny-delete-production-pod
+spec:
+  evaluation:
+    background:
+      enabled: false
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - resources: ["pods"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["DELETE"]
+  validations:
+    - message: "Deleting production pods is forbidden"
+      expression: |
+        !(has(oldObject.metadata.labels) && 
+        'env' in oldObject.metadata.labels &&
+        oldObject.metadata.labels['env'] == 'production')
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: deny-create-production-pod
+spec:
+  evaluation:
+    background:
+      enabled: false
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - resources: ["pods"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+  validations:
+    - message: "Creating production pods is forbidden"
+      expression: |
+        !(has(object.metadata.labels) && 
+        'env' in object.metadata.labels &&
+        object.metadata.labels['env'] == 'production')

@@ -460,6 +460,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
