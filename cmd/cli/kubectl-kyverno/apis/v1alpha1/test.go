@@ -31,6 +31,10 @@ type Test struct {
 	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
+	// OldResources are the "before" state resources for admission-style CEL policy tests.
+	// +optional
+	OldResources []string `json:"oldResources,omitempty"`
+
 	// JSONPayload is the JSON payload to be used in the test
 	// Deprecated: Use JSONPayloads instead.
 	JSONPayload string `json:"jsonPayload,omitempty"`

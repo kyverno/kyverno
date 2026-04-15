@@ -68,6 +68,14 @@ type TestResultBase struct {
 
 	// FailOnMissingResources indicates if the test should fail if the patched/generated resources are missing.
 	FailOnMissingResources bool `json:"failOnMissingResources,omitempty"`
+
+	// ResourceOperation indicates the expected operation to be applied within the test.
+	// Expected values are CREATE, UPDATE, DELETE and CONNECT.
+	// This field is optional, if unset, it falls back to CREATE.
+	// +optional
+	// +kubebuilder:validation:Enum=CREATE;UPDATE;DELETE;CONNECT
+	// +kubebuilder:default=CREATE
+	ResourceOperation string `json:"resourceOperation,omitempty"`
 }
 
 // TestResultData declares a test result data
