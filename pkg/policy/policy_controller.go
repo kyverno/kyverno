@@ -264,17 +264,15 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 			logger.V(2).Info("synchronization re-enabled, restoring watchers", "name", newgpol.GetName())
 			go pc.watchManager.Bootstrap(pc.ctx)
 		}
-		// If sync stays enabled but the spec changed, clear watcher state so that
-		// resources the policy no longer generates (e.g. matchConditions now filters
-		// them out) stop being protected.  The next UR either re-registers via
-		// SyncWatchers (result != nil) or leaves the entries absent so handleDelete
-		// skips recreate (result == nil).  The revert race this previously caused is
-		// gone because SyncWatchers is now called synchronously in the UR processing
-		// goroutine: Phase 3 seeds the new desired hash under wm.lock before the
-		// watch goroutine can process the engine-update event.
+		// If sync stays enabled and the spec changed, clear only the metadataCache entries
+		// (not policyRefs or watchers) so that watch events arriving before SyncWatchers
+		// re-seeds the cache hit the !tracked path and are skipped instead of triggering a
+		// spurious revert of the engine's update. policyRefs is kept intact so that a
+		// subsequent RemoveWatchersForPolicy(true) on policy deletion can still find and
+		// delete the downstream resources.
 		if oldgpol.Spec.SynchronizationEnabled() && newgpol.Spec.SynchronizationEnabled() {
-			logger.V(2).Info("spec changed with sync enabled, clearing watcher state", "name", oldgpol.GetName())
-			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
+			logger.V(2).Info("spec changed with sync enabled, clearing desired-state cache", "name", oldgpol.GetName())
+			pc.watchManager.ClearPolicyCacheEntries(oldgpol.GetName())
 		}
 	}
 

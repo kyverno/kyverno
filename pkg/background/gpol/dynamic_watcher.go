@@ -322,8 +322,35 @@ func (wm *WatchManager) DeleteDownstreams(policyName string, trigger *kyvernov1.
 	}
 }
 
+// ClearPolicyCacheEntries removes all metadataCache entries for policyName without
+// stopping watchers, modifying refCounts, or touching policyRefs. Used on policy
+// spec changes: clears the desired-state cache so that watch events arriving before
+// SyncWatchers re-seeds the cache hit the !tracked path and are skipped instead of
+// triggering a spurious revert, while leaving policyRefs intact so that a subsequent
+// RemoveWatchersForPolicy(true) can still find and delete the downstream resources.
+func (wm *WatchManager) ClearPolicyCacheEntries(policyName string) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
+	gvrList, ok := wm.policyRefs[policyName]
+	if !ok {
+		return
+	}
+	for _, gvr := range gvrList {
+		w, ok := wm.dynamicWatchers[gvr]
+		if !ok {
+			continue
+		}
+		for uid, res := range w.metadataCache {
+			if res.Labels[common.GeneratePolicyLabel] == policyName {
+				delete(w.metadataCache, uid)
+			}
+		}
+	}
+}
+
 // RemoveWatchersForPolicy removes all state for a policy. If deleteDownstream is true,
-// resources generated from scratch (without a source) are also deleted from the cluster.
+// all cached downstream resources for the policy are deleted from the cluster.
 func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstream bool) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
@@ -354,14 +381,12 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 		for _, uid := range toRemove {
 			res := w.metadataCache[uid]
 			if deleteDownstream {
-				if _, hasSource := res.Labels[common.GenerateSourceUIDLabel]; !hasSource {
-					logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-					err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-					if err != nil {
-						logger.Error(err, "failed to delete downstream resource", "name", res.Name)
-					} else {
-						logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-					}
+				logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+				err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+				if err != nil {
+					logger.Error(err, "failed to delete downstream resource", "name", res.Name)
+				} else {
+					logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
 				}
 			}
 			wm.untrackResource(uid, gvr)
