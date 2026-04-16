@@ -1,13 +1,10 @@
 package mpol
 
 import (
-	"context"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
@@ -51,8 +48,6 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
 	libEnvOpts := []cel.EnvOption{
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
@@ -100,16 +95,10 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		x509.Lib(
 			x509.Latest(),
 		),
-	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
 			http.Latest(),
-		))
+		),
 	}
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
