@@ -139,11 +139,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	// no image match found, skip
-	if len(c.matchImageReferences) > 0 && len(imgList) == 0 {
-		return nil, nil
-	}
-
 	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
 	}
