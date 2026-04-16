@@ -10,18 +10,10 @@ import (
 	"github.com/kyverno/sdk/cel/libs/http"
 )
 
-// sharedHTTPContext is a process-level cached http.ContextInterface built once
-// from the operator's blocklist/allowlist flags. Kyverno's flags are immutable
-// after startup, so caching here (rather than in the SDK) is correct and keeps
-// the SDK's lazy contract intact for callers with dynamic config.
-//
-// Construction never errors: the first Get/Post call performs the actual build.
-// Build errors are not cached so the next request retries.
+// sharedHTTPContext is built once on the first http.* call and reused across
+// admission requests so the underlying http.Transport is not recreated per call.
 var sharedHTTPContext = &cachedHTTPContext{}
 
-// cachedHTTPContext wraps the SDK's lazy context and caches the first
-// successful build result so the underlying http.Transport and its connection
-// pool are reused across admission requests.
 type cachedHTTPContext struct {
 	mu     sync.Mutex
 	cached http.ContextInterface
@@ -65,14 +57,9 @@ func (c *cachedHTTPContext) Client(caBundle string) (http.ContextInterface, erro
 	return ctx.Client(caBundle)
 }
 
-// NewLazyCELHTTPContext returns an http.ContextInterface that is safe to use at
-// both admission (type-checking) and runtime (enforcement) time.
-//
-// All cluster-scoped calls share a single cached http.ContextInterface so the
-// underlying transport and connection pool are reused across admission requests.
-// For namespaced policies, the AllowHTTPInNamespacedPolicies toggle is enforced
-// at call time; http.* calls return an error at evaluation time when the toggle
-// is disabled rather than causing an admission rejection.
+// NewLazyCELHTTPContext returns an http.ContextInterface safe for use at both
+// admission (type-checking) and evaluation time. For namespaced policies the
+// AllowHTTPInNamespacedPolicies toggle is enforced at call time.
 func NewLazyCELHTTPContext(namespace string) http.ContextInterface {
 	if namespace == "" {
 		return sharedHTTPContext
@@ -80,8 +67,7 @@ func NewLazyCELHTTPContext(namespace string) http.ContextInterface {
 	return &namespacedHTTPContext{inner: sharedHTTPContext}
 }
 
-// namespacedHTTPContext wraps an http.ContextInterface and enforces the
-// AllowHTTPInNamespacedPolicies toggle at call time for namespaced policies.
+// namespacedHTTPContext enforces the AllowHTTPInNamespacedPolicies toggle at call time.
 type namespacedHTTPContext struct {
 	inner http.ContextInterface
 }
@@ -108,9 +94,7 @@ func (n *namespacedHTTPContext) Client(caBundle string) (http.ContextInterface, 
 	return &namespacedHTTPContext{inner: innerWithCA}, nil
 }
 
-// ValidateHTTPFlags eagerly validates the current blocklist and allowlist flag
-// values, returning an error if any entry is malformed. Call this at startup to
-// fail fast before serving any traffic.
+// ValidateHTTPFlags validates the blocklist and allowlist flag values at startup.
 func ValidateHTTPFlags() error {
 	_, err := http.NewHTTPWithBlocklist(toggle.HTTPBlocklist.Values(), toggle.HTTPAllowlist.Values())
 	if err != nil {
@@ -119,13 +103,27 @@ func ValidateHTTPFlags() error {
 	return nil
 }
 
-// ExpressionsUseHTTP reports whether any of the given CEL expression strings
-// reference the "http" identifier. It parses (but does not type-check) each
-// expression and walks the AST looking for ident nodes named "http". Malformed
-// expressions are skipped — compilation errors are surfaced separately.
+var (
+	parseEnvOnce sync.Once
+	parseEnv     *cel.Env
+)
+
+func getParseEnv() *cel.Env {
+	parseEnvOnce.Do(func() {
+		env, err := cel.NewEnv()
+		if err != nil {
+			return
+		}
+		parseEnv = env
+	})
+	return parseEnv
+}
+
+// ExpressionsUseHTTP reports whether any expression references the "http" identifier.
+// Expressions are parsed but not type-checked; malformed expressions are skipped.
 func ExpressionsUseHTTP(expressions ...string) bool {
-	env, err := cel.NewEnv()
-	if err != nil {
+	env := getParseEnv()
+	if env == nil {
 		return false
 	}
 	for _, expr := range expressions {

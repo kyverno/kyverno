@@ -197,8 +197,6 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
 	namespace := ivpol.GetNamespace()
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
@@ -249,11 +247,11 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		gzip.Lib(
 			gzip.Latest(),
 		),
+		http.Lib(
+			http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
+			http.Latest(),
+		),
 	}
-	libEnvOpts = append(libEnvOpts, http.Lib(
-		http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
-		http.Latest(),
-	))
 
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{

@@ -73,8 +73,6 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
 	libEnvOpts := []cel.EnvOption{
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
@@ -127,11 +125,11 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 		gzip.Lib(
 			gzip.Latest(),
 		),
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			http.Latest(),
+		),
 	}
-	libEnvOpts = append(libEnvOpts, http.Lib(
-		http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
-		http.Latest(),
-	))
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
