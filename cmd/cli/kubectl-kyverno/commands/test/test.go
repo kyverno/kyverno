@@ -129,6 +129,20 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+
+	oldResourceMap := map[string]*unstructured.Unstructured{}
+	if len(testCase.Test.OldResources) > 0 {
+		fmt.Fprintln(out, "  Loading old resources", "...")
+		oldResourceFullPath := path.GetFullPaths(testCase.Test.OldResources, testDir, isGit)
+		oldResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, oldResourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load old resources (%s)", err)
+		}
+		for _, r := range oldResources {
+			oldResourceMap[r.GetName()] = r
+		}
+	}
+
 	uniquesObjectArr := []runtime.Object{}
 	for _, t := range uniques {
 		uniquesObjectArr = append(uniquesObjectArr, t)
@@ -360,6 +374,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
+			OldResources:                      oldResourceMap,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,

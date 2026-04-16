@@ -8,8 +8,8 @@ policies:
       - name: prod-app
         values:
           request.operation: DELETE
-  # - name: deny-create-production-pod
-  #   resources:
-  #     - name: prod-app
-  #       values:
-  #         request.operation: CREATE
+  - name: deny-create-production-pod
+    resources:
+      - name: prod-app
+        values:
+          request.operation: CREATE

@@ -81,6 +81,7 @@ type PolicyProcessor struct {
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
+	OldResources                      map[string]*unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
 	CELExceptions                     []*policiesv1beta1.PolicyException
@@ -570,9 +571,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					}
 
 					var object, oldObject unstructured.Unstructured
-					if operation == admissionv1.Delete {
+					switch operation {
+					case admissionv1.Delete:
 						oldObject = resource
-					} else {
+					case admissionv1.Update:
+						object = resource
+						if old, ok := p.OldResources[resource.GetName()]; ok {
+							oldObject = *old
+						} else {
+							oldObject = resource
+						}
+					default:
 						object = resource
 					}
 					request := celengine.Request(
@@ -585,10 +594,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						&object, &oldObject,
 						false, nil,
 					)
-					policyName := pol.GetName()
-					reps, err := eng.Handle(ctx, request, func(p policiesv1beta1.ValidatingPolicyLike) bool {
-						return p.GetName() == policyName
-					})
+					reps, err := eng.Handle(ctx, request, vpolengine.MatchNames(pol.GetName()))
 					if err != nil {
 						return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 					}
