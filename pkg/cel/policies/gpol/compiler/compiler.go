@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -11,7 +10,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/gzip"
@@ -48,7 +46,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -130,16 +128,10 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 			gzip.Latest(),
 		),
 	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
-			http.Latest(),
-		))
-	}
+	libEnvOpts = append(libEnvOpts, http.Lib(
+		http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+		http.Latest(),
+	))
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
@@ -162,7 +154,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	gpolEnvSet, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}

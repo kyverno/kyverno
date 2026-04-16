@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -11,7 +10,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/generator"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/gzip"
@@ -57,7 +55,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()
 
-	extendedCompiler, variablesProvider, err := newExtendedEnv(libCtx, policy.GetNamespace())
+	extendedCompiler, variablesProvider, err := c.newExtendedEnv(libCtx, policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileExtendedError, err)))
 	}
@@ -124,7 +122,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}, allErrs
 }
 
-func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -213,16 +211,10 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 			user.Latest(),
 		),
 	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
-			http.Latest(),
-		))
-	}
+	libEnvOpts = append(libEnvOpts, http.Lib(
+		http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+		http.Latest(),
+	))
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution

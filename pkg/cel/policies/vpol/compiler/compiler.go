@@ -291,16 +291,10 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 			gzip.Latest(),
 		),
 	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
-			http.Latest(),
-		))
-	}
+	libEnvOpts = append(libEnvOpts, http.Lib(
+		http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+		http.Latest(),
+	))
 
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{

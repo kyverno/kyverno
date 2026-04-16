@@ -4,6 +4,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	sdkhttp "github.com/kyverno/sdk/cel/libs/http"
 )
 
 const (
@@ -56,22 +58,6 @@ const (
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
 )
 
-// defaultHTTPBlocklist mirrors DefaultBlockedCIDRs + DefaultBlockedHosts from
-// github.com/kyverno/sdk/cel/libs/http. Duplicated here to avoid an import cycle.
-var defaultHTTPBlocklist = []string{
-	"127.0.0.0/8",
-	"::1/128",
-	"169.254.0.0/16",
-	"fe80::/10",
-	"10.0.0.0/8",
-	"172.16.0.0/12",
-	"192.168.0.0/16",
-	"fc00::/7",
-	"100.64.0.0/10",
-	"metadata.google.internal",
-	"metadata.internal",
-}
-
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
@@ -81,7 +67,7 @@ var (
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
-	HTTPBlocklist                     = newStringSliceFlag(defaultHTTPBlocklist, httpBlocklistEnvVar)
+	HTTPBlocklist                     = newStringSliceFlag(append(sdkhttp.DefaultBlockedCIDRs, sdkhttp.DefaultBlockedHosts...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
 )
 
@@ -91,7 +77,7 @@ type ToggleFlag interface {
 
 type Toggle interface {
 	ToggleFlag
-	enabled() bool
+	Enabled() bool
 }
 
 type toggle struct {
@@ -116,7 +102,7 @@ func (t *toggle) Parse(in string) error {
 	}
 }
 
-func (t *toggle) enabled() bool {
+func (t *toggle) Enabled() bool {
 	if t.value != nil {
 		return *t.value
 	}
