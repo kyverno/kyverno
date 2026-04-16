@@ -169,8 +169,86 @@ func Test_toggle_Enabled(t *testing.T) {
 			}
 			tr := newToggle(tt.fields.defaultValue, tt.fields.envVar)
 			tr.Parse(tt.value)
-			got := tr.enabled()
+			got := tr.Enabled()
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func Test_StringSliceFlag_Values(t *testing.T) {
+	defaults := []string{"10.0.0.0/8", "192.168.0.0/16"}
+	tests := []struct {
+		name     string
+		defaults []string
+		parsed   string
+		env      map[string]string
+		envVar   string
+		want     []string
+	}{{
+		name:     "returns default when nothing set",
+		defaults: defaults,
+		want:     defaults,
+	}, {
+		name:     "nil default returns nil",
+		defaults: nil,
+		want:     nil,
+	}, {
+		name:   "Parse overrides default",
+		parsed: "172.16.0.0/12,127.0.0.0/8",
+		want:   []string{"172.16.0.0/12", "127.0.0.0/8"},
+	}, {
+		name:   "Parse trims whitespace",
+		parsed: " 172.16.0.0/12 , 127.0.0.0/8 ",
+		want:   []string{"172.16.0.0/12", "127.0.0.0/8"},
+	}, {
+		name:   "Parse empty string yields empty slice",
+		parsed: "",
+		want:   nil,
+	}, {
+		name:   "Parse with only commas and spaces yields empty slice",
+		parsed: " , , ",
+		want:   []string{},
+	}, {
+		name:     "env var overrides default",
+		defaults: defaults,
+		envVar:   "TEST_SLICE_FLAG",
+		env:      map[string]string{"TEST_SLICE_FLAG": "1.2.3.4/32"},
+		want:     []string{"1.2.3.4/32"},
+	}, {
+		name:     "parsed value takes precedence over env var",
+		defaults: defaults,
+		envVar:   "TEST_SLICE_FLAG",
+		env:      map[string]string{"TEST_SLICE_FLAG": "1.2.3.4/32"},
+		parsed:   "5.6.7.8/32",
+		want:     []string{"5.6.7.8/32"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+			f := newStringSliceFlag(tt.defaults, tt.envVar)
+			if tt.parsed != "" {
+				assert.NoError(t, f.Parse(tt.parsed))
+			}
+			got := f.Values()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_StringSliceFlag_Reset(t *testing.T) {
+	f := newStringSliceFlag([]string{"default"}, "")
+	assert.NoError(t, f.Parse("parsed"))
+	assert.Equal(t, []string{"parsed"}, f.Values())
+
+	f.Reset()
+	assert.Equal(t, []string{"default"}, f.Values())
+}
+
+func Test_StringSliceFlag_ValuesIsDefensiveCopy(t *testing.T) {
+	f := newStringSliceFlag([]string{"original"}, "")
+	got := f.Values()
+	got[0] = "mutated"
+	assert.Equal(t, []string{"original"}, f.Values())
 }

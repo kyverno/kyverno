@@ -5,10 +5,11 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: json-server
-  namespace: test-cel-http
+  namespace: test-cel-http-cluster
   labels:
     app: json-server
 spec:
+  automountServiceAccountToken: false
   containers:
   - name: server
     image: public.ecr.aws/docker/library/python:3.9-slim
@@ -46,7 +47,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: json-server
-  namespace: test-cel-http
+  namespace: test-cel-http-cluster
 spec:
   selector:
     app: json-server
