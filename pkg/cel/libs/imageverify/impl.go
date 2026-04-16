@@ -21,6 +21,7 @@ import (
 type ivfuncs struct {
 	types.Adapter
 
+	ctx             context.Context
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1beta1.Credentials
@@ -31,6 +32,7 @@ type ivfuncs struct {
 }
 
 func ImageVerifyCELFuncs(
+	ctx context.Context,
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
 	ivpol v1beta1.ImageValidatingPolicyLike,
@@ -51,6 +53,7 @@ func ImageVerifyCELFuncs(
 	}
 	return &ivfuncs{
 		Adapter:         adapter,
+		ctx:             ctx,
 		imgCtx:          imgCtx,
 		creds:           spec.Credentials,
 		imgRules:        imgRules,
@@ -61,7 +64,7 @@ func ImageVerifyCELFuncs(
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.ctx
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -106,7 +109,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 }
 
 func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.ctx
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -162,7 +165,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 }
 
 func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.ctx
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -186,7 +189,7 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 }
 
 func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.ctx
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {

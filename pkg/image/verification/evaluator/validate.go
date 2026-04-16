@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -97,7 +98,7 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.
 	}
 
 	compiler := NewCompiler(ictx, lister, nil)
-	_, errList := compiler.Compile(ivpol, nil)
+	_, errList := compiler.Compile(context.Background(), ivpol, nil)
 
 	errs := make(field.ErrorList, 0, len(errList))
 	if len(errList) > 0 {
