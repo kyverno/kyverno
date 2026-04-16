@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
@@ -9,20 +10,74 @@ import (
 	"github.com/kyverno/sdk/cel/libs/http"
 )
 
+// sharedHTTPContext is a process-level cached http.ContextInterface built once
+// from the operator's blocklist/allowlist flags. Kyverno's flags are immutable
+// after startup, so caching here (rather than in the SDK) is correct and keeps
+// the SDK's lazy contract intact for callers with dynamic config.
+//
+// Construction never errors: the first Get/Post call performs the actual build.
+// Build errors are not cached so the next request retries.
+var sharedHTTPContext = &cachedHTTPContext{}
+
+// cachedHTTPContext wraps the SDK's lazy context and caches the first
+// successful build result so the underlying http.Transport and its connection
+// pool are reused across admission requests.
+type cachedHTTPContext struct {
+	mu     sync.Mutex
+	cached http.ContextInterface
+}
+
+func (c *cachedHTTPContext) getOrBuild() (http.ContextInterface, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cached != nil {
+		return c.cached, nil
+	}
+	ctx, err := http.NewHTTPWithBlocklist(toggle.HTTPBlocklist.Values(), toggle.HTTPAllowlist.Values())
+	if err != nil {
+		return nil, err
+	}
+	c.cached = ctx
+	return ctx, nil
+}
+
+func (c *cachedHTTPContext) Get(url string, headers map[string]string) (any, error) {
+	ctx, err := c.getOrBuild()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.Get(url, headers)
+}
+
+func (c *cachedHTTPContext) Post(url string, data any, headers map[string]string) (any, error) {
+	ctx, err := c.getOrBuild()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.Post(url, data, headers)
+}
+
+func (c *cachedHTTPContext) Client(caBundle string) (http.ContextInterface, error) {
+	ctx, err := c.getOrBuild()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.Client(caBundle)
+}
+
 // NewLazyCELHTTPContext returns an http.ContextInterface that is safe to use at
 // both admission (type-checking) and runtime (enforcement) time.
 //
-// Construction never errors: the operator's blocklist/allowlist flags are read
-// lazily on each Get/Post call. For namespaced policies, the
-// AllowHTTPInNamespacedPolicies toggle is also enforced at call time; attempts
-// to call http.* from a namespaced policy when the toggle is disabled will
-// return an error at evaluation time rather than causing an admission rejection.
+// All cluster-scoped calls share a single cached http.ContextInterface so the
+// underlying transport and connection pool are reused across admission requests.
+// For namespaced policies, the AllowHTTPInNamespacedPolicies toggle is enforced
+// at call time; http.* calls return an error at evaluation time when the toggle
+// is disabled rather than causing an admission rejection.
 func NewLazyCELHTTPContext(namespace string) http.ContextInterface {
-	inner := http.NewLazyHTTPContext(toggle.HTTPBlocklist.Values, toggle.HTTPAllowlist.Values)
 	if namespace == "" {
-		return inner
+		return sharedHTTPContext
 	}
-	return &namespacedHTTPContext{inner: inner}
+	return &namespacedHTTPContext{inner: sharedHTTPContext}
 }
 
 // namespacedHTTPContext wraps an http.ContextInterface and enforces the

@@ -11,7 +11,7 @@ import (
 
 func TestNewLazyCELHTTPContext_NeverErrors(t *testing.T) {
 	// Construction must never error even with a completely invalid blocklist,
-	// because the lazy context reads flags at call time, not construction time.
+	// because the cached context reads flags on first call, not at construction time.
 	t.Run("invalid blocklist does not error at construction", func(t *testing.T) {
 		require.NoError(t, toggle.HTTPBlocklist.Parse("999.999.999.999/24"))
 		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })

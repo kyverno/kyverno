@@ -180,7 +180,7 @@ func Test_StringSliceFlag_Values(t *testing.T) {
 	tests := []struct {
 		name     string
 		defaults []string
-		parsed   string
+		parsed   *string
 		env      map[string]string
 		envVar   string
 		want     []string
@@ -194,19 +194,19 @@ func Test_StringSliceFlag_Values(t *testing.T) {
 		want:     nil,
 	}, {
 		name:   "Parse overrides default",
-		parsed: "172.16.0.0/12,127.0.0.0/8",
+		parsed: strPtr("172.16.0.0/12,127.0.0.0/8"),
 		want:   []string{"172.16.0.0/12", "127.0.0.0/8"},
 	}, {
 		name:   "Parse trims whitespace",
-		parsed: " 172.16.0.0/12 , 127.0.0.0/8 ",
+		parsed: strPtr(" 172.16.0.0/12 , 127.0.0.0/8 "),
 		want:   []string{"172.16.0.0/12", "127.0.0.0/8"},
 	}, {
 		name:   "Parse empty string yields empty slice",
-		parsed: "",
-		want:   nil,
+		parsed: strPtr(""),
+		want:   []string{},
 	}, {
 		name:   "Parse with only commas and spaces yields empty slice",
-		parsed: " , , ",
+		parsed: strPtr(" , , "),
 		want:   []string{},
 	}, {
 		name:     "env var overrides default",
@@ -219,7 +219,7 @@ func Test_StringSliceFlag_Values(t *testing.T) {
 		defaults: defaults,
 		envVar:   "TEST_SLICE_FLAG",
 		env:      map[string]string{"TEST_SLICE_FLAG": "1.2.3.4/32"},
-		parsed:   "5.6.7.8/32",
+		parsed:   strPtr("5.6.7.8/32"),
 		want:     []string{"5.6.7.8/32"},
 	}}
 	for _, tt := range tests {
@@ -228,14 +228,16 @@ func Test_StringSliceFlag_Values(t *testing.T) {
 				t.Setenv(k, v)
 			}
 			f := newStringSliceFlag(tt.defaults, tt.envVar)
-			if tt.parsed != "" {
-				assert.NoError(t, f.Parse(tt.parsed))
+			if tt.parsed != nil {
+				assert.NoError(t, f.Parse(*tt.parsed))
 			}
 			got := f.Values()
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
+
+func strPtr(s string) *string { return &s }
 
 func Test_StringSliceFlag_Reset(t *testing.T) {
 	f := newStringSliceFlag([]string{"default"}, "")
