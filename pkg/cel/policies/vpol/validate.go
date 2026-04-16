@@ -51,7 +51,7 @@ func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 }
 
 func vpolExpressions(spec *v1beta1.ValidatingPolicySpec) []string {
-	var exprs []string
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Validations)*2+len(spec.AuditAnnotations))
 	for _, v := range spec.Variables {
 		exprs = append(exprs, v.Expression)
 	}

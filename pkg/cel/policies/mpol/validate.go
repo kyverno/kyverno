@@ -51,7 +51,16 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 }
 
 func mpolExpressions(spec *v1beta1.MutatingPolicySpec) []string {
-	var exprs []string
+	capacity := len(spec.Variables) + len(spec.MatchConditions)
+	for _, m := range spec.Mutations {
+		if m.ApplyConfiguration != nil {
+			capacity++
+		}
+		if m.JSONPatch != nil {
+			capacity++
+		}
+	}
+	exprs := make([]string, 0, capacity)
 	for _, v := range spec.Variables {
 		exprs = append(exprs, v.Expression)
 	}

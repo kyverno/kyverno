@@ -67,7 +67,7 @@ var (
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
-	HTTPBlocklist                     = newStringSliceFlag(append(sdkhttp.DefaultBlockedCIDRs, sdkhttp.DefaultBlockedHosts...), httpBlocklistEnvVar)
+	HTTPBlocklist                     = newStringSliceFlag(append(append([]string{}, sdkhttp.DefaultBlockedCIDRs...), sdkhttp.DefaultBlockedHosts...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
 )
 

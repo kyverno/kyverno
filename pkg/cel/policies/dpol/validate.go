@@ -49,7 +49,7 @@ func Validate(dpol v1beta1.DeletingPolicyLike) ([]string, error) {
 }
 
 func dpolExpressions(spec *v1beta1.DeletingPolicySpec) []string {
-	var exprs []string
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.Conditions))
 	for _, v := range spec.Variables {
 		exprs = append(exprs, v.Expression)
 	}
