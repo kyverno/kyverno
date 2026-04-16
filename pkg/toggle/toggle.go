@@ -3,6 +3,9 @@ package toggle
 import (
 	"os"
 	"strconv"
+	"strings"
+
+	sdkhttp "github.com/kyverno/sdk/cel/libs/http"
 )
 
 const (
@@ -41,6 +44,18 @@ const (
 	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
 	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
 	defaultAutogenV2     = false
+	// enable http calls in namespaced policies (CVE-2026-4789)
+	AllowHTTPInNamespacedPoliciesFlagName    = "allowHTTPInNamespacedPolicies"
+	AllowHTTPInNamespacedPoliciesDescription = "Set to 'true' to enable CEL http.Get/Post in namespaced policies. Disabled by default due to SSRF risk (CVE-2026-4789); enable only when combined with restrictive network policies."
+	allowHTTPInNamespacedPoliciesEnvVar      = "FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES"
+	defaultAllowHTTPInNamespacedPolicies     = false
+	// http blocklist / allowlist flag names
+	HTTPBlocklistFlagName    = "httpBlocklist"
+	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post calls. Overrides the built-in defaults when set. Example: '10.0.0.0/8,metadata.google.internal'."
+	httpBlocklistEnvVar      = "FLAG_HTTP_BLOCKLIST"
+	HTTPAllowlistFlagName    = "httpAllowlist"
+	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
+	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
 )
 
 var (
@@ -51,6 +66,9 @@ var (
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
+	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
+	HTTPBlocklist                     = newStringSliceFlag(append(append([]string{}, sdkhttp.DefaultBlockedCIDRs...), sdkhttp.DefaultBlockedHosts...), httpBlocklistEnvVar)
+	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
 )
 
 type ToggleFlag interface {
@@ -59,7 +77,7 @@ type ToggleFlag interface {
 
 type Toggle interface {
 	ToggleFlag
-	enabled() bool
+	Enabled() bool
 }
 
 type toggle struct {
@@ -84,7 +102,7 @@ func (t *toggle) Parse(in string) error {
 	}
 }
 
-func (t *toggle) enabled() bool {
+func (t *toggle) Enabled() bool {
 	if t.value != nil {
 		return *t.value
 	}
@@ -103,4 +121,67 @@ func getBool(in string) (*bool, error) {
 		return nil, err
 	}
 	return &value, nil
+}
+
+// StringSliceFlag is a flag that holds a comma-separated list of string values.
+// It follows the same precedence as Toggle: CLI flag > environment variable > default.
+type StringSliceFlag struct {
+	value        []string
+	hasValue     bool
+	defaultValue []string
+	envVar       string
+}
+
+func newStringSliceFlag(defaultValue []string, envVar string) *StringSliceFlag {
+	return &StringSliceFlag{
+		defaultValue: defaultValue,
+		envVar:       envVar,
+	}
+}
+
+// Parse is used as the callback for flagset.Func(...). The input is a comma-separated list of values.
+func (f *StringSliceFlag) Parse(in string) error {
+	f.value = splitAndTrim(in)
+	f.hasValue = true
+	return nil
+}
+
+// Reset clears any parsed flag value, returning the flag to its unset state so that
+// env var and default precedence apply again. Intended for use in tests.
+func (f *StringSliceFlag) Reset() {
+	f.value = nil
+	f.hasValue = false
+}
+
+// Values returns the current slice value following CLI > env var > default precedence.
+// The returned slice is always a defensive copy so callers cannot mutate internal state.
+func (f *StringSliceFlag) Values() []string {
+	if f.hasValue {
+		return cloneStringSlice(f.value)
+	}
+	if env, ok := os.LookupEnv(f.envVar); ok {
+		return splitAndTrim(env)
+	}
+	return cloneStringSlice(f.defaultValue)
+}
+
+func cloneStringSlice(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
+}
+
+func splitAndTrim(in string) []string {
+	parts := strings.Split(in, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

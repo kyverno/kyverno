@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+# Tests CEL http.* in namespaced policies across three phases:
+# 1. toggle off  → policy rejected at admission
+# 2. toggle on   → policy admitted, default SSRF blocklist blocks the call
+# 3. blocklist cleared → http.get() reaches the in-cluster json-server
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-http-namespaced
+spec:
+  concurrent: false
+  steps:
+  - name: create-namespace
+    try:
+    - create:
+        file: namespace.yaml
+
+  - name: create-json-server
+    try:
+    - create:
+        file: json-server.yaml
+    - assert:
+        timeout: 90s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: json-server
+            namespace: test-cel-http
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+              type: Ready
+
+  - name: apply-policy-rejected
+    try:
+    - create:
+        file: policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'not allowed in namespaced policies')): true
+
+  - name: enable-allow-http-in-namespaced-policies
+    try:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          kubectl get deployment kyverno-admission-controller -n kyverno \
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]' \
+            > /tmp/kyverno-original-args.json
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch='[
+              {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--allowHTTPInNamespacedPolicies=true"}
+            ]'
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+          sleep 5 # Wait for the webhook to be ready.
+    cleanup:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          ORIGINAL=$(cat /tmp/kyverno-original-args.json)
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ORIGINAL}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+
+  - name: create-policy
+    try:
+    - create:
+        file: policy.yaml
+    cleanup:
+    - delete:
+        file: policy.yaml
+
+  - name: wait-for-policy-ready-with-blocklist
+    use:
+      template: ../../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: nvpol-cel-http-probe
+        - name: namespace
+          value: test-cel-http
+
+  - name: phase-2-default-blocklist-enforced
+    timeouts:
+      apply: 60s
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-phase2
+            namespace: test-cel-http
+          data:
+            key: value
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'blocked')): true
+            (contains($error, 'statusCode=200')): false
+
+  - name: enable-empty-blocklist
+    try:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch='[
+              {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--httpBlocklist="}
+            ]'
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+    cleanup:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          ARGS=$(kubectl get deployment kyverno-admission-controller -n kyverno \
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]')
+          FILTERED=$(echo "$ARGS" | python3 -c "
+          import json, sys
+          args = json.load(sys.stdin)
+          print(json.dumps([a for a in args if not a.startswith('--httpBlocklist=')]))
+          ")
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$FILTERED}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+
+  - name: wait-for-policy-ready-without-blocklist
+    use:
+      template: ../../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: nvpol-cel-http-probe
+        - name: namespace
+          value: test-cel-http
+
+  - name: phase-3-http-call-succeeds
+    timeouts:
+      apply: 60s
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-phase3
+            namespace: test-cel-http
+          data:
+            key: value
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cel-http-test')): true
+            (contains($error, 'statusCode=200')): true
