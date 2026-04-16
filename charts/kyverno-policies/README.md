@@ -76,7 +76,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
 | policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
-| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
+| podSecuritySeverity | string | `"medium"` | Pod Security Standard severity (`low`, `medium`, `high`). |
+| podSecuritySeverityByPolicy | object | `{}` | Define podSecuritySeverity overrides for specific policies. Override the global `podSecuritySeverity` with an individual severity for individual policies. An empty string per-policy entry suppresses the annotation entirely. |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
