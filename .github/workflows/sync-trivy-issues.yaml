@@ -39,11 +39,6 @@ jobs:
           const alerts = allAlerts.filter(a => {
             if (seen.has(a.number)) return false;
             seen.add(a.number);
-            // Skip false positives: Trivy scanning the kyverno binary finds the embedded
-            // kyverno module at a v0.0.0-<date> pseudo-version (main branch dev builds)
-            // and flags all known kyverno CVEs because v0.0.0 < any release version.
-            const msg = a.most_recent_instance?.message?.text || '';
-            if (msg.includes('v0.0.0-') && msg.toLowerCase().includes('kyverno')) return false;
             return true;
           });
 
