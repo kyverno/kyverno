@@ -38,6 +38,7 @@ signs:
     certificate: "${artifact}.pem"
     args:
       - sign-blob
+      - --bundle=${artifact}.sigstore.json
       - --output-certificate=${certificate}
       - --output-signature=${signature}
       - ${artifact}
