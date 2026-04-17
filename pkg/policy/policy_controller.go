@@ -262,7 +262,13 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		// on its own when downstream resources already exist.
 		if !oldgpol.Spec.SynchronizationEnabled() && newgpol.Spec.SynchronizationEnabled() {
 			logger.V(2).Info("synchronization re-enabled, restoring watchers", "name", newgpol.GetName())
-			go pc.watchManager.Bootstrap(pc.ctx)
+			go pc.watchManager.Bootstrap(pc.ctx, func(policyName string) bool {
+				gpol, err := pc.gpolLister.Get(policyName)
+				if err != nil {
+					return false
+				}
+				return gpol.Spec.SynchronizationEnabled()
+			})
 		}
 		// If sync stays enabled and the spec changed, clear only the metadataCache entries
 		// (not policyRefs or watchers) so that watch events arriving before SyncWatchers
@@ -457,8 +463,9 @@ func (pc *policyController) syncPolicy(key string) error {
 			return err
 		}
 		// If synchronization is disabled, ensure no watcher is running for this policy.
-		// Bootstrap (called at startup) starts watchers for all labelled resources without
-		// checking the sync flag; syncPolicy is the right place to clean them up.
+		// Guards against the race where a UR worker snapshots isSync=true just before sync
+		// is disabled, calls SyncWatchers after RemoveWatchersForPolicy has already run, and
+		// briefly recreates policyRefs. The next syncPolicy cycle cleans that up here.
 		if !gpol.Spec.SynchronizationEnabled() {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
 		}

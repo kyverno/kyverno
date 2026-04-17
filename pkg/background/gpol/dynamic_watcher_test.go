@@ -702,7 +702,11 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 			wantCacheSize: 0,
 		},
 		{
-			name: "skip delete when GenerateSourceUIDLabel present",
+			// GeneratingPolicy uses CEL expressions rather than clone-based generation; there
+			// is no separate source resource whose lifecycle controls the downstream. The
+			// !hasSource guard (which skipped deletion when GenerateSourceUIDLabel was set)
+			// has been removed: all cached downstreams are deleted when deleteDownstream=true.
+			name: "delete downstream even when GenerateSourceUIDLabel is present",
 			fields: fields{
 				client: &MockClient{},
 				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
@@ -727,7 +731,7 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
 			},
 			args:          args{"pol1", true},
-			wantDeleted:   nil,
+			wantDeleted:   []string{"Pod/isolated-ns/res-test"},
 			wantCacheSize: 0,
 		},
 	}
