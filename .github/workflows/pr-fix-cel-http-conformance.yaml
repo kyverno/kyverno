@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Temporary workflow to validate fixes on branch fix-cel-http-conformance.
+# Delete this file before merging.
+
+name: PR - fix-cel-http-conformance
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - fix-cel-http-conformance
+
+jobs:
+  images:
+    name: Build test images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Install Ko
+        uses: ./.github/actions/tools/ko
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          if-no-files-found: error
+
+  cel-http:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.3, v1.35.1]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: cel/http
+
+  custom-sigstore:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - v1.33.x
+          - v1.34.x
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install tools
+        uses: ./.github/actions/tools/helm
+      - name: Install crane
+        uses: ./.github/actions/tools/crane
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+      - name: Install chainsaw
+        uses: ./.github/actions/tools/chainsaw
+      - name: Create kind cluster and setup Sigstore Scaffolding
+        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
+        with:
+          version: main
+          k8s-version: ${{ matrix.k8s-version }}
+          knative-version: "1.10.0"
+      - name: Create TUF values config map
+        run: |
+          set -e
+          kubectl create namespace kyverno
+          kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
+          kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export USE_CONFIG=standard,custom-sigstore
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno/wait-ready
+      - name: Create test image
+        shell: bash
+        run: |
+          DIGEST=$(crane digest cgr.dev/chainguard/static)
+          IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
+          TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
+          crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
+          cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
+          COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL -y
+          echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno/logs
+
+  generate-mutating-admission-policy-alpha:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
+          kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy-alpha
+
+  generate-mutating-admission-policy:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.34.3, v1.35.1]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy
+
+  mutating-admission-policy-reports-alpha:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
+          kyverno-configs: standard,mutating-admission-policy-reports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutating-admission-policy-reports-alpha
+
+  mutating-admission-policy-reports:
+    needs: images
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.34.3, v1.35.1]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,mutating-admission-policy-reports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutating-admission-policy-reports

@@ -143,7 +143,7 @@ jobs:
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
-          COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN -y
+          COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL -y
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       # run tests
       - name: Test with Chainsaw
