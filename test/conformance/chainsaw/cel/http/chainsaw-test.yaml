@@ -120,6 +120,7 @@ spec:
             ]'
           kubectl rollout status deployment/kyverno-admission-controller \
             -n kyverno --timeout=120s
+          sleep 5 # Wait for the webhook to be ready.
     cleanup:
     - script:
         timeout: 3m
