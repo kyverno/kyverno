@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1alpha1T
+apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: MutatingAdmissionPolicy
 metadata:
   name: add-label-to-configmap-1
