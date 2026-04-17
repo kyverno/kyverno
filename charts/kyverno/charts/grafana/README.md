@@ -12,4 +12,3 @@
 | labels | object | `{"grafana_dashboard":"1"}` | Grafana dashboard configmap labels |
 | grafanaDashboard | object | `{"create":false,"matchLabels":{"dashboards":"grafana"}}` | create GrafanaDashboard custom resource referencing to the configMap. according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/ |
 
-----------------------------------------------

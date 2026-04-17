@@ -120,4 +120,3 @@ Kubernetes: `>=1.25.0-0`
 
 * Add policyPreconditions value to allow policies and rules to have preconditions added
 
-----------------------------------------------

@@ -14,4 +14,3 @@
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |
 | customLabels | object | `{}` | This field can be overwritten by setting crds.labels in the parent chart |
 
-----------------------------------------------
