@@ -70,8 +70,14 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []string
-	invalid []string
+	skipped    []string
+	invalid    []string
+	loadErrors []SkippedPolicyLoadError
+}
+
+type SkippedPolicyLoadError struct {
+	path string
+	err  error
 }
 
 type ApplyCommandConfig struct {
@@ -280,7 +286,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, skippedInvalidPolicies, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -1022,8 +1028,10 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.MutatingPolicyLike,
 	[]*policiesv1beta1.ValidatingPolicy, // Envoy policies
 	[]*policiesv1beta1.ValidatingPolicy, // HTTP policies
+	SkippedInvalidPolicies,
 	error,
 ) {
+	var skippedInvalidPolicies SkippedInvalidPolicies
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var exceptions []*kyvernov2.PolicyException
@@ -1045,12 +1053,12 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, skippedInvalidPolicies, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, skippedInvalidPolicies, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -1063,19 +1071,15 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, skippedInvalidPolicies, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, skippedInvalidPolicies, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
-				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-					for _, err := range loaderResults.NonFatalErrors {
-						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-					}
-				}
+				skippedInvalidPolicies.addLoadErrors(policyYaml, loaderResults, err)
 				if err != nil {
 					continue
 				}
@@ -1097,11 +1101,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
-			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-				for _, err := range loaderResults.NonFatalErrors {
-					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-				}
-			}
+			skippedInvalidPolicies.addLoadErrors(path, loaderResults, err)
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
@@ -1128,7 +1128,25 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
+	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, skippedInvalidPolicies, nil
+}
+
+func (s *SkippedInvalidPolicies) addLoadErrors(path string, loaderResults *policy.LoaderResults, err error) {
+	if loaderResults != nil {
+		for _, nonFatalErr := range loaderResults.NonFatalErrors {
+			log.Log.Error(nonFatalErr.Error, "Non-fatal parsing error for single document")
+			s.loadErrors = append(s.loadErrors, SkippedPolicyLoadError{
+				path: nonFatalErr.Path,
+				err:  nonFatalErr.Error,
+			})
+		}
+	}
+	if err != nil {
+		s.loadErrors = append(s.loadErrors, SkippedPolicyLoadError{
+			path: path,
+			err:  err,
+		})
+	}
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
