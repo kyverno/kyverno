@@ -80,7 +80,7 @@ spec:
 
   - name: wait-for-policy-ready-with-blocklist
     use:
-      template: ../../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
+      template: ../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
       with:
         bindings:
         - name: name
@@ -120,6 +120,7 @@ spec:
             ]'
           kubectl rollout status deployment/kyverno-admission-controller \
             -n kyverno --timeout=120s
+          sleep 5 # Wait for the webhook to be ready.
     cleanup:
     - script:
         timeout: 3m
@@ -140,7 +141,7 @@ spec:
 
   - name: wait-for-policy-ready-without-blocklist
     use:
-      template: ../../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
+      template: ../../namespaced-validating-policies/_step-templates/namespaced-validating-policy-ready.yaml
       with:
         bindings:
         - name: name
