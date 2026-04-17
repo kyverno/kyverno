@@ -44,6 +44,7 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           trivyignores: .trivyignore
+          ignore-policy: .trivyignore.rego
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         with:
