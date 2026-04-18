@@ -23,6 +23,7 @@ groups:
 
   # -- Install CRDs in group `reports.kyverno.io`
   policies:
+    authorizingpolicies: true
     validatingpolicies: true
     imagevalidatingpolicies: true
     namespacedimagevalidatingpolicies: true

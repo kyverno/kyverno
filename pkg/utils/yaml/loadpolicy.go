@@ -143,6 +143,8 @@ func parse(obj unstructured.Unstructured) (
 			log.V(3).Info("error parsing MutatingAdmissionPolicyBinding", "error", err, "kind", obj.GetKind())
 		}
 		return nil, nil, nil, nil, nil, nil, out, err
+	case "AuthorizingPolicy":
+		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("unsupported policy kind %q", obj.GetKind())
 	}
 	return nil, nil, nil, nil, nil, nil, nil, nil
 }

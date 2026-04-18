@@ -1,0 +1,46 @@
+apiVersion: authorization.k8s.io/v1
+kind: SubjectAccessReview
+metadata:
+  name: test-sar-allow
+spec:
+  user: alice
+  uid: abc123
+  groups:
+  - developers
+  - team-backend
+  resourceAttributes:
+    verb: get
+    apiGroup: ""
+    apiVersion: v1
+    resource: pods
+    namespace: default
+    name: my-pod
+---
+apiVersion: authorization.k8s.io/v1
+kind: SubjectAccessReview
+metadata:
+  name: test-sar-deny
+spec:
+  user: eve
+  uid: xyz789
+  groups:
+  - external-users
+  resourceAttributes:
+    verb: delete
+    apiGroup: ""
+    apiVersion: v1
+    resource: pods
+    namespace: default
+---
+apiVersion: authorization.k8s.io/v1
+kind: SubjectAccessReview
+metadata:
+  name: test-sar-noop
+spec:
+  user: system:admin
+  uid: admin123
+  groups:
+  - system:masters
+  nonResourceAttributes:
+    verb: get
+    path: /api/v1/namespaces

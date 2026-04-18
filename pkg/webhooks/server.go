@@ -268,6 +268,19 @@ func NewServer(
 			WithAdmission(verifyLogger.WithName("mutate")).
 			ToHandlerFunc("VERIFY"),
 	)
+	// AuthorizingPolicy authorization endpoints
+	// These handle SubjectAccessReview-style authorization decisions
+	apolHandler := resourceHandlers.AuthorizingPolicies
+	if apolHandler != nil {
+		mux.HandlerFunc("POST", "/authz/subjectaccessreview", apolHandler.HandleSubjectAccessReview)
+		mux.HandlerFunc("POST", "/authz/conditions", apolHandler.HandleConditionsReview)
+	} else {
+		unavailable := func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "authorizing policy handler is not configured", http.StatusNotImplemented)
+		}
+		mux.HandlerFunc("POST", "/authz/subjectaccessreview", unavailable)
+		mux.HandlerFunc("POST", "/authz/conditions", unavailable)
+	}
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{

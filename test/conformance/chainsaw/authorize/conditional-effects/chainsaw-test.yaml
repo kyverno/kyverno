@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorizingpolicy-conditional-effects
+spec:
+  concurrent: false
+  steps:
+  - name: ensure-authorizingpolicy-crd
+    try:
+    - script:
+        timeout: 1m
+        content: |
+          set -eu
+          kubectl get crd authorizingpolicies.policies.kyverno.io >/dev/null 2>&1 || kubectl apply -f crd.yaml
+
+  - name: create-test-namespace-and-policy
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1alpha1
+          kind: AuthorizingPolicy
+          metadata:
+            name: service-account-conditional
+          status:
+            conditionStatus:
+              ready: true
+
+  - name: conditionsreview-create-returns-allow-condition
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9445:443 >/tmp/authorize-conditional-create.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9445/authz/conditions \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1alpha1",
+            "kind": "AuthorizationConditionsReview",
+            "request": {
+              "conditionSetChain": [
+                {
+                  "authorizerName": "kyverno",
+                  "conditionsType": "k8s.io/cel",
+                  "conditions": [
+                    {
+                      "id": "allow-create",
+                      "effect": "Allow",
+                      "condition": "request.verb == 'create'"
+                    }
+                  ]
+                }
+              ],
+              "spec": {
+                "user": "system:serviceaccount:authorize-test:builder",
+                "groups": ["system:serviceaccounts", "system:authenticated"],
+                "resourceAttributes": {
+                  "verb": "create",
+                  "resource": "pods",
+                  "namespace": "authorize-test"
+                }
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"response"')): true
+          (contains($stdout, '"allowed":true')): true
+
+  - name: conditionsreview-delete-returns-deny-condition
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9446:443 >/tmp/authorize-conditional-delete.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9446/authz/conditions \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1alpha1",
+            "kind": "AuthorizationConditionsReview",
+            "request": {
+              "conditionSetChain": [
+                {
+                  "authorizerName": "kyverno",
+                  "conditionsType": "k8s.io/cel",
+                  "conditions": [
+                    {
+                      "id": "deny-delete",
+                      "effect": "Deny",
+                      "condition": "request.verb == 'delete'"
+                    }
+                  ]
+                }
+              ],
+              "spec": {
+                "user": "system:serviceaccount:authorize-test:builder",
+                "groups": ["system:serviceaccounts", "system:authenticated"],
+                "resourceAttributes": {
+                  "verb": "delete",
+                  "resource": "pods",
+                  "namespace": "authorize-test"
+                }
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"response"')): true
+          (contains($stdout, '"denied":true')): true
+
+  - name: conditional-rule-returns-condition-set-chain
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9447:443 >/tmp/authorize-conditional-sar.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9447/authz/subjectaccessreview \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1",
+            "kind": "SubjectAccessReview",
+            "spec": {
+              "conditionalAuthorization": {
+                "mode": "HumanReadable"
+              },
+              "user": "system:serviceaccount:authorize-test:builder",
+              "groups": ["system:serviceaccounts", "system:authenticated"],
+              "resourceAttributes": {
+                "verb": "create",
+                "resource": "pods",
+                "namespace": "authorize-test"
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"allowed":false')): true
+          (contains($stdout, '"conditionSetChain"')): true
+          (contains($stdout, '"authorizerName":"kyverno"')): true

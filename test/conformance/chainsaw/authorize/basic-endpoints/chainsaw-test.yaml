@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorizingpolicy-basic-endpoints
+spec:
+  concurrent: false
+  steps:
+  - name: ensure-authorizingpolicy-crd
+    try:
+    - script:
+        timeout: 1m
+        content: |
+          set -eu
+          kubectl get crd authorizingpolicies.policies.kyverno.io >/dev/null 2>&1 || kubectl apply -f crd.yaml
+
+  - name: create-test-namespace-and-policy
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1alpha1
+          kind: AuthorizingPolicy
+          metadata:
+            name: allow-developers
+          status:
+            conditionStatus:
+              ready: true
+  - name: subjectaccessreview-allow-developers
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9443:443 >/tmp/authorize-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9443/authz/subjectaccessreview \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1",
+            "kind": "SubjectAccessReview",
+            "spec": {
+              "user": "alice",
+              "groups": ["developers"],
+              "resourceAttributes": {
+                "verb": "get",
+                "resource": "pods",
+                "namespace": "authorize-test"
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"kind":"SubjectAccessReview"')): true
+          (contains($stdout, '"allowed":true')): true
+          (contains($stdout, 'matched rule')): true
+
+  - name: subjectaccessreview-deny-delete
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9443:443 >/tmp/authorize-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9443/authz/subjectaccessreview \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1",
+            "kind": "SubjectAccessReview",
+            "spec": {
+              "user": "alice",
+              "groups": ["developers"],
+              "resourceAttributes": {
+                "verb": "delete",
+                "resource": "pods",
+                "namespace": "authorize-test"
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"kind":"SubjectAccessReview"')): true
+          (contains($stdout, '"allowed":false')): true
+          (contains($stdout, '"denied":true')): true
+          (contains($stdout, 'matched rule')): true
+
+  - name: conditionsreview-endpoint-responds
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -eu
+          kubectl -n kyverno port-forward svc/kyverno-svc 9444:443 >/tmp/authorize-port-forward-conditions.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+          sleep 5
+          curl -sk https://127.0.0.1:9444/authz/conditions \
+            -H 'Content-Type: application/json' \
+            --data-binary @- <<'EOF'
+          {
+            "apiVersion": "authorization.k8s.io/v1alpha1",
+            "kind": "AuthorizationConditionsReview",
+            "request": {
+              "conditionSetChain": [
+                {
+                  "authorizerName": "kyverno",
+                  "conditionsType": "k8s.io/cel",
+                  "conditions": [
+                    {
+                      "id": "allow-get",
+                      "effect": "Allow",
+                      "condition": "request.verb == 'get'"
+                    }
+                  ]
+                }
+              ],
+              "spec": {
+                "user": "alice",
+                "groups": ["developers"],
+                "resourceAttributes": {
+                  "verb": "get",
+                  "resource": "pods",
+                  "namespace": "authorize-test"
+                }
+              }
+            }
+          }
+          EOF
+        check:
+          (contains($stdout, '"kind":"AuthorizationConditionsReview"')): true
+          (contains($stdout, '"response"')): true
+          (contains($stdout, '"allowed":true')): true

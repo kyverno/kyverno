@@ -1,0 +1,2 @@
+{{- if .Values.groups.policies.authorizingpolicies }}
+{{- end }}

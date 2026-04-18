@@ -284,6 +284,7 @@ const (
 	NamespacedValidatingPolicyType      = "NamespacedValidatingPolicy"
 	ImageValidatingPolicyType           = "ImageValidatingPolicy"
 	NamespacedImageValidatingPolicyType = "NamespacedImageValidatingPolicy"
+	AuthorizingPolicyType               = "AuthorizingPolicy"
 	MutatingPolicyType                  = "MutatingPolicy"
 	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
 	GeneratingPolicyType                = "GeneratingPolicy"

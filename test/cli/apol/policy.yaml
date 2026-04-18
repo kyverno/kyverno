@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: allow-developers
+spec:
+  rules:
+  - name: allow-developers-read-pods
+    expression: "request.groups.exists(g, g == 'developers') && request.verb == 'get' && request.resource == 'pods' && request.namespace == 'authorize-test'"
+    effect: Allow
+  - name: deny-delete-pods
+    expression: "request.verb == 'delete' && request.resource == 'pods' && request.namespace == 'authorize-test'"
+    effect: Deny

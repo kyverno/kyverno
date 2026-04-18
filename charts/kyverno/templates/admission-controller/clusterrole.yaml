@@ -94,6 +94,8 @@ rules:
   - apiGroups:
       - policies.kyverno.io
     resources:
+      - authorizingpolicies
+      - authorizingpolicies/status
       - validatingpolicies
       - validatingpolicies/status
       - namespacedvalidatingpolicies

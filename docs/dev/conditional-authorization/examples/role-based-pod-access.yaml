@@ -1,0 +1,49 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: production-pod-operations-guardrails
+spec:
+  matchConditions:
+  - name: namespaced-workload-requests
+    expression: "request.namespace != '' && ['pods', 'deployments'].exists(r, r == request.resource)"
+  variables:
+  - name: isDeveloper
+    expression: "request.groups.exists(g, g == 'developers')"
+  - name: isSRE
+    expression: "request.groups.exists(g, g == 'sre')"
+  - name: isIncidentCommander
+    expression: "request.groups.exists(g, g == 'incident-commanders')"
+  - name: isReadVerb
+    expression: "['get', 'list', 'watch'].exists(v, v == request.verb)"
+  - name: isMutationVerb
+    expression: "['create', 'update', 'patch', 'delete'].exists(v, v == request.verb)"
+  - name: isProdNamespace
+    expression: "request.namespace.startsWith('prod-')"
+  rules:
+  - name: allow-developers-read-dev-workloads
+    matchConditions:
+    - name: dev-namespace
+      expression: "request.namespace.startsWith('dev-')"
+    expression: "variables.isDeveloper && variables.isReadVerb"
+    effect: Allow
+
+  - name: allow-sre-manage-prod-workloads
+    expression: "variables.isSRE && variables.isMutationVerb && variables.isProdNamespace"
+    effect: Allow
+
+  - name: conditional-prod-exec-access
+    expression: "variables.isProdNamespace && request.resource == 'pods' && request.subresource == 'exec'"
+    effect: Conditional
+    conditions:
+    - id: allow-incident-commanders-prod-exec
+      expression: "variables.isIncidentCommander"
+      effect: Allow
+      description: Allow production exec only for approved incident commanders.
+    - id: deny-non-incident-commanders-prod-exec
+      expression: "!variables.isIncidentCommander"
+      effect: Deny
+      description: Deny production exec by default outside incident command.
+
+  - name: deny-prod-pod-deletes-for-non-sre
+    expression: "variables.isProdNamespace && request.resource == 'pods' && request.verb == 'delete' && !variables.isSRE"
+    effect: Deny

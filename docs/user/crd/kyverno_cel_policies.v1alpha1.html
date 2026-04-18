@@ -25,6 +25,8 @@
             
             <h3>Resource Types:</h3>
             <ul><li>
+                    <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicy">AuthorizingPolicy</a>
+                  </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy</a>
                   </li><li>
                     <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicy">GeneratingPolicy</a>
@@ -40,6 +42,320 @@
 
             
             
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingPolicy">AuthorizingPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>policies.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>AuthorizingPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">
+                <span style="font-family: monospace">AuthorizingPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>subjects</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]rbac/v1.Subject</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subjects optionally scopes this policy to specific users, groups, or service accounts.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchConstraints">
+                <span style="font-family: monospace">AuthorizingMatchConstraints</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies which request metadata this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchCondition">
+                <span style="font-family: monospace">[]AuthorizingMatchCondition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions are CEL conditions evaluated before rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingVariable">
+                <span style="font-family: monospace">[]AuthorizingVariable</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables are reusable named CEL expressions.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingRule">
+                <span style="font-family: monospace">[]AuthorizingRule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules are evaluated in order. The first matching rule decides the outcome.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingFailurePolicyType">
+                <span style="font-family: monospace">AuthorizingFailurePolicyType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy controls behavior if policy evaluation fails.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicyStatus">
+                <span style="font-family: monospace">AuthorizingPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-DeletingPolicy">DeletingPolicy
     </H3>
 
@@ -2810,6 +3126,988 @@ Optional. Default value is &quot;true&quot;.</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingCondition">AuthorizingCondition
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingRule">AuthorizingRule</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>id</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>effect</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingConditionEffect">
+                <span style="font-family: monospace">AuthorizingConditionEffect</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>description</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingConditionEffect">AuthorizingConditionEffect
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingCondition">AuthorizingCondition</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingFailurePolicyType">AuthorizingFailurePolicyType
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingMatchCondition">AuthorizingMatchCondition
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingRule">AuthorizingRule</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingMatchConstraints">AuthorizingMatchConstraints
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resourceRules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingResourceRule">
+                <span style="font-family: monospace">[]AuthorizingResourceRule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceRules defines which resource operations are matched by this policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicy">AuthorizingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>subjects</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]rbac/v1.Subject</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subjects optionally scopes this policy to specific users, groups, or service accounts.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConstraints</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchConstraints">
+                <span style="font-family: monospace">AuthorizingMatchConstraints</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConstraints specifies which request metadata this policy is designed to evaluate.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchCondition">
+                <span style="font-family: monospace">[]AuthorizingMatchCondition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchConditions are CEL conditions evaluated before rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingVariable">
+                <span style="font-family: monospace">[]AuthorizingVariable</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables are reusable named CEL expressions.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingRule">
+                <span style="font-family: monospace">[]AuthorizingRule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules are evaluated in order. The first matching rule decides the outcome.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingFailurePolicyType">
+                <span style="font-family: monospace">AuthorizingFailurePolicyType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy controls behavior if policy evaluation fails.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingPolicyStatus">AuthorizingPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicy">AuthorizingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditionStatus</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-ConditionStatus">
+                <span style="font-family: monospace">ConditionStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingResourceRule">AuthorizingResourceRule
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchConstraints">AuthorizingMatchConstraints</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>verbs</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>apiGroups</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingRule">AuthorizingRule
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingMatchCondition">
+                <span style="font-family: monospace">[]AuthorizingMatchCondition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>effect</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingRuleEffect">
+                <span style="font-family: monospace">AuthorizingRuleEffect</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-AuthorizingCondition">
+                <span style="font-family: monospace">[]AuthorizingCondition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingRuleEffect">AuthorizingRuleEffect
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingRule">AuthorizingRule</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-AuthorizingVariable">AuthorizingVariable
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-BackgroundConfiguration">BackgroundConfiguration
     </H3>
 
@@ -3179,6 +4477,7 @@ parent intermediate CA certificate of the signing certificate and end with the r
   
     <p>
       (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-AuthorizingPolicyStatus">AuthorizingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-DeletingPolicyStatus">DeletingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-GeneratingPolicyStatus">GeneratingPolicyStatus</a>, 
         <a href="#policies-kyverno-io-v1alpha1-ImageValidatingPolicyStatus">ImageValidatingPolicyStatus</a>, 

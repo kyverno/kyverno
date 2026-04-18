@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,6 +48,16 @@ type PolicyHandlers struct {
 	Validation Handler
 }
 
+// AuthorizingPolicyHandler handles authorization decisions for AuthorizingPolicy resources.
+// Unlike standard admission handlers, authorization handlers work with custom HTTP endpoints
+// that process SubjectAccessReview-style authorization decisions.
+type AuthorizingPolicyHandler interface {
+	// HandleSubjectAccessReview processes SubjectAccessReview authorization decisions
+	HandleSubjectAccessReview(w http.ResponseWriter, r *http.Request)
+	// HandleConditionsReview processes authorization conditions review requests
+	HandleConditionsReview(w http.ResponseWriter, r *http.Request)
+}
+
 type ResourceHandlers struct {
 	// Mutation performs the mutation of kube resources
 	Mutation Handler
@@ -68,4 +79,6 @@ type ResourceHandlers struct {
 	MutatingPolicies Handler
 	// NamespacedMutatingPolicies evaluates namespaced mutating policies against kube resources
 	NamespacedMutatingPolicies Handler
+	// AuthorizingPolicies handles authorization decisions via authz webhook endpoints
+	AuthorizingPolicies AuthorizingPolicyHandler
 }

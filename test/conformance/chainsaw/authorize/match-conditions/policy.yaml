@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: match-gated-policy
+spec:
+  matchConditions:
+  - name: developers-only
+    expression: "request.groups.exists(g, g == 'developers')"
+  rules:
+  - name: allow-configmap-read-in-authorize-test
+    matchConditions:
+    - name: target-namespace
+      expression: "request.namespace == 'authorize-test'"
+    expression: "request.verb == 'get' && request.resource == 'configmaps'"
+    effect: Allow
+  - name: deny-secret-delete-in-authorize-test
+    matchConditions:
+    - name: target-namespace
+      expression: "request.namespace == 'authorize-test'"
+    expression: "request.verb == 'delete' && request.resource == 'secrets'"
+    effect: Deny
