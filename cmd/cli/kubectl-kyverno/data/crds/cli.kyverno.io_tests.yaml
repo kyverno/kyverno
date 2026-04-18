@@ -104,6 +104,12 @@ spec:
               Name is the name of the test.
               This field is deprecated, use `metadata.name` instead
             type: string
+          oldResources:
+            description: OldResources are the "before" state resources for UPDATE
+              operation tests.
+            items:
+              type: string
+            type: array
           paramResources:
             description: Resources that act as parameters for validating/mutating
               admission policies

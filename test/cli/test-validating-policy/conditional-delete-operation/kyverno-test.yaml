@@ -3,18 +3,18 @@ kind: Test
 metadata:
   name: deny-delete-test
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - kind: Pod
-    policy: deny-delete-production-pod
-    resources:
-      - prod-app
-    result: fail
-  - kind: Pod
-    policy: deny-create-production-pod
-    resources:
-      - prod-app
-    result: fail
+- kind: Pod
+  policy: deny-create-production-pod
+  resources:
+  - prod-app
+  result: fail
+- kind: Pod
+  policy: deny-delete-production-pod
+  resources:
+  - prod-app
+  result: fail
 variables: values.yaml

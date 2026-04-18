@@ -3,13 +3,13 @@ globalValues:
   request.operation: DELETE
 kind: Values
 policies:
-  - name: deny-delete-production-pod
-    resources:
-      - name: prod-app
-        values:
-          request.operation: DELETE
-  - name: deny-create-production-pod
-    resources:
-      - name: prod-app
-        values:
-          request.operation: CREATE
+- name: deny-delete-production-pod
+  resources:
+  - name: prod-app
+    values:
+      request.operation: DELETE
+- name: deny-create-production-pod
+  resources:
+  - name: prod-app
+    values:
+      request.operation: CREATE
