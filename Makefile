@@ -580,6 +580,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
 		paths=github.com/kyverno/api/api/policies.kyverno.io/... \
+		paths=./api/policies/v1alpha1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 

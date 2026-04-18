@@ -144,7 +144,8 @@ func parse(obj unstructured.Unstructured) (
 		}
 		return nil, nil, nil, nil, nil, nil, out, err
 	case "AuthorizingPolicy":
-		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("unsupported policy kind %q", obj.GetKind())
+		log.V(3).Info("skipping unsupported policy kind", "kind", obj.GetKind())
+		return nil, nil, nil, nil, nil, nil, nil, nil
 	}
 	return nil, nil, nil, nil, nil, nil, nil, nil
 }
