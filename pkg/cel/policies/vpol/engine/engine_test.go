@@ -92,6 +92,7 @@ func TestHandle(t *testing.T) {
 				&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
+						ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -248,6 +249,7 @@ func TestHandle(t *testing.T) {
 				&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "require-team-label"},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
+						ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
@@ -321,6 +323,7 @@ func TestHandle(t *testing.T) {
 				&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "max-replicas"},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
+						ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 						MatchConstraints: &admissionregistrationv1.MatchResources{
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
