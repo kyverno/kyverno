@@ -242,6 +242,25 @@ func TestHandleSubjectAccessReview_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestHandleSubjectAccessReview_BodyTooLarge(t *testing.T) {
+	handler := New(fakeProvider{})
+	req := httptest.NewRequest(
+		"POST",
+		"/authz/subjectaccessreview",
+		bytes.NewReader(bytes.Repeat([]byte("a"), 1024*1024+1)),
+	)
+	w := httptest.NewRecorder()
+
+	handler.HandleSubjectAccessReview(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "failed to read request body") {
+		t.Fatalf("expected oversized body error, got %q", w.Body.String())
+	}
+}
+
 func TestHandleSubjectAccessReview_FetchError(t *testing.T) {
 	handler := New(fakeProvider{err: errors.New("provider unavailable")})
 	req := httptest.NewRequest("POST", "/authz/subjectaccessreview", bytes.NewReader(sarBody(t)))
@@ -384,5 +403,24 @@ func TestHandleConditionsReview_RequiresConditionSetChain(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestHandleConditionsReview_BodyTooLarge(t *testing.T) {
+	handler := New(fakeProvider{})
+	req := httptest.NewRequest(
+		"POST",
+		"/authz/conditions",
+		bytes.NewReader(bytes.Repeat([]byte("a"), 1024*1024+1)),
+	)
+	w := httptest.NewRecorder()
+
+	handler.HandleConditionsReview(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "failed to read request body") {
+		t.Fatalf("expected oversized body error, got %q", w.Body.String())
 	}
 }

@@ -30,7 +30,13 @@ This directory contains CLI test fixtures for AuthorizingPolicy authorization de
 
 ## CLI Testing
 
-To test these fixtures with the Kyverno CLI:
+**Note:** CLI support for AuthorizingPolicy is not yet implemented. The `kubectl-kyverno` CLI does not currently support testing or validating AuthorizingPolicy resources. This directory contains fixtures for reference and future CLI integration testing.
+
+For now, AuthorizingPolicy can only be tested through:
+1. Direct API submission to a running Kyverno cluster
+2. Integration testing with actual SubjectAccessReview requests
+
+When CLI support is implemented, you will be able to use:
 
 ```bash
 # Test policy validation

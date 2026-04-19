@@ -118,6 +118,7 @@ func New(provider Provider) Handler {
 func (h *handler) HandleSubjectAccessReview(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithValues("endpoint", "SAR")
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024) // 1MB limit
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err, "failed to read request body")
@@ -264,6 +265,7 @@ func (h *handler) evaluate(ctx context.Context, sar *authorizationv1.SubjectAcce
 func (h *handler) HandleConditionsReview(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithValues("endpoint", "ConditionsReview")
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024) // 1MB limit
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err, "failed to read request body")

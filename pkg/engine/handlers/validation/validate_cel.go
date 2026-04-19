@@ -146,9 +146,13 @@ func (h validateCELHandler) Process(
 		auditAnnotationFilter,
 		messageExpressionfilter,
 		nil,
-		errors.Join(
-			filter.CompilationErrors()...,
-		),
+		errors.Join(append(
+			append(
+				filter.CompilationErrors(),
+				messageExpressionfilter.CompilationErrors()...,
+			),
+			auditAnnotationFilter.CompilationErrors()...,
+		)...),
 	)
 
 	var namespace *corev1.Namespace
