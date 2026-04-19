@@ -148,7 +148,7 @@ spec:
                         properties:
                           expression:
                             description: |-
-                              Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                              expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                               'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -164,7 +164,7 @@ spec:
                             type: string
                           name:
                             description: |-
-                              Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                              name is an identifier for this match condition, used for strategic merging of MatchConditions,
                               as well as providing an identifier for logging purposes. A good name should be descriptive of
                               the associated expression.
                               Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -3083,7 +3083,7 @@ spec:
                                   which is used to apply the validation.
                                 properties:
                                   expression:
-                                    description: "Expression represents the expression
+                                    description: "expression represents the expression
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
@@ -3148,7 +3148,7 @@ spec:
                                     type: string
                                   message:
                                     description: |-
-                                      Message represents the message displayed when validation fails. The message is required if the Expression contains
+                                      message represents the message displayed when validation fails. The message is required if the Expression contains
                                       line breaks. The message must not contain line breaks.
                                       If unset, the message is "failed rule: {Rule}".
                                       e.g. "must be a URL with the host matching spec.host"
@@ -3171,7 +3171,7 @@ spec:
                                     type: string
                                   reason:
                                     description: |-
-                                      Reason represents a machine-readable description of why this validation failed.
+                                      reason represents a machine-readable description of why this validation failed.
                                       If this is the first validation in the list to fail, this reason, as well as the
                                       corresponding HTTP response code, are used in the
                                       HTTP response to the client.
@@ -3194,13 +3194,13 @@ spec:
                               properties:
                                 apiVersion:
                                   description: |-
-                                    APIVersion is the API group version the resources belong to.
+                                    apiVersion is the API group version the resources belong to.
                                     In format of "group/version".
                                     Required.
                                   type: string
                                 kind:
                                   description: |-
-                                    Kind is the API kind the resources belong to.
+                                    kind is the API kind the resources belong to.
                                     Required.
                                   type: string
                               type: object
@@ -3238,7 +3238,7 @@ spec:
                                   type: string
                                 parameterNotFoundAction:
                                   description: |-
-                                    `parameterNotFoundAction` controls the behavior of the binding when the resource
+                                    parameterNotFoundAction controls the behavior of the binding when the resource
                                     exists, and name or selector is valid, but there are no parameters
                                     matched by the binding. If the value is set to `Allow`, then no
                                     matched parameters will be treated as successful validation by the binding.
@@ -3318,12 +3318,12 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression is the expression that will be evaluated as the value of the variable.
+                                      expression is the expression that will be evaluated as the value of the variable.
                                       The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                     type: string
                                   name:
                                     description: |-
-                                      Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                      name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                       The variable can be accessed in other expressions through `variables`
                                       For example, if name is "foo", the variable will be available as `variables.foo`
                                     type: string
@@ -5167,7 +5167,7 @@ spec:
                       properties:
                         expression:
                           description: |-
-                            Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                            expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                             'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -5183,7 +5183,7 @@ spec:
                           type: string
                         name:
                           description: |-
-                            Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                            name is an identifier for this match condition, used for strategic merging of MatchConditions,
                             as well as providing an identifier for logging purposes. A good name should be descriptive of
                             the associated expression.
                             Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -5238,7 +5238,7 @@ spec:
                             properties:
                               expression:
                                 description: |-
-                                  Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                  expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -5254,7 +5254,7 @@ spec:
                                 type: string
                               name:
                                 description: |-
-                                  Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                  name is an identifier for this match condition, used for strategic merging of MatchConditions,
                                   as well as providing an identifier for logging purposes. A good name should be descriptive of
                                   the associated expression.
                                   Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -8210,7 +8210,7 @@ spec:
                                       which is used to apply the validation.
                                     properties:
                                       expression:
-                                        description: "Expression represents the expression
+                                        description: "expression represents the expression
                                           which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                           expressions have access to the contents
                                           of the API request/response, organized into
@@ -8280,7 +8280,7 @@ spec:
                                         type: string
                                       message:
                                         description: |-
-                                          Message represents the message displayed when validation fails. The message is required if the Expression contains
+                                          message represents the message displayed when validation fails. The message is required if the Expression contains
                                           line breaks. The message must not contain line breaks.
                                           If unset, the message is "failed rule: {Rule}".
                                           e.g. "must be a URL with the host matching spec.host"
@@ -8303,7 +8303,7 @@ spec:
                                         type: string
                                       reason:
                                         description: |-
-                                          Reason represents a machine-readable description of why this validation failed.
+                                          reason represents a machine-readable description of why this validation failed.
                                           If this is the first validation in the list to fail, this reason, as well as the
                                           corresponding HTTP response code, are used in the
                                           HTTP response to the client.
@@ -8326,13 +8326,13 @@ spec:
                                   properties:
                                     apiVersion:
                                       description: |-
-                                        APIVersion is the API group version the resources belong to.
+                                        apiVersion is the API group version the resources belong to.
                                         In format of "group/version".
                                         Required.
                                       type: string
                                     kind:
                                       description: |-
-                                        Kind is the API kind the resources belong to.
+                                        kind is the API kind the resources belong to.
                                         Required.
                                       type: string
                                   type: object
@@ -8370,7 +8370,7 @@ spec:
                                       type: string
                                     parameterNotFoundAction:
                                       description: |-
-                                        `parameterNotFoundAction` controls the behavior of the binding when the resource
+                                        parameterNotFoundAction controls the behavior of the binding when the resource
                                         exists, and name or selector is valid, but there are no parameters
                                         matched by the binding. If the value is set to `Allow`, then no
                                         matched parameters will be treated as successful validation by the binding.
@@ -8450,12 +8450,12 @@ spec:
                                     properties:
                                       expression:
                                         description: |-
-                                          Expression is the expression that will be evaluated as the value of the variable.
+                                          expression is the expression that will be evaluated as the value of the variable.
                                           The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                         type: string
                                       name:
                                         description: |-
-                                          Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                          name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                           The variable can be accessed in other expressions through `variables`
                                           For example, if name is "foo", the variable will be available as `variables.foo`
                                         type: string
@@ -10452,7 +10452,7 @@ spec:
                         properties:
                           expression:
                             description: |-
-                              Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                              expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                               'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -10468,7 +10468,7 @@ spec:
                             type: string
                           name:
                             description: |-
-                              Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                              name is an identifier for this match condition, used for strategic merging of MatchConditions,
                               as well as providing an identifier for logging purposes. A good name should be descriptive of
                               the associated expression.
                               Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -13051,7 +13051,7 @@ spec:
                                   which is used to apply the validation.
                                 properties:
                                   expression:
-                                    description: "Expression represents the expression
+                                    description: "expression represents the expression
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
@@ -13116,7 +13116,7 @@ spec:
                                     type: string
                                   message:
                                     description: |-
-                                      Message represents the message displayed when validation fails. The message is required if the Expression contains
+                                      message represents the message displayed when validation fails. The message is required if the Expression contains
                                       line breaks. The message must not contain line breaks.
                                       If unset, the message is "failed rule: {Rule}".
                                       e.g. "must be a URL with the host matching spec.host"
@@ -13139,7 +13139,7 @@ spec:
                                     type: string
                                   reason:
                                     description: |-
-                                      Reason represents a machine-readable description of why this validation failed.
+                                      reason represents a machine-readable description of why this validation failed.
                                       If this is the first validation in the list to fail, this reason, as well as the
                                       corresponding HTTP response code, are used in the
                                       HTTP response to the client.
@@ -13162,13 +13162,13 @@ spec:
                               properties:
                                 apiVersion:
                                   description: |-
-                                    APIVersion is the API group version the resources belong to.
+                                    apiVersion is the API group version the resources belong to.
                                     In format of "group/version".
                                     Required.
                                   type: string
                                 kind:
                                   description: |-
-                                    Kind is the API kind the resources belong to.
+                                    kind is the API kind the resources belong to.
                                     Required.
                                   type: string
                               type: object
@@ -13206,7 +13206,7 @@ spec:
                                   type: string
                                 parameterNotFoundAction:
                                   description: |-
-                                    `parameterNotFoundAction` controls the behavior of the binding when the resource
+                                    parameterNotFoundAction controls the behavior of the binding when the resource
                                     exists, and name or selector is valid, but there are no parameters
                                     matched by the binding. If the value is set to `Allow`, then no
                                     matched parameters will be treated as successful validation by the binding.
@@ -13286,12 +13286,12 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression is the expression that will be evaluated as the value of the variable.
+                                      expression is the expression that will be evaluated as the value of the variable.
                                       The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                     type: string
                                   name:
                                     description: |-
-                                      Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                      name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                       The variable can be accessed in other expressions through `variables`
                                       For example, if name is "foo", the variable will be available as `variables.foo`
                                     type: string
@@ -15193,7 +15193,7 @@ spec:
                       properties:
                         expression:
                           description: |-
-                            Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                            expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                             'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -15209,7 +15209,7 @@ spec:
                           type: string
                         name:
                           description: |-
-                            Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                            name is an identifier for this match condition, used for strategic merging of MatchConditions,
                             as well as providing an identifier for logging purposes. A good name should be descriptive of
                             the associated expression.
                             Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -15263,7 +15263,7 @@ spec:
                             properties:
                               expression:
                                 description: |-
-                                  Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                  expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -15279,7 +15279,7 @@ spec:
                                 type: string
                               name:
                                 description: |-
-                                  Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                  name is an identifier for this match condition, used for strategic merging of MatchConditions,
                                   as well as providing an identifier for logging purposes. A good name should be descriptive of
                                   the associated expression.
                                   Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -18235,7 +18235,7 @@ spec:
                                       which is used to apply the validation.
                                     properties:
                                       expression:
-                                        description: "Expression represents the expression
+                                        description: "expression represents the expression
                                           which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                           expressions have access to the contents
                                           of the API request/response, organized into
@@ -18305,7 +18305,7 @@ spec:
                                         type: string
                                       message:
                                         description: |-
-                                          Message represents the message displayed when validation fails. The message is required if the Expression contains
+                                          message represents the message displayed when validation fails. The message is required if the Expression contains
                                           line breaks. The message must not contain line breaks.
                                           If unset, the message is "failed rule: {Rule}".
                                           e.g. "must be a URL with the host matching spec.host"
@@ -18328,7 +18328,7 @@ spec:
                                         type: string
                                       reason:
                                         description: |-
-                                          Reason represents a machine-readable description of why this validation failed.
+                                          reason represents a machine-readable description of why this validation failed.
                                           If this is the first validation in the list to fail, this reason, as well as the
                                           corresponding HTTP response code, are used in the
                                           HTTP response to the client.
@@ -18351,13 +18351,13 @@ spec:
                                   properties:
                                     apiVersion:
                                       description: |-
-                                        APIVersion is the API group version the resources belong to.
+                                        apiVersion is the API group version the resources belong to.
                                         In format of "group/version".
                                         Required.
                                       type: string
                                     kind:
                                       description: |-
-                                        Kind is the API kind the resources belong to.
+                                        kind is the API kind the resources belong to.
                                         Required.
                                       type: string
                                   type: object
@@ -18395,7 +18395,7 @@ spec:
                                       type: string
                                     parameterNotFoundAction:
                                       description: |-
-                                        `parameterNotFoundAction` controls the behavior of the binding when the resource
+                                        parameterNotFoundAction controls the behavior of the binding when the resource
                                         exists, and name or selector is valid, but there are no parameters
                                         matched by the binding. If the value is set to `Allow`, then no
                                         matched parameters will be treated as successful validation by the binding.
@@ -18475,12 +18475,12 @@ spec:
                                     properties:
                                       expression:
                                         description: |-
-                                          Expression is the expression that will be evaluated as the value of the variable.
+                                          expression is the expression that will be evaluated as the value of the variable.
                                           The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                         type: string
                                       name:
                                         description: |-
-                                          Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                          name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                           The variable can be accessed in other expressions through `variables`
                                           For example, if name is "foo", the variable will be available as `variables.foo`
                                         type: string

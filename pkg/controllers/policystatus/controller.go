@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies/v1alpha1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -283,6 +284,21 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			return err
 		}
 		return c.updateGpolStatus(ctx, gpol)
+	}
+	if polType == webhook.AuthorizingPolicyType {
+		obj, err := c.dclient.GetResource(ctx, policiesv1alpha1.GroupVersion.String(), webhook.AuthorizingPolicyType, "", name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				logger.V(4).Info("authorizing policy not found", "name", name)
+				return nil
+			}
+			return err
+		}
+		apol, err := decodeAuthorizingPolicy(obj.Object)
+		if err != nil {
+			return err
+		}
+		return c.updateApolStatus(ctx, apol)
 	}
 	return nil
 }

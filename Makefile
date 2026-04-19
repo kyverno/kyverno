@@ -580,6 +580,7 @@ codegen-crds-policies: $(CONTROLLER_GEN)
 	@rm -rf $(CRDS_PATH)/policies.kyverno.io && mkdir -p $(CRDS_PATH)/policies.kyverno.io
 	@$(CONTROLLER_GEN) \
 		paths=github.com/kyverno/api/api/policies.kyverno.io/... \
+		paths=./api/policies/v1alpha1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
 		output:dir=$(CRDS_PATH)/policies.kyverno.io
 
@@ -711,6 +712,7 @@ codegen-helm-crds: ## Generate helm CRDs
 codegen-helm-crds: codegen-crds-all
 	@echo Generate helm crds... >&2
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/policies.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/policies.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
@@ -720,6 +722,18 @@ codegen-helm-crds: codegen-crds-all
 	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
 	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
+	$(call generate_crd,policies.kyverno.io_authorizingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,authorizingpolicies)
+	$(call generate_crd,policies.kyverno.io_deletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,deletingpolicies)
+	$(call generate_crd,policies.kyverno.io_generatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,generatingpolicies)
+	$(call generate_crd,policies.kyverno.io_imagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,imagevalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_mutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,mutatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespaceddeletingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespaceddeletingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedgeneratingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedgeneratingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedimagevalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedimagevalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedmutatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedmutatingpolicies)
+	$(call generate_crd,policies.kyverno.io_namespacedvalidatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,namespacedvalidatingpolicies)
+	$(call generate_crd,policies.kyverno.io_policyexceptions.yaml,policies.kyverno.io,policies.kyverno.io,policies,policyexceptions)
+	$(call generate_crd,policies.kyverno.io_validatingpolicies.yaml,policies.kyverno.io,policies.kyverno.io,policies,validatingpolicies)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
 	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports,true)
@@ -1063,10 +1077,17 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@echo Load image archive in kind cluster... >&2
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
+.PHONY: kind-install-crds
+kind-install-crds: ## Install CRDs from config manifests
+	@echo Apply CRDs from config/crds... >&2
+	@kubectl apply --server-side -R -f ./config/crds
+
 .PHONY: kind-install-kyverno
-kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
+kind-install-kyverno: helm-setup-dependency-charts kind-install-crds ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+		--set crds.install=false \
+		--set crds.migration.enabled=false \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \
@@ -1090,11 +1111,13 @@ kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 		$(EXPLICIT_INSTALL_SETTINGS)
 
 .PHONY: kind-install-kyverno-from-repo
-kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
+kind-install-kyverno-from-repo: $(HELM) kind-install-crds ## Install Kyverno Helm Chart from the Kyverno repo
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
 		--repo https://kyverno.github.io/kyverno/ kyverno \
 		--version $(INSTALL_VERSION) \
+		--set crds.install=false \
+		--set crds.migration.enabled=false \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
 		$(EXPLICIT_INSTALL_SETTINGS)
 
@@ -1112,13 +1135,13 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) kind-deploy-kyverno ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno-policies.yaml)
 
 .PHONY: kind-deploy-all
-kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart

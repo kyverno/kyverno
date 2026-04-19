@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: conditions-payload-labels
+spec:
+  rules:
+  - name: label-guard
+    expression: "request.resource == 'deployments'"
+    effect: Conditional
+    conditions:
+    - id: allow-prod
+      expression: "request.resourceLabels['env'] == 'prod'"
+      effect: Allow
+    - id: deny-non-prod
+      expression: "request.resourceLabels['env'] != 'prod'"
+      effect: Deny

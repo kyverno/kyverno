@@ -33,6 +33,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#policies.kyverno.io%2fv1alpha1"><b style="color: white">policies.kyverno.io/v1alpha1</b></a>
+</li>
+<li>
 <a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
 </li>
 <li>
@@ -11002,6 +11005,247 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <em>(Optional)</em>
 <p>Assert defines a kyverno-json assertion tree.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="policies.kyverno.io/v1alpha1">policies.kyverno.io/v1alpha1</h2>
+<p>
+<p>Package v1alpha1 contains API v1alpha1 for policies.kyverno.io</p>
+</p>
+Resource Types:
+<ul></ul>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ApolCondition">ApolCondition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">AuthorizingPolicyRule</a>)
+</p>
+<p>
+<p>ApolCondition defines a condition in a rule</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>operator</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+interface{}
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy
+</h3>
+<p>
+<p>AuthorizingPolicy is the schema for authorization policies</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">
+AuthorizingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>rules</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">
+[]AuthorizingPolicyRule
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyStatus">
+AuthorizingPolicyStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">AuthorizingPolicyRule
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+</p>
+<p>
+<p>AuthorizingPolicyRule defines a single authorization rule</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ApolCondition">
+[]ApolCondition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>effect</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
+</p>
+<p>
+<p>AuthorizingPolicySpec defines the desired state</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>rules</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">
+[]AuthorizingPolicyRule
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicyStatus">AuthorizingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
+</p>
+<p>
+<p>AuthorizingPolicyStatus defines the observed state</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>

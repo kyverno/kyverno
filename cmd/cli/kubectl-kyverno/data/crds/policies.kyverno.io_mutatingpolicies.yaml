@@ -152,7 +152,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -168,7 +168,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -194,7 +194,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -202,7 +202,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -211,7 +211,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -220,7 +220,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -231,7 +231,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -240,7 +240,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -293,7 +293,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -382,7 +382,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -439,7 +439,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -447,7 +447,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -456,7 +456,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -465,7 +465,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -476,7 +476,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -485,7 +485,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -674,7 +674,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -682,7 +682,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -691,7 +691,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -700,7 +700,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -711,7 +711,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -720,7 +720,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -775,7 +775,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -864,7 +864,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -921,7 +921,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -929,7 +929,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -938,7 +938,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -947,7 +947,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -958,7 +958,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -967,7 +967,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -1018,12 +1018,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string
@@ -1165,7 +1165,7 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                      expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                       CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                                       'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -1181,7 +1181,7 @@ spec:
                                     type: string
                                   name:
                                     description: |-
-                                      Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                      name is an identifier for this match condition, used for strategic merging of MatchConditions,
                                       as well as providing an identifier for logging purposes. A good name should be descriptive of
                                       the associated expression.
                                       Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -1207,7 +1207,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1215,7 +1215,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1224,7 +1224,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1233,7 +1233,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -1244,7 +1244,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -1254,7 +1254,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -1307,7 +1307,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -1397,7 +1397,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -1455,7 +1455,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1463,7 +1463,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1472,7 +1472,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1481,7 +1481,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -1492,7 +1492,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -1502,7 +1502,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -1715,7 +1715,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1723,7 +1723,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1732,7 +1732,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1741,7 +1741,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -1752,7 +1752,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -1762,7 +1762,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -1817,7 +1817,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -1907,7 +1907,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -1965,7 +1965,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -1973,7 +1973,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1982,7 +1982,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -1991,7 +1991,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -2002,7 +2002,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -2012,7 +2012,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -2064,12 +2064,12 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression is the expression that will be evaluated as the value of the variable.
+                                      expression is the expression that will be evaluated as the value of the variable.
                                       The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                     type: string
                                   name:
                                     description: |-
-                                      Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                      name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                       The variable can be accessed in other expressions through `variables`
                                       For example, if name is "foo", the variable will be available as `variables.foo`
                                     type: string
@@ -2339,7 +2339,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -2355,7 +2355,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -2381,7 +2381,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -2389,7 +2389,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2398,7 +2398,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2407,7 +2407,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -2418,7 +2418,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -2427,7 +2427,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -2480,7 +2480,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -2569,7 +2569,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -2626,7 +2626,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -2634,7 +2634,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2643,7 +2643,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2652,7 +2652,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -2663,7 +2663,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -2672,7 +2672,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -2861,7 +2861,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -2869,7 +2869,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2878,7 +2878,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -2887,7 +2887,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -2898,7 +2898,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -2907,7 +2907,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -2962,7 +2962,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -3051,7 +3051,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -3108,7 +3108,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -3116,7 +3116,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -3125,7 +3125,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -3134,7 +3134,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -3145,7 +3145,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -3154,7 +3154,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -3205,12 +3205,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string
@@ -3352,7 +3352,7 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                      expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                       CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                                       'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -3368,7 +3368,7 @@ spec:
                                     type: string
                                   name:
                                     description: |-
-                                      Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                      name is an identifier for this match condition, used for strategic merging of MatchConditions,
                                       as well as providing an identifier for logging purposes. A good name should be descriptive of
                                       the associated expression.
                                       Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -3394,7 +3394,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -3402,7 +3402,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3411,7 +3411,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3420,7 +3420,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -3431,7 +3431,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -3441,7 +3441,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -3494,7 +3494,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -3584,7 +3584,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -3642,7 +3642,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -3650,7 +3650,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3659,7 +3659,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3668,7 +3668,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -3679,7 +3679,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -3689,7 +3689,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -3902,7 +3902,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -3910,7 +3910,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3919,7 +3919,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -3928,7 +3928,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -3939,7 +3939,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -3949,7 +3949,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -4004,7 +4004,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -4094,7 +4094,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -4152,7 +4152,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -4160,7 +4160,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -4169,7 +4169,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -4178,7 +4178,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -4189,7 +4189,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -4199,7 +4199,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -4251,12 +4251,12 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression is the expression that will be evaluated as the value of the variable.
+                                      expression is the expression that will be evaluated as the value of the variable.
                                       The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                     type: string
                                   name:
                                     description: |-
-                                      Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                      name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                       The variable can be accessed in other expressions through `variables`
                                       For example, if name is "foo", the variable will be available as `variables.foo`
                                     type: string
@@ -4525,7 +4525,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -4541,7 +4541,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -4567,7 +4567,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -4575,7 +4575,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -4584,7 +4584,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -4593,7 +4593,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -4604,7 +4604,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -4613,7 +4613,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -4666,7 +4666,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -4755,7 +4755,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -4812,7 +4812,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -4820,7 +4820,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -4829,7 +4829,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -4838,7 +4838,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -4849,7 +4849,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -4858,7 +4858,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -5047,7 +5047,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -5055,7 +5055,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -5064,7 +5064,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -5073,7 +5073,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -5084,7 +5084,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -5093,7 +5093,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -5148,7 +5148,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -5237,7 +5237,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -5294,7 +5294,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -5302,7 +5302,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -5311,7 +5311,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -5320,7 +5320,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -5331,7 +5331,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -5340,7 +5340,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -5391,12 +5391,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string
@@ -5538,7 +5538,7 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                      expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                       CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                                       'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -5554,7 +5554,7 @@ spec:
                                     type: string
                                   name:
                                     description: |-
-                                      Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                      name is an identifier for this match condition, used for strategic merging of MatchConditions,
                                       as well as providing an identifier for logging purposes. A good name should be descriptive of
                                       the associated expression.
                                       Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -5580,7 +5580,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -5588,7 +5588,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -5597,7 +5597,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -5606,7 +5606,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -5617,7 +5617,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -5627,7 +5627,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -5680,7 +5680,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -5770,7 +5770,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -5828,7 +5828,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -5836,7 +5836,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -5845,7 +5845,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -5854,7 +5854,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -5865,7 +5865,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -5875,7 +5875,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -6088,7 +6088,7 @@ spec:
                               properties:
                                 excludeResourceRules:
                                   description: |-
-                                    ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                                    excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                                     The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -6096,7 +6096,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -6105,7 +6105,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -6114,7 +6114,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -6125,7 +6125,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -6135,7 +6135,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -6190,7 +6190,7 @@ spec:
                                   type: string
                                 namespaceSelector:
                                   description: |-
-                                    NamespaceSelector decides whether to run the admission control policy on an object based
+                                    namespaceSelector decides whether to run the admission control policy on an object based
                                     on whether the namespace for that object matches the selector. If the
                                     object itself is a namespace, the matching is performed on
                                     object.metadata.labels. If the object is another cluster scoped resource,
@@ -6280,7 +6280,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 objectSelector:
                                   description: |-
-                                    ObjectSelector decides whether to run the validation based on if the
+                                    objectSelector decides whether to run the validation based on if the
                                     object has matching labels. objectSelector is evaluated against both
                                     the oldObject and newObject that would be sent to the cel validation, and
                                     is considered to match if either object matches the selector. A null
@@ -6338,7 +6338,7 @@ spec:
                                   x-kubernetes-map-type: atomic
                                 resourceRules:
                                   description: |-
-                                    ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                                    resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                                     The policy cares about an operation if it matches _any_ Rule.
                                   items:
                                     description: NamedRuleWithOperations is a tuple
@@ -6346,7 +6346,7 @@ spec:
                                     properties:
                                       apiGroups:
                                         description: |-
-                                          APIGroups is the API groups the resources belong to. '*' is all groups.
+                                          apiGroups is the API groups the resources belong to. '*' is all groups.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -6355,7 +6355,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       apiVersions:
                                         description: |-
-                                          APIVersions is the API versions the resources belong to. '*' is all versions.
+                                          apiVersions is the API versions the resources belong to. '*' is all versions.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
                                         items:
@@ -6364,7 +6364,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       operations:
                                         description: |-
-                                          Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                                          operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                                           for all of those operations and any future admission operations that are added.
                                           If '*' is present, the length of the slice must be one.
                                           Required.
@@ -6375,7 +6375,7 @@ spec:
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       resourceNames:
-                                        description: ResourceNames is an optional
+                                        description: resourceNames is an optional
                                           white list of names that the rule applies
                                           to.  An empty set means that everything
                                           is allowed.
@@ -6385,7 +6385,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                       resources:
                                         description: |-
-                                          Resources is a list of resources this rule applies to.
+                                          resources is a list of resources this rule applies to.
 
                                           For example:
                                           'pods' means pods.
@@ -6437,12 +6437,12 @@ spec:
                                 properties:
                                   expression:
                                     description: |-
-                                      Expression is the expression that will be evaluated as the value of the variable.
+                                      expression is the expression that will be evaluated as the value of the variable.
                                       The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                                     type: string
                                   name:
                                     description: |-
-                                      Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                                      name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                                       The variable can be accessed in other expressions through `variables`
                                       For example, if name is "foo", the variable will be available as `variables.foo`
                                     type: string

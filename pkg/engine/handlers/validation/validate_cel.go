@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -139,7 +140,20 @@ func (h validateCELHandler) Process(
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)
 	// newValidator will be used to validate CEL expressions against the incoming object
-	validator := validating.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
+	validator := validating.NewValidator(
+		filter,
+		newMatcher,
+		auditAnnotationFilter,
+		messageExpressionfilter,
+		nil,
+		errors.Join(append(
+			append(
+				filter.CompilationErrors(),
+				messageExpressionfilter.CompilationErrors()...,
+			),
+			auditAnnotationFilter.CompilationErrors()...,
+		)...),
+	)
 
 	var namespace *corev1.Namespace
 	// Special case, the namespace object has the namespace of itself.

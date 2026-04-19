@@ -14,6 +14,7 @@ import (
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
 	k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1 "k8s.io/kube-aggregator/pkg/client/applyconfiguration/apiregistration/v1beta1"
 	k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1"
 )
 
@@ -34,6 +35,28 @@ type withLogging struct {
 	logger logr.Logger
 }
 
+func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Apply")
+	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Apply failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Apply done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) ApplyStatus(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ApplyStatus")
+	ret0, ret1 := c.inner.ApplyStatus(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ApplyStatus failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ApplyStatus done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
 func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Create")
@@ -139,6 +162,14 @@ type withMetrics struct {
 	recorder metrics.Recorder
 }
 
+func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	defer c.recorder.RecordWithContext(arg0, "apply")
+	return c.inner.Apply(arg0, arg1, arg2)
+}
+func (c *withMetrics) ApplyStatus(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	defer c.recorder.RecordWithContext(arg0, "apply_status")
+	return c.inner.ApplyStatus(arg0, arg1, arg2)
+}
 func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
 	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2)
@@ -182,6 +213,48 @@ type withTracing struct {
 	kind   string
 }
 
+func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Apply"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
+}
+func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_client_applyconfiguration_apiregistration_v1beta1.APIServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ApplyStatus"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("ApplyStatus"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.ApplyStatus(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
+}
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_kube_aggregator_pkg_apis_apiregistration_v1beta1.APIService, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {

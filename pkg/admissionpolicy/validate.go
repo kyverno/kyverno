@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -378,12 +379,21 @@ func validateResource(
 	}
 
 	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), policy.Spec.FailurePolicy, "", string(matchPolicy), "")
+	validationEvaluator := compiler.CompileValidations(optionalVars)
+	auditAnnotationEvaluator := compiler.CompileAuditAnnotationsExpressions(optionalVars)
+	messageEvaluator := compiler.CompileMessageExpressions(optionalVars)
+	compileErr := joinCompilationErrors(
+		validationEvaluator.CompilationErrors(),
+		auditAnnotationEvaluator.CompilationErrors(),
+		messageEvaluator.CompilationErrors(),
+	)
 	validator := validating.NewValidator(
-		compiler.CompileValidations(optionalVars),
+		validationEvaluator,
 		newMatcher,
-		compiler.CompileAuditAnnotationsExpressions(optionalVars),
-		compiler.CompileMessageExpressions(optionalVars),
+		auditAnnotationEvaluator,
+		messageEvaluator,
 		policy.Spec.FailurePolicy,
+		compileErr,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, parameterResource, namespace, celconfig.RuntimeCELCostBudget, nil)
@@ -419,4 +429,12 @@ func validateResource(
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)
 
 	return engineResponse, nil
+}
+
+func joinCompilationErrors(groups ...[]error) error {
+	var errs []error
+	for _, group := range groups {
+		errs = append(errs, group...)
+	}
+	return errors.Join(errs...)
 }

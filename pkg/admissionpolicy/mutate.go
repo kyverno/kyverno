@@ -120,7 +120,12 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		}
 	}
 
-	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
+	accessorPolicy, err := convertMutatingAdmissionPolicyForAccessor(policy)
+	if err != nil {
+		mapLogger.Error(err, "failed to convert policy definition for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
+		return er, err
+	}
+	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(accessorPolicy))
 	if err != nil {
 		mapLogger.Error(err, "failed to match policy definition for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
 		return er, err
@@ -147,7 +152,12 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			}
 		}
 
-		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
+		accessorBinding, err := convertMutatingAdmissionPolicyBindingForAccessor(&binding)
+		if err != nil {
+			mapLogger.Error(err, "failed to convert policy binding for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+			continue
+		}
+		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(accessorBinding))
 		if err != nil {
 			mapLogger.Error(err, "failed to match policy binding for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 			continue
@@ -374,4 +384,34 @@ func mutateResource(
 		engineResponse = engineResponse.WithPolicyResponse(policyResp)
 	}
 	return engineResponse, nil
+}
+
+func convertMutatingAdmissionPolicyForAccessor(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy) (*mutating.Policy, error) {
+	if policy == nil {
+		return nil, nil
+	}
+	unstructuredPolicy, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy)
+	if err != nil {
+		return nil, err
+	}
+	var converted mutating.Policy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredPolicy, &converted); err != nil {
+		return nil, err
+	}
+	return &converted, nil
+}
+
+func convertMutatingAdmissionPolicyBindingForAccessor(binding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) (*mutating.PolicyBinding, error) {
+	if binding == nil {
+		return nil, nil
+	}
+	unstructuredBinding, err := runtime.DefaultUnstructuredConverter.ToUnstructured(binding)
+	if err != nil {
+		return nil, err
+	}
+	var converted mutating.PolicyBinding
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredBinding, &converted); err != nil {
+		return nil, err
+	}
+	return &converted, nil
 }
