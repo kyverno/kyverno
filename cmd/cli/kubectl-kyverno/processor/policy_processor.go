@@ -793,8 +793,34 @@ func (p *PolicyProcessor) makePolicyContext(
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
+	// Two-pass variable injection: dotted-path variables first, then full-object
+	// replacements (request.object / request.oldObject). This guarantees that a
+	// full-object replacement always wins over any dotted-path variable that targets
+	// the same key, regardless of Go map iteration order.
 	for key, value := range resourceValues {
-		err = policyContext.JSONContext().AddVariable(key, value)
+		if key == "request.object" || key == "request.oldObject" {
+			continue
+		}
+		if err := policyContext.JSONContext().AddVariable(key, value); err != nil {
+			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
+			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
+		}
+	}
+	for _, key := range []string{"request.object", "request.oldObject"} {
+		value, ok := resourceValues[key]
+		if !ok {
+			continue
+		}
+		var err error
+		obj, isMap := value.(map[string]interface{})
+		switch {
+		case key == "request.object" && isMap:
+			err = policyContext.JSONContext().AddResource(obj)
+		case key == "request.oldObject" && isMap:
+			err = policyContext.JSONContext().AddOldResource(obj)
+		default:
+			err = policyContext.JSONContext().AddVariable(key, value)
+		}
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
 			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
