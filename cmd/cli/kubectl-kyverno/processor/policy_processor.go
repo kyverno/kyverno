@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,6 +60,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
@@ -511,7 +511,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			} else {
 				k8sPolicies = append(k8sPolicies, pol)
 			}
-
 		}
 		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
 		if err != nil {
@@ -570,19 +569,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						}
 					}
 
-					var object, oldObject unstructured.Unstructured
+					var object, oldObject *unstructured.Unstructured
 					switch operation {
 					case admissionv1.Delete:
-						oldObject = resource
+						oldObject = &resource
 					case admissionv1.Update:
-						object = resource
-						if old, ok := p.OldResources[resource.GetName()]; ok {
-							oldObject = *old
-						} else {
-							oldObject = resource
+						object = &resource
+						resourceKey := GenerateResourceKey(&resource)
+						if old, ok := p.OldResources[resourceKey]; ok {
+							oldObject = old
 						}
 					default:
-						object = resource
+						object = &resource
 					}
 					request := celengine.Request(
 						contextProvider,
@@ -591,7 +589,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						resource.GetNamespace(),
 						operation,
 						user,
-						&object, &oldObject,
+						object, oldObject,
 						false, nil,
 					)
 					reps, err := eng.Handle(ctx, request, vpolengine.MatchNames(pol.GetName()))
@@ -1239,6 +1237,10 @@ func discoverCELTargets(
 		result[pol.Policy.GetName()] = targetKeys
 	}
 	return result, nil
+}
+
+func GenerateResourceKey(resource *unstructured.Unstructured) string {
+	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
 
 func hasSelector(match *admissionregistrationv1.MatchResources) bool {
