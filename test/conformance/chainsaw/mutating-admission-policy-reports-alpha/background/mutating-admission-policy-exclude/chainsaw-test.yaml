@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-binding-fail
+spec:
+  concurrent: false
+  steps:
+    - name: step-01
+      try:
+        - apply:
+            file: configmap.yaml
+        - assert:
+            file: configmap.yaml
+    - name: step-02
+      try:
+        - apply:
+            file: policy.yaml
+        - assert:
+            file: policy.yaml
+    - name: step-03
+      try:
+        - sleep:
+            duration: 10s
+    - name: step-04
+      try:
+        - script:
+            content: |
+              POLR_COUNT=$(kubectl get policyreports --namespace=default --no-headers 2>/dev/null | wc -l)
+              if [ "$POLR_COUNT" -gt 0 ]; then
+                echo "ERROR: Policy reports exists when it shouldn't!"
+                exit 1
+              else
+                echo "SUCCESS: Policy reports not generated as expected"
+                exit 0
+              fi
