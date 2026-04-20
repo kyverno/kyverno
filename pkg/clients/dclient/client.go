@@ -2,9 +2,10 @@ package dclient
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
@@ -157,10 +158,9 @@ func (c *client) GetResource(ctx context.Context, apiVersion string, kind string
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
-// RawAbsPath performs a raw call to the kubernetes API
 func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	if c.rest == nil {
-		return nil, errors.New("rest client not supported")
+		return c.rawAbsPathForFakeClient(ctx, path, method, dataReader)
 	}
 
 	switch method {
@@ -172,6 +172,101 @@ func (c *client) RawAbsPath(ctx context.Context, path string, method string, dat
 	default:
 		return nil, fmt.Errorf("method not supported: %s", method)
 	}
+}
+
+// rawAbsPathForFakeClient handles RawAbsPath for fake clients
+// It parses Kubernetes API paths and retrieves resources using GetResource
+func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+	if method != "GET" {
+		return nil, fmt.Errorf("method %s not supported for fake client", method)
+	}
+
+	path = strings.TrimPrefix(path, "/")
+	parts := strings.Split(path, "/")
+
+	var group, version, resource, name, namespace string
+
+	if len(parts) >= 2 && parts[0] == "api" {
+		// Core API: /api/v1/namespaces/namespace/resource/nam
+		version = parts[1]
+		if len(parts) >= 4 && parts[2] == "namespaces" {
+			namespace = parts[3]
+			if len(parts) >= 5 {
+				resource = parts[4]
+			}
+			if len(parts) >= 6 {
+				name = parts[5]
+			}
+		} else if len(parts) >= 3 {
+			resource = parts[2]
+			if len(parts) >= 4 {
+				name = parts[3]
+			}
+		}
+	} else if len(parts) >= 3 && parts[0] == "apis" {
+		// Grouped API: /apis/group/version/namespaces/namespace/resource/name or /apis/group/version/resource/name
+		group = parts[1]
+		version = parts[2]
+		if len(parts) >= 5 && parts[3] == "namespaces" {
+			namespace = parts[4]
+			if len(parts) >= 6 {
+				resource = parts[5]
+			}
+			if len(parts) >= 7 {
+				name = parts[6]
+			}
+		} else if len(parts) >= 4 {
+			resource = parts[3]
+			if len(parts) >= 5 {
+				name = parts[4]
+			}
+		}
+	}
+
+	if resource == "" || name == "" {
+		return nil, fmt.Errorf("failed to parse path: %s", path)
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    group,
+		Version:  version,
+		Resource: resource,
+	}
+
+	gvk, err := c.disco.GetGVKFromGVR(gvr)
+	if err != nil {
+		kind := inferKindFromResourceName(resource)
+		apiVersion := version
+		if group != "" {
+			apiVersion = group + "/" + version
+		}
+		obj, err := c.GetResource(ctx, apiVersion, kind, namespace, name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", apiVersion, kind, name, err)
+		}
+		jsonData, err := json.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal resource to JSON: %w", err)
+		}
+		return jsonData, nil
+	}
+
+	apiVersion := gvk.GroupVersion().String()
+	if gvk.Group == "" {
+		apiVersion = gvk.Version
+	}
+
+	obj, err := c.GetResource(ctx, apiVersion, gvk.Kind, namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", apiVersion, gvk.Kind, name, err)
+	}
+
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resource to JSON: %w", err)
+	}
+
+	return jsonData, nil
 }
 
 // PatchResource patches the resource

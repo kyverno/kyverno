@@ -7,35 +7,35 @@ before:
     - go mod download
 
 builds:
-- id: kyverno-cli
-  # As mentioned in https://github.com/golang/go/issues/51831, to include build info, we should use go build <package>
-  # instead of go build main.go here.
-  # see https://goreleaser.com/customization/builds/
-  main: ./cmd/cli/kubectl-kyverno
-  binary: kyverno
-  env:
-  - CGO_ENABLED=0
-  ldflags:
-  - -s -w -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{.Version}}
-  goos:
-    - linux
-    - darwin
-    - windows
-  goarch:
-    - amd64
-    - arm64
-    - s390x
-  ignore:
-    - goos: darwin
-      goarch: s390x
-    - goos: windows
-      goarch: s390x
+  - id: kyverno-cli
+    # As mentioned in https://github.com/golang/go/issues/51831, to include build info, we should use go build <package>
+    # instead of go build main.go here.
+    # see https://goreleaser.com/customization/builds/
+    main: ./cmd/cli/kubectl-kyverno
+    binary: kyverno
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - s390x
+    ignore:
+      - goos: darwin
+        goarch: s390x
+      - goos: windows
+        goarch: s390x
 
 signs:
   - cmd: cosign
     env:
       - COSIGN_EXPERIMENTAL=1
-    certificate: '${artifact}.pem'
+    certificate: "${artifact}.pem"
     args:
       - sign-blob
       - --output-certificate=${certificate}
@@ -46,21 +46,22 @@ signs:
     output: true
 
 archives:
-- id: kyverno-cli-archive
-  name_template: |-
-     kyverno-cli_{{ .Tag }}_{{ .Os }}_
-     {{- with .Arch -}}
-     {{- if eq . "amd64" -}}x86_64{{- else if eq . "386" -}}i386{{- else -}}{{- . -}}{{- end -}}
-     {{- end -}}
-     {{- with .Arm -}}
-     {{- if eq . "6" -}}hf{{- else -}}v{{- . -}}{{- end -}}
-     {{- end -}}
-  builds:
-    - kyverno-cli
-  format_overrides:
-    - goos: windows
-      format: zip
-  files: ["LICENSE"]
+  - id: kyverno-cli-archive
+    name_template: |-
+      kyverno-cli_{{ .Tag }}_{{ .Os }}_
+      {{- with .Arch -}}
+      {{- if eq . "amd64" -}}x86_64{{- else if eq . "386" -}}i386{{- else -}}{{- . -}}{{- end -}}
+      {{- end -}}
+      {{- with .Arm -}}
+      {{- if eq . "6" -}}hf{{- else -}}v{{- . -}}{{- end -}}
+      {{- end -}}
+    ids:
+      - kyverno-cli
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files: ["LICENSE"]
 
 checksum:
   name_template: checksums.txt
@@ -75,6 +76,6 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
+      - "^docs:"
       - typo
-      - '^test:'
+      - "^test:"

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -94,6 +94,9 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 			fmt.Fprintf(&bldr, "%s is successfully mutated", res)
 			action = ResourceMutated
 		}
+	} else if policy.AsMutatingPolicyLike() != nil {
+		fmt.Fprintf(&bldr, "%s is successfully mutated", res)
+		action = ResourceMutated
 	} else {
 		fmt.Fprintf(&bldr, "%s: pass", res)
 		action = ResourcePassed
@@ -165,7 +168,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 }
 
 func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
-	var events []Info
+	events := make([]Info, 0, 1)
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
 		APIVersion: "kyverno.io/v1",
@@ -404,7 +407,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 
 func NewDeletingPolicyEvent(policy v1beta1.DeletingPolicyLike, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
-		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		APIVersion: schema.GroupVersion(v1beta1.GroupVersion).String(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),

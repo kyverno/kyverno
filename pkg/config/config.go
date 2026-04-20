@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	valid "github.com/asaskevich/govalidator"
@@ -11,7 +12,9 @@ import (
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -108,14 +111,19 @@ const (
 	excludeRoles                  = "excludeRoles"
 	excludeClusterRoles           = "excludeClusterRoles"
 	generateSuccessEvents         = "generateSuccessEvents"
+	successEventActions           = "successEventActions"
 	webhooks                      = "webhooks"
 	webhookAnnotations            = "webhookAnnotations"
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
+	maxContextSize                = "maxContextSize"
 )
 
 const UpdateRequestThreshold = 1000
+
+// DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
+const DefaultMaxContextSize int64 = 2 * 1024 * 1024
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
@@ -190,6 +198,8 @@ type Configuration interface {
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
+	// GetSuccessEventActions returns the set of event actions for which success events should be generated
+	GetSuccessEventActions() sets.Set[string]
 	// GetWebhook returns the webhook config
 	GetWebhook() WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
@@ -204,6 +214,8 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
+	GetMaxContextSize() int64
 }
 
 // configuration stores the configuration
@@ -215,6 +227,7 @@ type configuration struct {
 	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
+	successEventActions           sets.Set[string]
 	webhook                       WebhookConfig
 	webhookAnnotations            map[string]string
 	webhookLabels                 map[string]string
@@ -222,6 +235,7 @@ type configuration struct {
 	mux                           sync.RWMutex
 	callbacks                     []func()
 	updateRequestThreshold        int64
+	maxContextSize                int64
 }
 
 type match struct {
@@ -280,11 +294,13 @@ func (cd *configuration) OnChanged(callback func()) {
 	cd.callbacks = append(cd.callbacks, callback)
 }
 
-func (c *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
-	if c.inclusions.matches(username, groups, roles, clusterroles) {
+func (cd *configuration) IsExcluded(username string, groups []string, roles []string, clusterroles []string) bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	if cd.inclusions.matches(username, groups, roles, clusterroles) {
 		return false
 	}
-	return c.exclusions.matches(username, groups, roles, clusterroles)
+	return cd.exclusions.matches(username, groups, roles, clusterroles)
 }
 
 func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
@@ -326,6 +342,12 @@ func (cd *configuration) GetGenerateSuccessEvents() bool {
 	return cd.generateSuccessEvents
 }
 
+func (cd *configuration) GetSuccessEventActions() sets.Set[string] {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.successEventActions
+}
+
 func (cd *configuration) GetWebhook() WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -356,6 +378,12 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	return cd.updateRequestThreshold
 }
 
+func (cd *configuration) GetMaxContextSize() int64 {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.maxContextSize
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -380,6 +408,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.successEventActions = sets.New[string]()
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
@@ -394,7 +423,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.V(2).Info("defaultRegistry not set")
 	} else {
 		logger := logger.WithValues("defaultRegistry", defaultRegistry)
-		if valid.IsDNSName(defaultRegistry) {
+		defaultRegistryHost := strings.Split(defaultRegistry, "/")[0]
+		if valid.IsDNSName(defaultRegistryHost) {
 			cd.defaultRegistry = defaultRegistry
 			logger.V(2).Info("defaultRegistry configured")
 		} else {
@@ -460,6 +490,22 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.generateSuccessEvents = generateSuccessEvents
 			logger.V(2).Info("generateSuccessEvents configured")
 		}
+	}
+	// load successEventActions
+	successEventActions, ok := data[successEventActions]
+	if !ok {
+		logger.V(2).Info("successEventActions not set")
+	} else {
+		logger := logger.WithValues("successEventActions", successEventActions)
+		actions := sets.New[string]()
+		for _, action := range strings.Split(successEventActions, ",") {
+			action = strings.TrimSpace(action)
+			if action != "" {
+				actions.Insert(action)
+			}
+		}
+		cd.successEventActions = actions
+		logger.V(2).Info("successEventActions configured")
 	}
 	// load webhooks
 	webhooks, ok := data[webhooks]
@@ -530,6 +576,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("enableDefaultRegistryMutation configured")
 		}
 	}
+	// load maxContextSize (supports Kubernetes quantity format: 100Mi, 2Gi, etc.)
+	cd.maxContextSize = DefaultMaxContextSize
+	if maxCtxSizeStr, ok := data[maxContextSize]; ok {
+		logger := logger.WithValues("maxContextSize", maxCtxSizeStr)
+		quantity, err := resource.ParseQuantity(maxCtxSizeStr)
+		if err != nil {
+			logger.Error(err, "maxContextSize is not a valid quantity (use formats like 100Mi, 2Gi, or plain bytes)")
+		} else {
+			cd.maxContextSize = quantity.Value()
+			logger.V(2).Info("maxContextSize configured", "bytes", cd.maxContextSize)
+		}
+	} else {
+		logger.V(2).Info("maxContextSize not set, using default", "default", DefaultMaxContextSize)
+	}
 }
 
 func (cd *configuration) unload() {
@@ -542,9 +602,11 @@ func (cd *configuration) unload() {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.successEventActions = sets.New[string]()
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
+	cd.maxContextSize = DefaultMaxContextSize
 	logger.V(2).Info("configuration unloaded")
 }
 

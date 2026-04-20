@@ -11,17 +11,22 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/restmapper"
 )
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
@@ -209,4 +214,179 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string)
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+// ReadFile reads a file from either a billy.Filesystem or the local filesystem.
+func ReadFile(f billy.Filesystem, filepath string) ([]byte, error) {
+	if f != nil {
+		file, err := f.Open(filepath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		return io.ReadAll(file)
+	}
+	return os.ReadFile(filepath)
+}
+
+// LoadYAML loads a YAML file and unmarshals it into a value of type T.
+// T must be a pointer type that can be unmarshaled from YAML.
+func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) (T, error) {
+	var zero T
+	yamlBytes, err := ReadFile(f, filepath)
+	if err != nil {
+		return zero, err
+	}
+	vals := newInstance()
+	if err := yaml.UnmarshalStrict(yamlBytes, vals); err != nil {
+		return zero, err
+	}
+	return vals, nil
+}
+
+func LoadCrdFromPath(path string) error {
+	absPath, err := getCrdPath(path)
+	if err != nil {
+		return err
+	}
+	crd, err := readCRDFromFile(absPath)
+	if err != nil {
+		return err
+	}
+	apiGroupResource := apiGroupResourcesFromCRD(crd)
+	if err = addResourceGroup(apiGroupResource); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getCrdPath(path string) (string, error) {
+	if path[len(path)-1] == '/' {
+		path = path[:len(path)-1]
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	ext := filepath.Ext(absPath)
+	if ext != ".yaml" && ext != ".yml" {
+		return "", fmt.Errorf("CRD file must have .yaml or .yml extension: %s", absPath)
+	}
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("CRD file does not exist at path: %s", absPath)
+	}
+	return absPath, nil
+}
+
+func readCRDFromFile(path string) (*apiv1.CustomResourceDefinition, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	jsonData, err := yaml.ToJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	crdscheme.Setup()
+	obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	crd, ok := obj.(*apiv1.CustomResourceDefinition)
+	if !ok {
+		return nil, fmt.Errorf("decoded object is not a CRD")
+	}
+
+	return crd, nil
+}
+
+func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.APIGroupResources {
+	versionedResources := make(map[string][]metav1.APIResource)
+	var preferredVersion string
+
+	// Find preferred version (storage: true)
+	for _, v := range crd.Spec.Versions {
+		if v.Storage {
+			preferredVersion = v.Name
+			break
+		}
+	}
+
+	// For each served version, build resource list (including subresources)
+	for _, v := range crd.Spec.Versions {
+		if !v.Served {
+			continue
+		}
+		var resources []metav1.APIResource
+
+		// Main resource
+		resources = append(resources, metav1.APIResource{
+			Name:         crd.Spec.Names.Plural,
+			SingularName: crd.Spec.Names.Singular,
+			Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+			Kind:         crd.Spec.Names.Kind,
+			Verbs:        metav1.Verbs{"get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"},
+			Group:        crd.Spec.Group,
+			Version:      v.Name,
+		})
+
+		// Subresources
+		if v.Subresources != nil && v.Subresources.Status != nil {
+			resources = append(resources, metav1.APIResource{
+				Name:         crd.Spec.Names.Plural + "/status",
+				SingularName: crd.Spec.Names.Singular,
+				Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+				Kind:         crd.Spec.Names.Kind,
+				Verbs:        metav1.Verbs{"get", "update", "patch"},
+				Group:        crd.Spec.Group,
+				Version:      v.Name,
+			})
+		}
+		if v.Subresources != nil && v.Subresources.Scale != nil {
+			resources = append(resources, metav1.APIResource{
+				Name:         crd.Spec.Names.Plural + "/scale",
+				SingularName: crd.Spec.Names.Singular,
+				Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+				Kind:         "Scale",
+				Verbs:        metav1.Verbs{"get", "update", "patch"},
+				Group:        crd.Spec.Group,
+				Version:      v.Name,
+			})
+		}
+
+		versionedResources[v.Name] = resources
+	}
+
+	// Build APIGroup
+	group := metav1.APIGroup{
+		Name:     crd.Spec.Group,
+		Versions: []metav1.GroupVersionForDiscovery{},
+		PreferredVersion: metav1.GroupVersionForDiscovery{
+			GroupVersion: crd.Spec.Group + "/" + preferredVersion,
+			Version:      preferredVersion,
+		},
+	}
+	for _, v := range crd.Spec.Versions {
+		if v.Served {
+			group.Versions = append(group.Versions, metav1.GroupVersionForDiscovery{
+				GroupVersion: crd.Spec.Group + "/" + v.Name,
+				Version:      v.Name,
+			})
+		}
+	}
+
+	return &restmapper.APIGroupResources{
+		Group:              group,
+		VersionedResources: versionedResources,
+	}
+}
+
+func addResourceGroup(resource *restmapper.APIGroupResources) error {
+	processor := data.GetProcessor()
+	if processor == nil {
+		panic("adding a resource group to a nil crd processor. exiting")
+	}
+	processor.UpdateResourceGroup(resource)
+	return nil
 }

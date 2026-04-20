@@ -16,7 +16,7 @@ func CheckPreconditions(logger logr.Logger, jsonContext enginecontext.Interface,
 		return false, "", fmt.Errorf("failed to parse preconditions: %w", err)
 	}
 
-	return variables.EvaluateConditions(logger, jsonContext, typeConditions)
+	return variables.EvaluateConditionsWithContext(logger, jsonContext, typeConditions, "preconditions")
 }
 
 func CheckDenyPreconditions(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, string, error) {
@@ -25,5 +25,5 @@ func CheckDenyPreconditions(logger logr.Logger, jsonContext enginecontext.Interf
 		return false, "", fmt.Errorf("failed to parse deny conditions: %w", err)
 	}
 
-	return variables.EvaluateConditions(logger, jsonContext, typeConditions)
+	return variables.EvaluateConditionsWithContext(logger, jsonContext, typeConditions, "deny.conditions")
 }

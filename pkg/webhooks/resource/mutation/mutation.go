@@ -45,7 +45,6 @@ func NewMutationHandler(
 	nsLister corev1listers.NamespaceLister,
 	metrics metrics.MetricsConfigManager,
 	admissionReports bool,
-	reportsConfig reportutils.ReportingConfiguration,
 ) MutationHandler {
 	return &mutationHandler{
 		log:              log,
@@ -55,7 +54,6 @@ func NewMutationHandler(
 		nsLister:         nsLister,
 		metrics:          metrics,
 		admissionReports: admissionReports,
-		reportsConfig:    reportsConfig,
 	}
 }
 
@@ -67,7 +65,6 @@ type mutationHandler struct {
 	nsLister         corev1listers.NamespaceLister
 	metrics          metrics.MetricsConfigManager
 	admissionReports bool
-	reportsConfig    reportutils.ReportingConfiguration
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -137,6 +134,9 @@ func (v *mutationHandler) applyMutations(
 
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
+					if err := policyContext.JSONContext().AddResource(engineResponse.PatchedResource.Object); err != nil {
+						return fmt.Errorf("failed to update resource in context for policy %s: %v", policy.GetName(), err)
+					}
 					emitWarning := policy.GetSpec().EmitWarning
 					if emitWarning != nil && *emitWarning {
 						resp := engineResponse.WithWarning()
@@ -157,7 +157,7 @@ func (v *mutationHandler) applyMutations(
 	v.eventGen.Add(events...)
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
-		go func() {
+		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}

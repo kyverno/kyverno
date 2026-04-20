@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	"errors"
-	"time"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kdata "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -67,42 +66,83 @@ func (c fakeCluster) OpenAPIClient(version string) (openapi.Client, error) {
 	), nil
 }
 
-func (c fakeCluster) DClient(resources []runtime.Object, objects ...runtime.Object) (dclient.Interface, error) {
+func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error) {
 	s := runtime.NewScheme()
 	gvr := make(map[schema.GroupVersionResource]string)
 	list := []schema.GroupVersionResource{}
-
-	for _, o := range resources {
-		plural, _ := meta.UnsafeGuessKindToResource(o.GetObjectKind().GroupVersionKind())
-		if _, ok := gvr[plural]; ok {
-			continue
-		}
-
-		s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
-
-		gvr[plural] = o.GetObjectKind().GroupVersionKind().Kind + "List"
-
-		list = append(list, plural)
-	}
+	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
 	for _, o := range objects {
-		plural, _ := meta.UnsafeGuessKindToResource(o.GetObjectKind().GroupVersionKind())
+		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+			for _, version := range crd.Spec.Versions {
+				if version.Storage {
+					crdGVR := schema.GroupVersionResource{
+						Group:    crd.Spec.Group,
+						Version:  version.Name,
+						Resource: crd.Spec.Names.Plural,
+					}
+					if _, exists := gvr[crdGVR]; !exists {
+						list = append(list, crdGVR)
+						crdGVK := schema.GroupVersionKind{
+							Group:   crd.Spec.Group,
+							Version: version.Name,
+							Kind:    crd.Spec.Names.Kind,
+						}
+						gvr[crdGVR] = crdGVK.Kind + "List"
+						gvrToGVK[crdGVR] = crdGVK
+
+						crdGVKList := crdGVK
+						crdGVKList.Kind += "List"
+						if !s.Recognizes(crdGVKList) {
+							s.AddKnownTypeWithName(crdGVKList, &unstructured.UnstructuredList{})
+						}
+					}
+				}
+			}
+
+			s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
+			continue
+		}
+
+		gvk := o.GetObjectKind().GroupVersionKind()
+		plural, _ := meta.UnsafeGuessKindToResource(gvk)
 		if _, ok := gvr[plural]; ok {
 			continue
 		}
 
-		s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
+		s.AddKnownTypeWithName(gvk, o)
+		gvkList := gvk
+		gvkList.Kind += "List"
+		if !s.Recognizes(gvkList) {
+			s.AddKnownTypeWithName(gvkList, &unstructured.UnstructuredList{})
+		}
 
-		gvr[plural] = o.GetObjectKind().GroupVersionKind().Kind + "List"
+		gvr[plural] = gvkList.Kind
+		gvrToGVK[plural] = gvk
 
 		list = append(list, plural)
 	}
 
-	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, objects...)
-	kclient := kubefake.NewSimpleClientset(resource.ConvertResources(objects)...)
+	allFakeObjects := make([]runtime.Object, 0, len(objects))
+	allFakeObjects = append(allFakeObjects, objects...)
 
-	dClient, _ := dclient.NewClient(context.Background(), dyn, kclient, time.Hour, false, nil)
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(list))
+	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...)
+
+	// Filter out CRDs from objects before converting for kube client
+	// CRDs are not regular Kubernetes resources and can't be converted
+	kubeObjects := make([]runtime.Object, 0, len(objects))
+	for _, o := range objects {
+		if _, isCRD := o.(*apiextensionsv1.CustomResourceDefinition); !isCRD {
+			kubeObjects = append(kubeObjects, o)
+		}
+	}
+	kclient := kubefake.NewSimpleClientset(resource.ConvertResources(kubeObjects)...)
+
+	discoClient := dclient.NewFakeDiscoveryClient(list)
+	for gvr, gvk := range gvrToGVK {
+		discoClient.AddGVRToGVKMapping(gvr, gvk)
+	}
+	dClient := dclient.NewFakeClientWithDisco(dyn, kclient, discoClient)
 
 	return dClient, nil
 }

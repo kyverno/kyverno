@@ -210,11 +210,10 @@ func TestWithTopLevelGVK(t *testing.T) {
 				})
 			},
 			request: newEnrichTestAdmissionRequest(),
-			// Note: fake client's GetGVKFromGVR returns empty GVK
 			wantGVK: schema.GroupVersionKind{
 				Group:   "",
-				Version: "",
-				Kind:    "",
+				Version: "v1",
+				Kind:    "Pod",
 			},
 			wantInnerCalled: true,
 		},
@@ -327,6 +326,5 @@ func TestWithRolesAndGVKChained(t *testing.T) {
 	assert.True(t, response.Allowed)
 	assert.Equal(t, []string{"default:test-role"}, capturedRequest.Roles)
 	assert.Equal(t, []string{"test-cluster-role"}, capturedRequest.ClusterRoles)
-	// Note: fake client's GetGVKFromGVR returns empty GVK
-	assert.Equal(t, schema.GroupVersionKind{}, capturedRequest.GroupVersionKind)
+	assert.Equal(t, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, capturedRequest.GroupVersionKind)
 }

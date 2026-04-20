@@ -50,7 +50,7 @@ spec:
           spec:
             containers:
             - name: test
-              image: nginx:latest
+              image: public.ecr.aws/docker/library/nginx:latest
     
   - name: verify-policy-report-with-debug-message
     description: Verify policy report contains debug=1 message (1 deployment found)

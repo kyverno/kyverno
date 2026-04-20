@@ -8,6 +8,7 @@ spec:
     fullName: true
   execution:
     failFast: true
+    parallel: 2
   namespace:
     fastDelete: true
   timeouts:

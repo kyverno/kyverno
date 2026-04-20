@@ -3,6 +3,8 @@ package webhook
 import (
 	"cmp"
 	"fmt"
+	"slices"
+	"sort"
 	"strings"
 
 	policiesv1v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -200,6 +202,81 @@ func less[T cmp.Ordered](a []T, b []T) int {
 		}
 	}
 	return 0
+}
+
+func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
+	seen := make(map[string]struct{})
+	uniqueRules := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
+
+	for _, rule := range rules {
+		key := generateRuleKey(rule)
+		if _, exist := seen[key]; !exist {
+			seen[key] = struct{}{}
+			uniqueRules = append(uniqueRules, rule)
+		}
+	}
+	return uniqueRules
+}
+
+func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
+	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
+	for _, rule := range rules {
+		out = append(out, rule)
+	}
+
+	for _, rule := range out {
+		slices.Sort(rule.APIGroups)
+		slices.Sort(rule.APIVersions)
+		slices.Sort(rule.Resources)
+		slices.Sort(rule.Operations)
+	}
+	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
+		if x := less(a.APIGroups, b.APIGroups); x != 0 {
+			return x
+		}
+		if x := less(a.APIVersions, b.APIVersions); x != 0 {
+			return x
+		}
+		if x := less(a.Resources, b.Resources); x != 0 {
+			return x
+		}
+		if x := less(a.Operations, b.Operations); x != 0 {
+			return x
+		}
+		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+			return x
+		}
+		return 0
+	})
+
+	return out
+}
+
+func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
+	sb := strings.Builder{}
+	stringBuilderFn := func(input []string) {
+		copiedInputs := make([]string, len(input))
+		copy(copiedInputs, input)
+		sort.Strings(copiedInputs)
+		sb.WriteString(strings.Join(copiedInputs, ","))
+		sb.WriteString("|")
+	}
+
+	stringBuilderFn(rule.APIGroups)
+	stringBuilderFn(rule.APIVersions)
+	stringBuilderFn(rule.Resources)
+
+	opsCopy := make([]string, len(rule.Operations))
+	for i, op := range rule.Operations {
+		opsCopy[i] = string(op)
+	}
+	stringBuilderFn(opsCopy)
+
+	sb.WriteString("s:")
+	if rule.Scope != nil {
+		sb.WriteString(string(*rule.Scope))
+	}
+	return sb.String()
 }
 
 const (

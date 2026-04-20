@@ -176,9 +176,9 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
 		}
 	}
+
 	c.updatePolicyStatus(ctx, policy, true, "")
-	// generate events
-	e := event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)
-	c.eventGen.Add(e...)
+	c.eventGen.Add(event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)...)
+
 	return nil
 }

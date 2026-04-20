@@ -11,6 +11,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -76,10 +77,11 @@ type controller struct {
 	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	polexLister           kyvernov2listers.PolicyExceptionLister
-	celpolexListener      policiesv1beta1listers.PolicyExceptionLister
+	celpolexListener      celengine.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
@@ -98,12 +100,12 @@ type controller struct {
 	forceDelay    time.Duration
 
 	// config
-	config        config.Configuration
-	jp            jmespath.Interface
-	eventGen      event.Interface
-	policyReports bool
-	reportsConfig reportutils.ReportingConfiguration
-	gctxStore     gctxstore.Store
+	config             config.Configuration
+	jp                 jmespath.Interface
+	eventGen           event.Interface
+	policyReports      bool
+	gctxStore          gctxstore.Store
+	exceptionNamespace string
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -119,6 +121,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1beta1informers.PolicyExceptionInformer,
@@ -136,7 +139,7 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
-	reportsConfig reportutils.ReportingConfiguration,
+	exceptionNamespace string,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
@@ -148,26 +151,26 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
 	c := controller{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		engine:         engine,
-		polLister:      polInformer.Lister(),
-		cpolLister:     cpolInformer.Lister(),
-		polexLister:    polexInformer.Lister(),
-		bgscanrLister:  ephrInformer.Lister(),
-		cbgscanrLister: cephrInformer.Lister(),
-		nsLister:       nsInformer.Lister(),
-		queue:          queue,
-		metadataCache:  metadataCache,
-		forceDelay:     forceDelay,
-		config:         config,
-		jp:             jp,
-		eventGen:       eventGen,
-		policyReports:  policyReports,
-		reportsConfig:  reportsConfig,
-		gctxStore:      gctxStore,
-		mapper:         mapper,
-		typeConverter:  typeConverter,
+		client:             client,
+		kyvernoClient:      kyvernoClient,
+		engine:             engine,
+		polLister:          polInformer.Lister(),
+		cpolLister:         cpolInformer.Lister(),
+		polexLister:        polexInformer.Lister(),
+		bgscanrLister:      ephrInformer.Lister(),
+		cbgscanrLister:     cephrInformer.Lister(),
+		nsLister:           nsInformer.Lister(),
+		queue:              queue,
+		metadataCache:      metadataCache,
+		forceDelay:         forceDelay,
+		config:             config,
+		jp:                 jp,
+		eventGen:           eventGen,
+		policyReports:      policyReports,
+		exceptionNamespace: exceptionNamespace,
+		gctxStore:          gctxStore,
+		mapper:             mapper,
+		typeConverter:      typeConverter,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -177,13 +180,19 @@ func NewController(
 	}
 	if nvpolInformer != nil {
 		c.nvpolLister = nvpolInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addNVP, c.updateNVP, c.deleteNVP); err != nil {
+		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
 	if mpolInformer != nil {
 		c.mpolLister = mpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(mpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nmpolInformer != nil {
+		c.nmpolLister = nmpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(nmpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -195,12 +204,12 @@ func NewController(
 	}
 	if nivpolInformer != nil {
 		c.nivpolLister = nivpolInformer.Lister()
-		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addNIVP, c.updateNIVP, c.deleteNIVP); err != nil {
+		if _, err := controllerutils.AddEventHandlersT(nivpolInformer.Informer(), c.addIVP, c.updateIVP, c.deleteIVP); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
 	if celpolexlInformer != nil {
-		c.celpolexListener = celpolexlInformer.Lister()
+		c.celpolexListener = celengine.NewPolicyExceptionLister(celpolexlInformer.Lister(), c.exceptionNamespace)
 		if _, err := controllerutils.AddEventHandlersT(celpolexlInformer.Informer(), c.addCELException, c.updateCELException, c.deleteCELPolicy); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
@@ -311,73 +320,45 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
+func (c *controller) addVP(obj policiesv1beta1.ValidatingPolicyLike) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
+func (c *controller) updateVP(old, obj policiesv1beta1.ValidatingPolicyLike) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVP(obj *policiesv1beta1.ValidatingPolicy) {
+func (c *controller) deleteVP(obj policiesv1beta1.ValidatingPolicyLike) {
 	c.enqueueResources()
 }
 
-func (c *controller) addNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
+func (c *controller) addMP(obj policiesv1beta1.MutatingPolicyLike) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateNVP(old, obj *policiesv1beta1.NamespacedValidatingPolicy) {
+func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteNVP(obj *policiesv1beta1.NamespacedValidatingPolicy) {
+func (c *controller) deleteMP(obj policiesv1beta1.MutatingPolicyLike) {
 	c.enqueueResources()
 }
 
-func (c *controller) addMP(obj *policiesv1beta1.MutatingPolicy) {
+func (c *controller) addIVP(obj policiesv1beta1.ImageValidatingPolicyLike) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateMP(old, obj *policiesv1beta1.MutatingPolicy) {
+func (c *controller) updateIVP(old, obj policiesv1beta1.ImageValidatingPolicyLike) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteMP(obj *policiesv1beta1.MutatingPolicy) {
-	c.enqueueResources()
-}
-
-func (c *controller) addIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
-	c.enqueueResources()
-}
-
-func (c *controller) updateIVP(old, obj *policiesv1beta1.ImageValidatingPolicy) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		c.enqueueResources()
-	}
-}
-
-func (c *controller) deleteIVP(obj *policiesv1beta1.ImageValidatingPolicy) {
-	c.enqueueResources()
-}
-
-func (c *controller) addNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
-	c.enqueueResources()
-}
-
-func (c *controller) updateNIVP(old, obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		c.enqueueResources()
-	}
-}
-
-func (c *controller) deleteNIVP(obj *policiesv1beta1.NamespacedImageValidatingPolicy) {
+func (c *controller) deleteIVP(obj policiesv1beta1.ImageValidatingPolicyLike) {
 	c.enqueueResources()
 }
 
@@ -625,12 +606,12 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy().GetDefinition()).String()
 			} else if policy.AsMutatingAdmissionPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsMutatingAdmissionPolicy().GetDefinition()).String()
-			} else if policy.AsValidatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
-			} else if policy.AsImageValidatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsImageValidatingPolicy()).String()
-			} else if policy.AsMutatingPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsMutatingPolicy()).String()
+			} else if policy.AsValidatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsValidatingPolicyLike()).String()
+			} else if policy.AsImageValidatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsImageValidatingPolicyLike()).String()
+			} else if policy.AsMutatingPolicyLike() != nil {
+				key = cache.MetaObjectToName(policy.AsMutatingPolicyLike()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
@@ -703,7 +684,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig, c.gctxStore, c.mapper, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
@@ -839,6 +820,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewMutatingPolicy(&mpol))
 		}
 	}
+	if c.nmpolLister != nil {
+		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, mpol := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
+			policies = append(policies, engineapi.NewNamespacedMutatingPolicy(&mpol))
+		}
+	}
 	if c.ivpolLister != nil {
 		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
 		if err != nil {
@@ -846,6 +836,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
 			policies = append(policies, engineapi.NewImageValidatingPolicy(&vpol))
+		}
+	}
+	if c.nivpolLister != nil {
+		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, namespace)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			policies = append(policies, engineapi.NewNamespacedImageValidatingPolicy(&vpol))
 		}
 	}
 	if c.vapLister != nil {
@@ -897,12 +896,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		convertedBindings := engineapi.ConvertMutatingAdmissionPolicyBindingsAlpha(mapAlphaBindings)
 		mapBindings = append(mapBindings, convertedBindings...)
 	}
-	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, namespace)
+	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, c.exceptionNamespace)
 	if err != nil {
 		return err
 	}
 	// load celexceptions with background process enabled
-	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener, namespace)
+	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener)
 	if err != nil {
 		return err
 	}
@@ -916,7 +915,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		if needsReconcile {
 			// update the hash if we got a new one
 			if observedHash != r.Hash {
-				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: name, Namespace: namespace, Hash: observedHash})
+				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
 			}
 			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 		}

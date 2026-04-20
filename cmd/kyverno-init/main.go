@@ -101,13 +101,13 @@ func main() {
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				logger.Error(err, "error checking if reports CRDs are installed to clean them up")
-				os.Exit(1)
+				os.Exit(0)
 			}
 			// error was nil, meaning the cluster has the wg policy api and it should be cleaned
 		} else {
 			if err := cleanUpWgPolicyReports(logger, setup.KyvernoClient.Wgpolicyk8sV1alpha2()); err != nil {
 				logger.Error(err, "error cleaning up reports belonging to wgpolicyk8s")
-				os.Exit(1)
+				os.Exit(0)
 			}
 		}
 	}
@@ -167,6 +167,7 @@ Generate Requests	-> Process Requests		-> Merge Results
 */
 // Generates requests to be processed
 func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-chan request {
+	logger := logging.WithName("gen")
 	out := make(chan request)
 	go func() {
 		defer close(out)
@@ -174,10 +175,10 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 			select {
 			case out <- req:
 			case <-done:
-				println("done generate")
+				logger.V(3).Info("request generation completed")
 				return
 			case <-stopCh:
-				println("shutting down generate")
+				logger.V(3).Info("shutting down request generation")
 				return
 			}
 		}

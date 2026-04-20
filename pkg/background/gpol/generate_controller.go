@@ -42,7 +42,6 @@ type CELGenerateController struct {
 
 	statusControl common.StatusControlInterface
 
-	reportsConfig reportutils.ReportingConfiguration
 	breaker.Breaker
 
 	eventGen event.Interface
@@ -59,7 +58,6 @@ func NewCELGenerateController(
 	provider gpolengine.Provider,
 	watchManager *WatchManager,
 	statusControl common.StatusControlInterface,
-	reportsConfig reportutils.ReportingConfiguration,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *CELGenerateController {
@@ -74,7 +72,6 @@ func NewCELGenerateController(
 		provider:      provider,
 		watchManager:  watchManager,
 		statusControl: statusControl,
-		reportsConfig: reportsConfig,
 		eventGen:      eventGen,
 		log:           log,
 	}
@@ -195,6 +192,11 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 		return nil
 	}
 
+	// Check if there are any rule results before accessing Rules[0]
+	if len(engineResponse.PolicyResponse.Rules) == 0 {
+		return nil
+	}
+
 	if engineResponse.IsSuccessful() {
 		c.eventGen.Add(event.NewBackgroundSuccessEvent(event.GeneratePolicyController, engineResponse.Policy(), generatedResources)...)
 		for _, gen := range generatedResources {
@@ -242,7 +244,7 @@ func (c *CELGenerateController) createReports(
 }
 
 func (c *CELGenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := c.reportsConfig.GenerateReportsEnabled()
+	createReport := reportutils.ReportingCfg.GenerateReportsEnabled()
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
 	}

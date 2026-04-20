@@ -1,0 +1,48 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: update-deployment
+spec:
+  steps:
+  - name: create ns
+    try:
+    - apply:
+        file: namespace.yaml
+    - assert:
+        file: namespace.yaml
+  - name: create policy
+    use:
+      template: ../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: deployment-bad.yaml
+    - assert:
+        file: deployment-bad.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: deployment-good.yaml
+    - assert:
+        file: deployment-good.yaml
+  - name: step-04
+    try:
+    - sleep:
+        duration: 1m
+  - name: step-05
+    try:
+    - script:
+        content: |
+          POLR_COUNT=$(kubectl get policyreports --namespace=myns --no-headers 2>/dev/null | wc -l)
+          if [ "$POLR_COUNT" -ne 1 ]; then
+            echo "ERROR: Policy reports are not equal 1 when they should"
+            exit 1
+          else
+            echo "SUCCESS: Policy reports are one as expected"
+            exit 0
+          fi

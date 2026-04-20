@@ -35,13 +35,16 @@ It contains instructions to build, run, and test Kyverno.
 - [Reports Design](#reports-design)
 - [Troubleshooting](#troubleshooting)
 - [Selecting Issues](#selecting-issues)
+- [Release Instructions](#release-instructions)
 
 ## Open project in devcontainer (recommended)
 
 - Clone the project to your local machine.
 - Make sure that you have the Visual Studio Code editor installed on your system.
 
-- Make sure that you have WSL (Ubuntu preferred) and Docker installed on your system and on WSL too (docker.sock (UNIX socket) file is necessary to enable the devcontainer to communicate with docker running in host machine).
+- **For windows:** Make sure that you have WSL (Ubuntu preferred) and Docker installed on your system and on WSL too (docker.sock (UNIX socket) file is necessary to enable the devcontainer to communicate with docker running in host machine).
+
+- **For linux/mac os :** only docker is required
 
 - Open the project in Visual Studio Code, once the project is opened, hit F1 and type WSL, now click on "Reopen in WSL".
 
@@ -608,3 +611,7 @@ See [docs/dev/troubleshooting](./docs/dev/troubleshooting/)
 ## Selecting Issues
 
 When you are ready to contribute, you can select an issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10).
+
+## Release Instructions
+
+For release instructions, see [create-a-release.md](./docs/dev/releases/create-a-release.md).

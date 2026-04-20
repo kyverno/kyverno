@@ -97,12 +97,22 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
 
+	// Copy the properties map to avoid concurrent map writes.
+	// The original map may be shared across goroutines via informer-cached policy objects.
+	var properties map[string]string
+	if src := ruleResult.Properties(); src != nil {
+		properties = make(map[string]string, len(src))
+		for k, v := range src {
+			properties[k] = v
+		}
+	}
+
 	result := openreportsv1alpha1.ReportResult{
 		Source:      SourceKyverno,
 		Policy:      policyName,
 		Rule:        ruleResult.Name(),
 		Description: ruleResult.Message(),
-		Properties:  ruleResult.Properties(),
+		Properties:  properties,
 		Result:      toPolicyResult(ruleResult.Status()),
 		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
@@ -167,8 +177,18 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceValidatingPolicy
 		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
 
+	case pol.AsNamespacedValidatingPolicy() != nil:
+		vp := pol.AsNamespacedValidatingPolicy()
+		result.Source = SourceValidatingPolicy
+		process = selectProcess(vp.Spec.BackgroundEnabled(), vp.Spec.AdmissionEnabled())
+
 	case pol.AsMutatingPolicy() != nil:
 		mpol := pol.AsMutatingPolicy()
+		result.Source = SourceMutatingPolicy
+		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
+
+	case pol.AsNamespacedMutatingPolicy() != nil:
+		mpol := pol.AsNamespacedMutatingPolicy()
 		result.Source = SourceMutatingPolicy
 		process = selectProcess(mpol.Spec.BackgroundEnabled(), mpol.Spec.AdmissionEnabled())
 
@@ -177,7 +197,16 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		result.Source = SourceImageValidatingPolicy
 		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
 
+	case pol.AsNamespacedImageValidatingPolicy() != nil:
+		ivp := pol.AsNamespacedImageValidatingPolicy()
+		result.Source = SourceImageValidatingPolicy
+		process = selectProcess(ivp.Spec.BackgroundEnabled(), ivp.Spec.AdmissionEnabled())
+
 	case pol.AsGeneratingPolicy() != nil:
+		result.Source = SourceGeneratingPolicy
+		process = "admission review"
+
+	case pol.AsNamespacedGeneratingPolicy() != nil:
 		result.Source = SourceGeneratingPolicy
 		process = "admission review"
 
@@ -197,7 +226,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	}
 
 	if exceptions := ruleResult.Exceptions(); len(exceptions) > 0 {
-		var names []string
+		names := make([]string, 0, len(exceptions))
 		for _, e := range exceptions {
 			names = append(names, e.GetName())
 		}
@@ -267,6 +296,9 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
 func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
 	}
@@ -277,6 +309,9 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []openrepo
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
 			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
@@ -292,7 +327,10 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
-			property := make([]string, 0)
+			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+				continue
+			}
+			property := make([]string, 0, len(generatedResources))
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))
 			}
@@ -335,7 +373,7 @@ func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1
 }
 
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -345,7 +383,7 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
 }
 
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
@@ -355,7 +393,7 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
 }
 
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
-	var ruleResults []openreportsv1alpha1.ReportResult
+	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)

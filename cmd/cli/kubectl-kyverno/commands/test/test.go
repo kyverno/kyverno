@@ -7,11 +7,14 @@ import (
 	"path/filepath"
 	"reflect"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -24,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -36,13 +40,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,7 +62,6 @@ type TestResponse struct {
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
-	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -67,17 +72,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	contextPath := ""
 	if testCase.Test.Context != "" {
 		contextPath = filepath.Join(testDir, testCase.Test.Context)
-		fmt.Fprintln(out, "testDir", testDir)
-		fmt.Fprintln(out, "contextPath", contextPath)
 	}
-	// values/variables
+
 	fmt.Fprintln(out, "  Loading values/variables", "...")
 	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
 	}
-	// user info
+
 	var userInfo *kyvernov2.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Fprintln(out, "  Loading user infos", "...")
@@ -90,12 +93,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 		userInfo = &info.RequestInfo
 	}
-	// policies
+
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+	}
+	if results != nil && results.NonFatalErrors != nil {
+		for _, e := range results.NonFatalErrors {
+			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+		}
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
 	for _, pol := range results.Policies {
@@ -108,7 +116,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
 	}
 
-	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
@@ -116,17 +123,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
 	}
 	resources = ProcessResources(resources)
-
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
 			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	uniquesObjectArr := []runtime.Object{}
+	for _, t := range uniques {
+		uniquesObjectArr = append(uniquesObjectArr, t)
+	}
 
 	var json any
 	if testCase.Test.JSONPayload != "" {
-		// JSON payload
 		fmt.Fprintln(out, "  Loading JSON payload", "...")
 		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
 		json, err = payload.Load(jsonFullPath[0])
@@ -134,6 +143,32 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
 		}
 	}
+	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
+	if len(testCase.Test.HTTPPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading HTTP payloads", "...")
+		httpFullPaths := path.GetFullPaths(testCase.Test.HTTPPayloads, testDir, isGit)
+		for _, p := range httpFullPaths {
+			reqs, err := processor.LoadHTTPRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load HTTP payloads from path %s (%s)", p, err)
+			}
+			httpPayloads[p] = reqs
+		}
+	}
+
+	envoyPayloads := make(map[string]*authv3.CheckRequest, 0)
+	if len(testCase.Test.EnvoyPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading Envoy payloads", "...")
+		envoyFullPaths := path.GetFullPaths(testCase.Test.EnvoyPayloads, testDir, isGit)
+		for _, p := range envoyFullPaths {
+			reqs, err := processor.LoadEnvoyRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Envoy payloads from path %s (%s)", p, err)
+			}
+			envoyPayloads[p] = reqs
+		}
+	}
+
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
@@ -154,12 +189,64 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		paramObjectsArr = append(paramObjectsArr, p)
 	}
 
-	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
-	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+	allObjects := append(uniquesObjectArr, targetsObjectArr...)
+	allObjects = append(allObjects, paramObjectsArr...)
+
+	cl := cluster.NewFake()
+	dClient, err = cl.DClient(allObjects)
 	if err != nil {
-		return nil, err
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targetsObjectArr...)
+		if err != nil {
+			return nil, err
+		}
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	}
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	var cmResolver engineapi.ConfigmapResolver
+	var restMapper meta.RESTMapper
+	if len(testCase.Test.ClusterResources) > 0 {
+		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
+
+		allCRDs := []*apiextensionsv1.CustomResourceDefinition{}
+		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
+			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
+				return &v1alpha1.ClusterResource{}
+			})
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
+			}
+			if len(src.Spec.CRDs) > 0 {
+				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
+					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
+						return &apiextensionsv1.CustomResourceDefinition{}
+					})
+					if err != nil {
+						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
+					}
+					allCRDs = append(allCRDs, crd)
+				}
+			}
+			if len(src.Spec.Resources) > 0 {
+				for _, resource := range src.Spec.Resources {
+					allObjects = append(allObjects, resource)
+				}
+			}
+		}
+		restMapper = cl.RESTMapper(allCRDs)
+		for _, crd := range allCRDs {
+			allObjects = append(allObjects, crd)
+		}
+
+		dClient, err = cl.DClient(allObjects)
+		if err != nil {
+			return nil, err
+		}
+
+		cmResolver, err = cluster.NewConfigMapResolver(dClient)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
@@ -176,11 +263,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
+	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.NamespacedValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.NamespacedDeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies) + len(results.NamespacedMutatingPolicies)
+	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
@@ -198,7 +286,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
-				if res.IsValidatingAdmissionPolicy || res.IsValidatingPolicy {
+				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
 				// TODO: what if two policies have a rule with the same name ?
@@ -266,12 +354,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
-			NamespacedValidatingPolicies:      results.NamespacedValidatingPolicies,
 			GeneratingPolicies:                results.GeneratingPolicies,
 			MutatingPolicies:                  results.MutatingPolicies,
-			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
+			TargetResources:                   targetResources,
 			Resource:                          *resource,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
@@ -285,10 +372,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			ConfigMapResolver:                 cmResolver,
+			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -308,6 +397,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				false,
+				!(len(testCase.Test.ClusterResources) > 0),
+				restMapper,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -315,16 +406,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ers = append(ers, ivpols...)
 		}
 
-		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
-			for i := range results.DeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
-			}
-			for i := range results.NamespacedDeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.NamespacedDeletingPolicies[i])
-			}
+		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
-				dpolInputs,
+				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -333,6 +417,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
+				true,
+				restMapper,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -355,8 +441,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicies:         results.MAPs,
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			MutatingPolicies:                  results.MutatingPolicies,
-			NamespacedMutatingPolicies:        results.NamespacedMutatingPolicies,
+			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
+			TargetResources:                   targetResources,
 			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
@@ -369,10 +456,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           false,
+			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -392,6 +480,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				false,
+				true,
+				restMapper,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
@@ -399,16 +489,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ers = append(ers, ivpols...)
 		}
 
-		if len(results.DeletingPolicies) != 0 || len(results.NamespacedDeletingPolicies) != 0 {
-			dpolInputs := make([]policiesv1beta1.DeletingPolicyLike, 0, len(results.DeletingPolicies)+len(results.NamespacedDeletingPolicies))
-			for i := range results.DeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.DeletingPolicies[i])
-			}
-			for i := range results.NamespacedDeletingPolicies {
-				dpolInputs = append(dpolInputs, &results.NamespacedDeletingPolicies[i])
-			}
+		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
-				dpolInputs,
+				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -417,6 +500,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
+				true,
+				restMapper,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
@@ -427,6 +512,29 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
+
+	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	if len(httpPayloads) > 0 {
+		for file, payload := range httpPayloads {
+			ers, err := authProzessor.ApplyHTTPPolicies([]*authzhttp.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on HTTP payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+	if len(envoyPayloads) > 0 {
+		for file, payload := range envoyPayloads {
+			ers, err := authProzessor.ApplyEnvoyPolicies([]*authv3.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on Envoy payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
@@ -440,7 +548,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 }
 
 func applyImageValidatingPolicies(
-	ivps []policiesv1beta1.ImageValidatingPolicy,
+	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
@@ -452,13 +560,10 @@ func applyImageValidatingPolicies(
 	f billy.Filesystem,
 	contextPath string,
 	continueOnFail bool,
+	isFake bool,
+	restMapper meta.RESTMapper,
 ) ([]engineapi.EngineResponse, error) {
-	// Convert to ImageValidatingPolicyLike interface
-	ivpsLike := make([]policiesv1beta1.ImageValidatingPolicyLike, len(ivps))
-	for i := range ivps {
-		ivpsLike[i] = &ivps[i]
-	}
-	provider, err := ivpolengine.NewProvider(ivpsLike, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -473,11 +578,14 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	restMapper, err := utils.GetRESTMapper(dclient, true)
-	if err != nil {
-		return nil, err
+	if restMapper == nil {
+		var mapErr error
+		restMapper, mapErr = utils.GetRESTMapper(dclient)
+		if mapErr != nil {
+			return nil, mapErr
+		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
 	if err != nil {
 		return nil, err
 	}
@@ -526,7 +634,11 @@ func applyImageValidatingPolicies(
 		}
 
 		for _, r := range engineResponse.Policies {
-			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			if reflect.DeepEqual(r.Result, engineapi.RuleResponse{}) {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{}
+			} else {
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
@@ -535,7 +647,7 @@ func applyImageValidatingPolicies(
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 	for i := range ivps {
-		p := &ivps[i]
+		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
@@ -584,18 +696,21 @@ func applyDeletingPolicies(
 	registryAccess bool,
 	f billy.Filesystem,
 	contextPath string,
+	isFake bool,
+	restMapper meta.RESTMapper,
 ) ([]engineapi.EngineResponse, error) {
+	if restMapper == nil {
+		var mapErr error
+		restMapper, mapErr = utils.GetRESTMapper(dclient)
+		if mapErr != nil {
+			return nil, mapErr
+		}
+	}
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	if err != nil {
+		return nil, err
+	}
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
-	restMapper, err := utils.GetRESTMapper(dclient, true)
-	if err != nil {
-		return nil, err
-	}
-
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, true)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
+            - apps/v1/Deployment
       name: autogen-require-image-tag
       validate:
         message: An image tag is required.
@@ -23,7 +23,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-require-image-tag
       validate:
         message: An image tag is required.
@@ -39,7 +39,7 @@ status:
         any:
         - resources:
             kinds:
-            - Deployment
+            - apps/v1/Deployment
       name: autogen-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
@@ -53,7 +53,7 @@ status:
         any:
         - resources:
             kinds:
-            - CronJob
+            - batch/v1/CronJob
       name: autogen-cronjob-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.

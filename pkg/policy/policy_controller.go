@@ -32,6 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -322,23 +323,32 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
-	_, _ = pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
-	})
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, pc.worker, time.Second)
@@ -397,7 +407,9 @@ func (pc *policyController) syncPolicy(key string) error {
 	parts := strings.SplitN(key, "/", 2)
 	polType := parts[0]
 	polName := parts[1]
-	if polType == "kpol" {
+	var errs []error
+	switch polType {
+	case "kpol":
 		policy, err := pc.getPolicy(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -405,17 +417,17 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
-			err = pc.handleMutate(polName, policy)
-			if err != nil {
+			if err := pc.handleMutate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
+				errs = append(errs, err)
 			}
 
-			err = pc.handleGenerate(polName, policy)
-			if err != nil {
+			if err := pc.handleGenerate(polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
+				errs = append(errs, err)
 			}
 		}
-	} else if polType == "gpol" {
+	case "gpol":
 		gpol, err := pc.gpolLister.Get(polName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -426,21 +438,21 @@ func (pc *policyController) syncPolicy(key string) error {
 		// create UR on policy events to update/generate downstream resources
 		if gpol.Spec.SynchronizationEnabled() {
 			logger.V(4).Info("creating UR on generating policy events", "name", gpol.GetName())
-			err := pc.createURForGeneratingPolicy(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR on generating policy events %s: %v", gpol.GetName(), err))
+			if err := pc.createURForGeneratingPolicy(gpol); err != nil {
+				logger.Error(err, "failed to create UR on generating policy events", "name", gpol.GetName())
+				errs = append(errs, err)
 			}
 		}
 		// generate resources for existing triggers
 		if gpol.Spec.GenerateExistingEnabled() {
 			logger.V(4).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
-			err := pc.handleGenerateExisting(gpol)
-			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR for generating policy %s: %v", gpol.GetName(), err))
+			if err := pc.handleGenerateExisting(gpol); err != nil {
+				logger.Error(err, "failed to create UR for generating policy", "name", gpol.GetName())
+				errs = append(errs, err)
 			}
 		}
 	}
-	return nil
+	return multierr.Combine(errs...)
 }
 
 func (pc *policyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {

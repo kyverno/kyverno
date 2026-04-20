@@ -3,7 +3,7 @@ package compiler
 import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/image"
 	"k8s.io/apiserver/pkg/cel/library"
 )
 

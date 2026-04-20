@@ -11,5 +11,5 @@ Delete a `Pod` only if an HTTP GET request to a remote URL returns a matching va
 Specifically, the policy deletes the pod **only if**:
 
 ```cel
-http.Get("http://test-api-service.default.svc.cluster.local:80").metadata.labels.app == "test"
+http.get("http://test-api-service.default.svc.cluster.local:80").metadata.labels.app == "test"
 ```

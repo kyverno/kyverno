@@ -6,5 +6,5 @@ metadata:
     cleanup.kyverno.io/ttl: 10s
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: nginx

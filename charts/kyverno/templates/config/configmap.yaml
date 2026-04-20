@@ -19,6 +19,9 @@ data:
   defaultRegistry: {{ . | quote }}
   {{- end }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
+  {{- with .Values.config.successEventActions }}
+  successEventActions: {{ . | quote }}
+  {{- end }}
   {{- with .Values.config.excludeGroups }}
   excludeGroups: {{ join "," . | quote }}
   {{- end -}}
@@ -53,5 +56,8 @@ data:
   {{- end }}
   {{- with .Values.config.matchConditions }}
   matchConditions: {{ toJson . | quote }}
+  {{- end }}
+  {{- with .Values.config.maxContextSize }}
+  maxContextSize: {{ . | quote }}
   {{- end }}
 {{- end -}}

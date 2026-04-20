@@ -9,6 +9,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+    {{- with .Values.reportsController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.reportsController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -54,7 +57,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.priorityClassName }}
+      {{- with .Values.reportsController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.reportsController.hostNetwork }}
@@ -120,6 +123,11 @@ spec:
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
             - --metricsPort={{ .Values.reportsController.metering.port }}
+            {{- if .Values.reportsController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.reportsController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.reportsController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -201,10 +209,16 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
             {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+            {{- end }}
+            {{- with .Values.reportsController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
       - name: sigstore
@@ -222,14 +236,27 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- end }}
+      - name: apicall-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                path: token
+                expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                {{- with .Values.apiCallToken.audience }}
+                audience: {{ . }}
+                {{- end }}
       {{- if not $automountSAToken }}
       - name: serviceaccount-token
         projected:
           defaultMode: 0444
           sources:
             - serviceAccountToken:
-                expirationSeconds: 3607
+                expirationSeconds: {{ .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                 path: token
+                {{- with .Values.reportsController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                audience: {{ . }}
+                {{- end }}
             - configMap:
                 name: kube-root-ca.crt
                 items:
@@ -241,6 +268,9 @@ spec:
                     fieldRef:
                       apiVersion: v1
                       fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.reportsController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}
 {{- end -}}

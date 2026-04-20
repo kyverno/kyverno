@@ -51,8 +51,14 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 		result = append(result, c.store.get(pkey, gvr, subresource, namespace.Name)...)
 	}
 	// also get policies with ValidateEnforce
+	// This is needed because a policy may be stored under ValidateEnforce (because it has at least one enforce rule),
+	// but still contain audit rules (due to per-rule validationFailureAction or validationFailureActionOverrides).
+	// We must fetch both cluster-wide and namespace-scoped enforce policies to ensure audit rules are not missed.
 	if pkey == ValidateAudit {
 		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
+		if namespace != nil {
+			result = append(result, c.store.get(ValidateEnforce, gvr, subresource, namespace.Name)...)
+		}
 	}
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
 		result = filterPolicies(pkey, result, namespace)
@@ -106,6 +112,14 @@ func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Names
 		// Track if an override matched for the namespace
 		overrideMatched := false
 		for _, action := range validationFailureActionOverrides {
+			// Global override: both Namespaces and NamespaceSelector are empty/nil - applies to all namespaces
+			if len(action.Namespaces) == 0 && action.NamespaceSelector == nil {
+				overrideMatched = true
+				if action.Action.Enforce() == enforce {
+					filteredRules = append(filteredRules, *rule)
+				}
+				break // Stop once we find a matching override
+			}
 			if namespace != nil && wildcard.CheckPatterns(action.Namespaces, namespace.Name) {
 				overrideMatched = true
 				if action.Action.Enforce() == enforce {
@@ -124,6 +138,7 @@ func checkValidationFailureActionOverrides(enforce bool, namespace *corev1.Names
 					if action.Action.Enforce() == enforce {
 						filteredRules = append(filteredRules, *rule)
 					}
+					break // Stop once we find a matching override
 				}
 			}
 		}

@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -35,7 +35,7 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
-	secretLister corev1listers.SecretNamespaceLister,
+	secretLister corev1listers.SecretLister,
 	apiCallConfig apicall.APICallConfiguration,
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,

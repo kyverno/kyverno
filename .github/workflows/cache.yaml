@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Caching
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/go/setup
+        with:
+          gomod-cache-prefix: '' # disable gomod cache
+          gobuild-cache-prefix: '' # disable gobuild cache
+      - name: Check gomod cache exists
+        id: check-gomod
+        uses: ./.github/actions/go/lookup-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gomod-cache }}
+          cache-prefix: gomod
+      - name: Download modules
+        if: steps.check-gomod.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -e
+          go mod download && go mod tidy
+          (cd hack/controller-gen && go mod download && go mod tidy)
+          (cd hack/api-group-resources && go mod download && go mod tidy)
+          make install-tools
+      - name: Save gomod cache
+        if: steps.check-gomod.outputs.cache-hit != 'true'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gomod-cache }}
+          cache-prefix: gomod
+      - name: Check gobuild cache exists
+        id: check-gobuild
+        uses: ./.github/actions/go/lookup-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild
+      - name: Install Ko
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        uses: ./.github/actions/tools/ko
+      - name: Build all
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make image-build-all build-all
+      - name: Save gobuild cache
+        if: steps.check-gobuild.outputs.cache-hit != 'true'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - cache
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}

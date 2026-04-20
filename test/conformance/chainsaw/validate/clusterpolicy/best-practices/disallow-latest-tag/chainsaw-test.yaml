@@ -1,0 +1,31 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: disallow-latest-tag
+spec:
+  steps:
+    - name: step-01-apply
+      try:
+      - apply:
+          file: policy.yaml
+
+    - name: step-01-wait
+      use:
+        template: ../../../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: disallow-latest-tag
+
+    - name: step-02
+      try:
+      - apply:
+          file: pod-good.yaml
+    - name: step-03
+      try:
+      - apply:
+          file: pod-bad.yaml
+          expect:
+          - check:
+              ($error != null): true
+              (contains($error, 'Using a mutable image tag')): true

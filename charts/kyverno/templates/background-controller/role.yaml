@@ -36,6 +36,24 @@ rules:
       - update
     resourceNames:
       - kyverno-background-controller
+{{- if .Values.backgroundController.metering.secure }}
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - delete
+      - update
+    resourceNames:
+      - {{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+      - {{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+{{- end }}
   - apiGroups:
       - ''
     resources:

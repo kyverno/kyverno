@@ -11,10 +11,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/watch"
+	k8swatch "k8s.io/apimachinery/pkg/watch"
 	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 )
+
+type retryWatcher interface {
+	ResultChan() <-chan k8swatch.Event
+	IsRunning() bool
+	Stop()
+}
 
 type resourceUIDGetter interface {
 	GetUID() types.UID
@@ -27,7 +33,7 @@ type Counter interface {
 type counter struct {
 	lock         sync.RWMutex
 	entries      sets.Set[types.UID]
-	retryWatcher *watchtools.RetryWatcher
+	retryWatcher retryWatcher
 }
 
 func (c *counter) Record(uid types.UID) {
@@ -54,7 +60,7 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 		return nil, err
 	}
 	watcher := &cache.ListWatch{
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+		WatchFunc: func(options metav1.ListOptions) (k8swatch.Interface, error) {
 			if tweakListOptions != nil {
 				tweakListOptions(&options)
 			}
@@ -78,11 +84,11 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 			getter, ok := event.Object.(resourceUIDGetter)
 			if ok {
 				switch event.Type {
-				case watch.Added:
+				case k8swatch.Added:
 					w.Record(getter.GetUID())
-				case watch.Modified:
+				case k8swatch.Modified:
 					w.Record(getter.GetUID())
-				case watch.Deleted:
+				case k8swatch.Deleted:
 					w.Forget(getter.GetUID())
 				}
 			}

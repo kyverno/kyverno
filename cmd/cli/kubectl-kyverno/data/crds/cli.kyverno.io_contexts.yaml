@@ -70,6 +70,8 @@ spec:
                   type: object
                 type: array
               resources:
+                description: deprecate, use ClusterResource to define Kubernetes specific
+                  resources
                 items:
                   type: object
                 type: array

@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	v10 "k8s.io/api/core/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	sets "k8s.io/apimachinery/pkg/util/sets"
 )
 
 // MockConfiguration is a mock of Configuration interface.
@@ -79,6 +80,20 @@ func (mr *MockConfigurationMockRecorder) GetGenerateSuccessEvents() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenerateSuccessEvents", reflect.TypeOf((*MockConfiguration)(nil).GetGenerateSuccessEvents))
 }
 
+// GetSuccessEventActions mocks base method.
+func (m *MockConfiguration) GetSuccessEventActions() sets.Set[string] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuccessEventActions")
+	ret0, _ := ret[0].(sets.Set[string])
+	return ret0
+}
+
+// GetSuccessEventActions indicates an expected call of GetSuccessEventActions.
+func (mr *MockConfigurationMockRecorder) GetSuccessEventActions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuccessEventActions", reflect.TypeOf((*MockConfiguration)(nil).GetSuccessEventActions))
+}
+
 // GetMatchConditions mocks base method.
 func (m *MockConfiguration) GetMatchConditions() []v1.MatchCondition {
 	m.ctrl.T.Helper()
@@ -91,6 +106,20 @@ func (m *MockConfiguration) GetMatchConditions() []v1.MatchCondition {
 func (mr *MockConfigurationMockRecorder) GetMatchConditions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMatchConditions", reflect.TypeOf((*MockConfiguration)(nil).GetMatchConditions))
+}
+
+// GetMaxContextSize mocks base method.
+func (m *MockConfiguration) GetMaxContextSize() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMaxContextSize")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// GetMaxContextSize indicates an expected call of GetMaxContextSize.
+func (mr *MockConfigurationMockRecorder) GetMaxContextSize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxContextSize", reflect.TypeOf((*MockConfiguration)(nil).GetMaxContextSize))
 }
 
 // GetUpdateRequestThreshold mocks base method.

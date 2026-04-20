@@ -370,7 +370,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			}
 		}
 		if a.Certificates.Rekor != nil {
-			vo.RekorURL = a.Keys.Rekor.URL
+			vo.RekorURL = a.Certificates.Rekor.URL
 		}
 	} else if a.Keyless != nil {
 		subPath = subPath + ".keyless"

@@ -4,13 +4,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ template "kyverno.cleanup-controller.roleName" . }}
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.global.templating.enabled }}
-  finalizers:
-  - kyverno.io/policywebhooks
-  - kyverno.io/ttlwebhooks
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
@@ -34,22 +27,8 @@ rules:
     resourceNames:
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.global.templating.enabled }}
-  - apiGroups:
-      - ''
-    resources:
-      - serviceaccounts
-    verbs:
-      - delete
-      - get
-      - list
-      - update
-      - watch
-    resourceNames:
-      - {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
-  {{- end }}
-  {{- end }}
+      - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+      - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
   - apiGroups:
       - ''
     resources:
@@ -78,29 +57,12 @@ rules:
       - update
     resourceNames:
       - kyverno-cleanup-controller
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.global.templating.enabled }}
   - apiGroups:
-      - rbac.authorization.k8s.io
+      - discovery.k8s.io
     resources:
-      - roles
-      - rolebindings
-    resourceNames:
-      - {{ template "kyverno.cleanup-controller.roleName" . }}
-      - {{ template "kyverno.cleanup-controller.roleName" . }}:temporary
+      - endpointslices
     verbs:
-      - get
-      - patch
-      - update
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - roles
-      - rolebindings
-    verbs:
-      - create
-  {{- end }}
-  {{- end }}
+      - list
   - apiGroups:
       - apps
     resources:
@@ -109,11 +71,5 @@ rules:
       - get
       - list
       - watch
-      {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-      {{- if not .Values.global.templating.enabled }}
-      - patch
-      - update
-      {{- end }}
-      {{- end }}
 {{- end -}}
 {{- end -}}

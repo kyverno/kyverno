@@ -252,6 +252,16 @@ The command removes all the Kubernetes components associated with the chart and 
 
 The chart values are organised per component.
 
+### Outbound API call token
+
+Kyverno projects a dedicated ServiceAccount token for outbound APICall and CEL HTTP requests.
+Configure this token with `apiCallToken.*`:
+
+- `apiCallToken.audience` (default: `kyverno-svc.kyverno.io`) sets the OIDC `aud` claim expected by your receiving service.
+- `apiCallToken.expirationSeconds` (default: `3600`) sets token lifetime before kubelet rotation.
+
+The default audience is Kyverno-specific so leaked tokens are not accepted by the Kubernetes API server.
+
 {{- $other := list -}}
 {{- $crds := list -}}
 {{- $config := list -}}

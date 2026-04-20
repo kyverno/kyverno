@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  key: dmFsdWU=
+kind: Secret
+metadata:
+  name: sync-delete-one-source-2
+  namespace: sync-delete-one-source
+type: Opaque

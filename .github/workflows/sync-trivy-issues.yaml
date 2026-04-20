@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Trivy (sync issues)
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  workflow_run:
+    workflows:
+      - Trivy
+    types: 
+      - completed
+
+jobs:
+  trivy-sync-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      security-events: read
+    steps:
+    - name: Sync issues from Trivy
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+
+          const branches = ["main", "release-1.17", "release-1.16"];
+          const allAlerts = [];
+          for (const branch of branches) {
+            const ref = `refs/heads/${branch}`;
+            const branchAlerts = await github.paginate(
+              github.rest.codeScanning.listAlertsForRepo,
+              { owner, repo, ref, state: "open", tool_name: "Trivy", per_page: 100 }
+            );
+            allAlerts.push(...branchAlerts);
+          }
+          const seen = new Set();
+          const alerts = allAlerts.filter(a => {
+            if (seen.has(a.number)) return false;
+            seen.add(a.number);
+            return true;
+          });
+
+          const issues = await github.paginate(
+            github.rest.issues.listForRepo,
+            { owner, repo, labels: "codeql", state: "open", per_page: 100 }
+          );
+
+          function shortRef(ref) {
+            if (!ref) return "unknown";
+            const branch = ref.replace(/^refs\/heads\//, "");
+            const short = branch.includes("/") ? branch.split("/").pop() : branch;
+            return short.length > 30 ? short.slice(0, 27) + "..." : short;
+          }
+
+          async function getAlertInstances(alertNumber) {
+            try {
+              return await github.paginate(
+                github.rest.codeScanning.listAlertInstances,
+                { owner, repo, alert_number: alertNumber, per_page: 100 }
+              );
+            } catch (err) {
+              core.warning(`Could not list instances for alert #${alertNumber}: ${err.message}`);
+              return [];
+            }
+          }
+        
+          for (const alert of alerts) {
+            const alertId = `codeql-id-${alert.number}`;
+            const instances = await getAlertInstances(alert.number);
+            const refs = [...new Set((instances.length ? instances : [alert.most_recent_instance])
+              .map(i => i?.ref).filter(Boolean).map(shortRef))];
+            const severity = (alert.rule?.security_severity_level || alert.security_severity_level || "unknown").toLowerCase();
+            const title = `Vulnerability detected: ${alert.rule.id || alert.rule.name} (${severity})`;
+            const branchesText = refs.length
+              ? refs.map(b => `- ${b}`).join("\n")
+              : `- ${shortRef(alert.most_recent_instance?.ref)}`;
+            const body =
+              `${alert.rule.full_description || alert.rule.description}\n\n` +
+              `---\n\n` +
+              `**Affected branches:**\n${branchesText}\n\n` +
+              `${alert.rule.id || alert.rule.name} ${alert.html_url}\n\n` +
+              `<!-- ${alertId} -->`;
+            const existing = issues.find(i => i.body && i.body.includes(alertId));
+            if (!existing) {
+              core.info(`Creating issue: ${title}`);
+              await github.rest.issues.create({
+                owner, repo, title, body,
+                labels: ["codeql", "security"]
+              });
+            } else {
+              core.info(`Updating issue #${existing.number}: ${title}`);
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, title, body
+              });
+            }
+          }
+
+          for (const issue of issues) {
+            const match = issue.body?.match(/codeql-id-(\d+)/);
+            if (match) {
+              const alertNumber = parseInt(match[1]);
+              const isStillOpen = alerts.some(a => a.number === alertNumber);
+              if (!isStillOpen) {
+                core.info(`Closing issue #${issue.number} (Alert #${alertNumber} resolved)`);
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: "Automatically closing: The Trivy alert is no longer present."
+                });
+                await github.rest.issues.update({
+                  owner, repo, issue_number: issue.number, state: "closed"
+                });
+              }
+            }
+          }
+
+          core.info("Sync complete.");
