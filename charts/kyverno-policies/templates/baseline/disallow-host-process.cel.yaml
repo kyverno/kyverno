@@ -7,8 +7,8 @@ metadata:
   annotations:
     policies.kyverno.io/title: Disallow HostProcess
     policies.kyverno.io/category: Pod Security Standards (Baseline)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
@@ -26,6 +26,13 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
+    {{- with .excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
+  {{ end }}
   validations:
     - expression: >-
         (!has(object.spec.securityContext) || 

@@ -11,8 +11,8 @@ metadata:
     {{- end }}
     policies.kyverno.io/title: Restrict Volume Types
     policies.kyverno.io/category: Pod Security Standards (Restricted)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/subject: Pod,Volume
     policies.kyverno.io/minversion: 1.6.0

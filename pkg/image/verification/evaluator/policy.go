@@ -120,11 +120,30 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	} else {
 		data[engine.ObjectKey] = request
 	}
+
 	images, err := engine.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImagesKey] = images
+	filteredImages := make(map[string][]string, len(images))
+	imgList := []string{}
+	for category, imgs := range images {
+		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
+		for _, img := range imgs {
+			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+				return nil, err
+			} else if apply {
+				filteredImages[category] = append(filteredImages[category], img)
+				imgList = append(imgList, img)
+			}
+		}
+	}
+
+	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+		return nil, err
+	}
+
+	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
@@ -138,19 +157,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	data[engine.AttestorsKey] = attestors
 
-	imgList := []string{}
-	for _, v := range images {
-		for _, img := range v {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
-				return nil, err
-			} else if apply {
-				imgList = append(imgList, img)
-			}
-		}
-	}
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
-		return nil, err
-	}
 	for i, v := range c.validations {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
@@ -172,18 +178,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
-			auditAnnotations := make(map[string]string, 0)
-			for key, annotation := range c.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
-				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
-				}
-				// evaluate only when rule fails
-				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
-					auditAnnotations[key] = outcome
-				} else if err != nil {
-					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
-				}
+			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+			if err != nil {
+				return nil, err
 			}
 			return &EvaluationResult{
 				Result:           outcome,
@@ -196,7 +193,27 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
-	return &EvaluationResult{Result: true}, nil
+	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
+	auditAnnotations := make(map[string]string, len(c.auditAnnotations))
+	for key, annotation := range c.auditAnnotations {
+		out, _, err := annotation.ContextEval(ctx, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+		}
+		if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+			auditAnnotations[key] = outcome
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+		}
+	}
+	return auditAnnotations, nil
 }
 
 func (p *compiledPolicy) match(
