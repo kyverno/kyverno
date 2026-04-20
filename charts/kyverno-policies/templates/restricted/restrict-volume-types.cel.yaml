@@ -43,7 +43,7 @@ spec:
           has(v.downwardAPI) || 
           has(v.emptyDir) || 
           has(v.ephemeral) || 
-          has(v.image) || 
+          has(v.image) ||
           has(v.persistentVolumeClaim) || 
           has(v.projected) || 
           has(v.secret))
