@@ -101,6 +101,8 @@ jobs:
         uses: ./.github/actions/tools/crane
       - name: Install Cosign
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        with:
+          cosign-release: v2.6.1
       - name: Install chainsaw
         uses: ./.github/actions/tools/chainsaw
       # create cluster
@@ -143,13 +145,14 @@ jobs:
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
-          COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token $OIDC_TOKEN -y
+          COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN --fulcio-url $FULCIO_URL --rekor-url $REKOR_URL -y
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       # run tests
       - name: Test with Chainsaw
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
         run: |
           set -e
           cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
@@ -272,12 +275,29 @@ jobs:
           shard-count: 12
           install-kubectl-evict: true
 
+  generate-mutating-admission-policy-alpha:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
+          kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy-alpha
+
   generate-mutating-admission-policy:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.32.8, v1.33.7, v1.34.3, v1.35.1]
+        k8s-version: [v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/tests/conformance/run
@@ -390,12 +410,28 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
+  mutating-admission-policy-reports-alpha:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
+          kyverno-configs: standard,mutating-admission-policy-reports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutating-admission-policy-reports-alpha
+
   mutating-admission-policy-reports:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.32.8, v1.33.7, v1.34.3, v1.35.1]
+        k8s-version: [v1.34.3, v1.35.1]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/tests/conformance/run
