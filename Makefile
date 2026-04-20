@@ -714,8 +714,9 @@ codegen-helm-crds: codegen-crds-all
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
+codegen-helm-docs: $(HELM_DOCS)
 	@echo Generate helm docs... >&2
-	@docker run -v $(CURDIR):/work -w /work jnorwood/helm-docs:$(HELM_DOCS_VERSION) --chart-search-root charts -s file
+	@$(HELM_DOCS) --chart-search-root charts -s file
 
 .PHONY: codegen-helm-all
 codegen-helm-all: ## Generate helm docs and CRDs
