@@ -11,11 +11,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -87,14 +83,10 @@ func (p *Policy) evaluateWithData(
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
-		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: data.Context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:       imagedata.Context{ContextInterface: data.Context},
 		compiler.NamespaceObjectKey: data.Namespace,
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
-		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
@@ -146,7 +138,6 @@ func (p *Policy) evaluateWithData(
 		if err != nil {
 			return nil, err
 		}
-		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
 			if validation.MessageExpression != nil {
@@ -162,18 +153,9 @@ func (p *Policy) evaluateWithData(
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", index)
 			}
-			auditAnnotations := make(map[string]string, 0)
-			for key, annotation := range p.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, dataNew)
-				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
-				}
-				// evaluate only when rule fails
-				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
-					auditAnnotations[key] = outcome
-				} else if err != nil {
-					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
-				}
+			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
+			if err != nil {
+				return nil, err
 			}
 			return &EvaluationResult{
 				Result:           outcome,
@@ -186,8 +168,27 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
+	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
+	if err != nil {
+		return nil, err
+	}
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
 
-	return &EvaluationResult{Result: true}, nil
+func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
+	auditAnnotations := make(map[string]string, len(p.auditAnnotations))
+	for key, annotation := range p.auditAnnotations {
+		out, _, err := annotation.ContextEval(ctx, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+		}
+		if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+			auditAnnotations[key] = outcome
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+		}
+	}
+	return auditAnnotations, nil
 }
 
 func (p *Policy) match(

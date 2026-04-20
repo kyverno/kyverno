@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: widget-my-widget
+  namespace: test-namespace
+data:
+  widget-name: my-widget

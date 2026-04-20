@@ -16,13 +16,13 @@ spec:
   podSecurity:
     - controlName: "SELinux"
       images:
-      - nginx
+      - public.ecr.aws/docker/library/nginx
       restrictedField: "spec.containers[*].securityContext.seLinuxOptions.type"
       values:
       - "foo"
     - controlName: "SELinux"
       images:
-      - nginx
+      - public.ecr.aws/docker/library/nginx
       restrictedField: "spec.initContainers[*].securityContext.seLinuxOptions.type"
       values:
       - "bar"

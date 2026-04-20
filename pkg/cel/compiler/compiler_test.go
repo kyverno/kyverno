@@ -5,7 +5,8 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
+	"github.com/kyverno/sdk/cel/libs/generator"
+	"github.com/kyverno/sdk/cel/libs/versions"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -542,7 +543,7 @@ func TestCompileGenerations(t *testing.T) {
 		name: "valid",
 		generations: []v1beta1.Generation{{
 			Expression: `
-generator.Apply(
+generator.apply(
 	"default",
 	[
 		{
@@ -561,7 +562,7 @@ generator.Apply(
 		name: "multiple",
 		generations: []v1beta1.Generation{{
 			Expression: `
-generator.Apply(
+generator.apply(
 	"default",
 	[
 		{
@@ -576,7 +577,7 @@ generator.Apply(
 )`,
 		}, {
 			Expression: `
-generator.Apply(
+generator.apply(
 	"default",
 	[
 		{
@@ -595,7 +596,7 @@ generator.Apply(
 		name: "invalid",
 		generations: []v1beta1.Generation{{
 			Expression: `
-generator.ApplyAll(
+generator.applyAll(
 	"default",
 	[
 		{
@@ -614,7 +615,7 @@ generator.ApplyAll(
 			Type:  field.ErrorTypeInvalid,
 			Field: "[0].expression",
 			BadValue: `
-generator.ApplyAll(
+generator.applyAll(
 	"default",
 	[
 		{
@@ -627,13 +628,13 @@ generator.ApplyAll(
 		},
 	]
 )`,
-			Detail: "ERROR: <input>:2:19: undeclared reference to 'ApplyAll' (in container '')\n | generator.ApplyAll(\n | ..................^",
+			Detail: "ERROR: <input>:2:19: undeclared reference to 'applyAll' (in container '')\n | generator.applyAll(\n | ..................^",
 		}},
 	}, {
 		name: "multiple invalid",
 		generations: []v1beta1.Generation{{
 			Expression: `
-generator.Apply(
+generator.apply(
 	"default",
 	[
 		{
@@ -648,7 +649,7 @@ generator.Apply(
 )`,
 		}, {
 			Expression: `
-generator.Apply(
+generator.apply(
 	[
 		{
 			"apiVersion": dyn("v1"),
@@ -666,7 +667,7 @@ generator.Apply(
 			Type:  field.ErrorTypeInvalid,
 			Field: "[1].expression",
 			BadValue: `
-generator.Apply(
+generator.apply(
 	[
 		{
 			"apiVersion": dyn("v1"),
@@ -678,7 +679,7 @@ generator.Apply(
 		},
 	]
 )`,
-			Detail: "ERROR: <input>:2:16: found no matching overload for 'Apply' applied to 'generator.Context.(list(map(string, dyn)))'\n | generator.Apply(\n | ...............^",
+			Detail: "ERROR: <input>:2:16: found no matching overload for 'apply' applied to 'generator.Context.(list(map(string, dyn)))'\n | generator.apply(\n | ...............^",
 		}},
 	}, {
 		name: "bad type",
@@ -699,7 +700,7 @@ generator.Apply(
 			assert.NoError(t, err)
 			env, err := base.Extend(
 				cel.Variable(GeneratorKey, generator.ContextType),
-				generator.Lib(nil),
+				generator.Lib(nil, versions.KyvernoLatest),
 			)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)

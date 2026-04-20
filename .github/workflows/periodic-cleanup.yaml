@@ -1,0 +1,39 @@
+name: Cleanup
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 0 * * *" # This schedule runs the workflow at midnight every day
+
+jobs:
+  stale-branches:
+    name: Cleanup stale branches
+    runs-on: ubuntu-slim
+    steps:
+      - name: Cleanup Stale Branches
+        uses: cbrgm/cleanup-stale-branches-action@2419800d1439198aaf3c6842ff5015a94974a6c4 # v1.2.8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          allowed-prefixes: "dependabot/,temp-cherry-pick-,cherry-pick-"
+          last-commit-age-days: 7
+          dry-run: false
+          rate-limit: true
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - stale-branches
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}

@@ -252,6 +252,16 @@ The command removes all the Kubernetes components associated with the chart and 
 
 The chart values are organised per component.
 
+### Outbound API call token
+
+Kyverno projects a dedicated ServiceAccount token for outbound APICall and CEL HTTP requests.
+Configure this token with `apiCallToken.*`:
+
+- `apiCallToken.audience` (default: `kyverno-svc.kyverno.io`) sets the OIDC `aud` claim expected by your receiving service.
+- `apiCallToken.expirationSeconds` (default: `3600`) sets token lifetime before kubelet rotation.
+
+The default audience is Kyverno-specific so leaked tokens are not accepted by the Kubernetes API server.
+
 ### Custom resource definitions
 
 | Key | Type | Default | Description |
@@ -303,6 +313,7 @@ The chart values are organised per component.
 | config.excludeRoles | list | `[]` | Exclude roles |
 | config.excludeClusterRoles | list | `[]` | Exclude roles |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
+| config.successEventActions | string | "" (empty, all success events are emitted when generateSuccessEvents is true) | Comma-separated list of event actions for which success events should be generated. When set, only success events matching the specified actions are emitted. Requires `generateSuccessEvents` to be `true`. Valid values: "Resource Mutated", "Resource Passed", "Resource Generated", "Resource Cleaned Up". Example: "Resource Mutated" or "Resource Mutated,Resource Generated". |
 | config.maxContextSize | string | 2Mi | Maximum cumulative size of context data during policy evaluation. Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152). Limits memory used by context variables to prevent unbounded growth. Increase if policies legitimately need large context data (e.g., processing large ConfigMaps). Set to 0 to disable the limit (not recommended for production). |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.updateRequestThreshold | int | `1000` | Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies. |
@@ -357,6 +368,7 @@ The chart values are organised per component.
 | features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
+| features.globalContext.apiCallTimeout | string | `"30s"` | Timeout for HTTP API calls made by policies. A value of 0s means no timeout. |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
 | features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
@@ -379,6 +391,7 @@ The chart values are organised per component.
 | admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
 | admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
 | admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
+| admissionController.autoscaling.targetMemoryUtilizationPercentage | int | `nil` | Target memory utilization percentage |
 | admissionController.autoscaling.behavior | object | `{}` | Configurable scaling behavior |
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
@@ -823,9 +836,9 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
-| webhooksCleanup.image.registry | string | `"registry.k8s.io"` | Image registry |
-| webhooksCleanup.image.repository | string | `"kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"v1.34.3"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
+| webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
+| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -851,7 +864,7 @@ The chart values are organised per component.
 | test.sleep | int | `20` | Sleep time before running test |
 | test.image.registry | string | `"ghcr.io"` | Image registry |
 | test.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
-| test.image.tag | string | `"v0.1.0"` | Image tag Defaults to `latest` if omitted |
+| test.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -881,6 +894,7 @@ The chart values are organised per component.
 | global.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
+| global.priorityClassName | string | `""` | Global priority class name for pod priority. Non-global values will override the global value. |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
 | global.nodeSelector | object | `{}` | Global node labels for pod assignment. Non-global values will override the global value. |
 | global.tolerations | list | `[]` | Global List of node taints to tolerate. Non-global values will override the global value. |
@@ -894,6 +908,9 @@ The chart values are organised per component.
 | reportsServer.enabled | bool | `false` | Enable reports-server deployment alongside Kyverno |
 | reportsServer.waitForReady | bool | `true` | Wait for reports-server to be ready before starting Kyverno components |
 | reportsServer.readinessTimeout | string | `"300s"` | Timeout for waiting for reports-server readiness (as duration string, e.g. 300s, 5m) |
+| apiCallToken | object | `{"audience":"kyverno-svc.kyverno.io","expirationSeconds":3600}` | Scoped token injected into outbound APICall and CEL http requests. This token carries a custom audience so that if leaked to an external service it cannot be replayed against the Kubernetes API server. |
+| apiCallToken.audience | string | `"kyverno-svc.kyverno.io"` | Audience for the projected token used in outbound requests. Set this to the audience your receiving service validates in the OIDC token's `aud` claim. The default is `kyverno-svc.kyverno.io`, which is a Kyverno-specific audience and prevents the token from being accepted by the Kubernetes API server. |
+| apiCallToken.expirationSeconds | int | `3600` | Token lifetime in seconds for the projected outbound API call token. The default is `3600` (1 hour). The kubelet requests a replacement before the token expires, so lowering this reduces token lifetime while increasing rotation frequency. |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |

@@ -528,7 +528,6 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Warn, expected.Warn, desc)
 		assert.Equal(t, actual.Error, expected.Error, desc)
 		assert.Equal(t, actual.Pass, expected.Pass, desc)
-
 	}
 
 	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(openreportsv1alpha1.ReportSummary, openreportsv1alpha1.ReportSummary, string)) {
@@ -855,6 +854,23 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
+		// JSON-mode policy applied to a K8s resource should evaluate via JSON path
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-mode-on-resource/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -864,13 +880,30 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 	}
 }
 
+// Test_Apply_JsonPayload_K8sMode_NoSegfault verifies that applying a
+// Kubernetes-mode policy against a JSON payload does not panic (segfault).
+// The K8s-mode policy should be gracefully skipped with zero results.
+func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
+		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
+		PolicyReport: true,
+	}
+	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	assert.NoError(t, err, "should not crash with segfault")
+	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
+	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
+}
+
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
-					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
+					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -886,8 +919,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json"},
+				JSONPaths: []string{
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
+					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
+				},
 				PolicyReport: true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1048,6 +1083,67 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run("", func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_CleanupPolicies(t *testing.T) {
+	type testCase struct {
+		name      string
+		config    ApplyCommandConfig
+		wantPass  int
+		wantFail  int
+		wantRules int
+	}
+
+	testcases := []*testCase{
+		{
+			name: "namespaced-cleanup-policy-match-vs-nomatch",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1, // cleanup-pod-1 would be deleted
+			wantFail:  1, // cleanup-pod-2 would NOT be deleted
+			wantRules: 2,
+		},
+		{
+			name: "cluster-cleanup-policy-match-only",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1,
+			wantFail:  0,
+			wantRules: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
+			assert.NoError(t, err)
+
+			passCount := 0
+			failCount := 0
+			rulesCount := 0
+			for _, resp := range responses {
+				for _, rule := range resp.PolicyResponse.Rules {
+					rulesCount++
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						passCount++
+					case engineapi.RuleStatusFail:
+						failCount++
+					}
+				}
+			}
+
+			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
+			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
+			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
 		})
 	}
 }
@@ -1278,7 +1374,7 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 }
 
 func TestCommandWarnExitCode(t *testing.T) {
-	var warnExitCode = 3
+	warnExitCode := 3
 
 	cmd := Command()
 	cmd.SetArgs([]string{
@@ -1365,4 +1461,238 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "Should have at least one failed rule")
+}
+
+func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
+				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandCRDKubeEnable(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--crd-path",
+		"./crd.yml",
+		"--kubeconfig",
+		"./kubeconfig.yaml",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func Test_Apply_AuthzPolicies(t *testing.T) {
+	testcases := []*TestCase{
+		// HTTP allow
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml"},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				PolicyReport:     true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+				},
+			}},
+		},
+		// HTTP deny
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-deny/policy.yaml"},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-deny/request.json"},
+				PolicyReport:     true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Fail: 1,
+				},
+			}},
+		},
+		// Envoy allow
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-allow/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+				},
+			}},
+		},
+		// Envoy deny
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Fail: 1,
+				},
+			}},
+		},
+		// Envoy JWT (3 requests: 2 denied, 1 allowed)
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				EnvoyPayloadPaths: []string{
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-empty.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-forbidden.json",
+					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-pass.json",
+				},
+				PolicyReport: true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 2,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("authz-case-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+
+}
+
+func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+					"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml",
+				},
+				HTTPPayloadPaths:  []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:      true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("mixed-authz-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandWithAuthzPayloadNoResource(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+				t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+			}
+			panic(r)
+		}
+	}()
+
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+		"--http-payload",
+		"../../../../../test/cli/test-validating-policy/http-allow/request.json",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
+
+func TestCommandWithEnvoyPayloadNoResource(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if strings.Contains(fmt.Sprint(r), "kyverno.http: library version must not be nil") {
+				t.Skip("blocked by kyverno-authz: kyverno.http library version panic")
+			}
+			panic(r)
+		}
+	}()
+
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"../../../../../test/cli/test-validating-policy/envoy-allow/request.json",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
+
+func TestCommandWithInvalidHTTPPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+		"--http-payload",
+		"./does-not-exist-http.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse HTTP payload from")
+}
+
+func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml",
+		"--envoy-payload",
+		"./does-not-exist-envoy.json",
+	})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse envoy payload from")
 }
