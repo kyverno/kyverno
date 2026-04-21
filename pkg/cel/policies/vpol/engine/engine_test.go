@@ -101,4 +101,11 @@ func TestWithValidationIndex(t *testing.T) {
 		_, exists := props["cel.validationIndex"]
 		assert.False(t, exists, "original props map must not be mutated")
 	})
+
+	t.Run("existing cel.validationIndex is not overwritten", func(t *testing.T) {
+		props := map[string]string{"cel.validationIndex": "user-defined"}
+		out := withValidationIndex(props, 2)
+		assert.Equal(t, "user-defined", out["cel.validationIndex"],
+			"user-defined cel.validationIndex must not be clobbered by the engine")
+	})
 }
