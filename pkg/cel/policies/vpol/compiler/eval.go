@@ -14,14 +14,9 @@ import (
 )
 
 type EvaluationResult struct {
-	Error   error
-	Message string
-	Index   int
-	// IndexKnown is true when Index refers to a specific validation expression
-	// in spec.validations[]. It is false when the error occurred before or
-	// outside the validation loop (e.g. match condition failure, context load
-	// error), in which case Index must not be used for reporting.
-	IndexKnown       bool
+	Error            error
+	Message          string
+	Index            int
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException

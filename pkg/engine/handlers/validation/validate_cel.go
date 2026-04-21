@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -202,17 +201,17 @@ func (h validateCELHandler) Process(
 			)
 		}
 
-		for i, decision := range validationResult.Decisions {
+		for _, decision := range validationResult.Decisions {
 			switch decision.Action {
 			case validating.ActionAdmit:
 				if decision.Evaluation == validating.EvalError {
 					return resource, handlers.WithResponses(
-						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil, withValidationIndex(rule.ReportProperties, i)),
+						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil, rule.ReportProperties),
 					)
 				}
 			case validating.ActionDeny:
 				return resource, handlers.WithResponses(
-					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message, withValidationIndex(rule.ReportProperties, i)),
+					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message, rule.ReportProperties),
 				)
 			}
 		}
@@ -222,15 +221,4 @@ func (h validateCELHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
 	)
-}
-
-// withValidationIndex returns a copy of props with "cel.validationIndex" set to
-// the zero-based position of the failing validation expression.
-func withValidationIndex(props map[string]string, idx int) map[string]string {
-	out := make(map[string]string, len(props)+1)
-	for k, v := range props {
-		out[k] = v
-	}
-	out["cel.validationIndex"] = strconv.Itoa(idx)
-	return out
 }

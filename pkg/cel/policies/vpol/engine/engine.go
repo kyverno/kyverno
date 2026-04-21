@@ -195,11 +195,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		// TODO: do we want to set a rule name?
 		ruleName := ""
 		if result.Error != nil {
-			var props map[string]string
-			if result.IndexKnown {
-				props = withValidationIndex(nil, result.Index)
-			}
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, props))
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else {
