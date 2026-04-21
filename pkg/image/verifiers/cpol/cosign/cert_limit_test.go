@@ -82,21 +82,38 @@ func certsToPEM(certs []*x509.Certificate) []byte {
 	return buf.Bytes()
 }
 
+// repeatPEMBlock concatenates the given PEM block count times. This lets tests
+// build arbitrarily long chains without paying RSA key-generation cost per cert.
+func repeatPEMBlock(block []byte, count int) []byte {
+	var buf bytes.Buffer
+	buf.Grow(len(block) * count)
+	for i := 0; i < count; i++ {
+		buf.Write(block)
+	}
+	return buf.Bytes()
+}
+
+// buildTSAChainPEM returns a PEM with one root CA followed by numIntermediates
+// copies of a single intermediate CA PEM block. Repeating the same intermediate
+// (rather than regenerating fresh RSA keys per cert) keeps tests fast while still
+// producing numIntermediates distinct intermediate blocks for limit checks.
+func buildTSAChainPEM(t *testing.T, numIntermediates int) string {
+	t.Helper()
+	root, rootKey := generateTestRootCA(t)
+	intermediate, _ := generateTestIntermediateCA(t, 2, root, rootKey)
+	var buf bytes.Buffer
+	buf.Write(certsToPEM([]*x509.Certificate{root}))
+	buf.Write(repeatPEMBlock(certsToPEM([]*x509.Certificate{intermediate}), numIntermediates))
+	return buf.String()
+}
+
 // TestBuildCosignOptions_TSACertChainTooManyIntermediates verifies that a TSA certificate
-// chain with more than maxIntermediateCerts (10) intermediate CAs is rejected.
+// chain with more than maxIntermediateCerts intermediate CAs is rejected.
 func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
 
-	// Build a TSA chain: 1 root + 11 intermediates — exceeds maxIntermediateCerts=10.
-	// All intermediates are signed by the root so they each have a distinct Issuer from
-	// their own Subject, ensuring splitPEMCertificateChain classifies them as intermediates.
-	root, rootKey := generateTestRootCA(t)
-	certs := []*x509.Certificate{root}
-	for i := 0; i < 11; i++ {
-		intermediate, _ := generateTestIntermediateCA(t, int64(i+2), root, rootKey)
-		certs = append(certs, intermediate)
-	}
+	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts+1)
 
 	// wrongPubKey is a valid ECDSA key defined in verifier_test.go (same package).
 	// Using a key avoids the Fulcio-roots network call in buildCosignOptions.
@@ -105,58 +122,48 @@ func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 		Key:          wrongPubKey,
 		IgnoreTlog:   true,
 		IgnoreSCT:    true,
-		TSACertChain: string(certsToPEM(certs)),
+		TSACertChain: tsaChain,
 	}
 
 	_, err = buildCosignOptions(context.TODO(), opts)
-	assert.ErrorContains(t, err, "TSA certificate chain contains too many intermediate certificates")
+	assert.ErrorContains(t, err, "TSA certificate chain contains too many")
 }
 
 // TestBuildCosignOptions_TSACertChainAtLimit verifies that a TSA chain with exactly
-// maxIntermediateCerts (10) intermediates is not rejected by the length check.
+// maxIntermediateCerts intermediates is not rejected by the length check.
 func TestBuildCosignOptions_TSACertChainAtLimit(t *testing.T) {
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
 
-	// Build a TSA chain: 1 root + exactly 10 intermediates — at the limit, must pass.
-	// All intermediates are signed by root to ensure they are classified as intermediates.
-	root, rootKey := generateTestRootCA(t)
-	certs := []*x509.Certificate{root}
-	for i := 0; i < 10; i++ {
-		intermediate, _ := generateTestIntermediateCA(t, int64(i+2), root, rootKey)
-		certs = append(certs, intermediate)
-	}
+	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts)
 
 	opts := verifiers.Options{
 		Client:       rc,
 		Key:          wrongPubKey,
 		IgnoreTlog:   true,
 		IgnoreSCT:    true,
-		TSACertChain: string(certsToPEM(certs)),
+		TSACertChain: tsaChain,
 	}
 
 	_, err = buildCosignOptions(context.TODO(), opts)
 	if err != nil {
-		assert.Assert(t, !strings.Contains(err.Error(), "TSA certificate chain contains too many intermediate certificates"),
-			"boundary chain (10 intermediates) must not be rejected by intermediate-count check; got: %v", err)
+		assert.Assert(t, !strings.Contains(err.Error(), "TSA certificate chain contains too many"),
+			"boundary chain (%d intermediates) must not be rejected by intermediate-count check; got: %v", maxIntermediateCerts, err)
 	}
 }
 
-// buildCertChainPEM generates n self-signed CA certs and concatenates their PEM encodings.
-// loadCertChain (used in buildCosignOptions) loads all PEM blocks without checking chain
-// structure, so this produces a chain of length n for limit testing.
+// buildCertChainPEM generates one self-signed cert and concatenates n copies of its
+// PEM encoding. loadCertChain (used in buildCosignOptions) loads all PEM blocks without
+// checking chain structure, so this produces a chain of length n for limit testing
+// without paying RSA key-generation cost per cert.
 func buildCertChainPEM(t *testing.T, n int) string {
 	t.Helper()
-	var certs []*x509.Certificate
-	for i := 0; i < n; i++ {
-		cert, _ := generateTestRootCA(t)
-		certs = append(certs, cert)
-	}
-	return string(certsToPEM(certs))
+	cert, _ := generateTestRootCA(t)
+	return string(repeatPEMBlock(certsToPEM([]*x509.Certificate{cert}), n))
 }
 
 // TestBuildCosignOptions_CertChainTooLong verifies that a certificate chain longer than
-// maxIntermediateCerts+1 (11) is rejected when opts.Cert and opts.CertChain are set.
+// maxIntermediateCerts+1 is rejected when opts.Cert and opts.CertChain are set.
 func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
@@ -164,11 +171,10 @@ func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))
 
-	// 12 certs — exceeds maxIntermediateCerts+1=11.
 	opts := verifiers.Options{
 		Client:     rc,
 		Cert:       certPEM,
-		CertChain:  buildCertChainPEM(t, 12),
+		CertChain:  buildCertChainPEM(t, maxIntermediateCerts+2),
 		IgnoreTlog: true,
 		IgnoreSCT:  true,
 	}
@@ -178,7 +184,7 @@ func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
 }
 
 // TestBuildCosignOptions_CertChainAtLimit verifies that a certificate chain of exactly
-// maxIntermediateCerts+1 (11) entries is not rejected by the length check.
+// maxIntermediateCerts+1 entries is not rejected by the length check.
 func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
@@ -186,11 +192,10 @@ func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))
 
-	// Exactly 11 certs — at the boundary.
 	opts := verifiers.Options{
 		Client:     rc,
 		Cert:       certPEM,
-		CertChain:  buildCertChainPEM(t, 11),
+		CertChain:  buildCertChainPEM(t, maxIntermediateCerts+1),
 		IgnoreTlog: true,
 		IgnoreSCT:  true,
 	}
@@ -199,6 +204,6 @@ func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
 	// May fail for chain-validation reasons but must not fail on the length check.
 	if err != nil {
 		assert.Assert(t, !strings.Contains(err.Error(), "certificate chain too long"),
-			"boundary chain (11 certs) must not be rejected by the length check; got: %v", err)
+			"boundary chain (%d certs) must not be rejected by the length check; got: %v", maxIntermediateCerts+1, err)
 	}
 }

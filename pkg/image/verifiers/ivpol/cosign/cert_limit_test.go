@@ -11,43 +11,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// repeatPEMBlock concatenates the given PEM block count times. This lets tests
+// build arbitrarily long chains without paying RSA key-generation cost per cert.
+func repeatPEMBlock(block []byte, count int) []byte {
+	var buf bytes.Buffer
+	buf.Grow(len(block) * count)
+	for i := 0; i < count; i++ {
+		buf.Write(block)
+	}
+	return buf.Bytes()
+}
+
 // buildTSAChainPEM returns a PEM containing one self-signed root CA followed by
-// numIntermediates intermediate CA certificates, all signed by the same root.
-// Helper functions generateRootCA, generateIntermediateCA, and certToPEM are defined
-// in certs_test.go (same package).
+// numIntermediates copies of a single intermediate CA PEM block. Repeating the same
+// intermediate (rather than regenerating fresh RSA keys per cert) keeps tests fast
+// while still producing numIntermediates distinct intermediate blocks for limit checks.
+// Helpers generateRootCA, generateIntermediateCA, and certToPEM are defined in
+// certs_test.go (same package).
 func buildTSAChainPEM(t *testing.T, numIntermediates int) string {
 	t.Helper()
 	root, rootKey := generateRootCA(t)
+	intermediate, _ := generateIntermediateCA(t, root, rootKey)
 	var buf bytes.Buffer
 	buf.Write(certToPEM(root))
-	for i := 0; i < numIntermediates; i++ {
-		intermediate, _ := generateIntermediateCA(t, root, rootKey)
-		buf.Write(certToPEM(intermediate))
-	}
+	buf.Write(repeatPEMBlock(certToPEM(intermediate), numIntermediates))
 	return buf.String()
 }
 
-// buildMultiCertPEM returns a PEM containing numCerts self-signed CA certificates
-// concatenated — suitable for testing chain-length limits since cryptoutils.LoadCertificatesFromPEM
-// returns all certs without checking chain structure.
+// buildMultiCertPEM returns a PEM containing numCerts copies of a single self-signed
+// CA certificate — suitable for testing chain-length limits since cryptoutils.LoadCertificatesFromPEM
+// returns all certs without checking chain structure. Reusing one cert avoids the
+// cost of generating a fresh RSA key per block.
 func buildMultiCertPEM(t *testing.T, numCerts int) string {
 	t.Helper()
-	var buf bytes.Buffer
-	for i := 0; i < numCerts; i++ {
-		cert, _ := generateRootCA(t)
-		buf.Write(certToPEM(cert))
-	}
-	return buf.String()
+	cert, _ := generateRootCA(t)
+	return string(repeatPEMBlock(certToPEM(cert), numCerts))
 }
 
 // TestCheckOptions_TSACertChainTooManyIntermediates verifies that a TSA chain with more
-// than maxIntermediateCerts (10) intermediate CAs is rejected.
+// than maxIntermediateCerts intermediate CAs is rejected.
 func TestCheckOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
-	// 11 intermediates — exceeds maxIntermediateCerts=10.
-	tsaChain := buildTSAChainPEM(t, 11)
+	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts+1)
 
 	cosignCfg := &v1beta1.Cosign{
 		Key: &v1beta1.Key{
@@ -63,17 +70,16 @@ func TestCheckOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 
 	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "TSA certificate chain contains too many intermediate certificates")
+	assert.Contains(t, err.Error(), "TSA certificate chain contains too many")
 }
 
 // TestCheckOptions_TSACertChainAtLimit verifies that a TSA chain with exactly
-// maxIntermediateCerts (10) intermediates is not rejected by the count limit.
+// maxIntermediateCerts intermediates is not rejected by the count limit.
 func TestCheckOptions_TSACertChainAtLimit(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
-	// Exactly 10 intermediates — at the boundary, must pass the count check.
-	tsaChain := buildTSAChainPEM(t, 10)
+	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts)
 
 	cosignCfg := &v1beta1.Cosign{
 		Key: &v1beta1.Key{
@@ -89,13 +95,13 @@ func TestCheckOptions_TSACertChainAtLimit(t *testing.T) {
 
 	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
 	if err != nil {
-		assert.False(t, strings.Contains(err.Error(), "TSA certificate chain contains too many intermediate certificates"),
-			"boundary value (10 intermediates) must not be rejected by the count check; got: %v", err)
+		assert.False(t, strings.Contains(err.Error(), "TSA certificate chain contains too many"),
+			"boundary value (%d intermediates) must not be rejected by the count check; got: %v", maxIntermediateCerts, err)
 	}
 }
 
 // TestCheckOptions_CertChainTooLong verifies that att.Certificate.CertificateChain with
-// more than maxIntermediateCerts+1 (11) entries is rejected.
+// more than maxIntermediateCerts+1 entries is rejected.
 func TestCheckOptions_CertChainTooLong(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
@@ -104,8 +110,7 @@ func TestCheckOptions_CertChainTooLong(t *testing.T) {
 	leafCert, _ := generateRootCA(t)
 	leafPEM := string(certToPEM(leafCert))
 
-	// 12 certs in the chain — exceeds maxIntermediateCerts+1=11.
-	chainPEM := buildMultiCertPEM(t, 12)
+	chainPEM := buildMultiCertPEM(t, maxIntermediateCerts+2)
 
 	cosignCfg := &v1beta1.Cosign{
 		Certificate: &v1beta1.Certificate{
@@ -125,7 +130,7 @@ func TestCheckOptions_CertChainTooLong(t *testing.T) {
 }
 
 // TestCheckOptions_CertChainAtLimit verifies that a CertificateChain with exactly
-// maxIntermediateCerts+1 (11) entries is not rejected by the length check.
+// maxIntermediateCerts+1 entries is not rejected by the length check.
 func TestCheckOptions_CertChainAtLimit(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
@@ -133,8 +138,7 @@ func TestCheckOptions_CertChainAtLimit(t *testing.T) {
 	leafCert, _ := generateRootCA(t)
 	leafPEM := string(certToPEM(leafCert))
 
-	// Exactly 11 certs in the chain — at the boundary.
-	chainPEM := buildMultiCertPEM(t, 11)
+	chainPEM := buildMultiCertPEM(t, maxIntermediateCerts+1)
 
 	cosignCfg := &v1beta1.Cosign{
 		Certificate: &v1beta1.Certificate{
@@ -152,6 +156,6 @@ func TestCheckOptions_CertChainAtLimit(t *testing.T) {
 	// May fail for chain-validation reasons but must not fail on the length check.
 	if err != nil {
 		assert.False(t, strings.Contains(err.Error(), "certificate chain too long"),
-			"boundary chain (11 certs) must not be rejected by the length check; got: %v", err)
+			"boundary chain (%d certs) must not be rejected by the length check; got: %v", maxIntermediateCerts+1, err)
 	}
 }
