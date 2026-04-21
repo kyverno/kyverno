@@ -33,12 +33,10 @@ builds:
 
 signs:
   - cmd: cosign
-    certificate: "${artifact}.pem"
     signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
       - --bundle=${signature}
-      - --output-certificate=${certificate}
       - ${artifact}
       - --yes
     artifacts: all
