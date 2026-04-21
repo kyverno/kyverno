@@ -967,9 +967,20 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
+	// p.Cluster is derived from "the test spec declares cluster resources"
+	// (see test.go), not from "we have a live cluster connection". When
+	// `kyverno test` runs against a MutatingPolicy with a custom CRD and
+	// cluster-scoped resources, the PolicyProcessor is wired with a fake
+	// discovery client whose OpenAPIV3 method panics with "unimplemented"
+	// (#15770). Detect the fake client via recover() and fall through to
+	// the on-disk CRD loader so tests continue to work.
 	if p.Cluster {
-		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
-	} else if p.CrdPath != "" {
+		if client, ok := tryOpenAPIV3(p.Client); ok {
+			return client
+		}
+	}
+
+	if p.CrdPath != "" {
 		absPath := getAbsPath(p.CrdPath)
 		diskCrds := os.DirFS(absPath)
 		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
@@ -982,6 +993,24 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients = append(clients, openapiclient.NewHardcodedBuiltins("1.32"))
 
 	return openapiclient.NewComposite(clients...)
+}
+
+// tryOpenAPIV3 invokes discovery.OpenAPIV3() under recover(). The fake
+// discovery client used by `kyverno test` panics with "unimplemented"
+// instead of returning a typed error (#15770), so a plain call here
+// crashes the CLI.
+func tryOpenAPIV3(c dclient.Interface) (client openapi.Client, ok bool) {
+	if c == nil || c.GetKubeClient() == nil {
+		return nil, false
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			client, ok = nil, false
+		}
+	}()
+	client = c.GetKubeClient().Discovery().OpenAPIV3()
+	ok = client != nil
+	return
 }
 
 func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
