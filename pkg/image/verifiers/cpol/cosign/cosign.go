@@ -30,6 +30,22 @@ import (
 	"go.uber.org/multierr"
 )
 
+// maxIntermediateCerts limits the number of intermediate certificates accepted
+// from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
+// unbounded work in crypto/x509 certificate chain building).
+const maxIntermediateCerts = 10
+
+// pemCertBlockHeader is the PEM block header used to count certificate blocks
+// cheaply before full ASN.1 parsing.
+var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
+
+// countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
+// using a cheap byte scan, so we can reject oversized chains before doing the
+// expensive PEM/ASN.1 parsing work.
+func countPEMCertBlocks(pem []byte) int {
+	return bytes.Count(pem, pemCertBlockHeader)
+}
+
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
@@ -89,10 +105,18 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
 			} else {
-				// Verify certificate with chain
+				// Verify certificate with chain.
+				// Cheap pre-check on the raw PEM to reject oversized chains
+				// before doing expensive ASN.1 parsing (CVE-2026-32280).
+				if n := countPEMCertBlocks([]byte(opts.CertChain)); n > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", n, maxIntermediateCerts+1)
+				}
 				chain, err := loadCertChain([]byte(opts.CertChain))
 				if err != nil {
-					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+					return nil, fmt.Errorf("failed to load certificate chain: %w", err)
+				}
+				if len(chain) > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)
 				}
 				cosignOpts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, cosignOpts)
 				if err != nil {
@@ -152,12 +176,22 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 	}
 
 	if opts.TSACertChain != "" {
+		// Cheap pre-check on the raw PEM to reject oversized chains before
+		// doing expensive ASN.1 parsing (CVE-2026-32280). A valid TSA chain
+		// has at most one leaf, maxIntermediateCerts intermediates, plus any
+		// number of roots; capping on blocks here is a conservative guard.
+		if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxIntermediateCerts+2 {
+			return nil, fmt.Errorf("TSA certificate chain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
+		}
 		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
 		if err != nil {
 			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
 		}
 		if len(leaves) > 1 {
 			return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+		}
+		if len(intermediates) > maxIntermediateCerts {
+			return nil, fmt.Errorf("TSA certificate chain contains too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
 		}
 		if len(leaves) == 1 {
 			cosignOpts.TSACertificate = leaves[0]
