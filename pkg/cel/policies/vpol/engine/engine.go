@@ -206,10 +206,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 }
 
 // withValidationIndex returns a copy of props with "cel.validationIndex" set to
-// the zero-based position of the failing validation expression. The copy avoids
-// mutating the caller's map.
-// Consumers (e.g. policy-report controllers, CLI tools) can use this property
-// to map a report entry back to the exact expression in spec.validations[i].
+// the zero-based position of the failing validation expression.
 func withValidationIndex(props map[string]string, idx int) map[string]string {
 	out := make(map[string]string, len(props)+1)
 	for k, v := range props {
