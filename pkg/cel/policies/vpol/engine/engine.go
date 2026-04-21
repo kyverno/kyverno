@@ -199,10 +199,24 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations))
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
 	}
 	return response
+}
+
+// withValidationIndex returns a copy of props with "cel.validationIndex" set to
+// the zero-based position of the failing validation expression. The copy avoids
+// mutating the caller's map.
+// Consumers (e.g. policy-report controllers, CLI tools) can use this property
+// to map a report entry back to the exact expression in spec.validations[i].
+func withValidationIndex(props map[string]string, idx int) map[string]string {
+	out := make(map[string]string, len(props)+1)
+	for k, v := range props {
+		out[k] = v
+	}
+	out["cel.validationIndex"] = strconv.Itoa(idx)
+	return out
 }
 
 func (e *engineImpl) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
