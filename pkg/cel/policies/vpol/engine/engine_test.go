@@ -81,7 +81,6 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 	assert.Equal(t, "0", rule.Properties()["cel.validationIndex"])
 }
 
-
 func TestWithValidationIndex(t *testing.T) {
 	t.Run("nil props", func(t *testing.T) {
 		out := withValidationIndex(nil, 3)
