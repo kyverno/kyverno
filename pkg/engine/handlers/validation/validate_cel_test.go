@@ -894,3 +894,58 @@ func TestCELValidationFieldExtraction(t *testing.T) {
 	assert.Equal(t, "rule-level fallback message", validations[0].Message, "empty message should be filled from rule.Validation.Message")
 	assert.Equal(t, "explicit message", validations[1].Message, "non-empty message should not be overwritten")
 }
+
+func TestValidateCELHandler_ValidationIndexProperty(t *testing.T) {
+	// Four expressions; only the third (index 2) fails.
+	// The response properties must carry cel.validationIndex=2.
+	celPolicyThirdFails := `{                                                                                                                     
+     "apiVersion": "kyverno.io/v1",                                                                                                              
+     "kind": "ClusterPolicy",                                                                                                                    
+     "metadata": { "name": "cel-index-check" },                                                                                                  
+     "spec": {                                                                                                                                   
+       "validationFailureAction": "Enforce",                                                                                                     
+       "rules": [{                                                                                                                               
+         "name": "multi-check",                                                                                                                  
+         "match": {                                                                                                                              
+           "any": [{ "resources": { "kinds": ["Pod"] } }]                                                                                        
+         },                                                                                                                                      
+         "validate": {                                                                                                                           
+           "cel": {                                                                                                                              
+            "expressions": [                                                                                                                    
+               {                                                                                                                                 
+                 "expression": "object.metadata.name == 'test-pod'",                                                                             
+                 "message": "index 0: passes"                                                                                                    
+               },                                                                                                                                
+              {                                                                                                                                 
+                "expression": "has(object.metadata.labels.app)",                                                                                
+                 "message": "index 1: passes"                                                                                                    
+               },                                                                                                                                
+          {                                                                                                                                 
+             "expression": "object.metadata.name == 'wrong-name'",                                                                           
+             "message": "index 2: fails"                                                                                                     
+           },                                                                                                                                
+           {                                                                                                                                 
+              "expression": "has(object.metadata.labels.app)",                                                                                
+               "message": "index 3: would pass"                                                                                                
+           }                                                                                                                                 
+        ]                                                                                                                                   
+        }                                                                                                                                     
+    }                                                                                                                                       
+}]                                                                                                                                        
+  }                                                                                                                                           
+}`
+
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	pc := buildCELContext(t, kyvernov1.Create, celPolicyThirdFails, celPodResource, "")
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Contains(t, responses[0].Message(), "index 2: fails")
+	assert.Equal(t, "2", responses[0].Properties()["cel.validationIndex"],
+		"cel.validationIndex must reflect the actual failing expression index, not the loop counter")
+}
