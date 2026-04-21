@@ -161,11 +161,12 @@ func (p *Policy) evaluateWithData(
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
+				IndexKnown:       true,
 				Error:            err,
 				AuditAnnotations: auditAnnotations,
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err}, nil
+			return &EvaluationResult{Error: err, Index: index, IndexKnown: true}, nil
 		}
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
