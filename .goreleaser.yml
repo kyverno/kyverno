@@ -33,18 +33,15 @@ builds:
 
 signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
     certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - --bundle=${artifact}.sigstore.json
+      - --bundle=${signature}
       - --output-certificate=${certificate}
-      - --output-signature=${signature}
       - ${artifact}
       - --yes
     artifacts: all
-    output: true
 
 archives:
   - id: kyverno-cli-archive
