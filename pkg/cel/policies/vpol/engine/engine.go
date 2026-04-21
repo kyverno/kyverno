@@ -205,14 +205,19 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	return response
 }
 
-// withValidationIndex returns a copy of props with "cel.validationIndex" set to
-// the zero-based position of the failing validation expression.
+const validationIndexKey = "cel.validationIndex"
+
+// withValidationIndex returns a copy of props with validationIndexKey set to
+// the zero-based position of the failing validation expression when that key
+// is not already present.
 func withValidationIndex(props map[string]string, idx int) map[string]string {
 	out := make(map[string]string, len(props)+1)
 	for k, v := range props {
 		out[k] = v
 	}
-	out["cel.validationIndex"] = strconv.Itoa(idx)
+	if _, exists := out[validationIndexKey]; !exists {
+		out[validationIndexKey] = strconv.Itoa(idx)
+	}
 	return out
 }
 

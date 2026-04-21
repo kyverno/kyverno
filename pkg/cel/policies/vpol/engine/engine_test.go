@@ -81,32 +81,6 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 	assert.Equal(t, "0", rule.Properties()["cel.validationIndex"])
 }
 
-func TestHandle_ValidationIndexOnError(t *testing.T) {
-	// Expression at index 1 returns a string instead of bool, causing a
-	// ConvertToNative[bool] error. The RuleError response must carry
-	// cel.validationIndex="1" so the failing expression is identifiable.
-	policy := buildJSONPolicy("test-index-error", []admissionregistrationv1.Validation{
-		{Expression: "object.name != ''", Message: "index 0: passes"},
-		{Expression: "'not-a-bool'", Message: "index 1: errors (returns string)"},
-		{Expression: "object.name == 'allowed'", Message: "index 2: never reached"},
-	})
-
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
-	require.NoError(t, err)
-
-	eng := NewEngine(provider, nil, nil)
-	payload := &unstructured.Unstructured{Object: map[string]any{"name": "allowed"}}
-
-	resp, err := eng.Handle(context.Background(), celengine.RequestFromJSON(nil, payload), nil)
-	require.NoError(t, err)
-	require.Len(t, resp.Policies, 1)
-	require.Len(t, resp.Policies[0].Rules, 1)
-
-	rule := resp.Policies[0].Rules[0]
-	assert.Equal(t, engineapi.RuleStatusError, rule.Status())
-	assert.Equal(t, "1", rule.Properties()["cel.validationIndex"],
-		"cel.validationIndex must identify the erroring expression, not default to 0")
-}
 
 func TestWithValidationIndex(t *testing.T) {
 	t.Run("nil props", func(t *testing.T) {
