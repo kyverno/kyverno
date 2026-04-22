@@ -7,8 +7,8 @@ metadata:
   annotations:
     policies.kyverno.io/title: Restrict Sysctls
     policies.kyverno.io/category: Pod Security Standards (Baseline)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}

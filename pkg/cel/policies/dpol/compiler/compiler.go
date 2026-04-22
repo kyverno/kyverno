@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/google/cel-go/cel"
@@ -9,7 +8,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/gzip"
 	"github.com/kyverno/sdk/cel/libs/hash"
@@ -130,8 +128,6 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
@@ -178,16 +174,10 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 		gzip.Lib(
 			gzip.Latest(),
 		),
-	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
 			http.Latest(),
-		))
+		),
 	}
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
