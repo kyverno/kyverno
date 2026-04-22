@@ -5,7 +5,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
@@ -49,6 +48,59 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	libEnvOpts := []cel.EnvOption{
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		user.Lib(
+			user.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			http.Latest(),
+		),
+	}
+
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
 	extendedEnvSet, err := base.Extend(
@@ -59,58 +111,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: targetConstraintsEnvironmentVersion,
-			EnvOptions: []cel.EnvOption{
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(apicall.NewScopedTokenClient())},
-					http.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					namespace,
-					resource.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {

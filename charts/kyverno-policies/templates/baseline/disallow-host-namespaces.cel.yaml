@@ -7,8 +7,8 @@ metadata:
   annotations:
     policies.kyverno.io/title: Disallow Host Namespaces
     policies.kyverno.io/category: Pod Security Standards (Baseline)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
@@ -18,7 +18,7 @@ metadata:
       network namespace) allow access to shared information and can be used to elevate
       privileges. Pods should not be allowed access to host namespaces. This policy ensures
       fields which make use of these host namespaces are unset or set to `false`.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   failurePolicy: {{ .Values.failurePolicy }}
@@ -28,6 +28,13 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
+    {{- with .excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
+  {{ end }}
   validations:
     - expression: >-
         (!has(object.spec.hostPID) || object.spec.hostPID == false) &&
@@ -36,6 +43,7 @@ spec:
       message: >-
         Sharing the host namespaces is disallowed. The fields spec.hostNetwork,
         spec.hostIPC, and spec.hostPID must be unset or set to `false`.
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}

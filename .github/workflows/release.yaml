@@ -298,7 +298,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
+        uses: goreleaser/goreleaser-action@e24998b8b67b290c2fa8b7c14fcfa7de2c5c9b8c # v7.1.0
         with:
           distribution: goreleaser
           version: latest
@@ -330,7 +330,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@871be9b40d53627786d3a3835a3ddba1e3234bd2 # v2.8.3
+        uses: fluxcd/flux2/action@5adad89dcce7b79f20274ae8e112bcec7bd46764 # v2.8.5
         with:
           version: 0.35.0
       - name: Install Cosign
