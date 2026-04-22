@@ -849,8 +849,6 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 	}
 }
 
-
-
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -1280,8 +1278,6 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	expected := `Error: unknown flag: --xxx`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
-
-
 
 func TestCommandWarnExitCode(t *testing.T) {
 	warnExitCode := 3
