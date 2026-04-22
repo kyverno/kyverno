@@ -113,7 +113,7 @@ type ApplyCommandConfig struct {
 	BatchSize                 int
 	ContinueOnError           bool
 	ShowPerformance           bool
-	CrdPath                   string
+	CrdPaths                  []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -246,7 +246,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
-	cmd.Flags().StringVar(&applyCommandConfig.CrdPath, "crd-path", "", "crd path to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files to be used for apply command")
 	return cmd
 }
 
@@ -265,6 +265,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
+
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
@@ -327,7 +328,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 	}
 
-	dClient, err := c.initStoreAndClusterClient(&store, append(targetResources, parameterResources...)...)
+	dClient, isFakeClient, err := c.initStoreAndClusterClient(&store, append(targetResources, parameterResources...)...)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -416,6 +417,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		celexceptions,
 		&skippedInvalidPolicies,
 		dClient,
+		isFakeClient,
 		userInfo,
 		mutateLogPathIsDir,
 	)
@@ -492,6 +494,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
+	isFakeClient bool,
 	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
@@ -550,11 +553,12 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Rc:                                &rc,
 			PrintPatchResource:                true,
 			Cluster:                           c.Cluster,
+			IsFakeClient:                      isFakeClient,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -591,11 +595,12 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Rc:                                &rc,
 			PrintPatchResource:                true,
 			Cluster:                           c.Cluster,
+			IsFakeClient:                      isFakeClient,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -1131,7 +1136,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, bool, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -1139,26 +1144,28 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 	}
 	var err error
 	var dClient dclient.Interface
+	var isFakeClient bool
+
 	if c.Cluster {
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		dynamicClient, err := dynamic.NewForConfig(restConfig)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		metadataClient, err := metadata.NewForConfig(restConfig)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false, metadataClient)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 	if len(targetResources) > 0 && !c.Cluster {
@@ -1168,11 +1175,12 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		}
 		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+		isFakeClient = true
 	}
-	return dClient, err
+	return dClient, isFakeClient, err
 }
 
 func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error {
@@ -1206,8 +1214,8 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
-	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
-		return fmt.Errorf("crdpath and kubeconfig flags are mutually exclusive, please use only one of them")
+	if len(c.CrdPaths) != 0 && strings.TrimSpace(c.KubeConfig) != "" {
+		return fmt.Errorf("crd-paths and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
 	return nil
 }

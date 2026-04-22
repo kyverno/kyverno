@@ -46,7 +46,7 @@ kyverno apply [flags]
       --context-file string                File containing context data for CEL policies
       --continue-on-error                  Continue processing despite resource loading errors (default true)
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
-      --crd-path string                    crd path to be used for apply command
+      --crd-paths strings                  List of paths to CRD files to be used for apply command
       --detailed-results                   If set to true, display detailed results
       --envoy-payload strings              Path to Envoy check request payload files (JSON)
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources

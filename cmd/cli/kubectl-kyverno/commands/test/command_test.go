@@ -507,3 +507,19 @@ func TestLookupRuleResponses(t *testing.T) {
 		})
 	}
 }
+
+func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
+	testDir := "../../../../../test/cli/test-mutating-policy/mutate-custom-crd/"
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	_, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	t.Logf("Test output: %s", out.String())
+}

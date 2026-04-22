@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-set-annotations-for-widget
+policies:
+  - policy.yaml
+clusterResources:
+  - clusterresources.yaml
+resources:
+  - widget.yaml
+results:
+  - patchedResources: patched-widget.yaml
+    isMutatingPolicy: true
+    kind: Widget
+    policy: set-annotations-for-widget
+    resources:
+      - test-namespace/my-widget
+    result: pass
