@@ -3,8 +3,8 @@ kind: Values
 policies:
 - name: block-images
   rules:
-  - foreachValues:
-      imageData:
+  - name: block-images
+    foreachValues:
+    - imageData:
       - foo
       - foo1
-    name: block-images

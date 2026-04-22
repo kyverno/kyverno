@@ -28,11 +28,15 @@ type forEachMutator struct {
 func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	var applyCount int
 
-	for _, foreach := range f.foreach {
+	for i, foreach := range f.foreach {
 		elements, err := engineutils.EvaluateList(foreach.List, f.policyContext.JSONContext())
 		if err != nil {
 			msg := fmt.Sprintf("failed to evaluate list %s: %v", foreach.List, err)
 			return mutate.NewErrorResponse(msg, err)
+		}
+
+		if err := f.policyContext.JSONContext().AddVariable("foreachBlockIndex", int64(i)); err != nil {
+			f.logger.Error(err, "failed to set foreachBlockIndex")
 		}
 
 		mutateResp := f.mutateElements(ctx, foreach, elements)

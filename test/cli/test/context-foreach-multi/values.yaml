@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+policies:
+- name: check-images
+  rules:
+  - name: check-images
+    foreachValues:
+    - registryData:
+      - ok
+      - ok
+    - initRegistryData:
+      - ok
