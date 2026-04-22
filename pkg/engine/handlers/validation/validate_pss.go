@@ -65,7 +65,7 @@ func (h validatePssHandler) validate(
 	}
 
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
+	matchedExceptions := engineutils.MatchesExceptionWithContext(ctx, h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		var polex kyvernov2.PolicyException
 		hasPodSecurity := true
