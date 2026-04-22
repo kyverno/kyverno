@@ -208,6 +208,12 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = converted
 			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 				matchResources = gpol.Spec.MatchConstraints
+			} else if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+				matchResources = ngpol.Spec.MatchConstraints
+			} else if mp := policy.AsMutatingPolicy(); mp != nil {
+				matchResources = mp.Spec.MatchConstraints
+			} else if nmp := policy.AsNamespacedMutatingPolicy(); nmp != nil {
+				matchResources = nmp.Spec.MatchConstraints
 			}
 			rf.getKindsFromPolicy(matchResources, info)
 		}

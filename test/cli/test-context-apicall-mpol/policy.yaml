@@ -1,0 +1,48 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/description: >-
+      Looks up the ComputeClass CRD via resource.get() and adds a
+      'compute-class-type' label indicating whether the compute class
+      has spot enabled. This tests context-based CRD API call lookups
+      for MutatingPolicy.
+    policies.kyverno.io/title: Label ComputeClass Type via CRD Lookup
+  name: label-computeclass-type-crd
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["deployments"]
+  variables:
+  - name: nodeSelector
+    expression: >-
+      object.spec.?template.?spec.?nodeSelector.orValue({})
+  - name: computeclassname
+    expression: >-
+      variables.nodeSelector[?'cloud.google.com/compute-class'].orValue('default')
+  - name: computeclass
+    expression: >-
+      resource.get('cloud.google.com/v1', 'computeclasses', '',
+      variables.computeclassname)
+  - name: priorities
+    expression: "variables.computeclass.?spec.?priorities.orValue([])"
+  - name: hasSpot
+    expression: >-
+      variables.priorities.exists(p, p.?spot.orValue(false) == true)
+  - name: classType
+    expression: >-
+      variables.hasSpot ? 'spot' : 'on-demand'
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels/compute-class-type",
+            value: variables.classType
+          }
+        ]
