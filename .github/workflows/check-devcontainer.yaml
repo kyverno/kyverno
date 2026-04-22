@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
       - name: Check for .devcontainer changes
         id: changed-files
-        uses: tj-actions/changed-files@22103cc46bda19c2b464ffe86db46df6922fd323 # v47.0.5
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: .devcontainer/**
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
@@ -45,7 +45,7 @@ jobs:
           tool-cache: false
       - name: Build devcontainer image
         if: steps.changed-files.outputs.any_changed == 'true'
-        uses: devcontainers/ci@8bf61b26e9c3a98f69cb6ce2f88d24ff59b785c6 # v0.3
+        uses: devcontainers/ci@b63b30de439b47a52267f241112c5b453b673db5 # v0.3
         with:
           push: never
 
@@ -61,3 +61,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Sync issue
         uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}
