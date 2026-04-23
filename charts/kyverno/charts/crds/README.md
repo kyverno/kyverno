@@ -1,6 +1,6 @@
 # crds
 
-![Version: kyverno-chart-3.7.2](https://img.shields.io/badge/Version-kyverno--chart--3.7.2-informational?style=flat-square)
+![Version: 3.7.2](https://img.shields.io/badge/Version-3.7.2-informational?style=flat-square)
 
 ## Values
 
