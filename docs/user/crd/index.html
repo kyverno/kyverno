@@ -11017,14 +11017,14 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 Resource Types:
 <ul></ul>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.ApolCondition">ApolCondition
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingCondition">AuthorizingCondition
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">AuthorizingPolicyRule</a>)
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRule">AuthorizingRule</a>)
 </p>
 <p>
-<p>ApolCondition defines a condition in a rule</p>
+<p>AuthorizingCondition is one conditional authorization branch evaluated after a conditional rule matches.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11036,7 +11036,7 @@ Resource Types:
 <tbody>
 <tr>
 <td>
-<code>key</code><br/>
+<code>id</code><br/>
 <em>
 string
 </em>
@@ -11046,7 +11046,7 @@ string
 </tr>
 <tr>
 <td>
-<code>operator</code><br/>
+<code>expression</code><br/>
 <em>
 string
 </em>
@@ -11056,9 +11056,112 @@ string
 </tr>
 <tr>
 <td>
-<code>value</code><br/>
+<code>effect</code><br/>
 <em>
-interface{}
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingConditionEffect">
+AuthorizingConditionEffect
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>description</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingConditionEffect">AuthorizingConditionEffect
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingCondition">AuthorizingCondition</a>)
+</p>
+<p>
+<p>AuthorizingConditionEffect is the outcome of a matching conditional branch.</p>
+</p>
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingFailurePolicyType">AuthorizingFailurePolicyType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+</p>
+<p>
+<p>AuthorizingFailurePolicyType controls behavior if policy evaluation fails.</p>
+</p>
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingMatchCondition">AuthorizingMatchCondition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>, 
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRule">AuthorizingRule</a>)
+</p>
+<p>
+<p>AuthorizingMatchCondition is a named CEL expression evaluated before a policy or rule runs.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingMatchConstraints">AuthorizingMatchConstraints
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+</p>
+<p>
+<p>AuthorizingMatchConstraints narrows policy applicability by request metadata.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>resourceRules</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingResourceRule">
+[]AuthorizingResourceRule
+</a>
 </em>
 </td>
 <td>
@@ -11070,7 +11173,6 @@ interface{}
 <h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy
 </h3>
 <p>
-<p>AuthorizingPolicy is the schema for authorization policies</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11109,10 +11211,70 @@ AuthorizingPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingFailurePolicyType">
+AuthorizingFailurePolicyType
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchCondition">
+[]AuthorizingMatchCondition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchConstraints">
+AuthorizingMatchConstraints
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>rules</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">
-[]AuthorizingPolicyRule
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRule">
+[]AuthorizingRule
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>subjects</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#subject-v1-rbac">
+[]Kubernetes rbac/v1.Subject
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingVariable">
+[]AuthorizingVariable
 </a>
 </em>
 </td>
@@ -11137,14 +11299,188 @@ AuthorizingPolicyStatus
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">AuthorizingPolicyRule
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
+</p>
+<p>
+<p>AuthorizingPolicySpec defines the desired authorizing policy behavior.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingFailurePolicyType">
+AuthorizingFailurePolicyType
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchCondition">
+[]AuthorizingMatchCondition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchConstraints">
+AuthorizingMatchConstraints
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>rules</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRule">
+[]AuthorizingRule
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>subjects</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#subject-v1-rbac">
+[]Kubernetes rbac/v1.Subject
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>variables</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingVariable">
+[]AuthorizingVariable
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicyStatus">AuthorizingPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
+</p>
+<p>
+<p>AuthorizingPolicyStatus captures readiness information for an authorizing policy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditionStatus</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ConditionStatus">
+ConditionStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingResourceRule">AuthorizingResourceRule
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchConstraints">AuthorizingMatchConstraints</a>)
+</p>
+<p>
+<p>AuthorizingResourceRule declares which resource operations an authorizing policy applies to.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiGroups</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>verbs</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingRule">AuthorizingRule
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
 </p>
 <p>
-<p>AuthorizingPolicyRule defines a single authorization rule</p>
+<p>AuthorizingRule defines one authorization rule.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11166,11 +11502,9 @@ string
 </tr>
 <tr>
 <td>
-<code>conditions</code><br/>
+<code>expression</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.ApolCondition">
-[]ApolCondition
-</a>
+string
 </em>
 </td>
 <td>
@@ -11179,6 +11513,81 @@ string
 <tr>
 <td>
 <code>effect</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRuleEffect">
+AuthorizingRuleEffect
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingMatchCondition">
+[]AuthorizingMatchCondition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingCondition">
+[]AuthorizingCondition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingRuleEffect">AuthorizingRuleEffect
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingRule">AuthorizingRule</a>)
+</p>
+<p>
+<p>AuthorizingRuleEffect is the outcome of a matching authorizing rule.</p>
+</p>
+<h3 id="policies.kyverno.io/v1alpha1.AuthorizingVariable">AuthorizingVariable
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec</a>)
+</p>
+<p>
+<p>AuthorizingVariable is a reusable named CEL expression.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
 <em>
 string
 </em>
@@ -11189,14 +11598,14 @@ string
 </tbody>
 </table>
 <hr />
-<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicySpec">AuthorizingPolicySpec
+<h3 id="policies.kyverno.io/v1alpha1.ConditionStatus">ConditionStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
+<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyStatus">AuthorizingPolicyStatus</a>)
 </p>
 <p>
-<p>AuthorizingPolicySpec defines the desired state</p>
+<p>ConditionStatus is the shared policy readiness status.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -11208,36 +11617,26 @@ string
 <tbody>
 <tr>
 <td>
-<code>rules</code><br/>
+<code>conditions</code><br/>
 <em>
-<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicyRule">
-[]AuthorizingPolicyRule
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
 </a>
 </em>
 </td>
 <td>
 </td>
 </tr>
-</tbody>
-</table>
-<hr />
-<h3 id="policies.kyverno.io/v1alpha1.AuthorizingPolicyStatus">AuthorizingPolicyStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#policies.kyverno.io/v1alpha1.AuthorizingPolicy">AuthorizingPolicy</a>)
-</p>
-<p>
-<p>AuthorizingPolicyStatus defines the observed state</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
 <tr>
-<th>Field</th>
-<th>Description</th>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
 </tr>
-</thead>
-<tbody>
 <tr>
 <td>
 <code>ready</code><br/>
@@ -11251,6 +11650,11 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="policies.kyverno.io/v1alpha1.PolicyConditionType">PolicyConditionType
+(<code>string</code> alias)</p></h3>
+<p>
+<p>PolicyConditionType identifies readiness conditions for policy lifecycle state.</p>
+</p>
 <h2 id="reports.kyverno.io/v1">reports.kyverno.io/v1</h2>
 <p>
 </p>
