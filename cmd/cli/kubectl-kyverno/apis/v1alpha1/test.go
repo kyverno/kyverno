@@ -1,8 +1,11 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -62,6 +65,61 @@ type Test struct {
 
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
+
+	// APICallResponses provides static responses for HTTP/API calls during offline testing.
+	// Each entry maps a URL (and optional HTTP method) to a fixed response body,
+	// intercepting CEL http.Get() calls so policies can be tested without a real server.
+	APICallResponses []APICallResponseEntry `json:"apiCallResponses,omitempty"`
+
+	// GlobalContextEntries provides static data for GlobalContextEntry references
+	// during offline testing. Each entry maps a GlobalContextEntry name to arbitrary JSON data.
+	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
+}
+
+// APICallResponseEntry maps a URL (and optional HTTP method) to a static response body.
+type APICallResponseEntry struct {
+	// URL is the request URL to match (e.g. "https://example.com/config").
+	URL string `json:"url"`
+
+	// Method is the HTTP method to match (GET or POST).
+	// If empty, the entry matches any method via plain URL lookup.
+	// +kubebuilder:validation:Enum=GET;POST;""
+	// +kubebuilder:validation:Optional
+	Method string `json:"method,omitempty"`
+
+	// Response is the static HTTP response to return.
+	Response APICallResponse `json:"response"`
+}
+
+// APICallResponse represents a static HTTP response.
+type APICallResponse struct {
+	// StatusCode is the HTTP status code to inject (defaults to 200).
+	StatusCode int `json:"statusCode,omitempty"`
+
+	// Body is the response body as arbitrary JSON.
+	Body runtime.RawExtension `json:"body"`
+}
+
+// GlobalContextEntryValue provides static data for a named GlobalContextEntry.
+type GlobalContextEntryValue struct {
+	// Name is the name of the GlobalContextEntry resource.
+	Name string `json:"name"`
+
+	// Data is the static data to return for this global context entry (arbitrary JSON).
+	Data runtime.RawExtension `json:"data"`
+}
+
+// RawExtensionToObject decodes a runtime.RawExtension into a plain Go value.
+// Returns nil (without error) when raw.Raw is empty.
+func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
+	if len(raw.Raw) == 0 {
+		return nil, nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw.Raw, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 type CheckResult struct {

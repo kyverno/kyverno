@@ -1,0 +1,23 @@
+apiCallResponses:
+- response:
+    body:
+      allowed: true
+    statusCode: 200
+  url: https://external-service.example.com/api/check
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mock-apicall-responses
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: check-external-service
+  resources:
+  - test-ns/test-pod-pass
+  - test-ns/test-pod-fail
+  result: pass
+  rule: check-allowed
+variables: values.yaml

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
@@ -21,12 +22,14 @@ type Rule struct {
 }
 
 type Store struct {
-	local          bool
-	registryClient registryclient.Client
-	allowApiCalls  bool
-	policies       []Policy
-	foreachElement int
-	gctxStore      loaders.Store
+	local                bool
+	registryClient       registryclient.Client
+	allowApiCalls        bool
+	policies             []Policy
+	foreachElement       int
+	gctxStore            loaders.Store
+	apiCallResponses     []v1alpha1.APICallResponseEntry
+	globalContextEntries []v1alpha1.GlobalContextEntryValue
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -106,4 +109,20 @@ func (s *Store) SetGlobalContextStore(store loaders.Store) {
 
 func (s *Store) GetGlobalContextStore() loaders.Store {
 	return s.gctxStore
+}
+
+func (s *Store) SetAPICallResponses(responses []v1alpha1.APICallResponseEntry) {
+	s.apiCallResponses = responses
+}
+
+func (s *Store) GetAPICallResponses() []v1alpha1.APICallResponseEntry {
+	return s.apiCallResponses
+}
+
+func (s *Store) SetGlobalContextEntries(entries []v1alpha1.GlobalContextEntryValue) {
+	s.globalContextEntries = entries
+}
+
+func (s *Store) GetGlobalContextEntries() []v1alpha1.GlobalContextEntryValue {
+	return s.globalContextEntries
 }

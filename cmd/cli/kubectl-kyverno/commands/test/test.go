@@ -32,6 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
@@ -264,8 +265,31 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
 	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
+	store.SetAPICallResponses(testCase.Test.APICallResponses)
+	store.SetGlobalContextEntries(testCase.Test.GlobalContextEntries)
 	if vars != nil {
 		vars.SetInStore(&store)
+	}
+
+	// Set CEL http mock responses for offline testing; cleared after this test case.
+	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.APICallResponses)
+	if err != nil {
+		return nil, err
+	}
+	libs.SetHTTPMockResponses(httpMockIndex)
+	defer libs.SetHTTPMockResponses(nil)
+
+	// Build GlobalContextEntries map for CEL globalcontext.get() offline resolution.
+	var gceMap map[string]interface{}
+	if len(testCase.Test.GlobalContextEntries) > 0 {
+		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
+		for _, entry := range testCase.Test.GlobalContextEntries {
+			data, err := v1alpha1.RawExtensionToObject(entry.Data)
+			if err != nil {
+				return nil, fmt.Errorf("globalContextEntries entry %q: invalid data: %w", entry.Name, err)
+			}
+			gceMap[entry.Name] = data
+		}
 	}
 
 	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
@@ -367,6 +391,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -806,4 +831,45 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 		res.Object = convertNumericValuesToFloat64(res.Object).(map[string]interface{})
 	}
 	return resources
+}
+
+// buildHTTPMockIndex converts the test-file APICallResponses into the flat map consumed
+// by libs.SetHTTPMockResponses. Keys are "METHOD:url" when a method is specified,
+// otherwise the plain URL string.
+func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
+	if len(mocks) == 0 {
+		return nil, nil
+	}
+	index := make(map[string]interface{}, len(mocks))
+	for _, m := range mocks {
+		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
+		}
+		wrapped := wrapHTTPResponse(body, m.Response.StatusCode)
+		key := m.URL
+		if m.Method != "" {
+			key = m.Method + ":" + m.URL
+		}
+		index[key] = wrapped
+	}
+	return index, nil
+}
+
+// wrapHTTPResponse replicates the Kyverno SDK's HTTP response format.
+// The real SDK injects statusCode into map bodies, or wraps non-map bodies as
+// {"body": ..., "statusCode": ...}. Mocks must match this format so that CEL
+// expressions like `http.Get(...).statusCode` work correctly.
+func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
+	if statusCode == 0 {
+		statusCode = 200
+	}
+	if bodyMap, ok := body.(map[string]interface{}); ok {
+		bodyMap["statusCode"] = statusCode
+		return bodyMap
+	}
+	return map[string]interface{}{
+		"body":       body,
+		"statusCode": statusCode,
+	}
 }

@@ -1,0 +1,20 @@
+# ValidatingPolicy (CEL) using globalContext.Get() — globalContextEntries supplies the data offline.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-global-context-cel
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE]
+        resources: [deployments]
+  variables:
+    - name: deploymentData
+      expression: >-
+        globalContext.Get("gctxentry-deployments", "")
+  validations:
+    - expression: >-
+        variables.deploymentData != null && size(variables.deploymentData.items) >= 2
+      message: "Deployment count from global context must be at least 2"

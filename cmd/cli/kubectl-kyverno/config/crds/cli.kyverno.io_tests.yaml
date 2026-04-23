@@ -19,6 +19,46 @@ spec:
       openAPIV3Schema:
         description: Test declares a test
         properties:
+          apiCallResponses:
+            description: |-
+              APICallResponses provides static responses for HTTP/API calls during offline testing.
+              Each entry maps a URL (and optional HTTP method) to a fixed response body,
+              intercepting CEL http.Get() calls so policies can be tested without a real server.
+            items:
+              description: APICallResponseEntry maps a URL (and optional HTTP method)
+                to a static response body.
+              properties:
+                method:
+                  description: |-
+                    Method is the HTTP method to match (GET or POST).
+                    If empty, the entry matches any method via plain URL lookup.
+                  enum:
+                  - GET
+                  - POST
+                  - ""
+                  type: string
+                response:
+                  description: Response is the static HTTP response to return.
+                  properties:
+                    body:
+                      description: Body is the response body as arbitrary JSON.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    statusCode:
+                      description: StatusCode is the HTTP status code to inject (defaults
+                        to 200).
+                      type: integer
+                  required:
+                  - body
+                  type: object
+                url:
+                  description: URL is the request URL to match (e.g. "https://example.com/config").
+                  type: string
+              required:
+              - response
+              - url
+              type: object
+            type: array
           apiVersion:
             description: |-
               APIVersion defines the versioned schema of this representation of an object.
@@ -80,6 +120,27 @@ spec:
               the test
             items:
               type: string
+            type: array
+          globalContextEntries:
+            description: |-
+              GlobalContextEntries provides static data for GlobalContextEntry references
+              during offline testing. Each entry maps a GlobalContextEntry name to arbitrary JSON data.
+            items:
+              description: GlobalContextEntryValue provides static data for a named
+                GlobalContextEntry.
+              properties:
+                data:
+                  description: Data is the static data to return for this global context
+                    entry (arbitrary JSON).
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                name:
+                  description: Name is the name of the GlobalContextEntry resource.
+                  type: string
+              required:
+              - data
+              - name
+              type: object
             type: array
           httpPayloads:
             description: HTTPPayloads is the HTTP payloads to be used in the test

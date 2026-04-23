@@ -12,6 +12,7 @@ import (
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
+	globalReferences   map[string]any
 	generatedResources []*unstructured.Unstructured
 	policyName         string
 	triggerName        string
@@ -25,8 +26,9 @@ type FakeContextProvider struct {
 
 func NewFakeContextProvider() *FakeContextProvider {
 	return &FakeContextProvider{
-		resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-		images:    map[string]map[string]any{},
+		resources:        map[string]map[string]map[string]*unstructured.Unstructured{},
+		images:           map[string]map[string]any{},
+		globalReferences: map[string]any{},
 	}
 }
 
@@ -54,8 +56,17 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 	return nil
 }
 
-func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
-	panic("not implemented")
+// AddGlobalReference stores a static value for the named GlobalContextEntry,
+// allowing offline tests to mock globalcontext.get() calls.
+func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
+	cp.globalReferences[name] = data
+}
+
+func (cp *FakeContextProvider) GetGlobalReference(name, _ string) (any, error) {
+	if data, ok := cp.globalReferences[name]; ok {
+		return data, nil
+	}
+	return nil, fmt.Errorf("global context entry %q not found in fake context", name)
 }
 
 func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {
