@@ -1206,12 +1206,51 @@ jobs:
 
           UPDATED=0
           FAILED=0
+          SEEN_PR_NUMBERS=","
 
           IFS=',' read -ra PR_LIST <<< "$PR_NUMBERS_CSV"
           for PR_NUMBER in "${PR_LIST[@]}"; do
-            PR_NUMBER=$(echo "$PR_NUMBER" | tr -d ' ')
+            PR_NUMBER=$(echo "$PR_NUMBER" | tr -d '[:space:]')
             [ -z "$PR_NUMBER" ] && continue
 
+            if ! echo "$PR_NUMBER" | grep -Eq '^[0-9]+$'; then
+              echo "  - Skipping invalid PR number entry: $PR_NUMBER"
+              continue
+            fi
+
+            if echo "$SEEN_PR_NUMBERS" | grep -Fq ",$PR_NUMBER,"; then
+              echo "  - PR #$PR_NUMBER already processed, skipping duplicate"
+              continue
+            fi
+            SEEN_PR_NUMBERS="${SEEN_PR_NUMBERS}${PR_NUMBER},"
+
+            echo "Checking PR #$PR_NUMBER before updating..."
+
+            PR_DETAILS_FILE=$(mktemp)
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$REPO/pulls/$PR_NUMBER" \
+              > "$PR_DETAILS_FILE" 2>&1
+            PR_DETAILS_EXIT_CODE=$?
+
+            if [ $PR_DETAILS_EXIT_CODE -ne 0 ] || ! jq -e . >/dev/null 2>&1 < "$PR_DETAILS_FILE"; then
+              echo "  ✗ PR #$PR_NUMBER — failed to fetch PR details: $(cat "$PR_DETAILS_FILE")"
+              FAILED=$((FAILED + 1))
+              rm -f "$PR_DETAILS_FILE"
+              continue
+            fi
+
+            MERGEABLE_STATE=$(jq -r '.mergeable_state // empty' "$PR_DETAILS_FILE")
+            rm -f "$PR_DETAILS_FILE"
+
+            case "$MERGEABLE_STATE" in
+              clean|unstable|has_hooks)
+                ;;
+              *)
+                echo "  - PR #$PR_NUMBER — mergeable_state is '${MERGEABLE_STATE:-unknown}', skipping"
+                continue
+                ;;
+            esac
             echo "Updating branch for PR #$PR_NUMBER..."
 
             RESPONSE_FILE=$(mktemp)
