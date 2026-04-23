@@ -111,6 +111,36 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			expected: `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
 		},
 		{
+			name:   "namespaceObject spec not modified",
+			config: "deployments",
+			input:  `namespaceObject.spec.containers`,
+			expected: `namespaceObject.spec.containers`,
+		},
+		{
+			name:   "namespaceObject spec not modified for cronjobs",
+			config: "cronjobs",
+			input:  `namespaceObject.spec.containers`,
+			expected: `namespaceObject.spec.containers`,
+		},
+		{
+			name:   "namespaceObject annotations not modified",
+			config: "deployments",
+			input:  `'team' in namespaceObject.metadata.annotations`,
+			expected: `'team' in namespaceObject.metadata.annotations`,
+		},
+		{
+			name:   "namespaceObject annotations not modified for cronjobs",
+			config: "cronjobs",
+			input:  `'team' in namespaceObject.metadata.annotations`,
+			expected: `'team' in namespaceObject.metadata.annotations`,
+		},
+		{
+			name:   "oldObject spec still modified",
+			config: "deployments",
+			input:  `oldObject.spec.containers`,
+			expected: `oldObject.spec.template.spec.containers`,
+		},
+		{
 			name:   "no containers in expression",
 			config: "deployments",
 			input: `Object{
