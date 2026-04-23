@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -25,6 +26,7 @@ type Store struct {
 	allowApiCalls  bool
 	policies       []Policy
 	foreachElement int
+	gctxStore      loaders.Store
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -96,4 +98,12 @@ func (s *Store) AllowApiCall(allow bool) {
 
 func (s *Store) IsApiCallAllowed() bool {
 	return s.allowApiCalls
+}
+
+func (s *Store) SetGlobalContextStore(store loaders.Store) {
+	s.gctxStore = store
+}
+
+func (s *Store) GetGlobalContextStore() loaders.Store {
+	return s.gctxStore
 }
