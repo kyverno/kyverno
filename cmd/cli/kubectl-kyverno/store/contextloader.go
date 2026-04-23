@@ -45,6 +45,7 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 		opts = append(opts, factories.WithInitializer(init))
 		if gctx := s.GetGlobalContextStore(); gctx != nil {
 			opts = append(opts, factories.WithGlobalContextStore(gctx))
+		}
 		if mocks := s.GetGlobalContextEntries(); len(mocks) > 0 {
 			opts = append(opts, factories.WithGlobalContextStore(NewMockGCtxStore(mocks)))
 		}
