@@ -99,6 +99,18 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 }}}`,
 		},
 		{
+			name:   "namespaceObject labels not modified",
+			config: "deployments",
+			input:  `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+			expected: `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+		},
+		{
+			name:   "namespaceObject labels not modified for cronjobs",
+			config: "cronjobs",
+			input:  `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+			expected: `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+		},
+		{
 			name:   "no containers in expression",
 			config: "deployments",
 			input: `Object{
