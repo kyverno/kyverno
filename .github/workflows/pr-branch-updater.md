@@ -62,12 +62,62 @@ safe-outputs:
 
             UPDATED=0
             FAILED=0
+            SEEN_PR_NUMBERS=","
 
             IFS=',' read -ra PR_LIST <<< "$PR_NUMBERS_CSV"
             for PR_NUMBER in "${PR_LIST[@]}"; do
               PR_NUMBER=$(echo "$PR_NUMBER" | tr -d ' ')
               [ -z "$PR_NUMBER" ] && continue
 
+              if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+                echo "  - Skipping invalid PR number: $PR_NUMBER"
+                continue
+              fi
+
+              if [[ "$SEEN_PR_NUMBERS" == *",$PR_NUMBER,"* ]]; then
+                echo "  - Skipping duplicate PR #$PR_NUMBER"
+                continue
+              fi
+              SEEN_PR_NUMBERS="${SEEN_PR_NUMBERS}${PR_NUMBER},"
+
+              PR_DETAILS_FILE=$(mktemp)
+              gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/$REPO/pulls/$PR_NUMBER" \
+                > "$PR_DETAILS_FILE" 2>&1
+              PR_DETAILS_EXIT_CODE=$?
+
+              if [ $PR_DETAILS_EXIT_CODE -ne 0 ] || ! jq -e . >/dev/null 2>&1 < "$PR_DETAILS_FILE"; then
+                echo "  - Skipping PR #$PR_NUMBER — unable to fetch current PR details"
+                rm -f "$PR_DETAILS_FILE"
+                continue
+              fi
+
+              ACTUAL_PR_NUMBER=$(jq -r '.number // empty' "$PR_DETAILS_FILE")
+              PR_STATE=$(jq -r '.state // empty' "$PR_DETAILS_FILE")
+              PR_DRAFT=$(jq -r '.draft // false' "$PR_DETAILS_FILE")
+              PR_MERGEABLE_STATE=$(jq -r '.mergeable_state // empty' "$PR_DETAILS_FILE")
+              rm -f "$PR_DETAILS_FILE"
+
+              if [ "$ACTUAL_PR_NUMBER" != "$PR_NUMBER" ]; then
+                echo "  - Skipping PR #$PR_NUMBER — fetched PR number did not match"
+                continue
+              fi
+
+              if [ "$PR_STATE" != "open" ]; then
+                echo "  - Skipping PR #$PR_NUMBER — PR is not open"
+                continue
+              fi
+
+              if [ "$PR_DRAFT" = "true" ]; then
+                echo "  - Skipping PR #$PR_NUMBER — PR is a draft"
+                continue
+              fi
+
+              if [ "$PR_MERGEABLE_STATE" != "behind" ]; then
+                echo "  - Skipping PR #$PR_NUMBER — PR is no longer behind (mergeable_state: ${PR_MERGEABLE_STATE:-unknown})"
+                continue
+              fi
               echo "Updating branch for PR #$PR_NUMBER..."
 
               RESPONSE_FILE=$(mktemp)
