@@ -1,0 +1,19 @@
+name: PR Branch Auto-Updater
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pr-branch-updater
+  cancel-in-progress: false
+
+jobs:
+  update:
+    uses: kyverno/.github/.github/workflows/pr-branch-updater.yml@main
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
