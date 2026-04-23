@@ -897,7 +897,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | 3.6.4 |
 |  | grafana | 3.6.4 |
-| https://openreports.github.io/reports-api | openreports | 3.6.4 |
+| https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ## Maintainers
 
