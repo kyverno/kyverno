@@ -138,11 +138,19 @@ safe-outputs:
                 RESPONSE_MESSAGE=$(cat "$RESPONSE_FILE")
               fi
 
-              if [ $EXIT_CODE -eq 0 ] && echo "$RESPONSE_MESSAGE" | grep -qi "scheduled"; then
-                echo "  ✓ PR #$PR_NUMBER — branch update scheduled"
+              if [ $EXIT_CODE -eq 0 ] && { [ "$STATUS_CODE" = "202" ] || [ "$STATUS_CODE" = "204" ]; }; then
+                if [ -n "$RESPONSE_MESSAGE" ]; then
+                  echo "  ✓ PR #$PR_NUMBER — branch update accepted (http $STATUS_CODE): $RESPONSE_MESSAGE"
+                else
+                  echo "  ✓ PR #$PR_NUMBER — branch update accepted (http $STATUS_CODE)"
+                fi
                 UPDATED=$((UPDATED + 1))
-              elif [ $EXIT_CODE -eq 0 ] && echo "$RESPONSE_MESSAGE" | grep -qi "already up"; then
-                echo "  - PR #$PR_NUMBER — already up-to-date, skipping"
+              elif [ "$STATUS_CODE" = "409" ] || [ "$STATUS_CODE" = "422" ]; then
+                if [ -n "$RESPONSE_MESSAGE" ]; then
+                  echo "  - PR #$PR_NUMBER — branch update not needed or cannot be performed (http $STATUS_CODE): $RESPONSE_MESSAGE"
+                else
+                  echo "  - PR #$PR_NUMBER — branch update not needed or cannot be performed (http $STATUS_CODE)"
+                fi
               else
                 echo "  ✗ PR #$PR_NUMBER — update failed (exit $EXIT_CODE, http ${STATUS_CODE:-unknown}): $RESPONSE_MESSAGE"
                 FAILED=$((FAILED + 1))
