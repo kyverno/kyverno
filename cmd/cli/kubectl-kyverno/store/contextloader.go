@@ -12,7 +12,11 @@ import (
 
 func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {
 	if !s.IsLocal() {
-		return factories.DefaultContextLoaderFactory(cmResolver)
+		var opts []factories.ContextLoaderFactoryOptions
+		if gctx := s.GetGlobalContextStore(); gctx != nil {
+			opts = append(opts, factories.WithGlobalContextStore(gctx))
+		}
+		return factories.DefaultContextLoaderFactory(cmResolver, opts...)
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
@@ -34,7 +38,12 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 			}
 			return nil
 		}
-		factory := factories.DefaultContextLoaderFactory(cmResolver, factories.WithInitializer(init))
+		var opts []factories.ContextLoaderFactoryOptions
+		opts = append(opts, factories.WithInitializer(init))
+		if gctx := s.GetGlobalContextStore(); gctx != nil {
+			opts = append(opts, factories.WithGlobalContextStore(gctx))
+		}
+		factory := factories.DefaultContextLoaderFactory(cmResolver, opts...)
 		return wrapper{
 			store: s,
 			inner: factory(policy, rule),
