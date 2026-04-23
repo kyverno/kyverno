@@ -140,7 +140,7 @@ func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
 
 // Contains returns true if it contains an exception for the given policy/rule pair
 func (p *Exception) Contains(policy string, rule string) bool {
-	if p.PolicyName == policy {
+	if wildcard.Match(p.PolicyName, policy) {
 		for _, ruleName := range p.RuleNames {
 			if wildcard.Match(ruleName, rule) {
 				return true
