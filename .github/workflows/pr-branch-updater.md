@@ -53,7 +53,18 @@ safe-outputs:
               exit 1
             fi
 
-            PR_NUMBERS_CSV=$(jq -r '.items[] | select(.type == "update_pr_branch") | .pull_numbers' "$GH_AW_AGENT_OUTPUT" | head -1)
+            PR_NUMBERS_CSV=$(jq -r '
+              [
+                .items[]
+                | select(.type == "update_pr_branch")
+                | .pull_numbers
+                | split(",")[]
+                | gsub("^\\s+|\\s+$"; "")
+                | select(length > 0)
+              ]
+              | unique
+              | join(",")
+            ' "$GH_AW_AGENT_OUTPUT")
 
             if [ -z "$PR_NUMBERS_CSV" ]; then
               echo "No PRs to update"
