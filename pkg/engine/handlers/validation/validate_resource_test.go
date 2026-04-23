@@ -19,7 +19,7 @@ func Test_validateOldObject(t *testing.T) {
 
 	policyContext := buildTestNamespaceLabelsContext(t, validateDenyPolicy, resource, oldResource)
 	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, nil)
 
 	ctx := context.TODO()
 	resp := v.validate(ctx)
@@ -27,7 +27,7 @@ func Test_validateOldObject(t *testing.T) {
 	assert.Equal(t, api.RuleStatusPass, resp.Status())
 
 	rule2 := policyContext.Policy().GetSpec().Rules[1]
-	v2 := newValidator(logr.Discard(), mockCL, policyContext, rule2)
+	v2 := newValidator(logr.Discard(), mockCL, policyContext, rule2, nil)
 	resp2 := v2.validate(ctx)
 	assert.NotNil(t, resp2 != nil)
 	assert.Equal(t, api.RuleStatusFail, resp2.Status())
@@ -44,7 +44,7 @@ func Test_validateOldObjectForeach(t *testing.T) {
 
 	policyContext := buildTestNamespaceLabelsContext(t, validateForeachPolicy, resource, oldResource)
 	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, nil)
 
 	ctx := context.TODO()
 	resp := v.validate(ctx)
@@ -65,7 +65,7 @@ func Test_validateForEach_ElementError_NonLastElement_ReturnsError(t *testing.T)
 	// Before the fix, this would silently continue and return Pass.
 	policyContext := buildTestNamespaceLabelsContext(t, validateForeachWithContextPolicy, resource, oldResource)
 	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), failingCL, policyContext, rule)
+	v := newValidator(logr.Discard(), failingCL, policyContext, rule, nil)
 
 	ctx := context.TODO()
 	resp := v.validateForEach(ctx)
@@ -82,7 +82,7 @@ func Test_validateForEach_ListEvalError_ReturnsError(t *testing.T) {
 	// Use a policy with an invalid list expression that will fail evaluation
 	policyContext := buildTestNamespaceLabelsContext(t, validateForeachInvalidListPolicy, resource, oldResource)
 	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, nil)
 
 	ctx := context.TODO()
 	resp := v.validateForEach(ctx)

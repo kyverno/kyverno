@@ -64,7 +64,7 @@ func (h validateResourceHandler) Process(
 			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
-	v := newValidator(logger, contextLoader, policyContext, rule)
+	v := newValidator(logger, contextLoader, policyContext, rule, h.client)
 	return resource, handlers.WithResponses(v.validate(ctx))
 }
 
@@ -80,9 +80,10 @@ type validator struct {
 	forEach          []kyvernov1.ForEachValidation
 	contextLoader    engineapi.EngineContextLoader
 	nesting          int
+	client           engineapi.Client
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule, client engineapi.Client) *validator {
 	return &validator{
 		log:              log,
 		rule:             rule,
@@ -93,6 +94,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		deny:             rule.Validation.Deny,
 		anyAllConditions: rule.GetAnyAllConditions(),
 		forEach:          rule.Validation.ForEachValidation,
+		client:           client,
 	}
 }
 
@@ -176,6 +178,24 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 				(ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail) {
 				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
+			}
+		}
+
+		// handle CREATE requests for managed resources (e.g. pods recreated by a Deployment)
+		// if the root owner predates the policy, treat as a pre-existing violation and skip
+		// guard: OldResource must be empty to exclude validateOldObject() calls which
+		// temporarily set operation=Create on UPDATE requests
+		oldResource := v.policyContext.OldResource()
+		if engineutils.IsCreateRequest(v.policyContext) && engineutils.IsEmptyUnstructured(&oldResource) && allowExisitingViolations && v.nesting == 0 {
+			if ruleResponse != nil && ruleResponse.Status() == engineapi.RuleStatusFail && v.client != nil {
+				policyTimestamp := v.policyContext.Policy().GetCreationTimestamp()
+				rootTimestamp, err := engineutils.RootOwnerCreationTimestamp(ctx, v.client, v.policyContext.NewResource())
+				if err != nil {
+					v.log.V(4).Info("warning: failed to get root owner timestamp, proceeding with enforcement", "rule", v.rule.Name, "error", err.Error())
+				} else if rootTimestamp.Before(&policyTimestamp) {
+					v.log.V(2).Info("skipping rule: resource owner predates policy (pre-existing violation)", "rule", v.rule.Name)
+					return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping as resource owner predates policy (pre-existing violation)", v.rule.ReportProperties)
+				}
 			}
 		}
 	}

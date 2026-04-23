@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -9,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -111,4 +113,52 @@ func IsSameRuleResponse(r1 *engineapi.RuleResponse, r2 *engineapi.RuleResponse) 
 func IsUpdateRequest(ctx engineapi.PolicyContext) bool {
 	// is the OldObject and NewObject are available, the request is an UPDATE
 	return (ctx.OldResource().Object != nil && ctx.NewResource().Object != nil) || ctx.Operation() == kyvernov1.Update
+}
+
+func IsCreateRequest(ctx engineapi.PolicyContext) bool {
+	newResource := ctx.NewResource()
+	return ctx.Operation() == kyvernov1.Create ||
+		(ctx.OldResource().Object == nil && !IsEmptyUnstructured(&newResource))
+}
+
+// RootOwnerCreationTimestamp walks the ownerReference chain of a resource up
+// to the root owner and returns its creationTimestamp. Returns the resource's
+// own timestamp if it has no owners. Used to detect pre-existing violations
+// for managed resources (e.g. pods created by a Deployment that predates the policy).
+// Only follows the controller owner (Controller=true). Limits recursion to 10 levels.
+func RootOwnerCreationTimestamp(
+	ctx context.Context,
+	client engineapi.Client,
+	resource unstructured.Unstructured,
+) (metav1.Time, error) {
+	return rootOwnerCreationTimestamp(ctx, client, resource, 0)
+}
+
+func rootOwnerCreationTimestamp(
+	ctx context.Context,
+	client engineapi.Client,
+	resource unstructured.Unstructured,
+	depth int,
+) (metav1.Time, error) {
+	const maxDepth = 10
+	if depth >= maxDepth {
+		return resource.GetCreationTimestamp(), nil
+	}
+	owners := resource.GetOwnerReferences()
+	// find the controller owner (Controller=true); fall back to resource itself if none
+	var controllerOwner *metav1.OwnerReference
+	for i := range owners {
+		if owners[i].Controller != nil && *owners[i].Controller {
+			controllerOwner = &owners[i]
+			break
+		}
+	}
+	if controllerOwner == nil {
+		return resource.GetCreationTimestamp(), nil
+	}
+	obj, err := client.GetResource(ctx, controllerOwner.APIVersion, controllerOwner.Kind, resource.GetNamespace(), controllerOwner.Name)
+	if err != nil {
+		return metav1.Time{}, err
+	}
+	return rootOwnerCreationTimestamp(ctx, client, *obj, depth+1)
 }
