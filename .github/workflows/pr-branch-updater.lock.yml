@@ -1234,8 +1234,7 @@ jobs:
             PR_DETAILS_EXIT_CODE=$?
 
             if [ $PR_DETAILS_EXIT_CODE -ne 0 ] || ! jq -e . >/dev/null 2>&1 < "$PR_DETAILS_FILE"; then
-              echo "  ✗ PR #$PR_NUMBER — failed to fetch PR details: $(cat "$PR_DETAILS_FILE")"
-              FAILED=$((FAILED + 1))
+              echo "  - PR #$PR_NUMBER — failed to fetch PR details, skipping: $(cat "$PR_DETAILS_FILE")"
               rm -f "$PR_DETAILS_FILE"
               continue
             fi
