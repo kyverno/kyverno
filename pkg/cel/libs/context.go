@@ -76,8 +76,8 @@ type contextProvider struct {
 	// ClearGeneratedResources sequence. With 10 concurrent background workers
 	// sharing this singleton, two URs for different policies can otherwise race
 	// on genCtx and stamp each other's policy name onto generated resource labels.
-	genMu     sync.Mutex
-	genLocked atomic.Bool // true while genMu is held; guards against unlock-without-lock panics
+	genMu         sync.Mutex
+	genLocked     atomic.Bool // true while genMu is held; guards against unlock-without-lock panics
 	cliEvaluation bool
 	restMapper    meta.RESTMapper
 }

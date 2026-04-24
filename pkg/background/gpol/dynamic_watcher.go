@@ -807,4 +807,3 @@ func (wm *WatchManager) Bootstrap(ctx context.Context, isSyncEnabled func(policy
 
 	wm.log.V(2).Info("bootstrap: complete")
 }
-
