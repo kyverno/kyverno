@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -13,9 +14,11 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 // MockEventGen captures events for test assertions.
@@ -73,6 +76,57 @@ func (m *MockURGenerator) GetSpecs() []kyvernov2.UpdateRequestSpec {
 	return result
 }
 
+// ProcessingURGenerator extends MockURGenerator by running each captured URSpec
+// through a processor function before marking it as captured. This simulates
+// the background controller: handler fires UR → processor creates downstream
+// resources → spec appears in GetSpecs() only after processing completes.
+type ProcessingURGenerator struct {
+	mu        sync.Mutex
+	Specs     []kyvernov2.UpdateRequestSpec
+	processor func(kyvernov2.UpdateRequestSpec) error
+	errMu     sync.Mutex
+	errors    []error
+}
+
+func NewProcessingURGenerator(processor func(kyvernov2.UpdateRequestSpec) error) *ProcessingURGenerator {
+	return &ProcessingURGenerator{
+		processor: processor,
+	}
+}
+
+func (p *ProcessingURGenerator) Apply(_ context.Context, spec kyvernov2.UpdateRequestSpec) error {
+	// Process first — creates downstream resources in envtest.
+	if err := p.processor(spec); err != nil {
+		p.errMu.Lock()
+		p.errors = append(p.errors, err)
+		p.errMu.Unlock()
+	}
+	// Then record the spec. Tests polling GetSpecs() see it only after
+	// processing is done, so downstream resources are guaranteed to exist.
+	p.mu.Lock()
+	p.Specs = append(p.Specs, spec)
+	p.mu.Unlock()
+	return nil
+}
+
+// GetSpecs returns a snapshot of captured UpdateRequestSpecs (thread-safe).
+func (p *ProcessingURGenerator) GetSpecs() []kyvernov2.UpdateRequestSpec {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	result := make([]kyvernov2.UpdateRequestSpec, len(p.Specs))
+	copy(result, p.Specs)
+	return result
+}
+
+// ProcessingErrors returns any errors from UR processing.
+func (p *ProcessingURGenerator) ProcessingErrors() []error {
+	p.errMu.Lock()
+	defer p.errMu.Unlock()
+	result := make([]error, len(p.errors))
+	copy(result, p.errors)
+	return result
+}
+
 // PodMatchRules returns MatchResources that match pods on CREATE operations.
 func PodMatchRules() *admissionregistrationv1.MatchResources {
 	return PodMatchRulesWithOps(admissionregistrationv1.Create)
@@ -92,6 +146,19 @@ func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissi
 			},
 		}},
 	}
+}
+
+// CreateNamespace creates a namespace in the envtest cluster and registers cleanup.
+func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string) {
+	t.Helper()
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create namespace %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = kubeClient.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
+	})
 }
 
 // PodAdmissionRequestWithOp builds a handlers.AdmissionRequest for a Pod with the given operation.

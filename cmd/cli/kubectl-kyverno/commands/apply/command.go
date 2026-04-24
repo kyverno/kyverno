@@ -44,8 +44,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
+	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -55,6 +60,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -275,11 +281,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(cps))
 	for _, pol := range kpols {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
 	}
@@ -300,6 +306,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	for i := range dps {
 		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicyFromLike(dps[i]))
+	}
+	for i := range cps {
+		genericPolicies = append(genericPolicies, engineapi.NewCleanupPolicyFromInterface(cps[i]))
 	}
 	for i := range mps {
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicyFromLike(mps[i]))
@@ -328,6 +337,30 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+
+	// Separate GlobalContextEntry resources from regular resources
+	var gctxEntries []*kyvernov2.GlobalContextEntry
+	resources, gctxEntries, err = extractGlobalContextEntries(resources)
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
+	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
+		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
+		}
+		store.AllowApiCall(true)
+
+		if len(gctxEntries) > 0 && dClient != nil {
+			gctxStore, err := buildGlobalContextStore(context.Background(), gctxEntries, dClient, jmespath.New(config.NewDefaultConfiguration(false)))
+			if err != nil {
+				return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to build global context store: %w", err)
+			}
+			store.SetGlobalContextStore(gctxStore)
+		}
+	}
+
 	var exceptions []*kyvernov2.PolicyException
 	var celexceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
@@ -359,6 +392,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(maps)
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
+		policyRulesCount += len(cps)
 		policyRulesCount += len(mps)
 		policyRulesCount += len(envoyPols)
 		policyRulesCount += len(httpPols)
@@ -428,6 +462,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
+	responses7, err := c.applyCleanupPolicies(cps, resources1, variables.Namespace, rc, dClient, "resource")
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses7, err
+	}
+
 	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
 
 	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
@@ -440,11 +479,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0, len(responses1)+len(responses4)+len(responses5)+len(responses6)+len(httpResponses)+len(envoyResponses))
 	responses = append(responses, responses1...)
 	responses = append(responses, responses4...)
 	responses = append(responses, responses5...)
 	responses = append(responses, responses6...)
+	responses = append(responses, responses7...)
 	responses = append(responses, httpResponses...)
 	responses = append(responses, envoyResponses...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
@@ -809,6 +849,161 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	return responses, nil
 }
 
+func (c *ApplyCommandConfig) applyCleanupPolicies(
+	cps []kyvernov2.CleanupPolicyInterface,
+	resources []*unstructured.Unstructured,
+	namespaceProvider func(string) *corev1.Namespace,
+	rc *processor.ResultCounts,
+	dclient dclient.Interface,
+	payloadType string,
+) ([]engineapi.EngineResponse, error) {
+	if len(cps) == 0 || len(resources) == 0 {
+		return nil, nil
+	}
+
+	// Use a basic configuration for JMESPath and image info loading.
+	// Cleanup policies are destructive-intent selectors, so we only evaluate and report.
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	ctxFactory := factories.DefaultContextLoaderFactory(nil)
+
+	responses := make([]engineapi.EngineResponse, 0, len(cps)*len(resources))
+
+	for _, cp := range cps {
+		policyName := cp.GetName()
+		spec := cp.GetSpec()
+		if spec == nil {
+			// Treat missing spec as an evaluation error for each candidate resource.
+			for _, resource := range resources {
+				response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
+				response = response.WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, "cleanup policy has no spec", engineapi.RuleStatusError, nil),
+					},
+				})
+				rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
+			}
+			continue
+		}
+
+		// Prepare an engine context and load policy context entries once.
+		// The condition evaluation will update the target resource and namespace for each candidate.
+		engineCtx := enginecontext.NewContext(jp)
+		ctxLoader := ctxFactory(nil, kyvernov1.Rule{})
+		if err := ctxLoader.Load(context.TODO(), jp, dclient, nil, spec.Context, engineCtx); err != nil {
+			for _, resource := range resources {
+				response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
+				response = response.WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
+					},
+				})
+				rc.AddValidatingPolicyResponse(response)
+				responses = append(responses, response)
+			}
+			if c.ContinueOnFail {
+				continue
+			}
+			return responses, err
+		}
+
+		engineCtx.Checkpoint()
+
+		for _, resource := range resources {
+			// Default to "not matched" unless all match/exclude checks pass and (if present) conditions evaluate to true.
+			status := engineapi.RuleStatusFail
+			message := fmt.Sprintf("%s did not match", payloadType)
+			wouldDelete := false
+
+			// 1) Namespace scope check (namespaced vs cluster-scoped)
+			if err := matchutils.CheckNamespace(cp.GetNamespace(), *resource); err == nil {
+				// 2) Resolve namespace labels for selector evaluation
+				var namespaceLabels map[string]string
+				if resource.GetNamespace() != "" && namespaceProvider != nil {
+					if nsObj := namespaceProvider(resource.GetNamespace()); nsObj != nil {
+						namespaceLabels = nsObj.GetLabels()
+					}
+				}
+
+				// 3) MatchResources check (nil error => match)
+				if err := matchutils.CheckMatchesResources(
+					*resource,
+					spec.MatchResources,
+					namespaceLabels,
+					kyvernov2.RequestInfo{},
+					resource.GroupVersionKind(),
+					"",
+				); err == nil {
+					// 4) ExcludeResources check (nil error => exclude matches => not deleted)
+					excluded := false
+					if spec.ExcludeResources != nil {
+						if err := matchutils.CheckMatchesResources(
+							*resource,
+							*spec.ExcludeResources,
+							namespaceLabels,
+							kyvernov2.RequestInfo{},
+							resource.GroupVersionKind(),
+							"",
+						); err == nil {
+							excluded = true
+						}
+					}
+
+					if !excluded {
+						// 5) Conditions evaluation (nil conditions => match => pass)
+						if spec.Conditions == nil {
+							wouldDelete = true
+						} else {
+							// Update context for this specific candidate.
+							engineCtx.Reset()
+							if resource.Object == nil {
+								status = engineapi.RuleStatusError
+								message = "resource object is nil"
+							} else if err := engineCtx.SetTargetResource(resource.Object); err != nil {
+								status = engineapi.RuleStatusError
+								message = err.Error()
+							} else if err := engineCtx.AddNamespace(resource.GetNamespace()); err != nil {
+								status = engineapi.RuleStatusError
+								message = err.Error()
+							} else if err := engineCtx.AddImageInfos(resource, cfg); err != nil {
+								status = engineapi.RuleStatusError
+								message = err.Error()
+							} else {
+								passed, err := conditions.CheckAnyAllConditions(log.Log, engineCtx, *spec.Conditions)
+								if err != nil {
+									status = engineapi.RuleStatusError
+									message = err.Error()
+								} else {
+									wouldDelete = passed
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if status != engineapi.RuleStatusError {
+				if wouldDelete {
+					status = engineapi.RuleStatusPass
+					message = fmt.Sprintf("%s matched", payloadType)
+				}
+			}
+
+			response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
+			response = response.WithPolicyResponse(engineapi.PolicyResponse{
+				Rules: []engineapi.RuleResponse{
+					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, message, status, nil),
+				},
+			})
+			rc.AddValidatingPolicyResponse(response)
+			responses = append(responses, response)
+		}
+	}
+
+	return responses, nil
+}
+
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resourceOptions := loader.ResourceOptions{
 		Namespace:       c.Namespace,
@@ -848,6 +1043,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	[]policiesv1beta1.ImageValidatingPolicyLike,
 	[]policiesv1beta1.GeneratingPolicyLike,
 	[]policiesv1beta1.DeletingPolicyLike,
+	[]kyvernov2.CleanupPolicyInterface,
 	[]policiesv1beta1.MutatingPolicyLike,
 	[]*policiesv1beta1.ValidatingPolicy, // Envoy policies
 	[]*policiesv1beta1.ValidatingPolicy, // HTTP policies
@@ -865,6 +1061,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var ivps []policiesv1beta1.ImageValidatingPolicyLike
 	var gps []policiesv1beta1.GeneratingPolicyLike
 	var dps []policiesv1beta1.DeletingPolicyLike
+	var cps []kyvernov2.CleanupPolicyInterface
 	var mps []policiesv1beta1.MutatingPolicyLike
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
@@ -873,12 +1070,12 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -891,11 +1088,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -918,6 +1115,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
+				cps = append(cps, loaderResults.CleanupPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
@@ -943,6 +1141,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
+				cps = append(cps, loaderResults.CleanupPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
@@ -954,7 +1153,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		}
 	}
-	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, nil
+	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -1044,6 +1243,48 @@ type WarnExitCodeError struct {
 
 func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
+}
+
+func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
+	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
+	allResources = append(allResources, resources...)
+	allResources = append(allResources, targetResources...)
+	allResources = append(allResources, parameterResources...)
+
+	gvrToListKind := make(map[schema.GroupVersionResource]string)
+	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from
+	// each resource's TypeMeta. This avoids relying on inferKindFromResourceName,
+	// which mishandles multi-word kinds such as ClusterRole ("clusterroles" → "Clusterrol").
+	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
+	var discoveryGVRs []schema.GroupVersionResource
+	seen := make(map[schema.GroupVersionResource]bool)
+
+	objects := make([]runtime.Object, 0, len(allResources))
+	for _, r := range allResources {
+		objects = append(objects, r.DeepCopy())
+		gvk := r.GroupVersionKind()
+		if gvk.Kind == "" || gvk.Version == "" {
+			return nil, fmt.Errorf("resource %s/%s is missing TypeMeta (apiVersion=%q kind=%q)", r.GetNamespace(), r.GetName(), r.GetAPIVersion(), gvk.Kind)
+		}
+		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+		if !seen[gvr] {
+			seen[gvr] = true
+			gvrToListKind[gvr] = gvk.Kind + "List"
+			gvrToGVK[gvr] = gvk
+			discoveryGVRs = append(discoveryGVRs, gvr)
+		}
+	}
+
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
+	if err != nil {
+		return nil, err
+	}
+	disco := dclient.NewFakeDiscoveryClient(discoveryGVRs)
+	for gvr, gvk := range gvrToGVK {
+		disco.AddGVRToGVKMapping(gvr, gvk)
+	}
+	fakeClient.SetDiscovery(disco)
+	return fakeClient, nil
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {

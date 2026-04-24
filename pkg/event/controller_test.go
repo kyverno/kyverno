@@ -59,6 +59,186 @@ func TestEventGenerator(t *testing.T) {
 	}
 }
 
+// newTestEventGenerator creates an event generator for testing and starts its workers.
+// The returned channel receives a signal each time an event is created.
+func newTestEventGenerator(ctx context.Context, cfg config.Configuration) (*controller, chan struct{}) {
+	clientset := fake.NewSimpleClientset()
+	eventCreated := make(chan struct{}, 10)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		eventCreated <- struct{}{}
+		return true, nil, nil
+	})
+	gen := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, cfg)
+	go gen.Run(ctx, Workers)
+	return gen, eventCreated
+}
+
+// expectEvent waits for an event to be created or fails the test.
+func expectEvent(t *testing.T, ch chan struct{}, msg string) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal(msg)
+	}
+}
+
+// expectNoEvent asserts that no event is created within a short window.
+// Dropped events never reach the queue, so a brief timeout is sufficient.
+func expectNoEvent(t *testing.T, ch chan struct{}, msg string) {
+	t.Helper()
+	select {
+	case <-ch:
+		t.Fatal(msg)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestEventGenerator_PolicyApplied_SuccessEventsDisabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	expectNoEvent(t, eventCreated, "PolicyApplied event should have been dropped")
+}
+
+func TestEventGenerator_PolicyApplied_SuccessEventsEnabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{"generateSuccessEvents": "true"},
+	})
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	expectEvent(t, eventCreated, "PolicyApplied event should have been created when generateSuccessEvents is true")
+}
+
+func TestEventGenerator_SuccessEventActions_FiltersByAction(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"generateSuccessEvents": "true",
+			"successEventActions":   "Resource Mutated",
+		},
+	})
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourceMutated,
+		Message:   "resource mutated",
+		Source:    AdmissionController,
+	})
+
+	expectEvent(t, eventCreated, "mutation event should have been created with successEventActions=Resource Mutated")
+}
+
+func TestEventGenerator_SuccessEventActions_DropsNonMatchingAction(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"generateSuccessEvents": "true",
+			"successEventActions":   "Resource Mutated",
+		},
+	})
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	expectNoEvent(t, eventCreated, "validation event should have been dropped when successEventActions only includes Resource Mutated")
+}
+
+func TestEventGenerator_SuccessEventActions_SuccessEventsDisabledOverrides(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"generateSuccessEvents": "false",
+			"successEventActions":   "Resource Mutated",
+		},
+	})
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourceMutated,
+		Message:   "resource mutated",
+		Source:    AdmissionController,
+	})
+
+	expectNoEvent(t, eventCreated, "event should have been dropped when generateSuccessEvents is false")
+}
+
+func TestEventGenerator_SuccessEventActions_MultipleActions(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"generateSuccessEvents": "true",
+			"successEventActions":   "Resource Mutated,Resource Passed",
+		},
+	})
+	gen, eventCreated := newTestEventGenerator(ctx, cfg)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourceMutated,
+		Message:   "resource mutated",
+		Source:    AdmissionController,
+	})
+
+	expectEvent(t, eventCreated, "mutation event should pass with multiple successEventActions")
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test-pod-2", Namespace: "default"},
+		Reason:    PolicyApplied,
+		Action:    ResourcePassed,
+		Message:   "validation passed",
+		Source:    AdmissionController,
+	})
+
+	expectEvent(t, eventCreated, "validation event should pass with multiple successEventActions")
+}
+
 // TestEventNameSanitization tests that events with invalid RFC 1123 characters in their names are sanitized correctly
 func TestEventNameSanitization(t *testing.T) {
 	testCases := []struct {
