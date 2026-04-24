@@ -58,6 +58,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -332,6 +333,30 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+
+	// Separate GlobalContextEntry resources from regular resources
+	var gctxEntries []*kyvernov2.GlobalContextEntry
+	resources, gctxEntries, err = extractGlobalContextEntries(resources)
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
+	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
+		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
+		}
+		store.AllowApiCall(true)
+
+		if len(gctxEntries) > 0 && dClient != nil {
+			gctxStore, err := buildGlobalContextStore(context.Background(), gctxEntries, dClient, jmespath.New(config.NewDefaultConfiguration(false)))
+			if err != nil {
+				return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to build global context store: %w", err)
+			}
+			store.SetGlobalContextStore(gctxStore)
+		}
+	}
+
 	var exceptions []*kyvernov2.PolicyException
 	var celexceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
@@ -1111,6 +1136,48 @@ type WarnExitCodeError struct {
 
 func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
+}
+
+func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
+	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
+	allResources = append(allResources, resources...)
+	allResources = append(allResources, targetResources...)
+	allResources = append(allResources, parameterResources...)
+
+	gvrToListKind := make(map[schema.GroupVersionResource]string)
+	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from
+	// each resource's TypeMeta. This avoids relying on inferKindFromResourceName,
+	// which mishandles multi-word kinds such as ClusterRole ("clusterroles" → "Clusterrol").
+	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
+	var discoveryGVRs []schema.GroupVersionResource
+	seen := make(map[schema.GroupVersionResource]bool)
+
+	objects := make([]runtime.Object, 0, len(allResources))
+	for _, r := range allResources {
+		objects = append(objects, r.DeepCopy())
+		gvk := r.GroupVersionKind()
+		if gvk.Kind == "" || gvk.Version == "" {
+			return nil, fmt.Errorf("resource %s/%s is missing TypeMeta (apiVersion=%q kind=%q)", r.GetNamespace(), r.GetName(), r.GetAPIVersion(), gvk.Kind)
+		}
+		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+		if !seen[gvr] {
+			seen[gvr] = true
+			gvrToListKind[gvr] = gvk.Kind + "List"
+			gvrToGVK[gvr] = gvk
+			discoveryGVRs = append(discoveryGVRs, gvr)
+		}
+	}
+
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
+	if err != nil {
+		return nil, err
+	}
+	disco := dclient.NewFakeDiscoveryClient(discoveryGVRs)
+	for gvr, gvk := range gvrToGVK {
+		disco.AddGVRToGVKMapping(gvr, gvk)
+	}
+	fakeClient.SetDiscovery(disco)
+	return fakeClient, nil
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {

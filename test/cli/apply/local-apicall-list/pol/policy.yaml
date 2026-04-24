@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pdb-for-deployment
+  annotations:
+    policies.kyverno.io/title: Require PodDisruptionBudget
+    policies.kyverno.io/description: >-
+      Every Deployment must have at least one PodDisruptionBudget whose
+      app selector matches the Deployment name. Uses a LIST apiCall so it
+      works entirely offline against local resources.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: check-pdb-exists
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      context:
+        - name: pdb_apps
+          apiCall:
+            urlPath: "/apis/policy/v1/namespaces/{{request.object.metadata.namespace}}/poddisruptionbudgets"
+            jmesPath: "items[].spec.selector.matchLabels.app"
+      validate:
+        message: >-
+          Deployment {{ request.object.metadata.name }} must have a
+          PodDisruptionBudget in namespace {{ request.object.metadata.namespace }}.
+        deny:
+          conditions:
+            any:
+            - key: "{{ request.object.metadata.name }}"
+              operator: NotIn
+              value: "{{ pdb_apps }}"
