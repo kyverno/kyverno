@@ -105,8 +105,8 @@ spec:
               This field is deprecated, use `metadata.name` instead
             type: string
           oldResources:
-            description: OldResources are the "before" state resources for UPDATE
-              operation tests.
+            description: OldResources are the "before" state resources for admission-style
+              CEL policy tests.
             items:
               type: string
             type: array

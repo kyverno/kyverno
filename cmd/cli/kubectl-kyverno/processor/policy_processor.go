@@ -550,6 +550,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if p.UserInfo != nil {
 					user = p.UserInfo.AdmissionUserInfo
 				}
+				policiesByOperation := map[admissionv1.Operation][]string{
+					admissionv1.Create: {},
+					admissionv1.Update: {},
+					admissionv1.Delete: {},
+				}
 				// Create engine request for each policy so that we can specify operation for each policy
 				for _, pol := range k8sPolicies {
 					vals, err := p.Variables.ComputeVariables(
@@ -568,20 +573,31 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							operation = admissionv1.Update
 						}
 					}
+					policiesByOperation[operation] = append(policiesByOperation[operation], pol.GetName())
+				}
 
-					var object, oldObject *unstructured.Unstructured
+				resourceKey := GenerateResourceKey(&resource)
+				var updateOldObject *unstructured.Unstructured
+				if old, ok := p.OldResources[resourceKey]; ok {
+					updateOldObject = old
+				}
+
+				for operation, policyNames := range policiesByOperation {
+
+					if len(policyNames) == 0 {
+						continue
+					}
+					var object, oldObject runtime.Object
 					switch operation {
 					case admissionv1.Delete:
 						oldObject = &resource
 					case admissionv1.Update:
 						object = &resource
-						resourceKey := GenerateResourceKey(&resource)
-						if old, ok := p.OldResources[resourceKey]; ok {
-							oldObject = old
-						}
+						oldObject = updateOldObject
 					default:
 						object = &resource
 					}
+
 					request := celengine.Request(
 						contextProvider,
 						gvk, gvr, "",
@@ -592,7 +608,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						object, oldObject,
 						false, nil,
 					)
-					reps, err := eng.Handle(ctx, request, vpolengine.MatchNames(pol.GetName()))
+					reps, err := eng.Handle(ctx, request, vpolengine.MatchNames(policyNames...))
 					if err != nil {
 						return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 					}
