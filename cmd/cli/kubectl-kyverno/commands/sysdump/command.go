@@ -6,15 +6,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io" 
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/config" 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 type options struct {
@@ -35,13 +36,16 @@ func Command() *cobra.Command {
 		Use:   "sysdump",
 		Short: "Collects and packages Kyverno diagnostic information for support",
 		Long: `sysdump collects cluster info, Kyverno logs, configuration, and configmaps.
-Sensitive data such as Secrets are excluded. Use flags to include additional data.`,
+		Sensitive data such as Secrets are excluded. Use flags to include additional data.`,
+		Args:         cobra.NoArgs,  
+    SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSysdump(opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.cluster, "cluster", "", "Cluster context name (defaults to current kubeconfig context)")
+	cmd.Flags().StringVar(&opts.cluster, "cluster", "", "Legacy alias for kubeconfig context name (defaults to current kubeconfig context)")
+	cmd.Flags().StringVar(&opts.cluster, "context", "", "Kubeconfig context name (defaults to current kubeconfig context)")
 	cmd.Flags().StringVar(&opts.kubeconfig, "kubeconfig", "", "Path to kubeconfig file")
 	cmd.Flags().StringVar(&opts.outputDir, "output-dir", ".", "Directory to write the sysdump archive")
 	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "kyverno", "Namespace where Kyverno is installed")
@@ -54,24 +58,24 @@ Sensitive data such as Secrets are excluded. Use flags to include additional dat
 }
 
 func runSysdump(opts *options) error {
-	// 1. Build kubeconfig
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if opts.kubeconfig != "" {
-		loadingRules.ExplicitPath = opts.kubeconfig
-	}
-	configOverrides := &clientcmd.ConfigOverrides{}
-	if opts.cluster != "" {
-		configOverrides.CurrentContext = opts.cluster
-	}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	restConfig, err := kubeConfig.ClientConfig()
+	if opts.includePolicyReports {
+        return fmt.Errorf("--include-policy-reports is not yet implemented")
+    }
+    if opts.includePolicyExceptions {
+        return fmt.Errorf("--include-policy-exceptions is not yet implemented")
+    }
+    if opts.includeMetrics {
+        return fmt.Errorf("--include-metrics is not yet implemented")
+    }
+
+	restConfig, err := config.CreateClientConfigWithContext(opts.kubeconfig, opts.cluster)
 	if err != nil {
-		return fmt.Errorf("failed to build kube config: %w", err)
+			return fmt.Errorf("failed to build kube config: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create kube client: %w", err)
+			return fmt.Errorf("failed to create kube client: %w", err)
 	}
 
 	// 2. Create output archive
@@ -79,17 +83,33 @@ func runSysdump(opts *options) error {
 	archiveName := fmt.Sprintf("kyverno-sysdump-%s.tar.gz", timestamp)
 	archivePath := filepath.Join(opts.outputDir, archiveName)
 
-	f, err := os.Create(archivePath)
-	if err != nil {
-		return fmt.Errorf("failed to create archive: %w", err)
+	if err := os.MkdirAll(opts.outputDir, 0o755); err != nil {
+    return fmt.Errorf("failed to create output directory: %w", err)
 	}
-	defer f.Close()
+
+	f, err := os.OpenFile(archivePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+				return fmt.Errorf("failed to create archive: %w", err)
+		}
+	
+	defer func() {
+    if err := f.Close(); err != nil {
+        fmt.Fprintf(os.Stderr, "warning: failed to close archive file: %v\n", err)
+    }
+	}()
 
 	gw := gzip.NewWriter(f)
-	defer gw.Close()
+	defer func() {
+    if err := gw.Close(); err != nil {
+        fmt.Fprintf(os.Stderr, "warning: failed to close gzip writer: %v\n", err)
+    }
+	}()
 	tw := tar.NewWriter(gw)
-	defer tw.Close()
-
+	defer func() {
+    if err := tw.Close(); err != nil {
+        fmt.Fprintf(os.Stderr, "warning: failed to close tar writer: %v\n", err)
+    }
+	}()
 	ctx := context.Background()
 
 	// 3. Collect cluster nodes info
@@ -112,8 +132,7 @@ func runSysdump(opts *options) error {
 
 	// 6. Optional: policies, reports, exceptions, metrics
 	if opts.includePolicies {
-		fmt.Println("Collecting policies... (requires Kyverno CRD client)")
-		// Use dynamic client to list ClusterPolicy + Policy CRDs
+    return fmt.Errorf("--include-policies is not yet implemented")
 	}
 
 	fmt.Printf("\nSysdump written to: %s\n", archivePath)
@@ -152,13 +171,23 @@ func collectLogs(ctx context.Context, client kubernetes.Interface, tw *tar.Write
 		return err
 	}
 	for _, pod := range pods.Items {
-		req := client.CoreV1().Pods(ns).GetLogs(pod.Name, &corev1.PodLogOptions{})
-		logs, err := req.DoRaw(ctx)
-		if err != nil {
+		req := client.CoreV1().Pods(ns).GetLogs(pod.Name, &corev1.PodLogOptions{
+    TailLines: func() *int64 { n := int64(5000); return &n }(),
+	})
+	stream, err := req.Stream(ctx)
+	if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: skipping logs for %s: %v\n", pod.Name, err)
+			continue
+	}
+	logs, err := io.ReadAll(stream)
+	stream.Close()
+	if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping logs for %s: %v\n", pod.Name, err)
 			continue
 		}
-		_ = writeToArchive(tw, fmt.Sprintf("logs/%s.log", pod.Name), string(logs))
+		if err := writeToArchive(tw, fmt.Sprintf("logs/%s.log", pod.Name), string(logs)); err != nil {
+    return err
+}
 	}
 	return nil
 }
