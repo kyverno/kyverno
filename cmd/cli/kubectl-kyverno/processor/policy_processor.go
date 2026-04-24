@@ -555,22 +555,25 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					admissionv1.Update: {},
 					admissionv1.Delete: {},
 				}
-				// Create engine request for each policy so that we can specify operation for each policy
+
 				for _, pol := range k8sPolicies {
-					vals, err := p.Variables.ComputeVariables(
-						p.Store,
-						pol.GetName(),
-						resource.GetName(),
-						resource.GetKind(),
-						sets.New[string](),
-					)
 					operation := admissionv1.Create
-					if err == nil {
-						switch vals["request.operation"] {
-						case "DELETE":
-							operation = admissionv1.Delete
-						case "UPDATE":
-							operation = admissionv1.Update
+					if p.Variables != nil {
+						vals, err := p.Variables.ComputeVariables(
+							p.Store,
+							pol.GetName(),
+							resource.GetName(),
+							resource.GetKind(),
+							sets.New[string](),
+						)
+
+						if err == nil {
+							switch vals["request.operation"] {
+							case "DELETE":
+								operation = admissionv1.Delete
+							case "UPDATE":
+								operation = admissionv1.Update
+							}
 						}
 					}
 					policiesByOperation[operation] = append(policiesByOperation[operation], pol.GetName())
@@ -583,7 +586,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 
 				for operation, policyNames := range policiesByOperation {
-
 					if len(policyNames) == 0 {
 						continue
 					}
@@ -593,7 +595,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						oldObject = &resource
 					case admissionv1.Update:
 						object = &resource
-						oldObject = updateOldObject
+						if updateOldObject != nil { // if updateOldObject == nil, no OldResources found so we let oldObject = nil.
+							oldObject = updateOldObject
+						}
 					default:
 						object = &resource
 					}
