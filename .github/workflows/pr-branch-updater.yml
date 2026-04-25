@@ -6,7 +6,9 @@ on:
       - main
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: pr-branch-updater
