@@ -2,6 +2,8 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,8 +69,9 @@ type Test struct {
 	ClusterResources []string `json:"clusterResources,omitempty"`
 
 	// APICallResponses provides static responses for HTTP/API calls during offline testing.
-	// Each entry maps a URL (and optional HTTP method) to a fixed response body,
-	// intercepting CEL http.Get() calls so policies can be tested without a real server.
+	// Each entry maps a URL (and optional HTTP method) to a fixed response.
+	// This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
+	// so tests can run without a real server.
 	APICallResponses []APICallResponseEntry `json:"apiCallResponses,omitempty"`
 
 	// GlobalContextEntries provides static data for GlobalContextEntry references
@@ -78,7 +81,7 @@ type Test struct {
 
 // APICallResponseEntry maps a URL (and optional HTTP method) to a static response body.
 type APICallResponseEntry struct {
-	// URL is the request URL to match (e.g. "https://example.com/config").
+	// URL is the request URL to match (for example https://example.com/config).
 	URL string `json:"url"`
 
 	// Method is the HTTP method to match (GET or POST).
@@ -96,8 +99,20 @@ type APICallResponse struct {
 	// StatusCode is the HTTP status code to inject (defaults to 200).
 	StatusCode int `json:"statusCode,omitempty"`
 
-	// Body is the response body as arbitrary JSON.
+	// Body is the response body as arbitrary JSON (Kubernetes object shape: string keys, JSON values).
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Body runtime.RawExtension `json:"body"`
+}
+
+// GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
+// The resulting map is exposed to policies as top-level keys (e.g. name "items" → policy sees .items).
+type GlobalContextProjection struct {
+	// Name is the key policies see on the mocked global context object.
+	Name string `json:"name"`
+
+	// Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
+	Path string `json:"path"`
 }
 
 // GlobalContextEntryValue provides static data for a named GlobalContextEntry.
@@ -105,8 +120,60 @@ type GlobalContextEntryValue struct {
 	// Name is the name of the GlobalContextEntry resource.
 	Name string `json:"name"`
 
-	// Data is the static data to return for this global context entry (arbitrary JSON).
+	// Data is the static JSON root for this mock entry (arbitrary object).
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Data runtime.RawExtension `json:"data"`
+
+	// FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.
+	FieldPath string `json:"fieldPath,omitempty"`
+
+	// Projections optionally build a map of named values from that root.
+	// When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).
+	Projections []GlobalContextProjection `json:"projections,omitempty"`
+}
+
+// ValidateAPICallResponses checks mock HTTP entries for a valid URL, HTTP status, and JSON body.
+func ValidateAPICallResponses(entries []APICallResponseEntry) error {
+	for i := range entries {
+		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
+	if strings.TrimSpace(e.URL) == "" {
+		return fmt.Errorf("apiCallResponses[%d]: url is required", i)
+	}
+	sc := e.Response.StatusCode
+	if sc != 0 && (sc < 100 || sc > 599) {
+		return fmt.Errorf("apiCallResponses[%d] url %q: statusCode %d must be between 100 and 599", i, e.URL, sc)
+	}
+	raw := e.Response.Body.Raw
+	if len(raw) > 0 && !json.Valid(raw) {
+		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON", i, e.URL)
+	}
+	return nil
+}
+
+// ValidateGlobalContextEntries checks mock global context entries and projection definitions.
+func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
+	for _, e := range entries {
+		if strings.TrimSpace(e.Name) == "" {
+			return fmt.Errorf("globalContextEntries: name is required")
+		}
+		for _, p := range e.Projections {
+			if strings.TrimSpace(p.Name) == "" {
+				return fmt.Errorf("globalContextEntries entry %q: projection name is required", e.Name)
+			}
+			if strings.TrimSpace(p.Path) == "" {
+				return fmt.Errorf("globalContextEntries entry %q projection %q: path is required", e.Name, p.Name)
+			}
+		}
+	}
+	return nil
 }
 
 // RawExtensionToObject decodes a runtime.RawExtension into a plain Go value.

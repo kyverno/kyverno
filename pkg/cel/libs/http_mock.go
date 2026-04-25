@@ -67,24 +67,28 @@ type mockAwareHTTPContext struct {
 
 func (m *mockAwareHTTPContext) Get(url string, headers map[string]string) (any, error) {
 	httpMockResponsesMu.RLock()
-	mock := httpMockResponses
+	var body any
+	var ok bool
+	if len(httpMockResponses) > 0 {
+		body, ok = findMockResponse(httpMockResponses, "GET", url)
+	}
 	httpMockResponsesMu.RUnlock()
-	if len(mock) > 0 {
-		if body, ok := findMockResponse(mock, "GET", url); ok {
-			return body, nil
-		}
+	if ok {
+		return body, nil
 	}
 	return m.real.Get(url, headers)
 }
 
 func (m *mockAwareHTTPContext) Post(url string, data any, headers map[string]string) (any, error) {
 	httpMockResponsesMu.RLock()
-	mock := httpMockResponses
+	var body any
+	var ok bool
+	if len(httpMockResponses) > 0 {
+		body, ok = findMockResponse(httpMockResponses, "POST", url)
+	}
 	httpMockResponsesMu.RUnlock()
-	if len(mock) > 0 {
-		if body, ok := findMockResponse(mock, "POST", url); ok {
-			return body, nil
-		}
+	if ok {
+		return body, nil
 	}
 	return m.real.Post(url, data, headers)
 }

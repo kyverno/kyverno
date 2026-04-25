@@ -22,8 +22,9 @@ spec:
           apiCallResponses:
             description: |-
               APICallResponses provides static responses for HTTP/API calls during offline testing.
-              Each entry maps a URL (and optional HTTP method) to a fixed response body,
-              intercepting CEL http.Get() calls so policies can be tested without a real server.
+              Each entry maps a URL (and optional HTTP method) to a fixed response.
+              This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
+              so tests can run without a real server.
             items:
               description: APICallResponseEntry maps a URL (and optional HTTP method)
                 to a static response body.
@@ -41,7 +42,8 @@ spec:
                   description: Response is the static HTTP response to return.
                   properties:
                     body:
-                      description: Body is the response body as arbitrary JSON.
+                      description: 'Body is the response body as arbitrary JSON (Kubernetes
+                        object shape: string keys, JSON values).'
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                     statusCode:
@@ -52,7 +54,7 @@ spec:
                   - body
                   type: object
                 url:
-                  description: URL is the request URL to match (e.g. "https://example.com/config").
+                  description: URL is the request URL to match (for example https://example.com/config).
                   type: string
               required:
               - response
@@ -130,13 +132,39 @@ spec:
                 GlobalContextEntry.
               properties:
                 data:
-                  description: Data is the static data to return for this global context
-                    entry (arbitrary JSON).
+                  description: Data is the static JSON root for this mock entry (arbitrary
+                    object).
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                fieldPath:
+                  description: FieldPath is an optional JMESPath applied to decoded
+                    Data to produce the root before projections.
+                  type: string
                 name:
                   description: Name is the name of the GlobalContextEntry resource.
                   type: string
+                projections:
+                  description: |-
+                    Projections optionally build a map of named values from that root.
+                    When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).
+                  items:
+                    description: |-
+                      GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
+                      The resulting map is exposed to policies as top-level keys (e.g. name "items" → policy sees .items).
+                    properties:
+                      name:
+                        description: Name is the key policies see on the mocked global
+                          context object.
+                        type: string
+                      path:
+                        description: Path is a JMESPath expression evaluated against
+                          the root after FieldPath (if any) is applied.
+                        type: string
+                    required:
+                    - name
+                    - path
+                    type: object
+                  type: array
               required:
               - data
               - name

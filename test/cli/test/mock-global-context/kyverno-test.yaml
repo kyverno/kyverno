@@ -1,10 +1,13 @@
 apiVersion: cli.kyverno.io/v1alpha1
 globalContextEntries:
 - data:
-    items:
+    deployments:
     - name: existing-deployment-1
     - name: existing-deployment-2
   name: gctxentry-deployments
+  projections:
+  - name: items
+    path: deployments
 kind: Test
 metadata:
   name: mock-global-context

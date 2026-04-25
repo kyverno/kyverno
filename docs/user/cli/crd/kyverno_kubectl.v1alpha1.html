@@ -945,8 +945,9 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           <p>APICallResponses provides static responses for HTTP/API calls during offline testing.
-Each entry maps a URL (and optional HTTP method) to a fixed response body,
-intercepting CEL http.Get() calls so policies can be tested without a real server.</p>
+Each entry maps a URL (and optional HTTP method) to a fixed response.
+This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
+so tests can run without a real server.</p>
 
 
           
@@ -1286,7 +1287,7 @@ during offline testing. Each entry maps a GlobalContextEntry name to arbitrary J
         <td>
           
 
-          <p>Body is the response body as arbitrary JSON.</p>
+          <p>Body is the response body as arbitrary JSON (Kubernetes object shape: string keys, JSON values).</p>
 
 
           
@@ -1351,7 +1352,7 @@ during offline testing. Each entry maps a GlobalContextEntry name to arbitrary J
         <td>
           
 
-          <p>URL is the request URL to match (e.g. &quot;https://example.com/config&quot;).</p>
+          <p>URL is the request URL to match (for example https://example.com/config).</p>
 
 
           
@@ -1937,7 +1938,163 @@ If empty, the entry matches any method via plain URL lookup.</p>
         <td>
           
 
-          <p>Data is the static data to return for this global context entry (arbitrary JSON).</p>
+          <p>Data is the static JSON root for this mock entry (arbitrary object).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>fieldPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>projections</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-GlobalContextProjection">
+                <span style="font-family: monospace">[]GlobalContextProjection</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Projections optionally build a map of named values from that root.
+When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-GlobalContextProjection">GlobalContextProjection
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-GlobalContextEntryValue">GlobalContextEntryValue</a>)
+    </p>
+  
+
+  <p><p>GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
+The resulting map is exposed to policies as top-level keys (e.g. name &quot;items&quot; → policy sees .items).</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the key policies see on the mocked global context object.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>path</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.</p>
 
 
           

@@ -15,16 +15,31 @@ func TestNewFakeContextProvider(t *testing.T) {
 	cp := NewFakeContextProvider()
 	assert.Equal(
 		t, &FakeContextProvider{
-			resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-			images:    map[string]map[string]any{},
+			resources:        map[string]map[string]map[string]*unstructured.Unstructured{},
+			images:           map[string]map[string]any{},
+			globalReferences: map[string]any{},
 		},
 		cp,
 	)
 }
 
 func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
+	// Zero-value provider (nil globalReferences map) returns an error, not a panic,
+	// because the comma-ok idiom on a nil map is safe in Go.
 	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
+	_, err := cp.GetGlobalReference("foo", "bar")
+	assert.Error(t, err)
+
+	// Properly initialised provider returns an error for missing entries.
+	cp2 := NewFakeContextProvider()
+	_, err = cp2.GetGlobalReference("missing", "")
+	assert.Error(t, err)
+
+	// AddGlobalReference + GetGlobalReference round-trip.
+	cp2.AddGlobalReference("key", map[string]any{"hello": "world"})
+	val, err := cp2.GetGlobalReference("key", "")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"hello": "world"}, val)
 }
 
 func TestFakeContextProvider_AddImageData(t *testing.T) {

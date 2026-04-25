@@ -25,7 +25,8 @@ import (
 )
 
 // stubHTTPContext is a test double for the real HTTP context.
-// It panics if called, so tests can verify mock interception prevents real calls.
+// It records whether Get/Post was invoked and returns a recognizable payload,
+// so tests can assert mock hits skipped the stub or misses reached it.
 type stubHTTPContext struct {
 	called bool
 }

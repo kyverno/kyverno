@@ -260,6 +260,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
+	if err := v1alpha1.ValidateAPICallResponses(testCase.Test.APICallResponses); err != nil {
+		return nil, err
+	}
+	if err := v1alpha1.ValidateGlobalContextEntries(testCase.Test.GlobalContextEntries); err != nil {
+		return nil, err
+	}
+	resolveGlobalContextMock := store.ResolveGlobalContextMockData
 	// init store
 	var store store.Store
 	store.SetLocal(true)
@@ -284,9 +291,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if len(testCase.Test.GlobalContextEntries) > 0 {
 		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
 		for _, entry := range testCase.Test.GlobalContextEntries {
-			data, err := v1alpha1.RawExtensionToObject(entry.Data)
+			data, err := resolveGlobalContextMock(entry)
 			if err != nil {
-				return nil, fmt.Errorf("globalContextEntries entry %q: invalid data: %w", entry.Name, err)
+				return nil, err
 			}
 			gceMap[entry.Name] = data
 		}

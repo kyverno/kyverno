@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
 func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {
@@ -43,11 +45,16 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 		}
 		var opts []factories.ContextLoaderFactoryOptions
 		opts = append(opts, factories.WithInitializer(init))
-		if gctx := s.GetGlobalContextStore(); gctx != nil {
-			opts = append(opts, factories.WithGlobalContextStore(gctx))
-		}
+		realGctx := s.GetGlobalContextStore()
 		if mocks := s.GetGlobalContextEntries(); len(mocks) > 0 {
-			opts = append(opts, factories.WithGlobalContextStore(NewMockGCtxStore(mocks)))
+			mockStore := NewMockGCtxStore(mocks)
+			if realGctx != nil {
+				opts = append(opts, factories.WithGlobalContextStore(newDelegatingGCtxStore(mockStore, realGctx)))
+			} else {
+				opts = append(opts, factories.WithGlobalContextStore(mockStore))
+			}
+		} else if realGctx != nil {
+			opts = append(opts, factories.WithGlobalContextStore(realGctx))
 		}
 		factory := factories.DefaultContextLoaderFactory(cmResolver, opts...)
 		return wrapper{
@@ -84,27 +91,32 @@ func (w wrapper) Load(
 		remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
 		for _, entry := range contextEntries {
 			if entry.APICall != nil {
-				url := ""
-				if entry.APICall.Service != nil {
-					url = entry.APICall.Service.URL
-				} else if entry.APICall.URLPath != "" {
-					url = entry.APICall.URLPath
+				ac := entry.APICall.DeepCopy()
+				subbedAc, err := variables.SubstituteAllInType(logr.Discard(), jsonContext, ac)
+				if err != nil {
+					return fmt.Errorf("failed to substitute variables in apiCall context entry %q: %w", entry.Name, err)
 				}
-				method := string(entry.APICall.Method)
+				url := ""
+				if subbedAc.Service != nil {
+					url = subbedAc.Service.URL
+				} else if subbedAc.URLPath != "" {
+					url = subbedAc.URLPath
+				}
+				method := string(subbedAc.Method)
 				if url != "" {
 					if body, ok := lookupMockResponse(mockURLIndex, method, url); ok {
 						data, err := json.Marshal(body)
 						if err != nil {
 							return err
 						}
-						if entry.APICall.JMESPath != "" {
+						if subbedAc.JMESPath != "" {
 							var raw interface{}
 							if err := json.Unmarshal(data, &raw); err != nil {
 								return fmt.Errorf("failed to unmarshal mock body for %q: %w", entry.Name, err)
 							}
-							result, err := jp.Search(entry.APICall.JMESPath, raw)
+							result, err := jp.Search(subbedAc.JMESPath, raw)
 							if err != nil {
-								return fmt.Errorf("failed to apply JMESPath %q for context entry %q: %w", entry.APICall.JMESPath, entry.Name, err)
+								return fmt.Errorf("failed to apply JMESPath %q for context entry %q: %w", subbedAc.JMESPath, entry.Name, err)
 							}
 							data, err = json.Marshal(result)
 							if err != nil {
