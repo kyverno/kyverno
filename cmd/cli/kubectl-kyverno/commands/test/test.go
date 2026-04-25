@@ -431,6 +431,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				false,
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -451,6 +452,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				true,
 				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -483,6 +485,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -514,6 +517,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				false,
 				true,
 				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
@@ -534,6 +538,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				true,
 				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
@@ -594,6 +599,7 @@ func applyImageValidatingPolicies(
 	continueOnFail bool,
 	isFake bool,
 	restMapper meta.RESTMapper,
+	gceMap map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -617,7 +623,7 @@ func applyImageValidatingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap)
 	if err != nil {
 		return nil, err
 	}
@@ -730,6 +736,7 @@ func applyDeletingPolicies(
 	contextPath string,
 	isFake bool,
 	restMapper meta.RESTMapper,
+	gceMap map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -738,7 +745,7 @@ func applyDeletingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap)
 	if err != nil {
 		return nil, err
 	}

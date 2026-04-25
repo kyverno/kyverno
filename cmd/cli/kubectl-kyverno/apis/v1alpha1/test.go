@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
@@ -145,21 +146,36 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 }
 
 func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
-	if strings.TrimSpace(e.URL) == "" {
+	u := strings.TrimSpace(e.URL)
+	if u == "" {
 		return fmt.Errorf("apiCallResponses[%d]: url is required", i)
+	}
+	parsedURL, err := url.Parse(u)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return fmt.Errorf("apiCallResponses[%d]: url must be a valid http/https URL", i)
+	}
+	m := strings.ToUpper(strings.TrimSpace(e.Method))
+	if m != "" && m != "GET" && m != "POST" {
+		return fmt.Errorf("apiCallResponses[%d]: method must be GET or POST", i)
+	}
+
+	raw := e.Response.Body.Raw
+	data := strings.TrimSpace(string(raw))
+	if data == "" || data == "null" {
+		return fmt.Errorf("apiCallResponses[%d] url %q: response.body is required", i, e.URL)
+	}
+	if !json.Valid(raw) {
+		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON", i, e.URL)
 	}
 	sc := e.Response.StatusCode
 	if sc != 0 && (sc < 100 || sc > 599) {
 		return fmt.Errorf("apiCallResponses[%d] url %q: statusCode %d must be between 100 and 599", i, e.URL, sc)
 	}
-	raw := e.Response.Body.Raw
-	if len(raw) > 0 && !json.Valid(raw) {
-		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON", i, e.URL)
-	}
 	return nil
 }
 
 // ValidateGlobalContextEntries checks mock global context entries and projection definitions.
+// Data is required for every entry (matches the CLI Test CRD); must be a JSON object.
 func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 	for _, e := range entries {
 		if strings.TrimSpace(e.Name) == "" {
@@ -172,6 +188,17 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 			if strings.TrimSpace(p.Path) == "" {
 				return fmt.Errorf("globalContextEntries entry %q projection %q: path is required", e.Name, p.Name)
 			}
+		}
+		data := strings.TrimSpace(string(e.Data.Raw))
+		if data == "" || data == "null" {
+			return fmt.Errorf("globalContextEntries entry %q: data is required", e.Name)
+		}
+		obj, err := RawExtensionToObject(e.Data)
+		if err != nil {
+			return fmt.Errorf("globalContextEntries entry %q: data must be valid JSON: %w", e.Name, err)
+		}
+		if _, ok := obj.(map[string]interface{}); !ok {
+			return fmt.Errorf("globalContextEntries entry %q: data must be a JSON object", e.Name)
 		}
 	}
 	return nil

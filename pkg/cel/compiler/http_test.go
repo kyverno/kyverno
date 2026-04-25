@@ -90,9 +90,9 @@ func TestNewLazyCELHTTPContext_ToggleEnforcement(t *testing.T) {
 
 func TestHTTPContextSeparation(t *testing.T) {
 	// Toggle is off by default. Namespaced policies must be blocked while
-	// cluster-scoped policies must remain usable — the regression tested here
-	// is that the SSRF blocklist and the namespaced toggle are independent.
-	t.Run("namespaced blocked, cluster unaffected when toggle is off", func(t *testing.T) {
+	// cluster-scoped policies are still allowed to attempt calls (subject to
+	// blocklist/allowlist filtering in the shared HTTP context).
+	t.Run("namespaced blocked, cluster skips namespaced toggle", func(t *testing.T) {
 		namespacedCtx := NewLazyCELHTTPContext("my-namespace")
 		clusterCtx := NewLazyCELHTTPContext("")
 
@@ -106,16 +106,14 @@ func TestHTTPContextSeparation(t *testing.T) {
 		}
 	})
 
-	t.Run("cluster context ignores SSRF blocklist", func(t *testing.T) {
-		// An invalid CIDR causes NewHTTPWithBlocklist to error. The unrestricted
-		// cluster context must succeed because it never reads the blocklist flag.
-		require.NoError(t, toggle.HTTPBlocklist.Parse("999.999.999.999/24"))
-		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+	t.Run("default blocklist applies to cluster policies", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("")
+		require.NotNil(t, ctx)
 
-		ctx := &cachedHTTPContext{unrestricted: true}
-		built, err := ctx.getOrBuild()
-		assert.NoError(t, err)
-		assert.NotNil(t, built)
+		_, err := ctx.Get("http://10.1.2.3", nil)
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		assert.Contains(t, err.Error(), "blocked")
 	})
 }
 

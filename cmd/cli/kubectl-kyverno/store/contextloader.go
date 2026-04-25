@@ -103,9 +103,19 @@ func (w wrapper) Load(
 					url = subbedAc.URLPath
 				}
 				method := string(subbedAc.Method)
+				if method == "" {
+					method = "GET"
+				}
 				if url != "" {
-					if body, ok := lookupMockResponse(mockURLIndex, method, url); ok {
-						data, err := json.Marshal(body)
+					if mockVal, ok := lookupMockResponse(mockURLIndex, method, url); ok {
+						payload, ok := mockVal.(*apiCallMockPayload)
+						if !ok {
+							return fmt.Errorf("internal: unexpected mock type %T for context entry %q", mockVal, entry.Name)
+						}
+						if payload.StatusCode < 200 || payload.StatusCode >= 300 {
+							return fmt.Errorf("HTTP %d from apiCall mock for context entry %q (v1 apiCall treats non-2xx as failure)", payload.StatusCode, entry.Name)
+						}
+						data, err := json.Marshal(payload.Body)
 						if err != nil {
 							return err
 						}
@@ -150,6 +160,12 @@ func lookupMockResponse(index map[string]interface{}, method, url string) (inter
 	return nil, false
 }
 
+// apiCallMockPayload is stored in the mock URL index for v1 context.apiCall (status mirrors real HTTP behavior).
+type apiCallMockPayload struct {
+	StatusCode int
+	Body       interface{}
+}
+
 func buildAPICallURLIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -160,11 +176,15 @@ func buildAPICallURLIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]int
 		if err != nil {
 			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
 		}
+		sc := m.Response.StatusCode
+		if sc == 0 {
+			sc = 200
+		}
 		key := m.URL
 		if m.Method != "" {
 			key = m.Method + ":" + m.URL
 		}
-		index[key] = body
+		index[key] = &apiCallMockPayload{StatusCode: sc, Body: body}
 	}
 	return index, nil
 }

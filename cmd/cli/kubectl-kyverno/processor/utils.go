@@ -23,7 +23,7 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 	return false
 }
 
-func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries ...map[string]interface{}) (libs.Context, error) {
+func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
 			dclient,
@@ -65,8 +65,8 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 	}
 
 	// Populate GlobalContextEntry mocks so CEL globalcontext.get() works offline.
-	if len(globalContextEntries) > 0 && globalContextEntries[0] != nil {
-		for name, data := range globalContextEntries[0] {
+	if len(globalContextEntries) > 0 {
+		for name, data := range globalContextEntries {
 			fakeContextProvider.AddGlobalReference(name, data)
 		}
 	}

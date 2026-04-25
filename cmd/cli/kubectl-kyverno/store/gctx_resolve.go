@@ -39,7 +39,7 @@ func resolveGlobalContextMockData(jp jmespath.Interface, entry v1alpha1.GlobalCo
 	out := make(map[string]interface{}, len(entry.Projections))
 	for _, p := range entry.Projections {
 		if p.Name == "" {
-			continue
+			return nil, fmt.Errorf("globalContextEntries %q projection name must not be empty", entry.Name)
 		}
 		v, err := jp.Search(p.Path, root)
 		if err != nil {

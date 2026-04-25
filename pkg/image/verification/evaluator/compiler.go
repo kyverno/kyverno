@@ -248,7 +248,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			gzip.Latest(),
 		),
 		http.Lib(
-			http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace))},
 			http.Latest(),
 		),
 	}

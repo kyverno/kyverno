@@ -30,9 +30,18 @@ func TestValidateAPICallResponses(t *testing.T) {
 	t.Run("bad status", func(t *testing.T) {
 		err := ValidateAPICallResponses([]APICallResponseEntry{{
 			URL:      "https://x",
-			Response: APICallResponse{StatusCode: 99},
+			Response: APICallResponse{StatusCode: 99, Body: runtime.RawExtension{Raw: []byte(`{}`)}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "statusCode") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("missing body", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:      "https://x",
+			Response: APICallResponse{Body: runtime.RawExtension{}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "body is required") {
 			t.Fatalf("got %v", err)
 		}
 	})
@@ -51,6 +60,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name: "g",
+			Data: runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{
 				{Name: "items", Path: "deployments"},
 			},
@@ -68,6 +78,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("projection missing name", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:        "g",
+			Data:        runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{{Name: "", Path: "p"}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "projection name") {
@@ -77,9 +88,29 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("projection missing path", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:        "g",
+			Data:        runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{{Name: "n", Path: " "}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "path is required") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("projections without data", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:        "g",
+			Data:        runtime.RawExtension{},
+			Projections: []GlobalContextProjection{{Name: "n", Path: "p"}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "data is required") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("missing data without projections", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name: "g",
+			Data: runtime.RawExtension{},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "data is required") {
 			t.Fatalf("got %v", err)
 		}
 	})

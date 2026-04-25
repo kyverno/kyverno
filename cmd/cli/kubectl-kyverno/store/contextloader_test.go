@@ -63,8 +63,26 @@ func TestBuildAPICallURLIndex(t *testing.T) {
 		if !ok {
 			t.Fatalf("keys: %#v", idx)
 		}
-		if v.(map[string]interface{})["ok"] != true {
-			t.Fatalf("%#v", v)
+		p := v.(*apiCallMockPayload)
+		if p.StatusCode != 200 || p.Body.(map[string]interface{})["ok"] != true {
+			t.Fatalf("%#v", p)
+		}
+	})
+	t.Run("non-2xx status preserved", func(t *testing.T) {
+		raw, _ := json.Marshal(map[string]interface{}{"err": "nope"})
+		idx, err := buildAPICallURLIndex([]v1alpha1.APICallResponseEntry{{
+			URL: "https://x",
+			Response: v1alpha1.APICallResponse{
+				StatusCode: 404,
+				Body:       runtime.RawExtension{Raw: raw},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := idx["https://x"].(*apiCallMockPayload)
+		if p.StatusCode != 404 {
+			t.Fatalf("%d", p.StatusCode)
 		}
 	})
 	t.Run("invalid body", func(t *testing.T) {
