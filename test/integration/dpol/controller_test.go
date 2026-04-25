@@ -66,20 +66,61 @@ func TestMain(m *testing.M) {
 
 // --- helpers ---
 
-// configMapMatchRules returns MatchResources targeting ConfigMaps.
-func configMapMatchRules() *admissionregistrationv1.MatchResources {
+// matchRulesFor returns MatchResources targeting the given API group/version/resource.
+// Operations is set to OperationAll because the deleting controller is scheduled,
+// not admission-driven, so the operation set isn't meaningful at evaluation time.
+func matchRulesFor(apiGroup, apiVersion, resource string) *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{""},
-					APIVersions: []string{"v1"},
-					Resources:   []string{"configmaps"},
+					APIGroups:   []string{apiGroup},
+					APIVersions: []string{apiVersion},
+					Resources:   []string{resource},
 				},
 			},
 		}},
 	}
+}
+
+// configMapMatchRules returns MatchResources targeting ConfigMaps.
+func configMapMatchRules() *admissionregistrationv1.MatchResources {
+	return matchRulesFor("", "v1", "configmaps")
+}
+
+// labelNamespace updates labels on an existing namespace and waits for the
+// namespace lister to reflect the change. The deleting controller's nsResolver
+// reads from this lister to populate the `namespaceObject` CEL key, so any test
+// that exercises namespaceObject in conditions has to prime the cache.
+func labelNamespace(t *testing.T, name string, extraLabels map[string]string) {
+	t.Helper()
+	ctx := context.Background()
+	nsClient := testEnv.KubeClient.CoreV1().Namespaces()
+
+	ns, err := nsClient.Get(ctx, name, metav1.GetOptions{})
+	require.NoError(t, err)
+	if ns.Labels == nil {
+		ns.Labels = map[string]string{}
+	}
+	for k, v := range extraLabels {
+		ns.Labels[k] = v
+	}
+	_, err = nsClient.Update(ctx, ns, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		got, err := deps.NsLister.Get(name)
+		if err != nil {
+			return false
+		}
+		for k, v := range extraLabels {
+			if got.Labels[k] != v {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "label update on namespace %q should propagate to lister", name)
 }
 
 // createResource creates an arbitrary resource in envtest via the dclient and
@@ -537,4 +578,281 @@ func TestDeletingPolicy_ExecutesOnNaturalCronTick(t *testing.T) {
 	pol, err := testEnv.KyvernoClient.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), policy.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.False(t, pol.Status.LastExecutionTime.IsZero(), "controller should have set LastExecutionTime after firing")
+}
+
+// Tenant safety: a NamespacedDeletingPolicy authored in team-a's namespace must
+// not delete cluster-scoped resources, even if a user accidentally points it
+// at one. The controller skips cluster-scoped GVRs for namespaced policies
+// (controller.go skips at the `policyNamespace != "" && !isNamespaced(gvr)` guard).
+//
+// The test creates a NamespacedDeletingPolicy that targets `Namespaces` (cluster-scoped)
+// from inside one namespace, then asserts:
+//  1. the target namespace is not deleted (and not even marked for deletion).
+//  2. LastExecutionTime still advances, proving the controller ran the reconcile loop
+//     and skipped the GVR rather than erroring out.
+func TestNamespacedDeletingPolicy_SkipsClusterScopedResource(t *testing.T) {
+	nsPolicy := "ndpol-cluster-skip"
+	nsTarget := "ndpol-cluster-skip-target"
+	framework.CreateNamespace(t, testEnv.KubeClient, nsPolicy)
+	framework.CreateNamespace(t, testEnv.KubeClient, nsTarget)
+	deps.EventCapture.Clear()
+
+	policy := &policiesv1beta1.NamespacedDeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ndpol-target-namespaces",
+			Namespace: nsPolicy,
+		},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule:         "* * * * *",
+			MatchConstraints: matchRulesFor("", "v1", "namespaces"),
+			Conditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "always",
+				Expression: "true",
+			}},
+		},
+	}
+	createNdpolWithCleanup(t, policy)
+	triggerNdpolExecution(t, nsPolicy, policy.Name)
+
+	// Wait for the controller to record execution.
+	require.Eventually(t, func() bool {
+		pol, err := testEnv.KyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(nsPolicy).Get(context.Background(), policy.Name, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		return !pol.Status.LastExecutionTime.IsZero() &&
+			time.Since(pol.Status.LastExecutionTime.Time) < 30*time.Second
+	}, 15*time.Second, 200*time.Millisecond, "LastExecutionTime should advance even when the targeted GVR is skipped")
+
+	// Target namespace must not be deleted nor marked for deletion. envtest has no
+	// kube-controller-manager / GC, so even a "deleted" namespace would linger as
+	// Terminating; checking DeletionTimestamp is the strict assertion.
+	target, err := testEnv.KubeClient.CoreV1().Namespaces().Get(context.Background(), nsTarget, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Nil(t, target.DeletionTimestamp, "namespaced policy must not initiate deletion of a cluster-scoped resource")
+}
+
+// Platform engineer wants cleanup to apply only in dev namespaces (labeled
+// env=dev). The policy uses `namespaceObject.metadata.labels` in its CEL
+// condition. Only resources living in labeled namespaces are deleted.
+//
+// This exercises engine.go's namespace resolution path, which populates the
+// `namespaceObject` CEL key by calling nsResolver.Get(namespace) against the
+// namespace lister.
+func TestDeletingPolicy_NamespaceObjectInConditions(t *testing.T) {
+	nsDev := "dpol-nsobj-dev"
+	nsProd := "dpol-nsobj-prod"
+	framework.CreateNamespace(t, testEnv.KubeClient, nsDev)
+	framework.CreateNamespace(t, testEnv.KubeClient, nsProd)
+	labelNamespace(t, nsDev, map[string]string{"env": "dev"})
+	deps.EventCapture.Clear()
+
+	createConfigMap(t, "in-dev", nsDev, nil)
+	createConfigMap(t, "in-prod", nsProd, nil)
+
+	// Cluster-scoped policy. NamespaceSelector restricts the controller's list
+	// to just the two test namespaces; without it the policy would scan every
+	// namespace in envtest and could collide with parallel test data.
+	rules := configMapMatchRules()
+	rules.NamespaceSelector = &metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{{
+			Key:      "kubernetes.io/metadata.name",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{nsDev, nsProd},
+		}},
+	}
+
+	policy := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "dpol-namespaceobject"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule:         "* * * * *",
+			MatchConstraints: rules,
+			Conditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "only-dev-namespaces",
+				Expression: `has(namespaceObject.metadata.labels) && namespaceObject.metadata.labels["env"] == "dev"`,
+			}},
+		},
+	}
+	createDpolWithCleanup(t, policy)
+	triggerDpolExecution(t, policy.Name)
+
+	// dev ConfigMap should be deleted.
+	require.Eventually(t, func() bool {
+		_, err := testEnv.KubeClient.CoreV1().ConfigMaps(nsDev).Get(context.Background(), "in-dev", metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, 15*time.Second, 200*time.Millisecond, "in-dev should be deleted (namespace labeled env=dev)")
+
+	// prod ConfigMap should survive (its namespace lacks the env=dev label).
+	cm, err := testEnv.KubeClient.CoreV1().ConfigMaps(nsProd).Get(context.Background(), "in-prod", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "in-prod", cm.Name)
+}
+
+// Safety guarantee: a CEL evaluation error during condition evaluation must
+// NOT result in a deletion. A user with a typo or a broken expression in their
+// policy should never lose data because of it. The controller's policy.go
+// returns an error from match() which engine.go propagates, and the deleting
+// controller skips the resource (controller.go: append err to errs and continue).
+//
+// To force a runtime error, a variable references a missing key on a DynType
+// (`object.neverExists.attr`). CEL constant-folds simple errors like `1/0` to
+// compile time, so this DynType pattern is the reliable way to guarantee a
+// runtime evaluation error. The variable is then referenced from a condition
+// to actually surface the lazy-evaluation error.
+func TestDeletingPolicy_CELEvaluationErrorSkipsDeletion(t *testing.T) {
+	ns := "dpol-cel-error"
+	framework.CreateNamespace(t, testEnv.KubeClient, ns)
+	deps.EventCapture.Clear()
+
+	createConfigMap(t, "should-survive", ns, nil)
+
+	policy := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "dpol-cel-eval-error"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule:         "* * * * *",
+			MatchConstraints: configMapMatchRules(),
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "broken",
+				Expression: `object.neverExists.attr`,
+			}},
+			Conditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "in-namespace",
+					Expression: `object.metadata.namespace == "dpol-cel-error"`,
+				},
+				{
+					// Reads variables.broken to force lazy evaluation (and the error).
+					Name:       "uses-broken-var",
+					Expression: `variables.broken == "anything"`,
+				},
+			},
+		},
+	}
+	createDpolWithCleanup(t, policy)
+	triggerDpolExecution(t, policy.Name)
+
+	// Safety contract: a CEL eval error must never result in deletion. When
+	// engine.Handle returns an error, the controller appends to its error
+	// slice and continues. After processing all resources, deleting() returns
+	// the multierr, reconcile() early-exits, and the worker requeues with
+	// backoff. LastExecutionTime is intentionally NOT updated, because each
+	// retry hits the same eval error. require.Never holds the assertion across
+	// multiple retries to catch a regression where eval errors silently allow
+	// deletion.
+	require.Never(t, func() bool {
+		_, err := testEnv.KubeClient.CoreV1().ConfigMaps(ns).Get(context.Background(), "should-survive", metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, 5*time.Second, 500*time.Millisecond, "ConfigMap must not be deleted when CEL evaluation errors")
+}
+
+// Two teams accidentally author overlapping cleanup policies that target the
+// same resource. With 3 controller workers, both reconciles can run nearly
+// concurrently. Whichever policy fires first deletes the resource; the second
+// policy hits the resource gone and goes through the controller's NotFound
+// branch (controller.go IsNotFound → continue). That branch must not emit a
+// failure event - the resource being already gone is expected, not an error.
+func TestDeletingPolicy_MultiplePoliciesSameResource(t *testing.T) {
+	ns := "dpol-multi-policies"
+	framework.CreateNamespace(t, testEnv.KubeClient, ns)
+	deps.EventCapture.Clear()
+
+	createConfigMap(t, "shared-target", ns, map[string]string{"cleanup": "true"})
+
+	makePolicy := func(name string) *policiesv1beta1.DeletingPolicy {
+		rules := configMapMatchRules()
+		// Pin both policies to this test's namespace to bound blast radius
+		// (cluster-scoped DPols list resources cluster-wide otherwise).
+		rules.NamespaceSelector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{"kubernetes.io/metadata.name": ns},
+		}
+		return &policiesv1beta1.DeletingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.DeletingPolicySpec{
+				Schedule:         "* * * * *",
+				MatchConstraints: rules,
+				Conditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "has-cleanup-label",
+					Expression: `has(object.metadata.labels) && object.metadata.labels["cleanup"] == "true"`,
+				}},
+			},
+		}
+	}
+	pol1 := makePolicy("dpol-multi-1")
+	pol2 := makePolicy("dpol-multi-2")
+	createDpolWithCleanup(t, pol1)
+	createDpolWithCleanup(t, pol2)
+
+	triggerDpolExecution(t, pol1.Name)
+	triggerDpolExecution(t, pol2.Name)
+
+	// At least one policy must have deleted the target.
+	require.Eventually(t, func() bool {
+		_, err := testEnv.KubeClient.CoreV1().ConfigMaps(ns).Get(context.Background(), "shared-target", metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, 15*time.Second, 200*time.Millisecond, "shared-target should be deleted by one of the overlapping policies")
+
+	// Wait for both policies to finish their reconcile. After this point the
+	// "loser" has already taken its NotFound path (or skipped the resource
+	// entirely if the listing happened post-delete) - either way, the next
+	// assertion is meaningful.
+	require.Eventually(t, func() bool {
+		p1, err := testEnv.KyvernoClient.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), pol1.Name, metav1.GetOptions{})
+		if err != nil || p1.Status.LastExecutionTime.IsZero() {
+			return false
+		}
+		p2, err := testEnv.KyvernoClient.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), pol2.Name, metav1.GetOptions{})
+		if err != nil || p2.Status.LastExecutionTime.IsZero() {
+			return false
+		}
+		return time.Since(p1.Status.LastExecutionTime.Time) < 30*time.Second &&
+			time.Since(p2.Status.LastExecutionTime.Time) < 30*time.Second
+	}, 15*time.Second, 200*time.Millisecond, "both policies should record an execution")
+
+	// The NotFound branch must not generate failure events.
+	events := deps.EventCapture.GetEvents()
+	for _, e := range events {
+		assert.NotEqual(t, event.PolicyError, e.Reason,
+			"PolicyError event from %s/%s on resource %s/%s indicates the NotFound branch is incorrectly emitting failures",
+			e.Source, e.Action, e.Regarding.Namespace, e.Regarding.Name)
+	}
+}
+
+// Smoke-test that DeletionPropagationPolicy on the policy spec is wired through
+// to the dclient DeleteOptions when the controller deletes a resource. envtest
+// has no kube-controller-manager and therefore no garbage collector, so the
+// real cascading semantics (Foreground waits for dependents, Background lets GC
+// clean them up async, Orphan abandons them) cannot be verified at the GC level
+// here. What we CAN verify is that setting the policy field doesn't cause an
+// API error and the targeted object is deleted - which is enough to catch a
+// regression in the wiring.
+//
+// Background is chosen deliberately: Foreground would leave the object stuck
+// in Terminating in envtest (no GC to finish it), defeating IsNotFound checks.
+func TestDeletingPolicy_DeletionPropagationPolicy(t *testing.T) {
+	ns := "dpol-propagation"
+	framework.CreateNamespace(t, testEnv.KubeClient, ns)
+	deps.EventCapture.Clear()
+
+	createConfigMap(t, "to-delete", ns, nil)
+
+	background := metav1.DeletePropagationBackground
+	policy := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "dpol-with-propagation"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule:                  "* * * * *",
+			MatchConstraints:          configMapMatchRules(),
+			DeletionPropagationPolicy: &background,
+			Conditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "in-namespace",
+				Expression: `object.metadata.namespace == "dpol-propagation"`,
+			}},
+		},
+	}
+	createDpolWithCleanup(t, policy)
+	triggerDpolExecution(t, policy.Name)
+
+	require.Eventually(t, func() bool {
+		_, err := testEnv.KubeClient.CoreV1().ConfigMaps(ns).Get(context.Background(), "to-delete", metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, 15*time.Second, 200*time.Millisecond, "to-delete should be deleted with Background propagation")
 }
