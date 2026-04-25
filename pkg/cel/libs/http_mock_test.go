@@ -65,6 +65,22 @@ func TestSetHTTPMockResponses_Roundtrip(t *testing.T) {
 	assert.True(t, ok)
 }
 
+func TestMockAwareHTTPContext_Post_MockHit(t *testing.T) {
+	defer SetHTTPMockResponses(nil)
+	SetHTTPMockResponses(map[string]interface{}{
+		"POST:https://example.com/submit": map[string]interface{}{"id": "42", "statusCode": 201},
+	})
+
+	stub := &stubHTTPContext{}
+	ctx := NewMockAwareHTTPContext(stub)
+
+	result, err := ctx.Post("https://example.com/submit", map[string]interface{}{"k": "v"}, nil)
+	require.NoError(t, err)
+	assert.False(t, stub.called)
+	m := result.(map[string]interface{})
+	assert.Equal(t, "42", m["id"])
+}
+
 func TestMockAwareHTTPContext_Get_MockHit(t *testing.T) {
 	defer SetHTTPMockResponses(nil)
 	SetHTTPMockResponses(map[string]interface{}{

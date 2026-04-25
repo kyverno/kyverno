@@ -75,7 +75,8 @@ type Test struct {
 	APICallResponses []APICallResponseEntry `json:"apiCallResponses,omitempty"`
 
 	// GlobalContextEntries provides static data for GlobalContextEntry references
-	// during offline testing. Each entry maps a GlobalContextEntry name to arbitrary JSON data.
+	// during offline testing (v1 globalReference and CEL globalContext.Get).
+	// Optional fieldPath and projections shape the JSON passed to policies.
 	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
 }
 

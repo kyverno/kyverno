@@ -79,4 +79,30 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 			t.Fatalf("want nil, got %#v", got)
 		}
 	})
+
+	t.Run("projections require data", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: runtime.RawExtension{},
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "x", Path: "y"},
+			},
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("invalid fieldPath", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name:      "g",
+			FieldPath: "this is not valid jmespath {{{",
+			Data:      raw(map[string]interface{}{"a": 1}),
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }
