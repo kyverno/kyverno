@@ -278,15 +278,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	}
 
+	var execErr error
 	// In case it is the time to do the cleanup process
 	if time.Now().After(*executionTime) {
-		err := c.deleting(ctx, logger, policy)
-		if err != nil {
-			return err
-		}
-		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
-			logger.Error(err, "failed to update the deleting policy status")
-			return err
+		execErr = c.deleting(ctx, logger, policy)
+		if execErr == nil {
+			if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
+				logger.Error(err, "failed to update the deleting policy status")
+				execErr = err
+			}
 		}
 		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())
 		if err != nil {
@@ -304,7 +304,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// add the item back to the queue after the delay
 	c.queue.AddAfter(key, delay)
-	return nil
+	return execErr
 }
 
 func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bool {

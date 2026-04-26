@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -166,11 +167,13 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.
 type captureQueue struct {
 	workqueue.TypedRateLimitingInterface[any]
-	lastDelay time.Duration
-	lastKey   any
+	lastDelay    time.Duration
+	lastKey      any
+	addAfterCalled bool
 }
 
 func (c *captureQueue) AddAfter(item any, delay time.Duration) {
+	c.addAfterCalled = true
 	c.lastDelay = delay
 	c.lastKey = item
 	c.TypedRateLimitingInterface.AddAfter(item, delay)
@@ -240,4 +243,73 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	if cq.lastDelay < minRequeueDelay-100*time.Millisecond || cq.lastDelay > minRequeueDelay+60*time.Second {
 		t.Fatalf("expected delay to next cron minute, got %v", cq.lastDelay)
 	}
+}
+
+// TestReconcile_CleanupError_CronNeverRearmed confirms the bug: when cleanup()
+// returns a non-recoverable error, reconcile returns early without calling
+// queue.AddAfter, permanently disabling the cron schedule for this policy.
+func TestReconcile_CleanupError_CronNeverRearmed(t *testing.T) {
+	pol := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pol",
+			Namespace: "ns1",
+			// CreationTimestamp zero means GetExecutionTime uses LastExecutionTime.
+		},
+		Spec: kyvernov2.CleanupPolicySpec{
+			Schedule: "* * * * *", // every minute
+			MatchResources: kyvernov2.MatchResources{
+				Any: []kyvernov1.ResourceFilter{
+					{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"ConfigMap"}}},
+				},
+			},
+		},
+		// LastExecutionTime in 1901 ensures executionTime is far in the past,
+		// so time.Now().After(*executionTime) == true and cleanup() is invoked.
+		Status: kyvernov2.CleanupPolicyStatus{
+			LastExecutionTime: metav1.Time{Time: time.Date(1901, 1, 1, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+
+	fakeKyvernoClient := versionedfake.NewSimpleClientset(pol.DeepCopy())
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	if err := indexer.Add(pol.DeepCopy()); err != nil {
+		t.Fatalf("indexer add: %v", err)
+	}
+	polLister := v2listers.NewCleanupPolicyLister(indexer)
+
+	// ListResource returns a non-recoverable error (not Forbidden/NotFound),
+	// so cleanup() will propagate it back to reconcile().
+	mockClient := &mockDClient{
+		Interface: dclient.NewEmptyFakeClient(),
+		listResource: func(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+			return nil, fmt.Errorf("connection refused")
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+	mockConfig.EXPECT().ToFilter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false).AnyTimes()
+
+	baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-cleanup-err"},
+	)
+	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
+
+	c := &controller{
+		client:        mockClient,
+		kyvernoClient: fakeKyvernoClient,
+		polLister:     polLister,
+		queue:         cq,
+		configuration: mockConfig,
+		jp:            jmespath.New(configpkg.NewDefaultConfiguration(false)),
+	}
+
+	err := c.reconcile(context.Background(), logr.Discard(), "ns1/test-pol", "ns1", "test-pol")
+
+	assert.Error(t, err, "reconcile must surface the cleanup error so the workqueue can rate-limit retries")
+	assert.True(t, cq.addAfterCalled, "AddAfter must be called even when cleanup fails so the cron schedule survives")
 }
