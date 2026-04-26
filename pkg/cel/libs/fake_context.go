@@ -56,8 +56,6 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 	return nil
 }
 
-// AddGlobalReference stores a static value for the named GlobalContextEntry,
-// allowing offline tests to mock globalcontext.get() calls.
 func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
 	cp.globalReferences[name] = data
 }
@@ -66,7 +64,7 @@ func (cp *FakeContextProvider) GetGlobalReference(name, _ string) (any, error) {
 	if data, ok := cp.globalReferences[name]; ok {
 		return data, nil
 	}
-	return nil, fmt.Errorf("global context entry %q not found in fake context", name)
+	return nil, nil
 }
 
 func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {

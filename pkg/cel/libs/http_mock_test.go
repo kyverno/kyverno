@@ -1,19 +1,3 @@
-/*
-Copyright 2025 The Kyverno Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package libs
 
 import (
@@ -24,9 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stubHTTPContext is a test double for the real HTTP context.
-// It records whether Get/Post was invoked and returns a recognizable payload,
-// so tests can assert mock hits skipped the stub or misses reached it.
 type stubHTTPContext struct {
 	called bool
 }
@@ -92,7 +73,6 @@ func TestMockAwareHTTPContext_Get_MockHit(t *testing.T) {
 
 	result, err := ctx.Get("https://example.com/data", nil)
 	require.NoError(t, err)
-	// real stub must NOT have been called
 	assert.False(t, stub.called)
 	m := result.(map[string]interface{})
 	assert.Equal(t, true, m["allowed"])
@@ -110,7 +90,6 @@ func TestMockAwareHTTPContext_Get_MockMiss_FallsThrough(t *testing.T) {
 
 	result, err := ctx.Get("https://example.com/unknown", nil)
 	require.NoError(t, err)
-	// real stub SHOULD have been called for the unknown URL
 	assert.True(t, stub.called)
 	m := result.(map[string]interface{})
 	assert.Equal(t, true, m["real"])
@@ -151,7 +130,6 @@ func TestMockAwareHTTPContext_Client_WrapsInner(t *testing.T) {
 
 	inner, err := ctx.Client("")
 	require.NoError(t, err)
-	// inner should also be a mockAwareHTTPContext, not the raw stub
 	_, ok := inner.(*mockAwareHTTPContext)
 	assert.True(t, ok)
 }

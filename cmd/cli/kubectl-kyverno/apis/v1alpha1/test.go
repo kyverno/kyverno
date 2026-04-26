@@ -69,15 +69,10 @@ type Test struct {
 	// ClusterResources are the cluster resources to be used in the test
 	ClusterResources []string `json:"clusterResources,omitempty"`
 
-	// APICallResponses provides static responses for HTTP/API calls during offline testing.
-	// Each entry maps a URL (and optional HTTP method) to a fixed response.
-	// This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
-	// so tests can run without a real server.
+	// APICallResponses mocks HTTP for offline tests (CEL http.* and v1 context.apiCall).
 	APICallResponses []APICallResponseEntry `json:"apiCallResponses,omitempty"`
 
-	// GlobalContextEntries provides static data for GlobalContextEntry references
-	// during offline testing (v1 globalReference and CEL globalContext.Get).
-	// Optional fieldPath and projections shape the JSON passed to policies.
+	// GlobalContextEntries mocks GlobalContextEntry data for offline tests (v1 and CEL).
 	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
 }
 
@@ -107,8 +102,7 @@ type APICallResponse struct {
 	Body runtime.RawExtension `json:"body"`
 }
 
-// GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
-// The resulting map is exposed to policies as top-level keys (e.g. name "items" → policy sees .items).
+// GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.
 type GlobalContextProjection struct {
 	// Name is the key policies see on the mocked global context object.
 	Name string `json:"name"`
@@ -130,8 +124,7 @@ type GlobalContextEntryValue struct {
 	// FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.
 	FieldPath string `json:"fieldPath,omitempty"`
 
-	// Projections optionally build a map of named values from that root.
-	// When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).
+	// Projections are optional named JMESPath extracts (see GlobalContextProjection).
 	Projections []GlobalContextProjection `json:"projections,omitempty"`
 }
 
@@ -174,8 +167,7 @@ func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
 	return nil
 }
 
-// ValidateGlobalContextEntries checks mock global context entries and projection definitions.
-// Data is required for every entry (matches the CLI Test CRD); must be a JSON object.
+// ValidateGlobalContextEntries validates mock global context entries.
 func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 	for _, e := range entries {
 		if strings.TrimSpace(e.Name) == "" {

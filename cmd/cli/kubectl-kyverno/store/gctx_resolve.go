@@ -10,8 +10,6 @@ import (
 
 var defaultGctxJMESPath = jmespath.New(config.NewDefaultConfiguration(false))
 
-// ResolveGlobalContextMockData builds the object passed to v1 globalReference and CEL globalContext
-// from a test manifest entry: optional FieldPath narrows Data, then Projections (if any) become top-level keys.
 func ResolveGlobalContextMockData(entry v1alpha1.GlobalContextEntryValue) (interface{}, error) {
 	return resolveGlobalContextMockData(defaultGctxJMESPath, entry)
 }

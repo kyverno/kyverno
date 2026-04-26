@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
@@ -256,7 +257,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
-	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
 	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
@@ -267,7 +267,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		return nil, err
 	}
 	resolveGlobalContextMock := store.ResolveGlobalContextMockData
-	// init store
 	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
@@ -278,7 +277,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		vars.SetInStore(&store)
 	}
 
-	// Set CEL http mock responses for offline testing; cleared after this test case.
 	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.APICallResponses)
 	if err != nil {
 		return nil, err
@@ -286,7 +284,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	libs.SetHTTPMockResponses(httpMockIndex)
 	defer libs.SetHTTPMockResponses(nil)
 
-	// Build GlobalContextEntries map for CEL globalcontext.get() offline resolution.
 	var gceMap map[string]interface{}
 	if len(testCase.Test.GlobalContextEntries) > 0 {
 		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
@@ -847,9 +844,6 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 	return resources
 }
 
-// buildHTTPMockIndex converts the test-file APICallResponses into the flat map consumed
-// by libs.SetHTTPMockResponses. Keys are "METHOD:url" when a method is specified,
-// otherwise the plain URL string.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -858,22 +852,21 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
+			url := strings.TrimSpace(m.URL)
+			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", url, err)
 		}
 		wrapped := wrapHTTPResponse(body, m.Response.StatusCode)
-		key := m.URL
-		if m.Method != "" {
-			key = m.Method + ":" + m.URL
+		url := strings.TrimSpace(m.URL)
+		method := strings.ToUpper(strings.TrimSpace(m.Method))
+		key := url
+		if method != "" {
+			key = method + ":" + url
 		}
 		index[key] = wrapped
 	}
 	return index, nil
 }
 
-// wrapHTTPResponse replicates the Kyverno SDK's HTTP response format.
-// The real SDK injects statusCode into map bodies, or wraps non-map bodies as
-// {"body": ..., "statusCode": ...}. Mocks must match this format so that CEL
-// expressions like `http.Get(...).statusCode` work correctly.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200

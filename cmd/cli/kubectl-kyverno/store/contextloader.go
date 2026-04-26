@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -147,7 +148,6 @@ func (w wrapper) Load(
 	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
 
-// lookupMockResponse searches the index by method:url first, then by url alone.
 func lookupMockResponse(index map[string]interface{}, method, url string) (interface{}, bool) {
 	if method != "" {
 		if body, ok := index[method+":"+url]; ok {
@@ -160,7 +160,6 @@ func lookupMockResponse(index map[string]interface{}, method, url string) (inter
 	return nil, false
 }
 
-// apiCallMockPayload is stored in the mock URL index for v1 context.apiCall (status mirrors real HTTP behavior).
 type apiCallMockPayload struct {
 	StatusCode int
 	Body       interface{}
@@ -174,15 +173,18 @@ func buildAPICallURLIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]int
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", m.URL, err)
+			url := strings.TrimSpace(m.URL)
+			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", url, err)
 		}
 		sc := m.Response.StatusCode
 		if sc == 0 {
 			sc = 200
 		}
-		key := m.URL
-		if m.Method != "" {
-			key = m.Method + ":" + m.URL
+		url := strings.TrimSpace(m.URL)
+		method := strings.ToUpper(strings.TrimSpace(m.Method))
+		key := url
+		if method != "" {
+			key = method + ":" + url
 		}
 		index[key] = &apiCallMockPayload{StatusCode: sc, Body: body}
 	}

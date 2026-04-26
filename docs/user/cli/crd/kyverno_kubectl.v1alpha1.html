@@ -944,10 +944,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
         <td>
           
 
-          <p>APICallResponses provides static responses for HTTP/API calls during offline testing.
-Each entry maps a URL (and optional HTTP method) to a fixed response.
-This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
-so tests can run without a real server.</p>
+          <p>APICallResponses mocks HTTP for offline tests (CEL http.* and v1 context.apiCall).</p>
 
 
           
@@ -978,9 +975,7 @@ so tests can run without a real server.</p>
         <td>
           
 
-          <p>GlobalContextEntries provides static data for GlobalContextEntry references
-during offline testing (v1 globalReference and CEL globalContext.Get).
-Optional fieldPath and projections shape the JSON passed to policies.</p>
+          <p>GlobalContextEntries mocks GlobalContextEntry data for offline tests (v1 and CEL).</p>
 
 
           
@@ -1999,8 +1994,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
         <td>
           
 
-          <p>Projections optionally build a map of named values from that root.
-When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).</p>
+          <p>Projections are optional named JMESPath extracts (see GlobalContextProjection).</p>
 
 
           
@@ -2026,8 +2020,7 @@ When non-empty, the value passed to policies is only these keys (each Path is ev
     </p>
   
 
-  <p><p>GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
-The resulting map is exposed to policies as top-level keys (e.g. name &quot;items&quot; → policy sees .items).</p>
+  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.</p>
 </p>
 
   

@@ -20,11 +20,8 @@ spec:
         description: Test declares a test
         properties:
           apiCallResponses:
-            description: |-
-              APICallResponses provides static responses for HTTP/API calls during offline testing.
-              Each entry maps a URL (and optional HTTP method) to a fixed response.
-              This is used to mock CEL http.Get/http.Post and v1 policy context.apiCall entries
-              so tests can run without a real server.
+            description: APICallResponses mocks HTTP for offline tests (CEL http.*
+              and v1 context.apiCall).
             items:
               description: APICallResponseEntry maps a URL (and optional HTTP method)
                 to a static response body.
@@ -124,10 +121,8 @@ spec:
               type: string
             type: array
           globalContextEntries:
-            description: |-
-              GlobalContextEntries provides static data for GlobalContextEntry references
-              during offline testing (v1 globalReference and CEL globalContext.Get).
-              Optional fieldPath and projections shape the JSON passed to policies.
+            description: GlobalContextEntries mocks GlobalContextEntry data for offline
+              tests (v1 and CEL).
             items:
               description: GlobalContextEntryValue provides static data for a named
                 GlobalContextEntry.
@@ -145,13 +140,11 @@ spec:
                   description: Name is the name of the GlobalContextEntry resource.
                   type: string
                 projections:
-                  description: |-
-                    Projections optionally build a map of named values from that root.
-                    When non-empty, the value passed to policies is only these keys (each Path is evaluated on the root).
+                  description: Projections are optional named JMESPath extracts (see
+                    GlobalContextProjection).
                   items:
-                    description: |-
-                      GlobalContextProjection names a fragment of the mock global context root, extracted with JMESPath.
-                      The resulting map is exposed to policies as top-level keys (e.g. name "items" → policy sees .items).
+                    description: GlobalContextProjection pairs a policy-visible name
+                      with a JMESPath over the mock root.
                     properties:
                       name:
                         description: Name is the key policies see on the mocked global

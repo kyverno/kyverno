@@ -94,4 +94,20 @@ func TestBuildAPICallURLIndex(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
+	t.Run("normalizes method and url", func(t *testing.T) {
+		raw, _ := json.Marshal(map[string]interface{}{"a": 1})
+		idx, err := buildAPICallURLIndex([]v1alpha1.APICallResponseEntry{{
+			URL:    " https://x.test ",
+			Method: " get ",
+			Response: v1alpha1.APICallResponse{
+				Body: runtime.RawExtension{Raw: raw},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := idx["GET:https://x.test"]; !ok {
+			t.Fatalf("keys: %#v", idx)
+		}
+	})
 }

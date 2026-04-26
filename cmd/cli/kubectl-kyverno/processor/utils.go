@@ -64,14 +64,12 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		}
 	}
 
-	// Populate GlobalContextEntry mocks so CEL globalcontext.get() works offline.
 	if len(globalContextEntries) > 0 {
 		for name, data := range globalContextEntries {
 			fakeContextProvider.AddGlobalReference(name, data)
 		}
 	}
 
-	// this is getting a bit bad because what if we are applying different types of policies concurrently ?
 	libs.LibraryContext = fakeContextProvider
 	return fakeContextProvider, nil
 }

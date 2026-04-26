@@ -8,7 +8,6 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
-// delegatingGCtxStore tries test mocks first, then falls back to the real global context store.
 type delegatingGCtxStore struct {
 	mock *mockGCtxStore
 	real loaders.Store
