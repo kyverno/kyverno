@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/component-base/metrics/legacyregistry"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/metrics/legacyregistry"
@@ -111,6 +112,8 @@ func InitMetrics(
 		}
 
 		metricsServerMux = http.NewServeMux()
+		// legacyregistry.Handler exposes both OTel and workqueue metrics via the Prometheus scrape endpoint.
+		// Workqueue metrics registered via component-base are not exported via the OTLP/gRPC path.
 		metricsServerMux.Handle(config.MetricsPath, legacyregistry.Handler())
 	}
 
