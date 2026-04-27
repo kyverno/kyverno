@@ -27,21 +27,21 @@ import (
 // the same test can otherwise overlap and race on the underlying slice.
 type MockEventGen struct {
 	mu     sync.Mutex
-	Events []event.Info
+	events []event.Info
 }
 
 func (m *MockEventGen) Add(infoList ...event.Info) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.Events = append(m.Events, infoList...)
+	m.events = append(m.events, infoList...)
 }
 
 // GetEvents returns a snapshot of captured events (thread-safe).
 func (m *MockEventGen) GetEvents() []event.Info {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	out := make([]event.Info, len(m.Events))
-	copy(out, m.Events)
+	out := make([]event.Info, len(m.events))
+	copy(out, m.events)
 	return out
 }
 
