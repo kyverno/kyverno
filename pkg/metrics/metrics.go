@@ -290,28 +290,6 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	return provider, nil
 }
 
-// swappableRegisterer wraps a prometheus.Registerer so that on duplicate
-// registration (AlreadyRegisteredError) it unregisters the old collector and
-// registers the new one. This is required because the OTel Prometheus exporter
-// does not unregister its internal collector from the registry on Shutdown(),
-// causing re-registration failures when the metrics refresh goroutine recreates
-// the MeterProvider.
-type swappableRegisterer struct {
-	promclient.Registerer
-}
-
-func (r *swappableRegisterer) Register(c promclient.Collector) error {
-	err := r.Registerer.Register(c)
-	if err != nil {
-		if are, ok := err.(promclient.AlreadyRegisteredError); ok {
-			r.Registerer.Unregister(are.ExistingCollector)
-			return r.Registerer.Register(c)
-		}
-		return err
-	}
-	return nil
-}
-
 func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	res, err := resource.Merge(
 		resource.Default(),
