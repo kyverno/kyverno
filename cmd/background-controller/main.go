@@ -327,16 +327,6 @@ func main() {
 					return ns
 				}
 
-				// create compiler
-				compiler := gpolcompiler.NewCompiler()
-				// create provider
-				gpolProvider := gpolengine.NewFetchProvider(
-					compiler,
-					kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(),
-					kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(),
-					celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()),
-					internal.PolicyExceptionEnabled(),
-				)
 				// create engine
 				gpolEngine := gpolengine.NewMetricsEngine(gpolengine.NewEngine(namespaceGetter, matching.NewMatcher()))
 
@@ -368,6 +358,20 @@ func main() {
 
 				if !mgr.GetCache().WaitForCacheSync(mgrCtx) {
 					setup.Logger.Error(nil, "failed to sync cache for manager")
+					os.Exit(1)
+				}
+
+				// create gpol provider backed by a reconciler cache — compiles policies
+				// once on create/update instead of recompiling on every evaluation.
+				gpolCompiler := gpolcompiler.NewCompiler()
+				gpolProvider, err := gpolengine.NewKubeProvider(
+					gpolCompiler,
+					mgr,
+					celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()),
+					internal.PolicyExceptionEnabled(),
+				)
+				if err != nil {
+					setup.Logger.Error(err, "failed to create gpol provider")
 					os.Exit(1)
 				}
 
