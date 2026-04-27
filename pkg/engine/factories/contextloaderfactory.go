@@ -129,13 +129,8 @@ func (l *contextLoader) newLoader(
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {
-		if rclientFactory != nil {
-			ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
-			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
-		} else {
-			l.logger.V(3).Info("disabled loading of ImageRegistry context entry", "name", entry.Name)
-			return nil, nil
-		}
+		ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
+		return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 	} else if entry.Variable != nil {
 		ldr := loaders.NewVariableLoader(l.logger, entry, jsonContext, jp)
 		return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)

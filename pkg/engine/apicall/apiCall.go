@@ -38,7 +38,7 @@ func New(
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 
-	executor := NewExecutor(logger, entry.Name, client, apiCallConfig)
+	executor := NewExecutor(logger, entry.Name, client, apiCallConfig, policyNamespace)
 
 	return &apiCall{
 		logger:          logger,
@@ -70,7 +70,7 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
-	if a.policyNamespace != "" {
+	if a.policyNamespace != "" && call.APICall.URLPath != "" {
 		cleanPath := path.Clean(call.APICall.URLPath)
 		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
 			ns := matches[2]

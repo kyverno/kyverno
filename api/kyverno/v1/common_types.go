@@ -187,6 +187,32 @@ type ConfigMapReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// ConfigMapKeyReference refers to a specific key within a ConfigMap resource.
+type ConfigMapKeyReference struct {
+	// Name is the ConfigMap name.
+	Name string `json:"name"`
+
+	// Namespace is the ConfigMap namespace.
+	// If empty, defaults to the policy's namespace for namespaced policies.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Key is the key within the ConfigMap data whose value is being referenced.
+	Key string `json:"key"`
+}
+
+// SecretKeyReference refers to a specific key within a Secret resource.
+type SecretKeyReference struct {
+	// Name is the Secret name.
+	Name string `json:"name"`
+
+	// Namespace is the Secret namespace.
+	// If empty, defaults to the policy's namespace for namespaced policies.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Key is the key within the Secret data whose value is being referenced.
+	Key string `json:"key"`
+}
+
 type APICall struct {
 	// URLPath is the URL path to be used in the HTTP GET or POST request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
@@ -255,7 +281,12 @@ type ServiceCall struct {
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
-	CABundle string `json:"caBundle"`
+	CABundle string `json:"caBundle,omitempty"`
+
+	// CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+	// Mutually exclusive with CABundle; exactly one must be specified.
+	// +kubebuilder:validation:Optional
+	CABundleFrom *HeaderValueFrom `json:"caBundleFrom,omitempty"`
 }
 
 // Method is a HTTP request type.
@@ -274,8 +305,28 @@ type RequestData struct {
 type HTTPHeader struct {
 	// Key is the header key
 	Key string `json:"key"`
-	// Value is the header value
-	Value string `json:"value"`
+
+	// Value is the static header value.
+	// Mutually exclusive with ValueFrom; exactly one must be specified.
+	Value string `json:"value,omitempty"`
+
+	// ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+	// Mutually exclusive with Value; exactly one must be specified.
+	// +kubebuilder:validation:Optional
+	ValueFrom *HeaderValueFrom `json:"valueFrom,omitempty"`
+}
+
+// HeaderValueFrom defines a source for header or CA bundle values,
+// referencing a key in a Secret or ConfigMap.
+// Exactly one of SecretKeyRef or ConfigMapKeyRef must be specified.
+type HeaderValueFrom struct {
+	// SecretKeyRef selects a key of a Secret to use as the value.
+	// +kubebuilder:validation:Optional
+	SecretKeyRef *SecretKeyReference `json:"secretKeyRef,omitempty"`
+
+	// ConfigMapKeyRef selects a key of a ConfigMap to use as the value.
+	// +kubebuilder:validation:Optional
+	ConfigMapKeyRef *ConfigMapKeyReference `json:"configMapKeyRef,omitempty"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.

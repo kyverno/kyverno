@@ -22,6 +22,7 @@ type Resource struct {
 
 type RawClient interface {
 	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
+	GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error)
 }
 
 type AuthClient interface {
