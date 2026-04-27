@@ -453,7 +453,7 @@ func TestMutate_DryRunSkipsUpdateRequestCreation(t *testing.T) {
 	// Non-dry-run should create a UR (proves the setup works)
 	t.Run("non-dry-run creates UR", func(t *testing.T) {
 		ctx := framework.ContextWithPolicies(context.Background(), "mutate-existing-on-pod")
-		resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("ur-pod", "default", podJSON), "", time.Now())
+		resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("dryrun-pod", "default", podJSON), "", time.Now())
 
 		assert.True(t, resp.Allowed)
 		// Wait for the async goroutine that fires URs
