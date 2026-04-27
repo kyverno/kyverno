@@ -223,7 +223,7 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
 	var listEvalError error
-	for _, foreach := range v.forEach {
+	for i, foreach := range v.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown key") {
@@ -233,6 +233,9 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			listEvalError = err
 			continue
+		}
+		if err := v.policyContext.JSONContext().AddVariable("foreachBlockIndex", int64(i)); err != nil {
+			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to set foreachBlockIndex", err, v.rule.ReportProperties)
 		}
 		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
 		if resp.Status() != engineapi.RuleStatusPass {

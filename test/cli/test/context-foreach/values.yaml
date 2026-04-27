@@ -4,7 +4,7 @@ policies:
 - name: block-images
   rules:
   - foreachValues:
-      imageData:
+    - imageData:
       - foo
       - foo1
     name: block-images
