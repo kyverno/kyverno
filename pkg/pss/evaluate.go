@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -17,12 +18,14 @@ import (
 )
 
 var (
-	regexIndex = regexp.MustCompile(`\d+`)
-	regexStr   = regexp.MustCompile(`[a-zA-Z]+`)
+	regexIndex                    = regexp.MustCompile(`\d+`)
+	regexStr                      = regexp.MustCompile(`[a-zA-Z]+`)
+	enableUserNamespaceRelaxation = sync.OnceFunc(func() { policy.RelaxPolicyForUserNamespacePods(true) })
 )
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
+	enableUserNamespaceRelaxation()
 	checks := policy.DefaultChecks()
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
