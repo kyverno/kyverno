@@ -185,6 +185,33 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	return nil
 }
 
+// swappableRegisterer wraps a prometheus.Registerer and handles duplicate registration
+// by unregistering the old collector before registering the new one. This is needed
+// because the metrics refresh goroutine recreates the OTel Prometheus exporter, which
+// would otherwise fail with a duplicate registration error.
+type swappableRegisterer struct {
+	promclient.Registerer
+}
+
+func (r *swappableRegisterer) Register(c promclient.Collector) error {
+	if err := r.Registerer.Register(c); err != nil {
+		if are, ok := err.(promclient.AlreadyRegisteredError); ok {
+			r.Registerer.Unregister(are.ExistingCollector)
+			return r.Registerer.Register(c)
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *swappableRegisterer) MustRegister(cs ...promclient.Collector) {
+	for _, c := range cs {
+		if err := r.Register(c); err != nil {
+			panic(err)
+		}
+	}
+}
+
 func ShutDownController(ctx context.Context, pusher *sdkmetric.MeterProvider) {
 	if pusher != nil {
 		// pushes any last exports to the receiver
