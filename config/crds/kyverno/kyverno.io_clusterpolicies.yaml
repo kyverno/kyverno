@@ -323,6 +323,11 @@ spec:
                               ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                               details.
                             properties:
+                              catchError:
+                                description: |-
+                                  CatchError is an optional toggle that, if set to true, captures any error
+                                  that occurs during image metadata fetching and returns it in the context variable.
+                                type: boolean
                               imageRegistryCredentials:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
@@ -1363,6 +1368,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -2449,6 +2459,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -2833,6 +2848,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -3591,6 +3611,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -5412,6 +5437,11 @@ spec:
                                   ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                   details.
                                 properties:
+                                  catchError:
+                                    description: |-
+                                      CatchError is an optional toggle that, if set to true, captures any error
+                                      that occurs during image metadata fetching and returns it in the context variable.
+                                    type: boolean
                                   imageRegistryCredentials:
                                     description: ImageRegistryCredentials provides
                                       credentials that will be used for authentication
@@ -6464,6 +6494,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -7562,6 +7597,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -7955,6 +7995,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -8726,6 +8771,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -10625,6 +10675,11 @@ spec:
                               ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                               details.
                             properties:
+                              catchError:
+                                description: |-
+                                  CatchError is an optional toggle that, if set to true, captures any error
+                                  that occurs during image metadata fetching and returns it in the context variable.
+                                type: boolean
                               imageRegistryCredentials:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
@@ -11459,6 +11514,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -12339,6 +12399,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -12723,6 +12788,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -13646,6 +13716,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError is an optional toggle that, if set to true, captures any error
+                                            that occurs during image metadata fetching and returns it in the context variable.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -15436,6 +15511,11 @@ spec:
                                   ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                   details.
                                 properties:
+                                  catchError:
+                                    description: |-
+                                      CatchError is an optional toggle that, if set to true, captures any error
+                                      that occurs during image metadata fetching and returns it in the context variable.
+                                    type: boolean
                                   imageRegistryCredentials:
                                     description: ImageRegistryCredentials provides
                                       credentials that will be used for authentication
@@ -16488,6 +16568,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -17586,6 +17671,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -17979,6 +18069,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -18750,6 +18845,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError is an optional toggle that, if set to true, captures any error
+                                                that occurs during image metadata fetching and returns it in the context variable.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
