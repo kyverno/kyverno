@@ -1,4 +1,3 @@
-# Proof manifest: offline GlobalContextEntry mock (kyverno test).
 apiVersion: cli.kyverno.io/v1alpha1
 globalContextEntries:
 - data:
