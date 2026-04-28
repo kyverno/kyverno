@@ -76,9 +76,9 @@ type Test struct {
 	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
 }
 
-// APICallResponseEntry maps a URL (and optional HTTP method) to a static response body.
+// APICallResponseEntry maps a URL or URL path (optional method) to a static response body.
 type APICallResponseEntry struct {
-	// URL is the request URL to match (for example https://example.com/config).
+	// URL is an absolute https or http URL, or URLPath (/foo from v1 context.apiCall) for matching.
 	URL string `json:"url"`
 
 	// Method is the HTTP method to match (GET or POST).
@@ -128,7 +128,7 @@ type GlobalContextEntryValue struct {
 	Projections []GlobalContextProjection `json:"projections,omitempty"`
 }
 
-// ValidateAPICallResponses checks mock HTTP entries for a valid URL, HTTP status, and JSON body.
+// ValidateAPICallResponses validates mock HTTP entries before a test run.
 func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 	for i := range entries {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
@@ -143,9 +143,8 @@ func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
 	if u == "" {
 		return fmt.Errorf("apiCallResponses[%d]: url is required", i)
 	}
-	parsedURL, err := url.Parse(u)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
-		return fmt.Errorf("apiCallResponses[%d]: url must be a valid http/https URL", i)
+	if !validAPICallMockURL(u) {
+		return fmt.Errorf("apiCallResponses[%d]: url must be a valid https or http URL, or an absolute path starting with '/'", i)
 	}
 	m := strings.ToUpper(strings.TrimSpace(e.Method))
 	if m != "" && m != "GET" && m != "POST" {
@@ -157,8 +156,12 @@ func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
 	if data == "" || data == "null" {
 		return fmt.Errorf("apiCallResponses[%d] url %q: response.body is required", i, e.URL)
 	}
-	if !json.Valid(raw) {
-		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON", i, e.URL)
+	obj, err := RawExtensionToObject(e.Response.Body)
+	if err != nil {
+		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON: %w", i, e.URL, err)
+	}
+	if _, ok := obj.(map[string]interface{}); !ok {
+		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be a JSON object", i, e.URL)
 	}
 	sc := e.Response.StatusCode
 	if sc != 0 && (sc < 100 || sc > 599) {
@@ -167,12 +170,40 @@ func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
 	return nil
 }
 
+// validAPICallMockURL accepts https/http URLs with a non-empty host or an absolute URL path (/...) for v1 context.apiCall urlPath.
+func validAPICallMockURL(raw string) bool {
+	u := strings.TrimSpace(raw)
+	if u == "" {
+		return false
+	}
+	if strings.HasPrefix(u, "/") {
+		return true
+	}
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return false
+	}
+	if parsedURL.Opaque != "" {
+		return false
+	}
+	return parsedURL.Hostname() != ""
+}
+
 // ValidateGlobalContextEntries validates mock global context entries.
 func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
+	seen := make(map[string]struct{}, len(entries))
 	for _, e := range entries {
 		if strings.TrimSpace(e.Name) == "" {
 			return fmt.Errorf("globalContextEntries: name is required")
 		}
+		name := strings.TrimSpace(e.Name)
+		if _, dup := seen[name]; dup {
+			return fmt.Errorf("globalContextEntries: duplicate name %q", name)
+		}
+		seen[name] = struct{}{}
 		for _, p := range e.Projections {
 			if strings.TrimSpace(p.Name) == "" {
 				return fmt.Errorf("globalContextEntries entry %q: projection name is required", e.Name)

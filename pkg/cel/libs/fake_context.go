@@ -57,6 +57,9 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 }
 
 func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
+	if cp.globalReferences == nil {
+		cp.globalReferences = map[string]any{}
+	}
 	cp.globalReferences[name] = data
 }
 

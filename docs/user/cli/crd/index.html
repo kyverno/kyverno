@@ -640,7 +640,7 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
 </p>
 <p>
-<p>APICallResponseEntry maps a URL (and optional HTTP method) to a static response body.</p>
+<p>APICallResponseEntry maps a URL or URL path (optional method) to a static response body.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -658,7 +658,7 @@ string
 </em>
 </td>
 <td>
-<p>URL is the request URL to match (for example <a href="https://example.com/config">https://example.com/config</a>).</p>
+<p>URL is an absolute https or http URL, or URLPath (/foo from v1 context.apiCall) for matching.</p>
 </td>
 </tr>
 <tr>

@@ -23,7 +23,7 @@ spec:
             description: APICallResponses mocks HTTP for offline tests (CEL http.*
               and v1 context.apiCall).
             items:
-              description: APICallResponseEntry maps a URL (and optional HTTP method)
+              description: APICallResponseEntry maps a URL or URL path (optional method)
                 to a static response body.
               properties:
                 method:
@@ -51,7 +51,8 @@ spec:
                   - body
                   type: object
                 url:
-                  description: URL is the request URL to match (for example https://example.com/config).
+                  description: URL is an absolute https or http URL, or URLPath (/foo
+                    from v1 context.apiCall) for matching.
                   type: string
               required:
               - response

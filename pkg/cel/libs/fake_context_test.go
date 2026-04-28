@@ -40,6 +40,14 @@ func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	assert.Equal(t, map[string]any{"hello": "world"}, val)
 }
 
+func TestFakeContextProvider_AddGlobalReference_initializesNilMap(t *testing.T) {
+	cp := &FakeContextProvider{}
+	cp.AddGlobalReference("k", map[string]any{"v": true})
+	got, err := cp.GetGlobalReference("k", "")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"v": true}, got)
+}
+
 func TestFakeContextProvider_AddImageData(t *testing.T) {
 	cp := NewFakeContextProvider()
 

@@ -18,11 +18,18 @@ func SetHTTPMockResponses(responses map[string]interface{}) {
 	httpMockResponses = responses
 }
 
-// GetHTTPMockResponsesForTesting returns the current mock map (tests only).
+// GetHTTPMockResponsesForTesting returns a shallow copy of the current mock map (tests only).
 func GetHTTPMockResponsesForTesting() map[string]interface{} {
 	httpMockResponsesMu.RLock()
 	defer httpMockResponsesMu.RUnlock()
-	return httpMockResponses
+	if httpMockResponses == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(httpMockResponses))
+	for k, v := range httpMockResponses {
+		out[k] = v
+	}
+	return out
 }
 
 // NewMockAwareHTTPContext wraps real HTTP CEL context; mocked URLs skip the network.

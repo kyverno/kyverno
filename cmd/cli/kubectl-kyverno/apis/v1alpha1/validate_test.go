@@ -54,6 +54,68 @@ func TestValidateAPICallResponses(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 	})
+	t.Run("body must be object not array", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:      "https://x",
+			Response: APICallResponse{Body: runtime.RawExtension{Raw: []byte(`[]`)}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "JSON object") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("body must be object not scalar", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:      "https://x",
+			Response: APICallResponse{Body: runtime.RawExtension{Raw: []byte(`"x"`)}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "JSON object") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("urlPath style path", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL: "/apis/some/path",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("invalid url neither https nor absolute path", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL: "relative/not/allowed",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "absolute path starting") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("https URL missing host", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL: "https://",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "absolute path starting") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("https scheme fragment only", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL: "https:",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "absolute path starting") {
+			t.Fatalf("got %v", err)
+		}
+	})
 }
 
 func TestValidateGlobalContextEntries(t *testing.T) {
@@ -111,6 +173,15 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 			Data: runtime.RawExtension{},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "data is required") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("duplicate name", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{
+			{Name: "g", Data: runtime.RawExtension{Raw: []byte(`{}`)}},
+			{Name: "g", Data: runtime.RawExtension{Raw: []byte(`{"x":1}`)}},
+		})
+		if err == nil || !strings.Contains(err.Error(), "duplicate name") {
 			t.Fatalf("got %v", err)
 		}
 	})

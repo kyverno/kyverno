@@ -88,64 +88,67 @@ func (w wrapper) Load(
 	if err != nil {
 		return err
 	}
-	if len(mockURLIndex) > 0 {
-		remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
-		for _, entry := range contextEntries {
-			if entry.APICall != nil {
-				ac := entry.APICall.DeepCopy()
-				subbedAc, err := variables.SubstituteAllInType(logr.Discard(), jsonContext, ac)
-				if err != nil {
-					return fmt.Errorf("failed to substitute variables in apiCall context entry %q: %w", entry.Name, err)
-				}
-				url := ""
-				if subbedAc.Service != nil {
-					url = subbedAc.Service.URL
-				} else if subbedAc.URLPath != "" {
-					url = subbedAc.URLPath
-				}
-				method := string(subbedAc.Method)
-				if method == "" {
-					method = "GET"
-				}
-				if url != "" {
-					if mockVal, ok := lookupMockResponse(mockURLIndex, method, url); ok {
-						payload, ok := mockVal.(*apiCallMockPayload)
-						if !ok {
-							return fmt.Errorf("internal: unexpected mock type %T for context entry %q", mockVal, entry.Name)
-						}
-						if payload.StatusCode < 200 || payload.StatusCode >= 300 {
-							return fmt.Errorf("HTTP %d from apiCall mock for context entry %q (v1 apiCall treats non-2xx as failure)", payload.StatusCode, entry.Name)
-						}
-						data, err := json.Marshal(payload.Body)
-						if err != nil {
-							return err
-						}
-						if subbedAc.JMESPath != "" {
-							var raw interface{}
-							if err := json.Unmarshal(data, &raw); err != nil {
-								return fmt.Errorf("failed to unmarshal mock body for %q: %w", entry.Name, err)
-							}
-							result, err := jp.Search(subbedAc.JMESPath, raw)
-							if err != nil {
-								return fmt.Errorf("failed to apply JMESPath %q for context entry %q: %w", subbedAc.JMESPath, entry.Name, err)
-							}
-							data, err = json.Marshal(result)
-							if err != nil {
-								return fmt.Errorf("failed to marshal JMESPath result for %q: %w", entry.Name, err)
-							}
-						}
-						if err := jsonContext.AddContextEntry(entry.Name, data); err != nil {
-							return err
-						}
-						continue
+	if len(mockURLIndex) == 0 {
+		return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
+	}
+	if err := factories.RunContextLoaderInitializers(w.inner, jsonContext); err != nil {
+		return err
+	}
+	remaining := make([]kyvernov1.ContextEntry, 0, len(contextEntries))
+	for _, entry := range contextEntries {
+		if entry.APICall != nil {
+			ac := entry.APICall.DeepCopy()
+			subbedAc, err := variables.SubstituteAllInType(logr.Discard(), jsonContext, ac)
+			if err != nil {
+				return fmt.Errorf("failed to substitute variables in apiCall context entry %q: %w", entry.Name, err)
+			}
+			url := ""
+			if subbedAc.Service != nil {
+				url = subbedAc.Service.URL
+			} else if subbedAc.URLPath != "" {
+				url = subbedAc.URLPath
+			}
+			method := string(subbedAc.Method)
+			if method == "" {
+				method = "GET"
+			}
+			if url != "" {
+				if mockVal, ok := lookupMockResponse(mockURLIndex, method, url); ok {
+					payload, ok := mockVal.(*apiCallMockPayload)
+					if !ok {
+						return fmt.Errorf("internal: unexpected mock type %T for context entry %q", mockVal, entry.Name)
 					}
+					if payload.StatusCode < 200 || payload.StatusCode >= 300 {
+						return fmt.Errorf("HTTP %d from apiCall mock for context entry %q (v1 apiCall treats non-2xx as failure)", payload.StatusCode, entry.Name)
+					}
+					data, err := json.Marshal(payload.Body)
+					if err != nil {
+						return err
+					}
+					if subbedAc.JMESPath != "" {
+						var raw interface{}
+						if err := json.Unmarshal(data, &raw); err != nil {
+							return fmt.Errorf("failed to unmarshal mock body for %q: %w", entry.Name, err)
+						}
+						result, err := jp.Search(subbedAc.JMESPath, raw)
+						if err != nil {
+							return fmt.Errorf("failed to apply JMESPath %q for context entry %q: %w", subbedAc.JMESPath, entry.Name, err)
+						}
+						data, err = json.Marshal(result)
+						if err != nil {
+							return fmt.Errorf("failed to marshal JMESPath result for %q: %w", entry.Name, err)
+						}
+					}
+					if err := jsonContext.AddContextEntry(entry.Name, data); err != nil {
+						return err
+					}
+					continue
 				}
 			}
-			remaining = append(remaining, entry)
 		}
-		contextEntries = remaining
+		remaining = append(remaining, entry)
 	}
-	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
+	return factories.LoadContextLoaderEntriesWithoutInitializers(w.inner, ctx, jp, client, rclientFactory, remaining, jsonContext)
 }
 
 func lookupMockResponse(index map[string]interface{}, method, url string) (interface{}, bool) {

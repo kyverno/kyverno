@@ -872,8 +872,12 @@ func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 		statusCode = 200
 	}
 	if bodyMap, ok := body.(map[string]interface{}); ok {
-		bodyMap["statusCode"] = statusCode
-		return bodyMap
+		wrapped := make(map[string]interface{}, len(bodyMap)+1)
+		for k, v := range bodyMap {
+			wrapped[k] = v
+		}
+		wrapped["statusCode"] = statusCode
+		return wrapped
 	}
 	return map[string]interface{}{
 		"body":       body,
