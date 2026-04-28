@@ -145,17 +145,21 @@ func TestReconciler_Get_ConcurrentReads(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	done := make(chan struct{}, 20)
+	type result struct {
+		p   Policy
+		err error
+	}
+	results := make(chan result, 20)
 	for range 20 {
 		go func() {
-			defer func() { done <- struct{}{} }()
 			p, err := r.Get(context.Background(), "concurrent-policy")
-			assert.NoError(t, err)
-			assert.NotNil(t, p.CompiledPolicy)
+			results <- result{p: p, err: err}
 		}()
 	}
 	for range 20 {
-		<-done
+		res := <-results
+		require.NoError(t, res.err)
+		assert.NotNil(t, res.p.CompiledPolicy)
 	}
 }
 
