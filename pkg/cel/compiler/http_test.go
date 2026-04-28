@@ -9,106 +9,136 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewCELHTTPContext(t *testing.T) {
-	tests := []struct {
-		name      string
-		blocklist string // FLAG_HTTP_BLOCKLIST env var value
-		allowlist string // FLAG_HTTP_ALLOWLIST env var value
-		wantErr   bool
-	}{{
-		name: "defaults - no env vars set",
-	}, {
-		name:      "custom blocklist with CIDR ranges",
-		blocklist: "192.0.2.0/24,198.51.100.0/24",
-	}, {
-		name:      "custom blocklist with hostnames",
-		blocklist: "metadata.google.internal,metadata.internal",
-	}, {
-		name:      "custom blocklist with CIDRs and hostnames",
-		blocklist: "10.0.0.0/8,metadata.google.internal",
-	}, {
-		name:      "custom allowlist",
-		allowlist: "https://api.example.com,https://webhook.corp/v1/",
-	}, {
-		name:      "blocklist and allowlist combined",
-		blocklist: "10.0.0.0/8",
-		allowlist: "https://api.example.com",
-	}, {
-		name:      "invalid blocklist CIDR",
-		blocklist: "999.999.999.999/24",
-		wantErr:   true,
-	}, {
-		name:      "invalid allowlist entry missing scheme",
-		allowlist: "api.example.com",
-		wantErr:   true,
-	}, {
-		name:      "invalid allowlist entry missing host",
-		allowlist: "https://",
-		wantErr:   true,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.blocklist != "" {
-				t.Setenv("FLAG_HTTP_BLOCKLIST", tt.blocklist)
-			}
-			if tt.allowlist != "" {
-				t.Setenv("FLAG_HTTP_ALLOWLIST", tt.allowlist)
-			}
-			ctx, err := NewCELHTTPContext()
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Nil(t, ctx)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, ctx)
-			}
-		})
-	}
-}
-
-func TestNewCELHTTPContextParsedFlags(t *testing.T) {
-	// These tests call Parse() on the global flags; each subtest saves and restores
-	// state by parsing back the previous values so test ordering does not matter.
-	t.Run("parsed blocklist overrides env var", func(t *testing.T) {
-		t.Setenv("FLAG_HTTP_BLOCKLIST", "10.0.0.0/8")
-
-		require.NoError(t, toggle.HTTPBlocklist.Parse("192.0.2.0/24"))
+func TestNewLazyCELHTTPContext_NeverErrors(t *testing.T) {
+	// Construction must never error even with a completely invalid blocklist,
+	// because the cached context reads flags on first call, not at construction time.
+	t.Run("invalid blocklist does not error at construction", func(t *testing.T) {
+		require.NoError(t, toggle.HTTPBlocklist.Parse("999.999.999.999/24"))
 		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
 
-		ctx, err := NewCELHTTPContext()
-		assert.NoError(t, err)
+		ctx := NewLazyCELHTTPContext("")
 		assert.NotNil(t, ctx)
 	})
 
-	t.Run("parsed allowlist overrides env var", func(t *testing.T) {
-		t.Setenv("FLAG_HTTP_ALLOWLIST", "https://env.example.com")
-
-		require.NoError(t, toggle.HTTPAllowlist.Parse("https://flag.example.com"))
-		t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
-
-		ctx, err := NewCELHTTPContext()
-		assert.NoError(t, err)
-		assert.NotNil(t, ctx)
-	})
-
-	t.Run("invalid parsed blocklist returns error", func(t *testing.T) {
-		require.NoError(t, toggle.HTTPBlocklist.Parse("999.999.999.999/32"))
-		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
-
-		ctx, err := NewCELHTTPContext()
-		assert.Error(t, err)
-		assert.Nil(t, ctx)
-		assert.Contains(t, err.Error(), "invalid CEL http configuration")
-	})
-
-	t.Run("invalid parsed allowlist returns error", func(t *testing.T) {
+	t.Run("invalid allowlist does not error at construction", func(t *testing.T) {
 		require.NoError(t, toggle.HTTPAllowlist.Parse("no-scheme-here"))
 		t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
 
-		ctx, err := NewCELHTTPContext()
+		ctx := NewLazyCELHTTPContext("test-namespace")
+		assert.NotNil(t, ctx)
+	})
+}
+
+func TestNewLazyCELHTTPContext_ToggleEnforcement(t *testing.T) {
+	t.Run("namespaced context blocks http.Get when toggle is off", func(t *testing.T) {
+		// toggle is off by default
+		ctx := NewLazyCELHTTPContext("test-namespace")
+		require.NotNil(t, ctx)
+
+		_, err := ctx.Get("http://example.com", nil)
 		assert.Error(t, err)
-		assert.Nil(t, ctx)
-		assert.Contains(t, err.Error(), "invalid CEL http configuration")
+		assert.Contains(t, err.Error(), "not allowed in namespaced policies")
+	})
+
+	t.Run("namespaced context blocks http.Post when toggle is off", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("test-namespace")
+		require.NotNil(t, ctx)
+
+		_, err := ctx.Post("http://example.com", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not allowed in namespaced policies")
+	})
+
+	t.Run("namespaced Client() inherits toggle enforcement", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("test-namespace")
+		require.NotNil(t, ctx)
+
+		child, err := ctx.Client("")
+		require.NoError(t, err)
+		require.NotNil(t, child)
+
+		_, err = child.Get("http://example.com", nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not allowed in namespaced policies")
+	})
+
+	t.Run("namespaced context allows calls when toggle is on", func(t *testing.T) {
+		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
+
+		ctx := NewLazyCELHTTPContext("test-namespace")
+		require.NotNil(t, ctx)
+
+		// Will fail with a network/blocklist error (no real server) but NOT the toggle error.
+		_, err := ctx.Get("http://example.com", nil)
+		if err != nil {
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("cluster-scoped context skips toggle check", func(t *testing.T) {
+		// Empty namespace → no toggle wrapper; toggle off should not affect it.
+		ctx := NewLazyCELHTTPContext("")
+		require.NotNil(t, ctx)
+
+		// Will fail with a network/blocklist error but NOT the toggle error.
+		_, err := ctx.Get("http://example.com", nil)
+		if err != nil {
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+}
+
+func TestHTTPContextSeparation(t *testing.T) {
+	// Toggle is off by default. Namespaced policies must be blocked while
+	// cluster-scoped policies are allowed to attempt calls.
+	t.Run("namespaced blocked, cluster skips namespaced toggle", func(t *testing.T) {
+		namespacedCtx := NewLazyCELHTTPContext("my-namespace")
+		clusterCtx := NewLazyCELHTTPContext("")
+
+		_, err := namespacedCtx.Get("http://example.com", nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not allowed in namespaced policies")
+
+		_, err = clusterCtx.Get("http://example.com", nil)
+		if err != nil {
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("shared policy blocklist allows in-cluster service CIDRs", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("")
+		require.NotNil(t, ctx)
+
+		// In-cluster service CIDRs should not be blocked by default.
+		_, err := ctx.Get("http://10.1.2.3", nil)
+		// Error is expected (no actual server) but NOT due to blocklist
+		if err != nil {
+			assert.NotContains(t, err.Error(), "blocked")
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
+		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
+
+		ctx := NewLazyCELHTTPContext("my-namespace")
+		require.NotNil(t, ctx)
+
+		_, err := ctx.Get("http://10.1.2.3", nil)
+		if err != nil {
+			assert.NotContains(t, err.Error(), "blocked")
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("shared policy blocklist blocks dangerous metadata services", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("")
+		require.NotNil(t, ctx)
+
+		// Metadata services should be blocked for all policy scopes.
+		_, err := ctx.Get("http://169.254.169.254", nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "blocked")
 	})
 }
 
@@ -136,6 +166,52 @@ func TestAllowHTTPInNamespacedPoliciesToggle(t *testing.T) {
 			}
 			// Verify through the Toggles interface as the compilers would.
 			got := toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExpressionsUseHTTP(t *testing.T) {
+	tests := []struct {
+		name        string
+		expressions []string
+		want        bool
+	}{{
+		name:        "empty list",
+		expressions: nil,
+		want:        false,
+	}, {
+		name:        "no http reference",
+		expressions: []string{"object.metadata.name == 'foo'"},
+		want:        false,
+	}, {
+		name:        "http.Get call",
+		expressions: []string{"http.Get('https://example.com')"},
+		want:        true,
+	}, {
+		name:        "http.Post in variables",
+		expressions: []string{"object.spec.replicas > 1", "http.Post('https://example.com', {})"},
+		want:        true,
+	}, {
+		name:        "string literal containing http — not an ident",
+		expressions: []string{"'http.Get is a function'"},
+		want:        false,
+	}, {
+		name:        "variable named httpClient — different ident",
+		expressions: []string{"httpClient.Get('https://example.com')"},
+		want:        false,
+	}, {
+		name:        "malformed expression is skipped",
+		expressions: []string{"{{{{invalid", "http.Get('https://example.com')"},
+		want:        true,
+	}, {
+		name:        "empty string is skipped",
+		expressions: []string{"", "object.spec.name == 'test'"},
+		want:        false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExpressionsUseHTTP(tt.expressions...)
 			assert.Equal(t, tt.want, got)
 		})
 	}
