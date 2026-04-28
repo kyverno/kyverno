@@ -26,6 +26,10 @@ rules:
       - customresourcedefinitions
     verbs:
       - get
+      {{- if .Values.reportsController.crdWatcher | default .Values.global.crdWatcher }}
+      - list
+      - watch
+      {{- end }}
   - apiGroups:
       - ''
     resources:
