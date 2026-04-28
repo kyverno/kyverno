@@ -228,7 +228,7 @@ func TestValidate_EventsGenerated_OnDeny(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	assert.False(t, resp.Allowed, "pod with latest tag should be denied")
-	assert.NotEmpty(t, eventGen.Events, "deny should generate events")
+	assert.NotEmpty(t, eventGen.GetEvents(), "deny should generate events")
 }
 
 func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
@@ -297,7 +297,7 @@ func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
 
 	// Wait for the async audit goroutine to record the violation.
 	time.Sleep(200 * time.Millisecond)
-	assert.NotEmpty(t, eventGen.Events, "audit policy should still generate events for observability")
+	assert.NotEmpty(t, eventGen.GetEvents(), "audit policy should still generate events for observability")
 }
 
 func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
