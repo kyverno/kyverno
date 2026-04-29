@@ -269,7 +269,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if len(p.MutatingAdmissionPolicies) != 0 {
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 		} else {
 			var user authenticationv1.UserInfo
 			if p.UserInfo != nil {
@@ -321,7 +321,22 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
+				}
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -399,7 +414,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					targetGVK := target.GroupVersionKind()
 					targetMapping, err := restMapper.RESTMapping(targetGVK.GroupKind(), targetGVK.Version)
 					if err != nil {
-						return nil, fmt.Errorf("failed to map target gvk to gvr %s (%v)\n", targetGVK, err)
+						return nil, fmt.Errorf("failed to map target gvk to gvr %s: %w", targetGVK, err)
 					}
 					targetGVR := targetMapping.Resource
 					attr := admission.NewAttributesRecord(
@@ -454,7 +469,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// map gvk to gvr
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo
@@ -520,11 +535,11 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 
 						newR, err := p.resolveResource(gvk.Kind)
 						if err != nil {
-							return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+							return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 						}
 						mapping.Resource.Resource = newR
 					} else {
-						return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+						return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
 					}
 				}
 
@@ -652,7 +667,22 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+				if !p.Cluster {
+					mapping = &meta.RESTMapping{
+						Resource: schema.GroupVersionResource{
+							Group:   gvk.Group,
+							Version: gvk.Version,
+						},
+					}
+
+					newR, err := p.resolveResource(gvk.Kind)
+					if err != nil {
+						return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
+					}
+					mapping.Resource.Resource = newR
+				} else {
+					return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
+				}
 			}
 			gvr := mapping.Resource
 			var user authenticationv1.UserInfo
@@ -968,8 +998,12 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
-		return p.Client.GetKubeClient().Discovery().OpenAPIV3()
-	} else if p.CrdPath != "" {
+		if client := p.tryClusterOpenAPI(); client != nil {
+			clients = append(clients, client)
+		}
+	}
+
+	if p.CrdPath != "" {
 		absPath := getAbsPath(p.CrdPath)
 		diskCrds := os.DirFS(absPath)
 		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
@@ -984,24 +1018,67 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
-func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
-	kindPrefix := strings.ToLower(kind)
+func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
+	defer func() {
+		if r := recover(); r != nil {
+			client = nil
+		}
+	}()
+	return p.Client.GetKubeClient().Discovery().OpenAPIV3()
+}
 
-	for _, newVp := range p.ValidatingPolicies {
-		mc := newVp.GetSpec().MatchConstraints
+func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
+	gvk := schema.GroupVersionKind{Kind: kind}
+	guessed, _ := meta.UnsafeGuessKindToResource(gvk)
+	if guessed.Resource != "" {
+		return guessed.Resource, nil
+	}
+	// Fallback: scan CEL policy match constraints for CRDs whose plural
+	// cannot be derived from the kind name alone.
+	kindLower := strings.ToLower(kind)
+	for _, vp := range p.ValidatingPolicies {
+		mc := vp.GetSpec().MatchConstraints
 		if mc == nil {
 			continue
 		}
-		resRules := mc.ResourceRules
-		for _, r := range resRules {
-			for _, newR := range r.Resources {
-				if strings.HasPrefix(strings.ToLower(newR), kindPrefix) {
-					return newR, nil
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
 				}
 			}
 		}
 	}
-	return "", fmt.Errorf("failed to get resource from %s", kind)
+	for _, mp := range p.MutatingPolicies {
+		mc := mp.GetSpec().MatchConstraints
+		if mc == nil {
+			continue
+		}
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
+				}
+			}
+		}
+	}
+	for _, gp := range p.GeneratingPolicies {
+		mc := gp.GetSpec().MatchConstraints
+		if mc == nil {
+			continue
+		}
+		for _, rr := range mc.ResourceRules {
+			for _, res := range rr.Resources {
+				base, _, _ := strings.Cut(res, "/")
+				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+					return base, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to infer resource name for Kind %q: no RESTMapper available and no matching policy resource rule found", kind)
 }
 
 // targetMatchPredicate returns a predicate that checks whether a target resource
