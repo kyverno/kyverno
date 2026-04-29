@@ -284,7 +284,7 @@ func TestDeletingPolicy_PartialMatch(t *testing.T) {
 				},
 				{
 					Name:       "has-cleanup-label",
-					Expression: `object.metadata.labels["cleanup"] == "true"`,
+					Expression: `has(object.metadata.labels) && "cleanup" in object.metadata.labels && object.metadata.labels["cleanup"] == "true"`,
 				},
 			},
 		},
