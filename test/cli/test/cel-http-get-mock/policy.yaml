@@ -11,5 +11,5 @@ spec:
         operations: ["CREATE", "UPDATE"]
   validations:
     - expression: >
-        http.Get("https://example.com/config").allowed == true
+        http.Get("https://example.com/config").body.allowed == true
       message: "External config disallows this resource"

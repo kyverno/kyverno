@@ -78,8 +78,11 @@ type Test struct {
 
 // APICallResponseEntry maps a URL or URL path (optional method) to a static response body.
 type APICallResponseEntry struct {
-	// URL is an absolute https or http URL, or URLPath (/foo from v1 context.apiCall) for matching.
-	URL string `json:"url"`
+	// URL is an absolute https or http URL for matching (CEL http.* and v1 context.apiCall service.url).
+	URL string `json:"url,omitempty"`
+
+	// URLPath is an absolute path (e.g. /api/v1/namespaces) for matching v1 context.apiCall urlPath.
+	URLPath string `json:"urlPath,omitempty"`
 
 	// Method is the HTTP method to match (GET or POST).
 	// If empty, the entry matches any method via plain URL lookup.
@@ -140,56 +143,62 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 
 func validateAPICallResponseEntry(i int, e APICallResponseEntry) error {
 	u := strings.TrimSpace(e.URL)
-	if u == "" {
-		return fmt.Errorf("apiCallResponses[%d]: url is required", i)
+	up := strings.TrimSpace(e.URLPath)
+	if u == "" && up == "" {
+		return fmt.Errorf("apiCallResponses[%d]: either url or urlPath is required", i)
 	}
-	if !validAPICallMockURL(u) {
-		return fmt.Errorf("apiCallResponses[%d]: url must be a valid https or http URL, or an absolute path starting with '/'", i)
+	if u != "" && up != "" {
+		return fmt.Errorf("apiCallResponses[%d]: url and urlPath are mutually exclusive", i)
+	}
+	if u != "" {
+		parsedURL, err := url.Parse(u)
+		if err != nil {
+			return fmt.Errorf("apiCallResponses[%d]: url %q is not a valid URL: %w", i, u, err)
+		}
+		if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+			return fmt.Errorf("apiCallResponses[%d]: url %q must be an absolute https/http URL", i, u)
+		}
+		if parsedURL.Hostname() == "" {
+			return fmt.Errorf("apiCallResponses[%d]: url %q has scheme but no host", i, u)
+		}
+	}
+	if up != "" && !strings.HasPrefix(up, "/") {
+		return fmt.Errorf("apiCallResponses[%d]: urlPath %q must be an absolute path starting with '/'", i, up)
 	}
 	m := strings.ToUpper(strings.TrimSpace(e.Method))
 	if m != "" && m != "GET" && m != "POST" {
 		return fmt.Errorf("apiCallResponses[%d]: method must be GET or POST", i)
 	}
 
+	label := u
+	if label == "" {
+		label = up
+	}
 	raw := e.Response.Body.Raw
 	data := strings.TrimSpace(string(raw))
 	if data == "" || data == "null" {
-		return fmt.Errorf("apiCallResponses[%d] url %q: response.body is required", i, e.URL)
+		return fmt.Errorf("apiCallResponses[%d] %q: response.body is required", i, label)
 	}
 	obj, err := RawExtensionToObject(e.Response.Body)
 	if err != nil {
-		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be valid JSON: %w", i, e.URL, err)
+		return fmt.Errorf("apiCallResponses[%d] %q: response.body must be valid JSON: %w", i, label, err)
 	}
 	if _, ok := obj.(map[string]interface{}); !ok {
-		return fmt.Errorf("apiCallResponses[%d] url %q: response.body must be a JSON object", i, e.URL)
+		return fmt.Errorf("apiCallResponses[%d] %q: response.body must be a JSON object", i, label)
 	}
 	sc := e.Response.StatusCode
 	if sc != 0 && (sc < 100 || sc > 599) {
-		return fmt.Errorf("apiCallResponses[%d] url %q: statusCode %d must be between 100 and 599", i, e.URL, sc)
+		return fmt.Errorf("apiCallResponses[%d] %q: statusCode %d must be between 100 and 599", i, label, sc)
 	}
 	return nil
 }
 
-// validAPICallMockURL accepts https/http URLs with a non-empty host or an absolute URL path (/...) for v1 context.apiCall urlPath.
-func validAPICallMockURL(raw string) bool {
-	u := strings.TrimSpace(raw)
-	if u == "" {
-		return false
+// ResolvedURL returns the effective URL from either the url or urlPath field.
+func (e APICallResponseEntry) ResolvedURL() string {
+	if u := strings.TrimSpace(e.URL); u != "" {
+		return u
 	}
-	if strings.HasPrefix(u, "/") {
-		return true
-	}
-	parsedURL, err := url.Parse(u)
-	if err != nil {
-		return false
-	}
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return false
-	}
-	if parsedURL.Opaque != "" {
-		return false
-	}
-	return parsedURL.Hostname() != ""
+	return strings.TrimSpace(e.URLPath)
 }
 
 // ValidateGlobalContextEntries validates mock global context entries.

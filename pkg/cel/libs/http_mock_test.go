@@ -26,34 +26,13 @@ func (s *stubHTTPContext) Client(_ string) (sdklibhttp.ContextInterface, error) 
 	return s, nil
 }
 
-func TestSetHTTPMockResponses_NilClearsState(t *testing.T) {
-	SetHTTPMockResponses(map[string]interface{}{
-		"https://example.com": map[string]interface{}{"x": 1},
-	})
-	SetHTTPMockResponses(nil)
-	assert.Nil(t, GetHTTPMockResponsesForTesting())
-}
-
-func TestSetHTTPMockResponses_Roundtrip(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-	m := map[string]interface{}{
-		"https://example.com/data": map[string]interface{}{"allowed": true, "statusCode": 200},
-	}
-	SetHTTPMockResponses(m)
-	got := GetHTTPMockResponsesForTesting()
-	require.NotNil(t, got)
-	_, ok := got["https://example.com/data"]
-	assert.True(t, ok)
-}
-
 func TestMockAwareHTTPContext_Post_MockHit(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-	SetHTTPMockResponses(map[string]interface{}{
+	mocks := map[string]interface{}{
 		"POST:https://example.com/submit": map[string]interface{}{"id": "42", "statusCode": 201},
-	})
+	}
 
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, mocks)
 
 	result, err := ctx.Post("https://example.com/submit", map[string]interface{}{"k": "v"}, nil)
 	require.NoError(t, err)
@@ -63,13 +42,12 @@ func TestMockAwareHTTPContext_Post_MockHit(t *testing.T) {
 }
 
 func TestMockAwareHTTPContext_Get_MockHit(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-	SetHTTPMockResponses(map[string]interface{}{
+	mocks := map[string]interface{}{
 		"https://example.com/data": map[string]interface{}{"allowed": true, "statusCode": 200},
-	})
+	}
 
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, mocks)
 
 	result, err := ctx.Get("https://example.com/data", nil)
 	require.NoError(t, err)
@@ -80,13 +58,12 @@ func TestMockAwareHTTPContext_Get_MockHit(t *testing.T) {
 }
 
 func TestMockAwareHTTPContext_Get_MockMiss_FallsThrough(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-	SetHTTPMockResponses(map[string]interface{}{
+	mocks := map[string]interface{}{
 		"https://example.com/known": map[string]interface{}{"ok": true, "statusCode": 200},
-	})
+	}
 
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, mocks)
 
 	result, err := ctx.Get("https://example.com/unknown", nil)
 	require.NoError(t, err)
@@ -96,10 +73,8 @@ func TestMockAwareHTTPContext_Get_MockMiss_FallsThrough(t *testing.T) {
 }
 
 func TestMockAwareHTTPContext_Get_NoMocks_FallsThrough(t *testing.T) {
-	SetHTTPMockResponses(nil)
-
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, nil)
 
 	_, err := ctx.Get("https://example.com/any", nil)
 	require.NoError(t, err)
@@ -107,13 +82,12 @@ func TestMockAwareHTTPContext_Get_NoMocks_FallsThrough(t *testing.T) {
 }
 
 func TestMockAwareHTTPContext_MethodKey_GET(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-	SetHTTPMockResponses(map[string]interface{}{
+	mocks := map[string]interface{}{
 		"GET:https://example.com/cfg": map[string]interface{}{"flag": "on", "statusCode": 200},
-	})
+	}
 
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, mocks)
 
 	result, err := ctx.Get("https://example.com/cfg", nil)
 	require.NoError(t, err)
@@ -123,10 +97,8 @@ func TestMockAwareHTTPContext_MethodKey_GET(t *testing.T) {
 }
 
 func TestMockAwareHTTPContext_Client_WrapsInner(t *testing.T) {
-	defer SetHTTPMockResponses(nil)
-
 	stub := &stubHTTPContext{}
-	ctx := NewMockAwareHTTPContext(stub)
+	ctx := NewMockAwareHTTPContext(stub, nil)
 
 	inner, err := ctx.Client("")
 	require.NoError(t, err)
@@ -158,5 +130,10 @@ func TestFindMockResponse_Miss(t *testing.T) {
 		"https://other.com": "other",
 	}
 	_, ok := findMockResponse(responses, "GET", "https://example.com/url")
+	assert.False(t, ok)
+}
+
+func TestFindMockResponse_NilMap(t *testing.T) {
+	_, ok := findMockResponse(nil, "GET", "https://example.com/url")
 	assert.False(t, ok)
 }

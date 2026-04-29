@@ -30,6 +30,7 @@ type Store struct {
 	gctxStore            loaders.Store
 	apiCallResponses     []v1alpha1.APICallResponseEntry
 	globalContextEntries []v1alpha1.GlobalContextEntryValue
+	httpMockIndex        map[string]interface{}
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -125,4 +126,12 @@ func (s *Store) SetGlobalContextEntries(entries []v1alpha1.GlobalContextEntryVal
 
 func (s *Store) GetGlobalContextEntries() []v1alpha1.GlobalContextEntryValue {
 	return s.globalContextEntries
+}
+
+func (s *Store) SetHTTPMockIndex(index map[string]interface{}) {
+	s.httpMockIndex = index
+}
+
+func (s *Store) GetHTTPMockIndex() map[string]interface{} {
+	return s.httpMockIndex
 }

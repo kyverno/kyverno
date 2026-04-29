@@ -21,9 +21,15 @@ func TestValidateAPICallResponses(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("empty url", func(t *testing.T) {
-		err := ValidateAPICallResponses([]APICallResponseEntry{{URL: " ", Response: APICallResponse{}}})
-		if err == nil || !strings.Contains(err.Error(), "url is required") {
+	t.Run("empty url and urlPath", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{URL: " ", URLPath: " ", Response: APICallResponse{}}})
+		if err == nil || !strings.Contains(err.Error(), "either url or urlPath is required") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("both url and urlPath", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{URL: "https://x", URLPath: "/path", Response: APICallResponse{}}})
+		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 			t.Fatalf("got %v", err)
 		}
 	})
@@ -74,7 +80,7 @@ func TestValidateAPICallResponses(t *testing.T) {
 	})
 	t.Run("urlPath style path", func(t *testing.T) {
 		err := ValidateAPICallResponses([]APICallResponseEntry{{
-			URL: "/apis/some/path",
+			URLPath: "/apis/some/path",
 			Response: APICallResponse{
 				Body: runtime.RawExtension{Raw: []byte(`{}`)},
 			},
@@ -83,15 +89,15 @@ func TestValidateAPICallResponses(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("invalid url neither https nor absolute path", func(t *testing.T) {
+	t.Run("invalid url not absolute https", func(t *testing.T) {
 		err := ValidateAPICallResponses([]APICallResponseEntry{{
-			URL: "relative/not/allowed",
+			URL: "http://example.com/path",
 			Response: APICallResponse{
 				Body: runtime.RawExtension{Raw: []byte(`{}`)},
 			},
 		}})
-		if err == nil || !strings.Contains(err.Error(), "absolute path starting") {
-			t.Fatalf("got %v", err)
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 	t.Run("https URL missing host", func(t *testing.T) {
@@ -101,13 +107,24 @@ func TestValidateAPICallResponses(t *testing.T) {
 				Body: runtime.RawExtension{Raw: []byte(`{}`)},
 			},
 		}})
-		if err == nil || !strings.Contains(err.Error(), "absolute path starting") {
+		if err == nil || !strings.Contains(err.Error(), "has scheme but no host") {
 			t.Fatalf("got %v", err)
 		}
 	})
 	t.Run("https scheme fragment only", func(t *testing.T) {
 		err := ValidateAPICallResponses([]APICallResponseEntry{{
 			URL: "https:",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "has scheme but no host") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("invalid urlPath not absolute", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URLPath: "relative/path",
 			Response: APICallResponse{
 				Body: runtime.RawExtension{Raw: []byte(`{}`)},
 			},

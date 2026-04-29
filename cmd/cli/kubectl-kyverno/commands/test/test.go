@@ -33,7 +33,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
@@ -281,8 +280,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, err
 	}
-	libs.SetHTTPMockResponses(httpMockIndex)
-	defer libs.SetHTTPMockResponses(nil)
+	store.SetHTTPMockIndex(httpMockIndex)
 
 	var gceMap map[string]interface{}
 	if len(testCase.Test.GlobalContextEntries) > 0 {
@@ -620,7 +618,7 @@ func applyImageValidatingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -742,7 +740,7 @@ func applyDeletingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -852,11 +850,10 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			url := strings.TrimSpace(m.URL)
-			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", url, err)
+			return nil, fmt.Errorf("apiCallResponses %q: invalid body: %w", m.ResolvedURL(), err)
 		}
 		wrapped := wrapHTTPResponse(body, m.Response.StatusCode)
-		url := strings.TrimSpace(m.URL)
+		url := m.ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(m.Method))
 		key := url
 		if method != "" {
@@ -870,14 +867,6 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200
-	}
-	if bodyMap, ok := body.(map[string]interface{}); ok {
-		wrapped := make(map[string]interface{}, len(bodyMap)+1)
-		for k, v := range bodyMap {
-			wrapped[k] = v
-		}
-		wrapped["statusCode"] = statusCode
-		return wrapped
 	}
 	return map[string]interface{}{
 		"body":       body,

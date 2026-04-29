@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -98,7 +98,7 @@ func (w wrapper) Load(
 	for _, entry := range contextEntries {
 		if entry.APICall != nil {
 			ac := entry.APICall.DeepCopy()
-			subbedAc, err := variables.SubstituteAllInType(logr.Discard(), jsonContext, ac)
+			subbedAc, err := variables.SubstituteAllInType(log.Log, jsonContext, ac)
 			if err != nil {
 				return fmt.Errorf("failed to substitute variables in apiCall context entry %q: %w", entry.Name, err)
 			}
@@ -176,14 +176,13 @@ func buildAPICallURLIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]int
 	for _, m := range mocks {
 		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
 		if err != nil {
-			url := strings.TrimSpace(m.URL)
-			return nil, fmt.Errorf("apiCallResponses url %q: invalid body: %w", url, err)
+			return nil, fmt.Errorf("apiCallResponses %q: invalid body: %w", m.ResolvedURL(), err)
 		}
 		sc := m.Response.StatusCode
 		if sc == 0 {
 			sc = 200
 		}
-		url := strings.TrimSpace(m.URL)
+		url := m.ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(m.Method))
 		key := url
 		if method != "" {

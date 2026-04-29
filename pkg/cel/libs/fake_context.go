@@ -13,6 +13,7 @@ type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
 	globalReferences   map[string]any
+	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
 	triggerName        string
@@ -61,6 +62,14 @@ func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
 		cp.globalReferences = map[string]any{}
 	}
 	cp.globalReferences[name] = data
+}
+
+func (cp *FakeContextProvider) SetHTTPMocks(mocks map[string]interface{}) {
+	cp.httpMocks = mocks
+}
+
+func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
+	return cp.httpMocks
 }
 
 func (cp *FakeContextProvider) GetGlobalReference(name, _ string) (any, error) {

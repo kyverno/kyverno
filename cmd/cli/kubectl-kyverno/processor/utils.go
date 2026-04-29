@@ -23,7 +23,7 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 	return false
 }
 
-func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}) (libs.Context, error) {
+func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}, httpMockIndex map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
 			dclient,
@@ -68,6 +68,10 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		for name, data := range globalContextEntries {
 			fakeContextProvider.AddGlobalReference(name, data)
 		}
+	}
+
+	if len(httpMockIndex) > 0 {
+		fakeContextProvider.SetHTTPMocks(httpMockIndex)
 	}
 
 	libs.LibraryContext = fakeContextProvider

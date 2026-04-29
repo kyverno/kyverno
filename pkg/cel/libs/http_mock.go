@@ -1,69 +1,29 @@
 package libs
 
 import (
-	"sync"
-
 	sdklibhttp "github.com/kyverno/sdk/cel/libs/http"
 )
 
-var (
-	httpMockResponses   map[string]interface{}
-	httpMockResponsesMu sync.RWMutex
-)
-
-// SetHTTPMockResponses sets per-URL (or METHOD:url) mock bodies for CEL http in offline tests; nil clears.
-func SetHTTPMockResponses(responses map[string]interface{}) {
-	httpMockResponsesMu.Lock()
-	defer httpMockResponsesMu.Unlock()
-	httpMockResponses = responses
-}
-
-// GetHTTPMockResponsesForTesting returns a shallow copy of the current mock map (tests only).
-func GetHTTPMockResponsesForTesting() map[string]interface{} {
-	httpMockResponsesMu.RLock()
-	defer httpMockResponsesMu.RUnlock()
-	if httpMockResponses == nil {
-		return nil
-	}
-	out := make(map[string]interface{}, len(httpMockResponses))
-	for k, v := range httpMockResponses {
-		out[k] = v
-	}
-	return out
-}
-
-// NewMockAwareHTTPContext wraps real HTTP CEL context; mocked URLs skip the network.
-func NewMockAwareHTTPContext(real sdklibhttp.ContextInterface) sdklibhttp.ContextInterface {
-	return &mockAwareHTTPContext{real: real}
+// NewMockAwareHTTPContext wraps a real HTTP CEL context with a per-instance mock map.
+// Mocked URLs are served from the map; everything else falls through to the real context.
+func NewMockAwareHTTPContext(real sdklibhttp.ContextInterface, mocks map[string]interface{}) sdklibhttp.ContextInterface {
+	return &mockAwareHTTPContext{real: real, mocks: mocks}
 }
 
 type mockAwareHTTPContext struct {
-	real sdklibhttp.ContextInterface
+	real  sdklibhttp.ContextInterface
+	mocks map[string]interface{}
 }
 
 func (m *mockAwareHTTPContext) Get(url string, headers map[string]string) (any, error) {
-	httpMockResponsesMu.RLock()
-	var body any
-	var ok bool
-	if len(httpMockResponses) > 0 {
-		body, ok = findMockResponse(httpMockResponses, "GET", url)
-	}
-	httpMockResponsesMu.RUnlock()
-	if ok {
+	if body, ok := findMockResponse(m.mocks, "GET", url); ok {
 		return body, nil
 	}
 	return m.real.Get(url, headers)
 }
 
 func (m *mockAwareHTTPContext) Post(url string, data any, headers map[string]string) (any, error) {
-	httpMockResponsesMu.RLock()
-	var body any
-	var ok bool
-	if len(httpMockResponses) > 0 {
-		body, ok = findMockResponse(httpMockResponses, "POST", url)
-	}
-	httpMockResponsesMu.RUnlock()
-	if ok {
+	if body, ok := findMockResponse(m.mocks, "POST", url); ok {
 		return body, nil
 	}
 	return m.real.Post(url, data, headers)
@@ -74,10 +34,13 @@ func (m *mockAwareHTTPContext) Client(caBundle string) (sdklibhttp.ContextInterf
 	if err != nil {
 		return nil, err
 	}
-	return &mockAwareHTTPContext{real: inner}, nil
+	return &mockAwareHTTPContext{real: inner, mocks: m.mocks}, nil
 }
 
 func findMockResponse(responses map[string]interface{}, method, url string) (any, bool) {
+	if len(responses) == 0 {
+		return nil, false
+	}
 	if body, ok := responses[method+":"+url]; ok {
 		return body, true
 	}
