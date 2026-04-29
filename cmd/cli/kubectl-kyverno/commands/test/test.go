@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -143,7 +144,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		fmt.Fprintln(out, "  Loading JSON payloads", "...")
 		jsonFullPaths := path.GetFullPaths(testCase.Test.JSONPayloads, testDir, isGit)
 		for i, jp := range jsonFullPaths {
-			data, loadErr := payload.Load(jp)
+			var data any
+			var loadErr error
+
+			if isGit {
+				var fileBytes []byte
+				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
+				if loadErr == nil {
+					loadErr = json.Unmarshal(fileBytes, &data)
+				}
+			} else {
+				data, loadErr = payload.Load(jp)
+			}
+
 			if loadErr != nil {
 				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
 			}
