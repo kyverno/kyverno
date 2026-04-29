@@ -1348,7 +1348,36 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
         <td>
           
 
-          <p>URL is an absolute https or http URL, or URLPath (/foo from v1 context.apiCall) for matching.</p>
+          <p>URL is an absolute https or http URL for matching (CEL http.* and v1 context.apiCall service.url).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>urlPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URLPath is an absolute path (e.g. /api/v1/namespaces) for matching v1 context.apiCall urlPath.</p>
 
 
           

@@ -51,12 +51,15 @@ spec:
                   - body
                   type: object
                 url:
-                  description: URL is an absolute https or http URL, or URLPath (/foo
-                    from v1 context.apiCall) for matching.
+                  description: URL is an absolute https or http URL for matching (CEL
+                    http.* and v1 context.apiCall service.url).
+                  type: string
+                urlPath:
+                  description: URLPath is an absolute path (e.g. /api/v1/namespaces)
+                    for matching v1 context.apiCall urlPath.
                   type: string
               required:
               - response
-              - url
               type: object
             type: array
           apiVersion:
