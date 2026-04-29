@@ -101,7 +101,9 @@ func cleanTest(test *v1alpha1.Test) {
 	test.Policies = removeDuplicateStrings(test.Policies)
 	test.Resources = removeDuplicateStrings(test.Resources)
 	if test.JSONPayload != "" {
-		test.JSONPayloads = append(test.JSONPayloads, test.JSONPayload)
+		if len(test.JSONPayloads) == 0 {
+			test.JSONPayloads = append(test.JSONPayloads, test.JSONPayload)
+		}
 		test.JSONPayload = ""
 	}
 	test.JSONPayloads = removeDuplicateStrings(test.JSONPayloads)
