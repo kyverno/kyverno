@@ -19,9 +19,10 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 1
-	ControllerName = "certmanager-controller"
-	maxRetries     = 10
+	Workers                   = 1
+	ControllerName            = "certmanager-controller"
+	maxRetries                = 10
+	DefaultCertRenewalTimeout = 30 * time.Second
 )
 
 type controller struct {
@@ -36,9 +37,10 @@ type controller struct {
 	caEnqueue  controllerutils.EnqueueFunc
 	tlsEnqueue controllerutils.EnqueueFunc
 
-	caSecretName  string
-	tlsSecretName string
-	namespace     string
+	caSecretName       string
+	tlsSecretName      string
+	namespace          string
+	certRenewalTimeout time.Duration
 }
 
 func NewController(
@@ -48,6 +50,7 @@ func NewController(
 	caSecretName string,
 	tlsSecretName string,
 	namespace string,
+	certRenewalTimeout time.Duration,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -56,15 +59,16 @@ func NewController(
 	caEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue)
 	tlsEnqueue, _, _ := controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue)
 	c := controller{
-		renewer:       certRenewer,
-		caLister:      caInformer.Lister(),
-		tlsLister:     tlsInformer.Lister(),
-		queue:         queue,
-		caEnqueue:     caEnqueue,
-		tlsEnqueue:    tlsEnqueue,
-		caSecretName:  caSecretName,
-		tlsSecretName: tlsSecretName,
-		namespace:     namespace,
+		renewer:            certRenewer,
+		caLister:           caInformer.Lister(),
+		tlsLister:          tlsInformer.Lister(),
+		queue:              queue,
+		caEnqueue:          caEnqueue,
+		tlsEnqueue:         tlsEnqueue,
+		caSecretName:       caSecretName,
+		tlsSecretName:      tlsSecretName,
+		namespace:          namespace,
+		certRenewalTimeout: certRenewalTimeout,
 	}
 	return &c
 }
@@ -138,10 +142,10 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 }
 
 func (c *controller) renewCertificates(ctx context.Context) error {
-	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
+	if err := retryutils.RetryFunc(ctx, time.Second, c.certRenewalTimeout, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
 		return err
 	}
-	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
+	if err := retryutils.RetryFunc(ctx, time.Second, c.certRenewalTimeout, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
 		return err
 	}
 	return nil

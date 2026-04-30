@@ -22,8 +22,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
+func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface, certRenewalTimeout time.Duration) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
+	if certRenewalTimeout <= 0 {
+		certRenewalTimeout = certmanager.DefaultCertRenewalTimeout
+	}
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTLSSecretName, "exemplarFilter", exemplarFilter)
 	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
 
@@ -69,6 +72,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 				metricsCASecretName,
 				metricsTLSSecretName,
 				config.KyvernoNamespace(),
+				certRenewalTimeout,
 			),
 			certmanager.Workers,
 		)
