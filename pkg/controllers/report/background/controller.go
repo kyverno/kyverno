@@ -2,6 +2,7 @@ package background
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -100,12 +102,13 @@ type controller struct {
 	forceDelay    time.Duration
 
 	// config
-	config             config.Configuration
-	jp                 jmespath.Interface
-	eventGen           event.Interface
-	policyReports      bool
-	gctxStore          gctxstore.Store
-	exceptionNamespace string
+	config                 config.Configuration
+	jp                     jmespath.Interface
+	eventGen               event.Interface
+	policyReports          bool
+	gctxStore              gctxstore.Store
+	exceptionNamespace     string
+	respectWebhookSelector bool
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -143,6 +146,7 @@ func NewController(
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	respectWebhookSelector bool,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -151,26 +155,27 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
 	c := controller{
-		client:             client,
-		kyvernoClient:      kyvernoClient,
-		engine:             engine,
-		polLister:          polInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polexLister:        polexInformer.Lister(),
-		bgscanrLister:      ephrInformer.Lister(),
-		cbgscanrLister:     cephrInformer.Lister(),
-		nsLister:           nsInformer.Lister(),
-		queue:              queue,
-		metadataCache:      metadataCache,
-		forceDelay:         forceDelay,
-		config:             config,
-		jp:                 jp,
-		eventGen:           eventGen,
-		policyReports:      policyReports,
-		exceptionNamespace: exceptionNamespace,
-		gctxStore:          gctxStore,
-		mapper:             mapper,
-		typeConverter:      typeConverter,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		engine:                 engine,
+		polLister:              polInformer.Lister(),
+		cpolLister:             cpolInformer.Lister(),
+		polexLister:            polexInformer.Lister(),
+		bgscanrLister:          ephrInformer.Lister(),
+		cbgscanrLister:         cephrInformer.Lister(),
+		nsLister:               nsInformer.Lister(),
+		queue:                  queue,
+		metadataCache:          metadataCache,
+		forceDelay:             forceDelay,
+		config:                 config,
+		jp:                     jp,
+		eventGen:               eventGen,
+		policyReports:          policyReports,
+		exceptionNamespace:     exceptionNamespace,
+		gctxStore:              gctxStore,
+		mapper:                 mapper,
+		typeConverter:          typeConverter,
+		respectWebhookSelector: respectWebhookSelector,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -476,6 +481,105 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
+// mergeLabelSelectors merges two label selectors by AND-ing their requirements,
+// mirroring the logic in the webhook controller.
+func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	merged := &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+	for k, v := range a.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	for k, v := range b.MatchLabels {
+		merged.MatchLabels[k] = v
+	}
+	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
+	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+	return merged
+}
+
+// policyWebhookSelectors returns the per-policy namespace and object selectors
+// for CEL-based and admission policy types. Returns (nil, nil) for kyverno v1
+// ClusterPolicy/Policy which use rule-level match, not webhook-level selectors.
+func policyWebhookSelectors(policy engineapi.GenericPolicy) (nsSelector, objSelector *metav1.LabelSelector) {
+	if p := policy.AsValidatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsMutatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsImageValidatingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsGeneratingPolicyLike(); p != nil {
+		mc := p.GetMatchConstraints()
+		return mc.NamespaceSelector, mc.ObjectSelector
+	}
+	if p := policy.AsValidatingAdmissionPolicy(); p != nil {
+		if mc := p.GetDefinition().Spec.MatchConstraints; mc != nil {
+			return mc.NamespaceSelector, mc.ObjectSelector
+		}
+		return nil, nil
+	}
+	if p := policy.AsMutatingAdmissionPolicy(); p != nil {
+		if mc := p.GetDefinition().Spec.MatchConstraints; mc != nil {
+			return mc.NamespaceSelector, mc.ObjectSelector
+		}
+		return nil, nil
+	}
+	// kyverno v1 ClusterPolicy/Policy: no webhook-level selectors
+	return nil, nil
+}
+
+// filterPoliciesByWebhookSelectors returns only those policies whose effective
+// webhook namespace selector matches nsLabels AND whose effective object selector
+// matches resourceLabels. "Effective" means the per-policy selector merged with
+// the global webhook config selector, mirroring how the webhook controller builds
+// each webhook's NamespaceSelector/ObjectSelector.
+func (c *controller) filterPoliciesByWebhookSelectors(
+	nsLabels map[string]string,
+	resourceLabels map[string]string,
+	policies []engineapi.GenericPolicy,
+) ([]engineapi.GenericPolicy, error) {
+	globalWebhook := c.config.GetWebhook()
+	filtered := make([]engineapi.GenericPolicy, 0, len(policies))
+	for _, policy := range policies {
+		policyNsSel, policyObjSel := policyWebhookSelectors(policy)
+		effectiveNsSel := mergeLabelSelectors(policyNsSel, globalWebhook.NamespaceSelector)
+		effectiveObjSel := mergeLabelSelectors(policyObjSel, globalWebhook.ObjectSelector)
+		if effectiveNsSel != nil && nsLabels != nil {
+			sel, err := metav1.LabelSelectorAsSelector(effectiveNsSel)
+			if err != nil {
+				return nil, fmt.Errorf("invalid namespaceSelector for policy %s: %w", policy.GetName(), err)
+			}
+			if !sel.Matches(labels.Set(nsLabels)) {
+				continue
+			}
+		}
+		if effectiveObjSel != nil {
+			sel, err := metav1.LabelSelectorAsSelector(effectiveObjSel)
+			if err != nil {
+				return nil, fmt.Errorf("invalid objectSelector for policy %s: %w", policy.GetName(), err)
+			}
+			if !sel.Matches(labels.Set(resourceLabels)) {
+				continue
+			}
+		}
+		filtered = append(filtered, policy)
+	}
+	return filtered, nil
+}
+
 func (c *controller) needsReconcile(
 	namespace string,
 	name string,
@@ -574,6 +678,26 @@ func (c *controller) reconcileReport(
 			return err
 		}
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+	}
+	if c.respectWebhookSelector {
+		var nsLabels map[string]string
+		if ns != nil {
+			nsLabels = ns.GetLabels()
+		}
+		filteredPolicies, err := c.filterPoliciesByWebhookSelectors(nsLabels, target.GetLabels(), policies)
+		if err != nil {
+			return err
+		}
+		if len(filteredPolicies) == 0 && len(policies) > 0 {
+			if observed.GetResourceVersion() != "" {
+				if observed.GetNamespace() == "" {
+					return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+				}
+				return c.kyvernoClient.ReportsV1().EphemeralReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
+			}
+			return nil
+		}
+		policies = filteredPolicies
 	}
 	// build desired report
 	expected := map[string]string{}
