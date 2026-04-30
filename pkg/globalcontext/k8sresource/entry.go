@@ -209,6 +209,16 @@ func (e *entry) Get(projection string) (any, error) {
 	return nil, fmt.Errorf("projection %q not found", projection)
 }
 
+func (e *entry) IsAllowed(namespace string) bool {
+	if namespace == "" {
+		return true
+	}
+	if e.gce.Spec.KubernetesResource != nil && e.gce.Spec.KubernetesResource.Namespace == namespace {
+		return true
+	}
+	return false
+}
+
 func (e *entry) Stop() {
 	e.stop()
 }

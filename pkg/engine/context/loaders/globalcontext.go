@@ -19,13 +19,14 @@ type Store interface {
 }
 
 type gctxLoader struct {
-	ctx       context.Context //nolint:containedctx
-	logger    logr.Logger
-	entry     kyvernov1.ContextEntry
-	enginectx enginecontext.Interface
-	jp        jmespath.Interface
-	gctxStore Store
-	data      []byte
+	ctx             context.Context //nolint:containedctx
+	logger          logr.Logger
+	entry           kyvernov1.ContextEntry
+	enginectx       enginecontext.Interface
+	jp              jmespath.Interface
+	gctxStore       Store
+	data            []byte
+	policyNamespace string
 }
 
 func NewGCTXLoader(
@@ -35,14 +36,16 @@ func NewGCTXLoader(
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 	gctxStore Store,
+	policyNamespace string,
 ) enginecontext.Loader {
 	return &gctxLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
-		jp:        jp,
-		gctxStore: gctxStore,
+		ctx:             ctx,
+		logger:          logger,
+		entry:           entry,
+		enginectx:       enginectx,
+		jp:              jp,
+		gctxStore:       gctxStore,
+		policyNamespace: policyNamespace,
 	}
 }
 
@@ -97,6 +100,11 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	storeEntry, ok := g.gctxStore.Get(gctxName)
 	if !ok {
 		err := fmt.Errorf("failed to fetch entry key=%s", gctxName)
+		g.logger.Error(err, "")
+		return nil, err
+	}
+	if !storeEntry.IsAllowed(g.policyNamespace) {
+		err := fmt.Errorf("global context entry %s is not allowed for namespace %s", gctxName, g.policyNamespace)
 		g.logger.Error(err, "")
 		return nil, err
 	}

@@ -24,6 +24,10 @@ func (m *mockEntry) Get(projection string) (any, error) {
 	return m.data[projection], nil
 }
 
+func (m *mockEntry) IsAllowed(namespace string) bool {
+	return true
+}
+
 func (m *mockEntry) Stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -37,8 +41,8 @@ func (m *mockEntry) isStopped() bool {
 }
 
 func TestNew_CreatesEmptyStore(t *testing.T) {
-	s := New()
-	assert.NotNil(t, s, "New() should return a non-nil store")
+	s := New(0)
+	assert.NotNil(t, s, "New(0) should return a non-nil store")
 
 	// Verify store is empty by checking a random key
 	entry, exists := s.Get("nonexistent")
@@ -47,7 +51,7 @@ func TestNew_CreatesEmptyStore(t *testing.T) {
 }
 
 func TestStore_SetAndGet_BasicOperations(t *testing.T) {
-	s := New()
+	s := New(0)
 	entry := newMockEntry(map[string]any{"foo": "bar"})
 
 	// Set an entry
@@ -65,7 +69,7 @@ func TestStore_SetAndGet_BasicOperations(t *testing.T) {
 }
 
 func TestStore_SetOverwrite_StopsOldEntry(t *testing.T) {
-	s := New()
+	s := New(0)
 	oldEntry := newMockEntry(map[string]any{"version": "old"})
 	newEntry := newMockEntry(map[string]any{"version": "new"})
 
@@ -86,7 +90,7 @@ func TestStore_SetOverwrite_StopsOldEntry(t *testing.T) {
 }
 
 func TestStore_Get_ReturnsNilForMissingKey(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	entry, exists := s.Get("missing-key")
 	assert.False(t, exists, "exists should be false for missing key")
@@ -94,7 +98,7 @@ func TestStore_Get_ReturnsNilForMissingKey(t *testing.T) {
 }
 
 func TestStore_Delete_RemovesEntryAndStopsIt(t *testing.T) {
-	s := New()
+	s := New(0)
 	entry := newMockEntry(map[string]any{"data": "value"})
 
 	s.Set("to-delete", entry)
@@ -115,7 +119,7 @@ func TestStore_Delete_RemovesEntryAndStopsIt(t *testing.T) {
 }
 
 func TestStore_Delete_HandlesNonexistentKey(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Should not panic when deleting nonexistent key
 	assert.NotPanics(t, func() {
@@ -124,7 +128,7 @@ func TestStore_Delete_HandlesNonexistentKey(t *testing.T) {
 }
 
 func TestStore_Delete_HandlesNilEntry(t *testing.T) {
-	s := New().(*store)
+	s := New(0).(*store)
 
 	// Manually set nil to simulate edge case
 	s.Lock()
@@ -138,7 +142,7 @@ func TestStore_Delete_HandlesNilEntry(t *testing.T) {
 }
 
 func TestStore_ConcurrentAccess(t *testing.T) {
-	s := New()
+	s := New(0)
 	var wg sync.WaitGroup
 	numGoroutines := 100
 
@@ -180,7 +184,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 }
 
 func TestStore_MultipleKeys(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	entries := make(map[string]*mockEntry)
 	keys := []string{"alpha", "beta", "gamma", "delta"}
@@ -215,7 +219,7 @@ func TestStore_MultipleKeys(t *testing.T) {
 }
 
 func TestStore_SetNilEntry(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Setting nil should work without panic
 	assert.NotPanics(t, func() {
@@ -228,7 +232,7 @@ func TestStore_SetNilEntry(t *testing.T) {
 }
 
 func TestStore_OverwriteNilWithValue(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Set nil first
 	s.Set("key", nil)
@@ -242,4 +246,38 @@ func TestStore_OverwriteNilWithValue(t *testing.T) {
 	retrieved, exists := s.Get("key")
 	assert.True(t, exists)
 	assert.Same(t, entry, retrieved)
+}
+
+func TestStore_MaxEntries(t *testing.T) {
+	s := New(2)
+
+	e1 := newMockEntry(map[string]any{"id": 1})
+	e2 := newMockEntry(map[string]any{"id": 2})
+	e3 := newMockEntry(map[string]any{"id": 3})
+
+	// Filling to limit
+	s.Set("key1", e1)
+	s.Set("key2", e2)
+
+	// Verify both exist
+	_, ok1 := s.Get("key1")
+	_, ok2 := s.Get("key2")
+	assert.True(t, ok1)
+	assert.True(t, ok2)
+
+	// Try adding a third
+	s.Set("key3", e3)
+
+	// Verify key3 does not exist and e3 was stopped
+	_, ok3 := s.Get("key3")
+	assert.False(t, ok3, "key3 should not be added because limit reached")
+	assert.True(t, e3.isStopped(), "entry should be stopped if not added")
+
+	// Verify existing keys can still be overwritten
+	e1new := newMockEntry(map[string]any{"id": "1-new"})
+	s.Set("key1", e1new)
+	retrieved, ok1 := s.Get("key1")
+	assert.True(t, ok1)
+	assert.Same(t, e1new, retrieved)
+	assert.True(t, e1.isStopped(), "old e1 should be stopped")
 }
