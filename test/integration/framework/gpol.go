@@ -46,6 +46,32 @@ func NewGpolEngine(
 	return engine, provider
 }
 
+// NewGpolPolexLister creates an informer-backed PolicyException lister from a Kyverno clientset.
+// Mirrors the production wiring in cmd/background-controller/main.go:
+// kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister()
+func NewGpolPolexLister(ctx context.Context, kyvernoClient kyvernoclient.Interface) celengine.PolicyExceptionLister {
+	factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, 0)
+	polexLister := factory.Policies().V1beta1().PolicyExceptions().Lister()
+	factory.Start(ctx.Done())
+	factory.WaitForCacheSync(ctx.Done())
+	return polexLister
+}
+
+// NewGpolEngineWithExceptions creates a gpol engine and provider with PolicyException support.
+// When no exceptions exist, behavior is identical to NewGpolEngine.
+func NewGpolEngineWithExceptions(
+	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
+	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
+	polexLister celengine.PolicyExceptionLister,
+) (gpolengine.Engine, gpolengine.Provider) {
+	compiler := gpolcompiler.NewCompiler()
+	provider := gpolengine.NewFetchProvider(compiler, gpolLister, ngpolLister, polexLister, true)
+	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	matcher := matching.NewMatcher()
+	engine := gpolengine.NewEngine(nsResolver, matcher)
+	return engine, provider
+}
+
 // NewURProcessor returns a function that processes URSpecs through the gpol engine,
 // creating downstream resources in the envtest cluster. This simulates what the
 // background controller's CELGenerateController.ProcessUR does in production:
