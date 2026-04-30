@@ -427,3 +427,8 @@ require (
 )
 
 replace k8s.io/pod-security-admission v0.34.1 => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
+
+// Replace kyverno/api with the fork branch that adds SubjectExpression to
+// Identity for CEL-based keyless identity matching (kyverno/api#64).
+// Remove once kyverno/api#64 is merged and a new version is published.
+replace github.com/kyverno/api v0.0.1-alpha.2.0.20260129144402-7b64bcf2b1f7 => github.com/jzeng4/api v0.0.0-20260313235804-8129dcf5909a

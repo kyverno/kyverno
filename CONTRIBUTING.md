@@ -27,6 +27,34 @@ In the process of submitting your PRs, please read and abide by the template pro
 3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made. For changes that can be tested as an end user, we require conformance/e2e tests by using the `chainsaw` tool. See [here](https://kyverno.github.io/chainsaw/latest/quick-start/) for a specific guide on how and when to write these tests.
 4. Indicate which release this PR is triaged for (maintainers). This step is important, especially for the documentation maintainers, in order to understand when and where the necessary changes should be made.
 
+## DCO Sign-off
+
+All commits must include a `Signed-off-by` trailer to comply with the [Developer Certificate of Origin (DCO)](https://developercertificate.org/). Use the `-s` flag when committing:
+
+```sh
+git commit -s -m "your commit message"
+```
+
+To fix unsigned commits before opening a PR:
+
+```sh
+# Amend the last commit
+git commit --amend --signoff
+
+# Or rebase and sign off multiple commits (replace <n> with the number of commits)
+git rebase --signoff HEAD~<n>
+```
+
+A DCO check runs automatically on every pull request and will block merging if any commit is missing the sign-off.
+
+## Helm Chart Versioning and Changelog
+
+The kyverno Helm chart uses a `3.x.y` versioning scheme independent of the application's `v1.x.y` tags. To ensure tools like Renovate can surface release notes for chart upgrades:
+
+- Every chart release creates a GitHub tag in the form `kyverno-chart-<version>` (e.g. `kyverno-chart-3.7.1`).
+- Chart-specific changes are documented in [`charts/kyverno/CHANGELOG.md`](charts/kyverno/CHANGELOG.md) using the heading format `## <version>` (e.g. `## 3.7.1`).
+- When contributing chart changes, add an entry under `## Unreleased` in the relevant changelog.
+
 ## Release Processes
 
 Review the Kyverno release process at: https://kyverno.io/docs/releases/

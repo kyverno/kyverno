@@ -9,6 +9,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// compiledIdentity holds compiled CEL programs for a single keyless identity entry.
+// It corresponds to a v1beta1.Identity whose SubjectExpression field contains a
+// CEL expression that is evaluated per-image at verification time.
+type compiledIdentity struct {
+	// index is the position in Keyless.Identities this entry corresponds to.
+	index           int
+	subjectExprProg cel.Program
+}
+
 type CompiledAttestor struct {
 	Key               string
 	val               v1beta1.Attestor
@@ -17,6 +26,8 @@ type CompiledAttestor struct {
 	certChainProg     cel.Program
 	notaryCertProg    cel.Program
 	notaryTSACertProg cel.Program
+	// identityProgs holds compiled CEL programs for keyless identity SubjectExpression fields.
+	identityProgs []compiledIdentity
 }
 
 func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
@@ -63,6 +74,11 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					compiledAtt.certChainProg = prg
 				}
 			}
+			// Identity CEL expressions (Subject/SubjectRegExp) are compiled
+			// separately via CompileAttestorIdentities using the dedicated
+			// identity env (which declares "image" as a string). They must NOT
+			// be compiled here with the main policy env, which uses "image" for
+			// imagedata context and would produce incorrect type bindings.
 		} else if att.IsNotary() {
 			if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
 				ast, iss := env.Compile(att.Notary.Certs.Expression)
@@ -134,6 +150,45 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	return c.val, nil
+}
+
+// EvaluateWithImage evaluates the compiled attestor with the given data map and
+// additionally evaluates any CEL expressions in keyless identity fields using
+// the provided image reference string. The image is made available as the
+// "image" variable in the CEL evaluation context for identity expressions.
+//
+// This method should be used instead of Evaluate when verifying a specific image,
+// so that identity subject/subjectRegExp expressions can reference the image.
+func (c *CompiledAttestor) EvaluateWithImage(data any, image string) (v1beta1.Attestor, error) {
+	att, err := c.Evaluate(data)
+	if err != nil {
+		return v1beta1.Attestor{}, err
+	}
+
+	if len(c.identityProgs) == 0 || att.Cosign == nil || att.Cosign.Keyless == nil {
+		return att, nil
+	}
+
+	// Build evaluation data with the image reference available.
+	imageData := map[string]any{"image": image}
+
+	for _, ci := range c.identityProgs {
+		if ci.index >= len(att.Cosign.Keyless.Identities) {
+			continue
+		}
+		id := &att.Cosign.Keyless.Identities[ci.index]
+
+		if ci.subjectExprProg != nil {
+			result, err := evalProgramString(c.Key, ci.subjectExprProg, imageData)
+			if err != nil {
+				return v1beta1.Attestor{}, fmt.Errorf("failed to evaluate subjectExpression in identity[%d] for attestor %q: %w", ci.index, c.Key, err)
+			}
+			// The evaluated expression result is used as a SubjectRegExp match.
+			id.SubjectRegExp = result
+		}
+	}
+
+	return att, nil
 }
 
 func evalProgramString(key string, e cel.Program, data any) (string, error) {

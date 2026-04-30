@@ -1,0 +1,21 @@
+﻿{
+  "extends": ["config:base"],
+  "packageRules": [
+    {
+      "description": "Helm chart kyverno: map to chart-prefixed GitHub release tags for Renovate release notes",
+      "matchDatasources": ["helm"],
+      "matchPackageNames": ["kyverno"],
+      "sourceUrl": "https://github.com/kyverno/kyverno",
+      "extractVersion": "^kyverno-chart-v?(?<version>.+)$",
+      "changelogUrl": "https://github.com/kyverno/kyverno/blob/main/charts/kyverno/CHANGELOG.md"
+    },
+    {
+      "description": "Helm chart kyverno-policies: map to chart-prefixed GitHub release tags for Renovate release notes",
+      "matchDatasources": ["helm"],
+      "matchPackageNames": ["kyverno-policies"],
+      "sourceUrl": "https://github.com/kyverno/kyverno",
+      "extractVersion": "^kyverno-policies-chart-v?(?<version>.+)$",
+      "changelogUrl": "https://github.com/kyverno/kyverno/blob/main/charts/kyverno-policies/CHANGELOG.md"
+    }
+  ]
+}
