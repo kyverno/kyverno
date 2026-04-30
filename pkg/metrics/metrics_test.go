@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/exemplar"
@@ -270,5 +272,66 @@ func TestResolveExemplarFilterWithMetricsConfiguration(t *testing.T) {
 			sampledCtx := sampledContext()
 			assert.Equal(t, tt.expectExemplars, filter(sampledCtx))
 		})
+	}
+}
+
+// TestSwappableRegisterer_handlesDuplicateRegistration verifies that
+// swappableRegisterer replaces an already-registered collector instead of
+// returning an error. This is the unit-level proof of the P0 fix.
+func TestSwappableRegisterer_handlesDuplicateRegistration(t *testing.T) {
+	reg := promclient.NewRegistry()
+	sr := &swappableRegisterer{reg}
+
+	// Two distinct counter instances sharing the same metric name — exactly
+	// what happens when NewPrometheusConfig is called a second time during
+	// the metrics refresh cycle.
+	first := promclient.NewCounter(promclient.CounterOpts{
+		Name: "test_swappable_total",
+		Help: "test counter",
+	})
+	second := promclient.NewCounter(promclient.CounterOpts{
+		Name: "test_swappable_total",
+		Help: "test counter",
+	})
+
+	assert.NoError(t, sr.Register(first), "first registration must succeed")
+	assert.NoError(t, sr.Register(second), "second registration must succeed (old collector swapped out)")
+
+	// Confirm only one collector is registered (no duplicates).
+	mfs, err := reg.Gather()
+	assert.NoError(t, err)
+	count := 0
+	for _, mf := range mfs {
+		if mf.GetName() == "test_swappable_total" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "exactly one collector should be registered after the swap")
+}
+
+// TestNewPrometheusConfig_safeDuringRefresh verifies that calling
+// NewPrometheusConfig twice in sequence — as the metrics refresh goroutine
+// does — does not return an error on the second call. Without
+// swappableRegisterer this would fail with "cannot register the collector".
+func TestNewPrometheusConfig_safeDuringRefresh(t *testing.T) {
+	ctx := context.Background()
+	cfg := kconfig.NewDefaultMetricsConfiguration()
+
+	provider1, err := NewPrometheusConfig(ctx, logr.Discard(), cfg, "")
+	assert.NoError(t, err, "first NewPrometheusConfig call must succeed")
+	assert.NotNil(t, provider1)
+
+	// Simulate what the refresh goroutine does: shut down the old provider
+	// then create a new one.
+	if mp, ok := provider1.(*sdkmetric.MeterProvider); ok {
+		_ = mp.Shutdown(ctx)
+	}
+
+	provider2, err := NewPrometheusConfig(ctx, logr.Discard(), cfg, "")
+	assert.NoError(t, err, "second NewPrometheusConfig call must succeed (refresh must not break)")
+	assert.NotNil(t, provider2)
+
+	if mp, ok := provider2.(*sdkmetric.MeterProvider); ok {
+		_ = mp.Shutdown(ctx)
 	}
 }
