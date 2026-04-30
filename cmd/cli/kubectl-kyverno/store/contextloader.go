@@ -20,18 +20,42 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
-			rule := s.GetPolicyRule(policy.GetName(), rule.Name)
-			if rule != nil && len(rule.Values) > 0 {
-				variables := rule.Values
-				for key, value := range variables {
+			storeRule := s.GetPolicyRule(policy.GetName(), rule.Name)
+			if storeRule == nil {
+				return nil
+			}
+			if len(storeRule.Values) > 0 {
+				for key, value := range storeRule.Values {
 					if err := jsonContext.AddVariable(key, value); err != nil {
 						return err
 					}
 				}
 			}
-			if rule != nil && len(rule.ForEachValues) > 0 {
-				for key, value := range rule.ForEachValues {
-					if err := jsonContext.AddVariable(key, value[s.GetForeachElement()]); err != nil {
+			if len(storeRule.ForEachValues) == 0 {
+				return nil
+			}
+			blockIdx := 0
+			if raw, err := jsonContext.Query("foreachBlockIndex"); err == nil {
+				if v, ok := raw.(int64); ok {
+					blockIdx = int(v)
+				}
+			}
+			if blockIdx < 0 || blockIdx >= len(storeRule.ForEachValues) {
+				return nil
+			}
+			blockValues := storeRule.ForEachValues[blockIdx]
+			if len(blockValues) == 0 {
+				return nil
+			}
+			elemIdx := 0
+			if raw, err := jsonContext.Query("elementIndex"); err == nil {
+				if v, ok := raw.(int64); ok {
+					elemIdx = int(v)
+				}
+			}
+			for key, values := range blockValues {
+				if elemIdx >= 0 && elemIdx < len(values) {
+					if err := jsonContext.AddVariable(key, values[elemIdx]); err != nil {
 						return err
 					}
 				}
