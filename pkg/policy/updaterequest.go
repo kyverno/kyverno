@@ -85,3 +85,28 @@ func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvern
 		CacheRestore:     cacheRestore,
 	})
 }
+
+// splitUR splits a single UpdateRequest into multiple URs each containing at most
+// batchSize RuleContext entries. This prevents etcd "request is too large" errors
+// when policies match thousands of existing resources.
+func splitUR(ur *kyvernov2.UpdateRequest, batchSize int) []*kyvernov2.UpdateRequest {
+	if batchSize <= 0 {
+		batchSize = 1
+	}
+	if len(ur.Spec.RuleContext) <= batchSize {
+		return []*kyvernov2.UpdateRequest{ur}
+	}
+	var batches []*kyvernov2.UpdateRequest
+	ruleCtxs := ur.Spec.RuleContext
+	for i := 0; i < len(ruleCtxs); i += batchSize {
+		end := i + batchSize
+		if end > len(ruleCtxs) {
+			end = len(ruleCtxs)
+		}
+		batch := ur.DeepCopy()
+		batch.Spec.RuleContext = make([]kyvernov2.RuleContext, end-i)
+		copy(batch.Spec.RuleContext, ruleCtxs[i:end])
+		batches = append(batches, batch)
+	}
+	return batches
+}
