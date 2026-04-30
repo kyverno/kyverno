@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deny-label-change-test
+oldResources:
+- old-resource.yaml
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- kind: Pod
+  policy: restrict-workload-label-changes
+  resources:
+  - prod-app
+  result: fail
+variables: values.yaml

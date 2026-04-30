@@ -129,6 +129,23 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+
+	oldResourceMap := map[string]*unstructured.Unstructured{}
+	if len(testCase.Test.OldResources) > 0 {
+		fmt.Fprintln(out, "  Loading old resources", "...")
+		oldResourceFullPath := path.GetFullPaths(testCase.Test.OldResources, testDir, isGit)
+		oldResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, oldResourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load old resources (%s)", err)
+		}
+		oldResources = ProcessResources(oldResources)
+		for _, r := range oldResources {
+			if r != nil {
+				oldResourceMap[processor.GenerateResourceKey(r)] = r
+			}
+		}
+	}
+
 	uniquesObjectArr := []runtime.Object{}
 	for _, t := range uniques {
 		uniquesObjectArr = append(uniquesObjectArr, t)
@@ -348,7 +365,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
+		policyProcessor := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -360,6 +377,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
+			OldResources:                      oldResourceMap,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,
@@ -379,7 +397,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := policyProcessor.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
@@ -426,14 +444,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			ers = append(ers, dpols...)
 		}
 
-		resourceKey := generateResourceKey(resource)
+		resourceKey := processor.GenerateResourceKey(resource)
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
 	}
 
 	if json != nil {
 		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
+		policyProcessor := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -460,9 +478,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := policyProcessor.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
 		}
@@ -538,7 +557,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
-				resourceKey := generateResourceKey(targetResource)
+				resourceKey := processor.GenerateResourceKey(targetResource)
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
 			}
 		}
@@ -764,10 +783,6 @@ func applyDeletingPolicies(
 	}
 
 	return responses, nil
-}
-
-func generateResourceKey(resource *unstructured.Unstructured) string {
-	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
 
 // convertNumericValuesToFloat64 recursively converts all numeric values in the object to float64.

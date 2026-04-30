@@ -100,6 +100,7 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 func cleanTest(test *v1alpha1.Test) {
 	test.Policies = removeDuplicateStrings(test.Policies)
 	test.Resources = removeDuplicateStrings(test.Resources)
+	test.OldResources = removeDuplicateStrings(test.OldResources)
 }
 
 func removeDuplicateStrings(strings []string) []string {

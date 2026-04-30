@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: restrict-workload-label-changes
+spec:
+  validationActions: ["Deny"]
+  variables:
+    - name: oldLabels
+      expression: 'oldObject.?metadata.?labels.orValue({})'
+    - name: newLabels
+      expression: 'object.?metadata.?labels.orValue({})'
+    - name: labelsChanged
+      expression: 'variables.oldLabels != variables.newLabels'
+  matchConstraints:
+    resourceRules:
+      - resources: ["pods"]
+        operations: ["UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+  validations:
+    - expression: '!variables.labelsChanged'
+      message: "Changing pod labels is forbidden"

@@ -60,6 +60,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
@@ -80,6 +81,7 @@ type PolicyProcessor struct {
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
+	OldResources                      map[string]*unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
 	PolicyExceptions                  []*kyvernov2.PolicyException
 	CELExceptions                     []*policiesv1beta1.PolicyException
@@ -548,40 +550,85 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if p.UserInfo != nil {
 					user = p.UserInfo.AdmissionUserInfo
 				}
-				// create engine request
-				request := celengine.Request(
-					contextProvider,
-					gvk,
-					gvr,
-					// TODO: how to manage subresource ?
-					"",
-					resource.GetName(),
-					resource.GetNamespace(),
-					// TODO: how to manage other operations ?
-					admissionv1.Create,
-					user,
-					&resource,
-					nil,
-					false,
-					nil,
-				)
-				reps, err := eng.Handle(ctx, request, nil)
-				if err != nil {
-					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+				policiesByOperation := map[admissionv1.Operation][]string{
+					admissionv1.Create: {},
+					admissionv1.Update: {},
+					admissionv1.Delete: {},
 				}
-				for _, r := range reps.Policies {
-					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+
+				for _, pol := range k8sPolicies {
+					operation := admissionv1.Create
+					if p.Variables != nil {
+						vals, err := p.Variables.ComputeVariables(
+							p.Store,
+							pol.GetName(),
+							resource.GetName(),
+							resource.GetKind(),
+							sets.New[string](),
+						)
+
+						if err == nil {
+							switch vals["request.operation"] {
+							case "DELETE":
+								operation = admissionv1.Delete
+							case "UPDATE":
+								operation = admissionv1.Update
+							}
+						}
+					}
+					policiesByOperation[operation] = append(policiesByOperation[operation], pol.GetName())
+				}
+
+				resourceKey := GenerateResourceKey(&resource)
+				var updateOldObject *unstructured.Unstructured
+				if old, ok := p.OldResources[resourceKey]; ok {
+					updateOldObject = old
+				}
+
+				for operation, policyNames := range policiesByOperation {
+					if len(policyNames) == 0 {
 						continue
 					}
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
+					var object, oldObject runtime.Object
+					switch operation {
+					case admissionv1.Delete:
+						oldObject = &resource
+					case admissionv1.Update:
+						object = &resource
+						if updateOldObject != nil { // if updateOldObject == nil, no OldResources found so we let oldObject = nil.
+							oldObject = updateOldObject
+						}
+					default:
+						object = &resource
 					}
-					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
-					responses = append(responses, response)
+
+					request := celengine.Request(
+						contextProvider,
+						gvk, gvr, "",
+						resource.GetName(),
+						resource.GetNamespace(),
+						operation,
+						user,
+						object, oldObject,
+						false, nil,
+					)
+					reps, err := eng.Handle(ctx, request, vpolengine.MatchNames(policyNames...))
+					if err != nil {
+						return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+					}
+
+					for _, r := range reps.Policies {
+						if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+							continue
+						}
+						response := engineapi.EngineResponse{
+							Resource:       *reps.Resource,
+							PolicyResponse: engineapi.PolicyResponse{Rules: r.Rules},
+						}
+						response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
+						p.Rc.AddValidatingPolicyResponse(response)
+						responses = append(responses, response)
+					}
 				}
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
@@ -1210,6 +1257,10 @@ func discoverCELTargets(
 		result[pol.Policy.GetName()] = targetKeys
 	}
 	return result, nil
+}
+
+func GenerateResourceKey(resource *unstructured.Unstructured) string {
+	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
 
 func hasSelector(match *admissionregistrationv1.MatchResources) bool {
