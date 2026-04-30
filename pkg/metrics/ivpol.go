@@ -21,10 +21,12 @@ func GetImageValidatingMetrics() ImageValidatingMetrics {
 
 type ImageValidatingMetrics interface {
 	RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.ImageValidatingPolicyLike, resource *unstructured.Unstructured, operation string)
+	RecordResult(ctx context.Context, status, ruleExecutionCause string, policy v1beta1.ImageValidatingPolicyLike, resource *unstructured.Unstructured, operation string)
 }
 
 type imageValidatingMetrics struct {
 	durationHistogram metric.Float64Histogram
+	resultCounter     metric.Int64Counter
 
 	logger logr.Logger
 }
@@ -39,6 +41,14 @@ func (m *imageValidatingMetrics) init(meter metric.Meter) {
 	if err != nil {
 		m.logger.Error(err, "failed to register metric kyverno_image_validating_policy_execution_duration_seconds")
 	}
+
+	m.resultCounter, err = meter.Int64Counter(
+		"kyverno_image_validating_policy_results",
+		metric.WithDescription("can be used to track the results associated with the image validating policies applied in the user's cluster, at the level from rule to policy to admission requests."),
+	)
+	if err != nil {
+		m.logger.Error(err, "failed to register metric kyverno_image_validating_policy_results")
+	}
 }
 
 func (m *imageValidatingMetrics) RecordDuration(ctx context.Context, seconds float64, status, ruleExecutionCause string, policy v1beta1.ImageValidatingPolicyLike, resource *unstructured.Unstructured, operation string) {
@@ -49,6 +59,25 @@ func (m *imageValidatingMetrics) RecordDuration(ctx context.Context, seconds flo
 	name, _, backgroundMode, validationMode := GetCELPolicyInfos(policy)
 
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
+		attribute.String("policy_validation_mode", string(validationMode)),
+		attribute.String("policy_background_mode", string(backgroundMode)),
+		attribute.String("policy_name", name),
+		attribute.String("resource_kind", resource.GetKind()),
+		attribute.String("resource_namespace", resource.GetNamespace()),
+		attribute.String("resource_request_operation", strings.ToLower(operation)),
+		attribute.String("execution_cause", ruleExecutionCause),
+		attribute.String("result", status),
+	))
+}
+
+func (m *imageValidatingMetrics) RecordResult(ctx context.Context, status, ruleExecutionCause string, policy v1beta1.ImageValidatingPolicyLike, resource *unstructured.Unstructured, operation string) {
+	if m.resultCounter == nil {
+		return
+	}
+
+	name, _, backgroundMode, validationMode := GetCELPolicyInfos(policy)
+
+	m.resultCounter.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("policy_validation_mode", string(validationMode)),
 		attribute.String("policy_background_mode", string(backgroundMode)),
 		attribute.String("policy_name", name),

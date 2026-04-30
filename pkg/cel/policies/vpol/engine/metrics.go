@@ -25,6 +25,10 @@ func (w *metricWrapper) Handle(ctx context.Context, request EngineRequest, predi
 		}
 
 		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+
+		for _, rule := range policy.Rules {
+			w.metrics.RecordResult(ctx, string(rule.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		}
 	}
 
 	return response, nil
