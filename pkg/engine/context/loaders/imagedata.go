@@ -91,11 +91,25 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	// They must be specified explicitly in ImageRegistryCredentials
 	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
 	if err != nil {
+		if entry.ImageRegistry.CatchError {
+			return map[string]interface{}{
+				"failed":       true,
+				"errorMessage": err.Error(),
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}
 
 	imageData, err := idl.fetchImageDataMap(client, refString)
 	if err != nil {
+		if entry.ImageRegistry.CatchError {
+			// When catchError is true, only "failed" and "errorMessage" are set.
+			// Callers must check the "failed" field before accessing other image data fields.
+			return map[string]interface{}{
+				"failed":       true,
+				"errorMessage": err.Error(),
+			}, nil
+		}
 		return nil, err
 	}
 
@@ -156,6 +170,8 @@ func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, 
 		"manifestList":  manifestList,
 		"manifest":      manifest,
 		"configData":    configData,
+		"failed":        false,
+		"errorMessage":  "",
 	}
 
 	// we need to do the conversion from struct types to an interface type so that jmespath
