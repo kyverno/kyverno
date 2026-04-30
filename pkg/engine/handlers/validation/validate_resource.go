@@ -210,6 +210,15 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 		}
 	}()
 
+	// Checkpoint and re-load rule context so variables are evaluated against the old resource,
+	// not the new one, avoiding a false "pre-existing violations" skip.
+	v.policyContext.JSONContext().Checkpoint()
+	defer v.policyContext.JSONContext().Restore()
+
+	if err = v.contextLoader(ctx, v.rule.Context, v.policyContext.JSONContext()); err != nil {
+		return nil, errors.Wrapf(err, "failed to load rule context for old object")
+	}
+
 	if ok := matchResource(v.log, oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create, v.policyContext.JSONContext()); !ok {
 		resp = engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", nil)
 		return
