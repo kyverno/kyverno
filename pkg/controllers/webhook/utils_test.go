@@ -886,3 +886,47 @@ func TestSortedRules(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateRuleKey(t *testing.T) {
+	allScopes := admissionregistrationv1.AllScopes
+	namespacedScope := admissionregistrationv1.NamespacedScope
+
+	logicalDuplicateA := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps", ""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments", "pods"},
+			Scope:       &allScopes,
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	logicalDuplicateB := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"", "apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods", "deployments"},
+			Scope:       &allScopes,
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Update,
+			admissionregistrationv1.Create,
+		},
+	}
+
+	t.Run("stable for logical duplicates", func(t *testing.T) {
+		assert.Equal(t, generateRuleKey(logicalDuplicateA), generateRuleKey(logicalDuplicateB))
+	})
+
+	t.Run("different scope yields different key", func(t *testing.T) {
+		withScope := logicalDuplicateA
+		withScope.Scope = &namespacedScope
+
+		withoutScope := logicalDuplicateA
+		withoutScope.Scope = nil
+
+		assert.NotEqual(t, generateRuleKey(withScope), generateRuleKey(withoutScope))
+	})
+}
