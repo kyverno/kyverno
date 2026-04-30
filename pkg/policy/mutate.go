@@ -34,7 +34,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 		}
 
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
-		triggers := getTriggers(pc.client, rule, policyNew.IsNamespaced(), policyNew.GetNamespace(), pc.log)
+		triggers := getTriggers(pc.ctx, pc.client, rule, policyNew.IsNamespaced(), policyNew.GetNamespace(), pc.log)
 		for _, trigger := range triggers {
 			murs := pc.listMutateURs(policyKey, trigger)
 			if murs != nil {

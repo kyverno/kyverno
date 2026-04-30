@@ -108,6 +108,10 @@ type policyController struct {
 
 	// mapper
 	restMapper meta.RESTMapper
+
+	// ctx is the lifecycle context provided by Run, used in event handlers
+	// that cannot accept a context parameter directly.
+	ctx context.Context
 }
 
 // NewPolicyController create a new PolicyController
@@ -323,6 +327,10 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
+	// Capture the lifecycle context so event handlers (updatePolicy, deletePolicy)
+	// can propagate cancellation signals to downstream operations.
+	pc.ctx = ctx
+
 	if _, err := pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
@@ -527,7 +535,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", ruleName, err)
 	}
 
-	engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
+	engineResponse := pc.engine.ApplyBackgroundChecks(pc.ctx, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}
@@ -543,7 +551,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+		created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			return false, err
 		}
@@ -552,7 +560,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -560,11 +568,11 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 	return false, err
 }
 
-func getTriggers(client dclient.Interface, rule kyvernov1.Rule, isNamespacedPolicy bool, policyNamespace string, log logr.Logger) []*unstructured.Unstructured {
+func getTriggers(ctx context.Context, client dclient.Interface, rule kyvernov1.Rule, isNamespacedPolicy bool, policyNamespace string, log logr.Logger) []*unstructured.Unstructured {
 	var resources []*unstructured.Unstructured
 
 	appendResources := func(match kyvernov1.ResourceDescription) {
-		resources = append(resources, getResources(client, policyNamespace, isNamespacedPolicy, match, log)...)
+		resources = append(resources, getResources(ctx, client, policyNamespace, isNamespacedPolicy, match, log)...)
 	}
 
 	if !rule.MatchResources.ResourceDescription.IsEmpty() {
@@ -582,7 +590,7 @@ func getTriggers(client dclient.Interface, rule kyvernov1.Rule, isNamespacedPoli
 	return resources
 }
 
-func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy bool, match kyvernov1.ResourceDescription, log logr.Logger) []*unstructured.Unstructured {
+func getResources(ctx context.Context, client dclient.Interface, policyNs string, isNamespacedPolicy bool, match kyvernov1.ResourceDescription, log logr.Logger) []*unstructured.Unstructured {
 	var items []*unstructured.Unstructured
 
 	for _, kind := range match.Kinds {
@@ -600,7 +608,7 @@ func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy 
 			groupVersion = version
 		}
 
-		resources, err := client.ListResource(context.TODO(), groupVersion, kind, namespace, match.Selector)
+		resources, err := client.ListResource(ctx, groupVersion, kind, namespace, match.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue

@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"context"
-
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -41,14 +39,14 @@ func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.Ge
 	}
 	pc.log.V(4).Info("creating new UR for GeneratingPolicy")
 	// generate the UR to create the new downstream resources
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		return err
 	}
 	if created != nil {
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -66,14 +64,14 @@ func (pc *policyController) handleGenerateExisting(gpol *policiesv1beta1.Generat
 	}
 	pc.log.V(4).Info("creating new UR for GeneratingPolicy")
 	// generate the UR to create the new downstream resources
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	created, err := pc.urGenerator.Generate(pc.ctx, pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		return err
 	}
 	if created != nil {
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(pc.ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -100,7 +98,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						pc.log.Error(err, "mapping gvr to gvk failed", "gvr", gvr)
 						continue
 					}
-					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, "", objectSelector)
+					resources, err := pc.client.ListResource(pc.ctx, groupVersion.String(), gvk.Kind, "", objectSelector)
 					if err != nil {
 						pc.log.Error(err, "failed to list resources", "groupVersion", groupVersion, "kind", gvk.Kind)
 					}
@@ -153,7 +151,7 @@ func (pc *policyController) triggerMatches(
 			nsName = resource.GetName()
 		} else {
 			nsName := resource.GetNamespace()
-			namespace, err := pc.client.GetResource(context.TODO(), "v1", "Namespace", "", nsName)
+			namespace, err := pc.client.GetResource(pc.ctx, "v1", "Namespace", "", nsName)
 			if err != nil {
 				pc.log.Error(err, "failed to get namespace", "name", nsName)
 				return false
