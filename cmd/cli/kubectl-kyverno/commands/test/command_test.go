@@ -118,6 +118,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	tests := []struct {
 		name           string
 		ruleStatus     engineapi.RuleStatus
+		ruleMessage    string
 		expectedResult string
 		wantOk         bool
 		wantReason     string
@@ -125,6 +126,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 		{
 			name:           "expect fail but got pass - should detect mismatch",
 			ruleStatus:     engineapi.RuleStatusPass,
+			ruleMessage:    "msg",
 			expectedResult: openreports.StatusFail,
 			wantOk:         false,
 			wantReason:     "Want fail, got pass",
@@ -132,13 +134,23 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 		{
 			name:           "expect fail and got fail - should match",
 			ruleStatus:     engineapi.RuleStatusFail,
+			ruleMessage:    "msg",
 			expectedResult: openreports.StatusFail,
 			wantOk:         true,
 			wantReason:     "Ok",
 		},
 		{
+			name:           "expect fail and got message expression error - should fail",
+			ruleStatus:     engineapi.RuleStatusFail,
+			ruleMessage:    "failed to evaluate message expression: no such overload",
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "Message expression error",
+		},
+		{
 			name:           "expect pass and got pass - should match",
 			ruleStatus:     engineapi.RuleStatusPass,
+			ruleMessage:    "msg",
 			expectedResult: openreports.StatusPass,
 			wantOk:         true,
 			wantReason:     "Ok",
@@ -146,6 +158,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 		{
 			name:           "expect pass but got fail - should detect mismatch",
 			ruleStatus:     engineapi.RuleStatusFail,
+			ruleMessage:    "msg",
 			expectedResult: openreports.StatusPass,
 			wantOk:         false,
 			wantReason:     "Want pass, got fail",
@@ -153,6 +166,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 		{
 			name:           "expect fail but got error - should detect mismatch",
 			ruleStatus:     engineapi.RuleStatusError,
+			ruleMessage:    "msg",
 			expectedResult: openreports.StatusFail,
 			wantOk:         false,
 			wantReason:     "Want fail, got error",
@@ -164,11 +178,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			var rule engineapi.RuleResponse
 			switch tt.ruleStatus {
 			case engineapi.RuleStatusPass:
-				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, tt.ruleMessage, nil)
 			case engineapi.RuleStatusFail:
-				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, tt.ruleMessage, nil)
 			case engineapi.RuleStatusError:
-				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, tt.ruleMessage, nil, nil)
 			}
 
 			response := engineapi.NewEngineResponse(

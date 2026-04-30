@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -21,6 +22,11 @@ import (
 )
 
 var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*(?:;[a-zA-Z0-9]*)*)?\u0007|(?:\\d{1,4}(?:;\\d{0,4})*)?[0-mG-Z])")
+
+const (
+	messageExpressionEvaluationError = "failed to evaluate message expression:"
+	messageExpressionConversionError = "failed to convert message expression to string:"
+)
 
 func Command() *cobra.Command {
 	var testCase, outputFormat string
@@ -239,10 +245,18 @@ func checkResult(
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
+	if isMessageExpressionError(result.Description) {
+		return false, result.Description, "Message expression error"
+	}
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
+}
+
+func isMessageExpressionError(message string) bool {
+	return strings.Contains(message, messageExpressionEvaluationError) ||
+		strings.Contains(message, messageExpressionConversionError)
 }
 
 func isRulelessPolicyKind(kind string) bool {
