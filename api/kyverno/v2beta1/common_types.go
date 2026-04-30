@@ -1,13 +1,10 @@
 package v2beta1
 
 import (
-	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
-
-// AssertionTree defines a kyverno-json assertion tree.
-type AssertionTree = kjson.Any
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
@@ -60,9 +57,11 @@ type Validation struct {
 	// +optional
 	CEL *kyvernov1.CEL `json:"cel,omitempty"`
 
-	// Assert defines a kyverno-json assertion tree.
+	// Deprecated: Assert is retained for backwards compatibility with existing
+	// policies and API consumers. It has no effect and will be removed in a
+	// future release.
 	// +optional
-	Assert *AssertionTree `json:"assert"`
+	Assert *apiextv1.JSON `json:"assert,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.

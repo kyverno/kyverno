@@ -24,6 +24,7 @@ package v2beta1
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -1089,7 +1090,8 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	}
 	if in.Assert != nil {
 		in, out := &in.Assert, &out.Assert
-		*out = (*in).DeepCopy()
+		*out = new(apiextensionsv1.JSON)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

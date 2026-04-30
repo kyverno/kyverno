@@ -1805,7 +1805,8 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	}
 	if in.Assert != nil {
 		in, out := &in.Assert, &out.Assert
-		*out = (*in).DeepCopy()
+		*out = new(apiextensionsv1.JSON)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

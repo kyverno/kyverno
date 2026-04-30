@@ -13,6 +13,19 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
+// assertOnlyValidation returns true when the Validation struct has only the
+// deprecated Assert field set and no actionable validation content.
+func assertOnlyValidation(v *kyvernov1.Validation) bool {
+	return v != nil && v.Assert != nil &&
+		v.RawPattern == nil &&
+		v.RawAnyPattern == nil &&
+		v.Deny == nil &&
+		len(v.ForEachValidation) == 0 &&
+		v.Manifests == nil &&
+		v.PodSecurity == nil &&
+		v.CEL == nil
+}
+
 func (e *engine) validate(
 	ctx context.Context,
 	logger logr.Logger,
@@ -37,9 +50,9 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			if hasValidate {
-				hasValidateAssert := rule.HasValidateAssert()
-				if hasValidateAssert && rule.Validation.Assert.Value != nil {
-					return validation.NewValidateAssertHandler(e.client, e.isCluster)
+				if assertOnlyValidation(rule.Validation) {
+					// Assert is deprecated and has no effect; skip rules with only Assert set
+					return nil, nil
 				}
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()

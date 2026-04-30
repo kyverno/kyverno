@@ -11,7 +11,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -40,7 +39,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -134,15 +132,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	var json any
-	if testCase.Test.JSONPayload != "" {
-		fmt.Fprintln(out, "  Loading JSON payload", "...")
-		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
-		json, err = payload.Load(jsonFullPath[0])
-		if err != nil {
-			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
-		}
-	}
 	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
 	if len(testCase.Test.HTTPPayloads) > 0 {
 		fmt.Fprintln(out, "  Loading HTTP payloads", "...")
@@ -386,7 +375,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
-				nil,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -431,88 +419,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[resourceKey] = ers
 	}
 
-	if json != nil {
-		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
-			Store:                             &store,
-			Policies:                          validPolicies,
-			ValidatingAdmissionPolicies:       results.VAPs,
-			ValidatingAdmissionPolicyBindings: results.VAPBindings,
-			MutatingAdmissionPolicies:         results.MAPs,
-			MutatingAdmissionPolicyBindings:   results.MAPBindings,
-			MutatingPolicies:                  results.MutatingPolicies,
-			GeneratingPolicies:                results.GeneratingPolicies,
-			ValidatingPolicies:                results.ValidatingPolicies,
-			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
-			PolicyExceptions:                  polexLoader.Exceptions,
-			CELExceptions:                     polexLoader.CELExceptions,
-			MutateLogPath:                     "",
-			Variables:                         vars,
-			ContextFs:                         testCase.Fs,
-			ContextPath:                       contextPath,
-			UserInfo:                          userInfo,
-			PolicyReport:                      true,
-			NamespaceSelectorMap:              vars.NamespaceSelectors(),
-			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
-			Cluster:                           len(testCase.Test.ClusterResources) > 0,
-			Client:                            dClient,
-			Subresources:                      vars.Subresources(),
-			Out:                               io.Discard,
-			RESTMapper:                        restMapper,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-		}
-		if len(results.ImageValidatingPolicies) != 0 {
-			ivpols, err := applyImageValidatingPolicies(
-				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
-				nil,
-				polexLoader.CELExceptions,
-				vars.Namespace,
-				userInfo,
-				&resultCounts,
-				dClient,
-				true,
-				testCase.Fs,
-				contextPath,
-				false,
-				true,
-				restMapper,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
-			}
-			ers = append(ers, ivpols...)
-		}
-
-		if len(results.DeletingPolicies) != 0 {
-			dpols, err := applyDeletingPolicies(
-				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
-				polexLoader.CELExceptions,
-				vars.Namespace,
-				&resultCounts,
-				dClient,
-				true,
-				testCase.Fs,
-				contextPath,
-				true,
-				restMapper,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
-			}
-			ers = append(ers, dpols...)
-		}
-
-		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
-		engineResponses = append(engineResponses, ers...)
-	}
-
 	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
 	if len(httpPayloads) > 0 {
 		for file, payload := range httpPayloads {
@@ -549,7 +455,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 
 func applyImageValidatingPolicies(
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
-	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
 	namespaceProvider func(string) *corev1.Namespace,
@@ -640,45 +545,6 @@ func applyImageValidatingPolicies(
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
-			responses = append(responses, resp)
-		}
-	}
-	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
-	for i := range ivps {
-		p := ivps[i]
-		pMap[p.GetName()] = p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
-	}
-	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
-		if err != nil {
-			if continueOnFail {
-				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
-		}
-		resp := engineapi.EngineResponse{
-			Resource:       *json,
-			PolicyResponse: engineapi.PolicyResponse{},
-		}
-		for p, rslt := range result {
-			if rslt.Error != nil {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
-				}
-			} else if rslt.Result {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
-				}
-			} else {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
-				}
-			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
 			rc.AddValidatingPolicyResponse(resp)
 			responses = append(responses, resp)
 		}
