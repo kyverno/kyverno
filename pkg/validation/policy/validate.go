@@ -135,9 +135,17 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	if policy.GetSpec().CustomWebhookMatchConditions() &&
-		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
-		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+	if policy.GetSpec().CustomWebhookMatchConditions() {
+		// `kyverno test` runs in mock mode and has no cluster connection
+		// to check the API-server version against, so the dclient is nil.
+		// Calling client.GetKubeClient().Discovery() here without a guard
+		// segfaults the CLI on any policy that declares
+		// spec.webhookConfigurations.matchConditions (#15833). Skip the
+		// version check offline; the real admission path still enforces
+		// it because mock is false there.
+		if !mock && !kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
+			return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+		}
 	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
