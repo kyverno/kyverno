@@ -982,7 +982,7 @@ func jpPathCanonicalize(arguments []any) (any, error) {
 		return nil, err
 	}
 
-	return filepath.Join(str.String()), nil
+	return filepath.ToSlash(filepath.Clean(str.String())), nil
 }
 
 func jpTruncate(arguments []any) (any, error) {

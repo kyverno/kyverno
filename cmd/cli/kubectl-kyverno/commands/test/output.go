@@ -256,6 +256,32 @@ func printTestResult(
 						r := response.Resource
 						ruleName = rule.Name()
 
+						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
+							if test.IsMutatingPolicy {
+								r = response.PatchedResource
+							}
+
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
+								resourceSkipped = true
+								continue
+							}
+
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.ReplaceAll(resource, ",", "/"))
+							rows = append(rows, resourceRows...)
+							continue
+						}
+
+						if test.IsGeneratingPolicy {
+							generatedResources := rule.GeneratedResources()
+							for _, r := range generatedResources {
+								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
+
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
+								rows = append(rows, resourceRows...)
+							}
+							continue
+						}
 						if rule.RuleType() != "Generation" {
 							if rule.RuleType() == "Mutation" {
 								r = response.PatchedResource
@@ -267,7 +293,7 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.ReplaceAll(resource, ",", "/"))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
@@ -282,7 +308,7 @@ func printTestResult(
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
 					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+						resourceGVKAndName := strings.ReplaceAll(resource, ",", "/")
 						resourceParts := strings.Split(resourceGVKAndName, "/")
 
 						row := table.Row{
@@ -314,7 +340,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.ReplaceAll(resource, ",", "/"))
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -322,7 +348,7 @@ func printTestResult(
 			if len(rows) == 0 && !resourceSkipped {
 				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
 
-				resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+				resourceGVKAndName := strings.ReplaceAll(resource, ",", "/")
 				resourceParts := strings.Split(resourceGVKAndName, "/")
 
 				var row table.Row
@@ -434,9 +460,21 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
-	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
-	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Aggregated Failed Test Cases:")
 	printer.Print(resultsTable.Rows(detailedResults))
+	printFailures(out, resultsTable.RawRows, detailedResults)
+}
+
+// printFailures prints the failure messages if the test failed and detailed results are not enabled.
+func printFailures(out io.Writer, rows []table.Row, detailed bool) {
+	if detailed {
+		return
+	}
+	for _, row := range rows {
+		if row.IsFailure && row.Message != "" {
+			fmt.Fprintf(out, "\nFailure %d: %s\n", row.ID, row.Message)
+		}
+	}
 }
 
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {

@@ -727,19 +727,19 @@ func Test_PathCanonicalize(t *testing.T) {
 	}{
 		{
 			jmesPath:       "path_canonicalize('C:\\Windows\\\\..')",
-			expectedResult: "C:\\",
+			expectedResult: "C:/",
 		},
 		{
 			jmesPath:       "path_canonicalize('C:\\Windows\\\\...')",
-			expectedResult: "C:\\Windows\\...",
+			expectedResult: "C:/Windows/...",
 		},
 		{
 			jmesPath:       "path_canonicalize('C:\\Users\\USERNAME\\\\\\Downloads')",
-			expectedResult: "C:\\Users\\USERNAME\\Downloads",
+			expectedResult: "C:/Users/USERNAME/Downloads",
 		},
 		{
 			jmesPath:       "path_canonicalize('C:\\Users\\\\USERNAME\\..\\Downloads')",
-			expectedResult: "C:\\Users\\Downloads",
+			expectedResult: "C:/Users/Downloads",
 		},
 	}
 	if runtime.GOOS == "windows" {
