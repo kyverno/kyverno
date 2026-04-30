@@ -69,7 +69,7 @@ func (e *engine) filterRule(
 		return engineapi.RuleError(rule.Name, ruleType, "failed to get exceptions", err, rule.ReportProperties)
 	}
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(e.client, exceptions, policyContext, true, logger)
+	matchedExceptions := engineutils.MatchesExceptionWithContext(ctx, e.client, exceptions, policyContext, true, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string

@@ -56,7 +56,7 @@ func (h validateImageHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
+	matchedExceptions := engineutils.MatchesExceptionWithContext(ctx, h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
