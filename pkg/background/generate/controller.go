@@ -91,7 +91,7 @@ func NewGenerateController(
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
-	var genResources []kyvernov1.ResourceSpec
+	var allGenResources []kyvernov1.ResourceSpec
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
@@ -109,7 +109,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 
-		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		genResources, err := c.applyGenerate(*trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
@@ -128,9 +128,10 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 			continue
 		}
+		allGenResources = append(allGenResources, genResources...)
 	}
 
-	return updateStatus(c.statusControl, *ur, multierr.Combine(failures...), genResources)
+	return updateStatus(c.statusControl, *ur, multierr.Combine(failures...), allGenResources)
 }
 
 const doesNotApply = "policy does not apply to resource"
