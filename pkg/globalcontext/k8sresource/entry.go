@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -21,6 +22,11 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 )
+
+// cacheSyncTimeout bounds the WaitForCacheSync call in New so that a
+// GlobalContextEntry referencing a non-existent CRD cannot stall the
+// single-worker globalcontext reconcile queue indefinitely.
+const cacheSyncTimeout = 30 * time.Second
 
 type entry struct {
 	lister      cache.GenericLister
@@ -122,9 +128,19 @@ func New(
 		informer.Informer().Run(ctx.Done())
 	})
 
-	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+	// WaitForCacheSync blocks forever if the resource's CRD is missing from
+	// the cluster (the list/watch keeps failing, HasSynced never returns
+	// true). The globalcontext controller runs with a single worker, so a
+	// single unsyncable GCE would stall every other GCE's reconcile queue
+	// indefinitely (#15856). Use a short bounded timeout: either the
+	// informer syncs quickly or we give up on this entry and let the
+	// workqueue retry with backoff. The context cancellation also
+	// terminates informer.Informer().Run via the group above.
+	syncCtx, syncCancel := context.WithTimeout(ctx, cacheSyncTimeout)
+	defer syncCancel()
+	if !cache.WaitForCacheSync(syncCtx.Done(), informer.Informer().HasSynced) {
 		stop()
-		err := fmt.Errorf("failed to sync cache for %s", gvr)
+		err := fmt.Errorf("failed to sync cache for %s (resource may not exist)", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
