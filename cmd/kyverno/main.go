@@ -574,6 +574,7 @@ func main() {
 			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
 			polexCache,
 			gcstore,
+			kubeInformer.Core().V1().Namespaces().Lister(),
 		)
 		// create non leader controllers
 		nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
