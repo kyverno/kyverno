@@ -27,6 +27,7 @@ type TestEnv struct {
 	Client          client.Client
 	KubeClient      kubernetes.Interface
 	KyvernoClient   kyvernoclient.Interface
+	DClient         dclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
 	cancel          context.CancelFunc
@@ -109,6 +110,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
 		KyvernoClient:   kyvernoClient,
+		DClient:         dc,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil
