@@ -923,6 +923,68 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>apiCallResponses</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-APICallResponseEntry">
+                <span style="font-family: monospace">[]APICallResponseEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>APICallResponses mocks HTTP for offline tests (CEL http.* and v1 context.apiCall).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>globalContextEntries</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-GlobalContextEntryValue">
+                <span style="font-family: monospace">[]GlobalContextEntryValue</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GlobalContextEntries mocks GlobalContextEntry data for offline tests (v1 and CEL).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -1128,6 +1190,255 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           <p>ValuesSpec declares values</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-APICallResponse">APICallResponse
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-APICallResponseEntry">APICallResponseEntry</a>)
+    </p>
+  
+
+  <p><p>APICallResponse represents a static HTTP response.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>statusCode</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>StatusCode is the HTTP status code to inject (defaults to 200).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>body</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apimachinery/pkg/runtime.RawExtension</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Body is the response body as arbitrary JSON (Kubernetes object shape: string keys, JSON values).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-APICallResponseEntry">APICallResponseEntry
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p><p>APICallResponseEntry maps a URL or URL path (optional method) to a static response body.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>url</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URL is an absolute https or http URL for matching (CEL http.* and v1 context.apiCall service.url).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>urlPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URLPath is an absolute path (e.g. /api/v1/namespaces) for matching v1 context.apiCall urlPath.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>method</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Method is the HTTP method to match (GET or POST).
+If empty, the entry matches any method via plain URL lookup.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>response</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-APICallResponse">
+                <span style="font-family: monospace">APICallResponse</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Response is the static HTTP response to return.</p>
 
 
           
@@ -1560,6 +1871,254 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-GlobalContextEntryValue">GlobalContextEntryValue
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p><p>GlobalContextEntryValue provides static data for a named GlobalContextEntry.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the GlobalContextEntry resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>data</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apimachinery/pkg/runtime.RawExtension</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Data is the static JSON root for this mock entry (arbitrary object).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>fieldPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>projections</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-GlobalContextProjection">
+                <span style="font-family: monospace">[]GlobalContextProjection</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Projections are optional named JMESPath extracts (see GlobalContextProjection).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-GlobalContextProjection">GlobalContextProjection
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-GlobalContextEntryValue">GlobalContextEntryValue</a>)
+    </p>
+  
+
+  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the key policies see on the mocked global context object.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>path</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.</p>
+
 
           
 
