@@ -30,7 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	certmanager "github.com/kyverno/pkg/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -151,12 +151,11 @@ func createrLeaderControllers(
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
+		logging.WithName("certmanager"),
 		caInformer,
 		tlsInformer,
 		certRenewer,
-		caSecretName,
-		tlsSecretName,
-		config.KyvernoNamespace(),
+		internal.NewSharedTLSConfig(config.KyvernoServiceName()),
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
