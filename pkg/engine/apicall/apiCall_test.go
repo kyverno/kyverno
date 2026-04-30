@@ -3,6 +3,7 @@ package apicall
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -311,10 +313,336 @@ func Test_serviceHeaders(t *testing.T) {
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
 }
 
+type mockClientWithResources struct {
+	mockClient
+}
+
+func (c *mockClientWithResources) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if kind == "Secret" && name == "my-secret" {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"data": map[string]interface{}{
+					"basic-auth-creds": "dXNlcjpwYXNz",
+					"ca-bundle":        "LS0tLS1CRUdJTi4uLg==",
+				},
+			},
+		}, nil
+	}
+	if kind == "ConfigMap" && name == "my-config" {
+		return &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"data": map[string]interface{}{
+					"api-key":   "my-api-key-value",
+					"ca-bundle": "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----",
+				},
+			},
+		}, nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+func Test_serviceHeadersValueFrom(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "Authorization",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name:      "my-secret",
+								Namespace: "default",
+								Key:       "basic-auth-creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "user:pass", responseHeaders["Authorization"][0])
+}
+
+func Test_serviceHeadersValueFrom_CrossNamespace(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "Authorization",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name:      "my-secret",
+								Namespace: "other-ns",
+								Key:       "creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "secret namespace other-ns is different from policy namespace default")
+}
+
+func Test_serviceHeadersValueFrom_ConfigMap(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "X-Api-Key",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							ConfigMapKeyRef: &kyvernov1.ConfigMapKeyReference{
+								Name:      "my-config",
+								Namespace: "default",
+								Key:       "api-key",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "my-api-key-value", responseHeaders["X-Api-Key"][0])
+}
+
+func Test_serviceHeadersValueFrom_ConfigMap_CrossNamespace(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "X-Api-Key",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							ConfigMapKeyRef: &kyvernov1.ConfigMapKeyReference{
+								Name:      "my-config",
+								Namespace: "other-ns",
+								Key:       "api-key",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "configmap namespace other-ns is different from policy namespace default")
+}
+
+func Test_serviceHeadersValueFrom_DefaultNamespace(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	// Secret with empty namespace should default to policy namespace
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key: "Authorization",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name: "my-secret",
+								Key:  "basic-auth-creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "user:pass", responseHeaders["Authorization"][0])
+}
+
+func Test_serviceCABundleFrom_ConfigMap(t *testing.T) {
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: "https://example.com/resource",
+				CABundleFrom: &kyvernov1.HeaderValueFrom{
+					ConfigMapKeyRef: &kyvernov1.ConfigMapKeyReference{
+						Name:      "my-config",
+						Namespace: "default",
+						Key:       "ca-bundle",
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	// The CA bundle value will be resolved but the TLS connection will fail
+	// since we're not actually connecting to a real server with a valid cert.
+	// This test verifies the resolution path works without errors up to the TLS handshake.
+	_, err = call.FetchAndLoad(context.TODO())
+	// We expect a TLS or connection error, not a resolution error
+	assert.Assert(t, err != nil)
+	assert.Assert(t, !contains(err.Error(), "failed to get configmap"))
+}
+
+func Test_serviceCABundleFrom_MutualExclusion(t *testing.T) {
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL:      "https://example.com/resource",
+				CABundle: "some-ca-bundle",
+				CABundleFrom: &kyvernov1.HeaderValueFrom{
+					ConfigMapKeyRef: &kyvernov1.ConfigMapKeyReference{
+						Name:      "my-config",
+						Namespace: "default",
+						Key:       "ca-bundle",
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	_, err = call.FetchAndLoad(context.TODO())
+	assert.ErrorContains(t, err, "only one of caBundle or caBundleFrom can be specified")
+}
+
+func Test_serviceHeadersValueFrom_MutualExclusion(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Method: "GET",
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL + "/resource",
+				Headers: []kyvernov1.HTTPHeader{
+					{
+						Key:   "Authorization",
+						Value: "Bearer static-token",
+						ValueFrom: &kyvernov1.HeaderValueFrom{
+							SecretKeyRef: &kyvernov1.SecretKeyReference{
+								Name:      "my-secret",
+								Namespace: "default",
+								Key:       "basic-auth-creds",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := &mockClientWithResources{}
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	_, err = call.FetchAndLoad(context.TODO())
+	assert.ErrorContains(t, err, "exactly one of value or valueFrom must be specified")
+}
+
 type mockClient struct{}
 
 func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return []byte("{}"), nil
+}
+
+func (c *mockClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
 }
 
 func Test_CrossNamespaceAccess(t *testing.T) {

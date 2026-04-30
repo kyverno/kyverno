@@ -1422,6 +1422,60 @@ any
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ConfigMapKeyReference">ConfigMapKeyReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.HeaderValueFrom">HeaderValueFrom</a>)
+</p>
+<p>
+<p>ConfigMapKeyReference refers to a specific key within a ConfigMap resource.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the ConfigMap name.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace is the ConfigMap namespace.
+If empty, defaults to the policy&rsquo;s namespace for namespaced policies.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is the key within the ConfigMap data whose value is being referenced.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ConfigMapReference">ConfigMapReference
 </h3>
 <p>
@@ -2390,7 +2444,71 @@ string
 </em>
 </td>
 <td>
-<p>Value is the header value</p>
+<p>Value is the static header value.
+Mutually exclusive with ValueFrom; exactly one must be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>valueFrom</code><br/>
+<em>
+<a href="#kyverno.io/v1.HeaderValueFrom">
+HeaderValueFrom
+</a>
+</em>
+</td>
+<td>
+<p>ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+Mutually exclusive with Value; exactly one must be specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.HeaderValueFrom">HeaderValueFrom
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.HTTPHeader">HTTPHeader</a>, 
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+<p>HeaderValueFrom defines a source for header or CA bundle values,
+referencing a key in a Secret or ConfigMap.
+Exactly one of SecretKeyRef or ConfigMapKeyRef must be specified.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretKeyRef</code><br/>
+<em>
+<a href="#kyverno.io/v1.SecretKeyReference">
+SecretKeyReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretKeyRef selects a key of a Secret to use as the value.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>configMapKeyRef</code><br/>
+<em>
+<a href="#kyverno.io/v1.ConfigMapKeyReference">
+ConfigMapKeyReference
+</a>
+</em>
+</td>
+<td>
+<p>ConfigMapKeyRef selects a key of a ConfigMap to use as the value.</p>
 </td>
 </tr>
 </tbody>
@@ -4196,6 +4314,60 @@ int
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.SecretKeyReference">SecretKeyReference
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.HeaderValueFrom">HeaderValueFrom</a>)
+</p>
+<p>
+<p>SecretKeyReference refers to a specific key within a Secret resource.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the Secret name.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace is the Secret namespace.
+If empty, defaults to the policy&rsquo;s namespace for namespaced policies.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is the key within the Secret data whose value is being referenced.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.SecretReference">SecretReference
 </h3>
 <p>
@@ -4288,6 +4460,20 @@ string
 <td>
 <p>CABundle is a PEM encoded CA bundle which will be used to validate
 the server certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>caBundleFrom</code><br/>
+<em>
+<a href="#kyverno.io/v1.HeaderValueFrom">
+HeaderValueFrom
+</a>
+</em>
+</td>
+<td>
+<p>CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+Mutually exclusive with CABundle; exactly one must be specified.</p>
 </td>
 </tr>
 </tbody>

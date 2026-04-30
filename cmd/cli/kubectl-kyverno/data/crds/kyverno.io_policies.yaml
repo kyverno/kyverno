@@ -255,6 +255,53 @@ spec:
                                       CABundle is a PEM encoded CA bundle which will be used to validate
                                       the server certificate.
                                     type: string
+                                  caBundleFrom:
+                                    description: |-
+                                      CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                      Mutually exclusive with CABundle; exactly one must be specified.
+                                    properties:
+                                      configMapKeyRef:
+                                        description: ConfigMapKeyRef selects a key
+                                          of a ConfigMap to use as the value.
+                                        properties:
+                                          key:
+                                            description: Key is the key within the
+                                              ConfigMap data whose value is being
+                                              referenced.
+                                            type: string
+                                          name:
+                                            description: Name is the ConfigMap name.
+                                            type: string
+                                          namespace:
+                                            description: |-
+                                              Namespace is the ConfigMap namespace.
+                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretKeyRef:
+                                        description: SecretKeyRef selects a key of
+                                          a Secret to use as the value.
+                                        properties:
+                                          key:
+                                            description: Key is the key within the
+                                              Secret data whose value is being referenced.
+                                            type: string
+                                          name:
+                                            description: Name is the Secret name.
+                                            type: string
+                                          namespace:
+                                            description: |-
+                                              Namespace is the Secret namespace.
+                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
                                   headers:
                                     description: Headers is a list of optional HTTP
                                       headers to be included in the request.
@@ -264,11 +311,63 @@ spec:
                                           description: Key is the header key
                                           type: string
                                         value:
-                                          description: Value is the header value
+                                          description: |-
+                                            Value is the static header value.
+                                            Mutually exclusive with ValueFrom; exactly one must be specified.
                                           type: string
+                                        valueFrom:
+                                          description: |-
+                                            ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                            Mutually exclusive with Value; exactly one must be specified.
+                                          properties:
+                                            configMapKeyRef:
+                                              description: ConfigMapKeyRef selects
+                                                a key of a ConfigMap to use as the
+                                                value.
+                                              properties:
+                                                key:
+                                                  description: Key is the key within
+                                                    the ConfigMap data whose value
+                                                    is being referenced.
+                                                  type: string
+                                                name:
+                                                  description: Name is the ConfigMap
+                                                    name.
+                                                  type: string
+                                                namespace:
+                                                  description: |-
+                                                    Namespace is the ConfigMap namespace.
+                                                    If empty, defaults to the policy's namespace for namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                            secretKeyRef:
+                                              description: SecretKeyRef selects a
+                                                key of a Secret to use as the value.
+                                              properties:
+                                                key:
+                                                  description: Key is the key within
+                                                    the Secret data whose value is
+                                                    being referenced.
+                                                  type: string
+                                                name:
+                                                  description: Name is the Secret
+                                                    name.
+                                                  type: string
+                                                namespace:
+                                                  description: |-
+                                                    Namespace is the Secret namespace.
+                                                    If empty, defaults to the policy's namespace for namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                          type: object
                                       required:
                                       - key
-                                      - value
                                       type: object
                                     type: array
                                   url:
@@ -1290,6 +1389,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -1301,12 +1452,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -2376,6 +2581,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -2387,12 +2644,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -2760,6 +3071,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -2771,12 +3134,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -3518,6 +3935,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -3529,12 +3998,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -5345,6 +5868,55 @@ spec:
                                           CABundle is a PEM encoded CA bundle which will be used to validate
                                           the server certificate.
                                         type: string
+                                      caBundleFrom:
+                                        description: |-
+                                          CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                          Mutually exclusive with CABundle; exactly one must be specified.
+                                        properties:
+                                          configMapKeyRef:
+                                            description: ConfigMapKeyRef selects a
+                                              key of a ConfigMap to use as the value.
+                                            properties:
+                                              key:
+                                                description: Key is the key within
+                                                  the ConfigMap data whose value is
+                                                  being referenced.
+                                                type: string
+                                              name:
+                                                description: Name is the ConfigMap
+                                                  name.
+                                                type: string
+                                              namespace:
+                                                description: |-
+                                                  Namespace is the ConfigMap namespace.
+                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                          secretKeyRef:
+                                            description: SecretKeyRef selects a key
+                                              of a Secret to use as the value.
+                                            properties:
+                                              key:
+                                                description: Key is the key within
+                                                  the Secret data whose value is being
+                                                  referenced.
+                                                type: string
+                                              name:
+                                                description: Name is the Secret name.
+                                                type: string
+                                              namespace:
+                                                description: |-
+                                                  Namespace is the Secret namespace.
+                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                        type: object
                                       headers:
                                         description: Headers is a list of optional
                                           HTTP headers to be included in the request.
@@ -5354,11 +5926,64 @@ spec:
                                               description: Key is the header key
                                               type: string
                                             value:
-                                              description: Value is the header value
+                                              description: |-
+                                                Value is the static header value.
+                                                Mutually exclusive with ValueFrom; exactly one must be specified.
                                               type: string
+                                            valueFrom:
+                                              description: |-
+                                                ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                Mutually exclusive with Value; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                           required:
                                           - key
-                                          - value
                                           type: object
                                         type: array
                                       url:
@@ -6390,6 +7015,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -6401,12 +7080,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -7488,6 +8222,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -7499,12 +8287,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -7881,6 +8724,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -7892,12 +8789,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -8652,6 +9604,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -8663,12 +9669,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -10559,6 +11620,53 @@ spec:
                                       CABundle is a PEM encoded CA bundle which will be used to validate
                                       the server certificate.
                                     type: string
+                                  caBundleFrom:
+                                    description: |-
+                                      CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                      Mutually exclusive with CABundle; exactly one must be specified.
+                                    properties:
+                                      configMapKeyRef:
+                                        description: ConfigMapKeyRef selects a key
+                                          of a ConfigMap to use as the value.
+                                        properties:
+                                          key:
+                                            description: Key is the key within the
+                                              ConfigMap data whose value is being
+                                              referenced.
+                                            type: string
+                                          name:
+                                            description: Name is the ConfigMap name.
+                                            type: string
+                                          namespace:
+                                            description: |-
+                                              Namespace is the ConfigMap namespace.
+                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretKeyRef:
+                                        description: SecretKeyRef selects a key of
+                                          a Secret to use as the value.
+                                        properties:
+                                          key:
+                                            description: Key is the key within the
+                                              Secret data whose value is being referenced.
+                                            type: string
+                                          name:
+                                            description: Name is the Secret name.
+                                            type: string
+                                          namespace:
+                                            description: |-
+                                              Namespace is the Secret namespace.
+                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
                                   headers:
                                     description: Headers is a list of optional HTTP
                                       headers to be included in the request.
@@ -10568,11 +11676,63 @@ spec:
                                           description: Key is the header key
                                           type: string
                                         value:
-                                          description: Value is the header value
+                                          description: |-
+                                            Value is the static header value.
+                                            Mutually exclusive with ValueFrom; exactly one must be specified.
                                           type: string
+                                        valueFrom:
+                                          description: |-
+                                            ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                            Mutually exclusive with Value; exactly one must be specified.
+                                          properties:
+                                            configMapKeyRef:
+                                              description: ConfigMapKeyRef selects
+                                                a key of a ConfigMap to use as the
+                                                value.
+                                              properties:
+                                                key:
+                                                  description: Key is the key within
+                                                    the ConfigMap data whose value
+                                                    is being referenced.
+                                                  type: string
+                                                name:
+                                                  description: Name is the ConfigMap
+                                                    name.
+                                                  type: string
+                                                namespace:
+                                                  description: |-
+                                                    Namespace is the ConfigMap namespace.
+                                                    If empty, defaults to the policy's namespace for namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                            secretKeyRef:
+                                              description: SecretKeyRef selects a
+                                                key of a Secret to use as the value.
+                                              properties:
+                                                key:
+                                                  description: Key is the key within
+                                                    the Secret data whose value is
+                                                    being referenced.
+                                                  type: string
+                                                name:
+                                                  description: Name is the Secret
+                                                    name.
+                                                  type: string
+                                                namespace:
+                                                  description: |-
+                                                    Namespace is the Secret namespace.
+                                                    If empty, defaults to the policy's namespace for namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                          type: object
                                       required:
                                       - key
-                                      - value
                                       type: object
                                     type: array
                                   url:
@@ -11388,6 +12548,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -11399,12 +12611,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -12268,6 +13534,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -12279,12 +13597,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -12652,6 +14024,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -12663,12 +14087,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -13575,6 +15053,58 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                Mutually exclusive with CABundle; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -13586,12 +15116,66 @@ spec:
                                                       key
                                                     type: string
                                                   value:
-                                                    description: Value is the header
-                                                      value
+                                                    description: |-
+                                                      Value is the static header value.
+                                                      Mutually exclusive with ValueFrom; exactly one must be specified.
                                                     type: string
+                                                  valueFrom:
+                                                    description: |-
+                                                      ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                      Mutually exclusive with Value; exactly one must be specified.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the ConfigMap
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              ConfigMap name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the ConfigMap namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret
+                                                          to use as the value.
+                                                        properties:
+                                                          key:
+                                                            description: Key is the
+                                                              key within the Secret
+                                                              data whose value is
+                                                              being referenced.
+                                                            type: string
+                                                          name:
+                                                            description: Name is the
+                                                              Secret name.
+                                                            type: string
+                                                          namespace:
+                                                            description: |-
+                                                              Namespace is the Secret namespace.
+                                                              If empty, defaults to the policy's namespace for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -15370,6 +16954,55 @@ spec:
                                           CABundle is a PEM encoded CA bundle which will be used to validate
                                           the server certificate.
                                         type: string
+                                      caBundleFrom:
+                                        description: |-
+                                          CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                          Mutually exclusive with CABundle; exactly one must be specified.
+                                        properties:
+                                          configMapKeyRef:
+                                            description: ConfigMapKeyRef selects a
+                                              key of a ConfigMap to use as the value.
+                                            properties:
+                                              key:
+                                                description: Key is the key within
+                                                  the ConfigMap data whose value is
+                                                  being referenced.
+                                                type: string
+                                              name:
+                                                description: Name is the ConfigMap
+                                                  name.
+                                                type: string
+                                              namespace:
+                                                description: |-
+                                                  Namespace is the ConfigMap namespace.
+                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                          secretKeyRef:
+                                            description: SecretKeyRef selects a key
+                                              of a Secret to use as the value.
+                                            properties:
+                                              key:
+                                                description: Key is the key within
+                                                  the Secret data whose value is being
+                                                  referenced.
+                                                type: string
+                                              name:
+                                                description: Name is the Secret name.
+                                                type: string
+                                              namespace:
+                                                description: |-
+                                                  Namespace is the Secret namespace.
+                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                        type: object
                                       headers:
                                         description: Headers is a list of optional
                                           HTTP headers to be included in the request.
@@ -15379,11 +17012,64 @@ spec:
                                               description: Key is the header key
                                               type: string
                                             value:
-                                              description: Value is the header value
+                                              description: |-
+                                                Value is the static header value.
+                                                Mutually exclusive with ValueFrom; exactly one must be specified.
                                               type: string
+                                            valueFrom:
+                                              description: |-
+                                                ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                Mutually exclusive with Value; exactly one must be specified.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap to use as
+                                                    the value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the ConfigMap data
+                                                        whose value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the ConfigMap
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the ConfigMap namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret to use as the
+                                                    value.
+                                                  properties:
+                                                    key:
+                                                      description: Key is the key
+                                                        within the Secret data whose
+                                                        value is being referenced.
+                                                      type: string
+                                                    name:
+                                                      description: Name is the Secret
+                                                        name.
+                                                      type: string
+                                                    namespace:
+                                                      description: |-
+                                                        Namespace is the Secret namespace.
+                                                        If empty, defaults to the policy's namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                           required:
                                           - key
-                                          - value
                                           type: object
                                         type: array
                                       url:
@@ -16415,6 +18101,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -16426,12 +18166,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -17513,6 +19308,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -17524,12 +19373,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -17906,6 +19810,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -17917,12 +19875,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -18677,6 +20690,60 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom references a Secret or ConfigMap to populate the CA bundle value.
+                                                    Mutually exclusive with CABundle; exactly one must be specified.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap
+                                                        to use as the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the ConfigMap
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            ConfigMap name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the ConfigMap namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret to use as
+                                                        the value.
+                                                      properties:
+                                                        key:
+                                                          description: Key is the
+                                                            key within the Secret
+                                                            data whose value is being
+                                                            referenced.
+                                                          type: string
+                                                        name:
+                                                          description: Name is the
+                                                            Secret name.
+                                                          type: string
+                                                        namespace:
+                                                          description: |-
+                                                            Namespace is the Secret namespace.
+                                                            If empty, defaults to the policy's namespace for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -18688,12 +20755,67 @@ spec:
                                                           key
                                                         type: string
                                                       value:
-                                                        description: Value is the
-                                                          header value
+                                                        description: |-
+                                                          Value is the static header value.
+                                                          Mutually exclusive with ValueFrom; exactly one must be specified.
                                                         type: string
+                                                      valueFrom:
+                                                        description: |-
+                                                          ValueFrom specifies a source (Secret or ConfigMap) to populate the header value.
+                                                          Mutually exclusive with Value; exactly one must be specified.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  ConfigMap data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the ConfigMap
+                                                                  name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the ConfigMap namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret
+                                                              to use as the value.
+                                                            properties:
+                                                              key:
+                                                                description: Key is
+                                                                  the key within the
+                                                                  Secret data whose
+                                                                  value is being referenced.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  is the Secret name.
+                                                                type: string
+                                                              namespace:
+                                                                description: |-
+                                                                  Namespace is the Secret namespace.
+                                                                  If empty, defaults to the policy's namespace for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
