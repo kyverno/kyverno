@@ -774,6 +774,31 @@ func TestDeduplicateRules(t *testing.T) {
 	}
 }
 
+func TestNewClientConfig(t *testing.T) {
+	caBundle := []byte("ca-bytes")
+	path := "/validate/fail"
+	port := int32(9443)
+
+	t.Run("in-cluster service reference", func(t *testing.T) {
+		clientConfig := newClientConfig("", port, caBundle, path)
+
+		if assert.NotNil(t, clientConfig.Service) {
+			assert.Equal(t, ptr.To(path), clientConfig.Service.Path)
+			assert.Equal(t, ptr.To(port), clientConfig.Service.Port)
+		}
+		assert.Nil(t, clientConfig.URL)
+		assert.Equal(t, caBundle, clientConfig.CABundle)
+	})
+
+	t.Run("external server url", func(t *testing.T) {
+		clientConfig := newClientConfig("kyverno.example.com", port, caBundle, path)
+
+		assert.Nil(t, clientConfig.Service)
+		if assert.NotNil(t, clientConfig.URL) {
+			assert.Equal(t, "https://kyverno.example.com/validate/fail", *clientConfig.URL)
+		}
+		assert.Equal(t, caBundle, clientConfig.CABundle)
+	})
 func TestSortedRules(t *testing.T) {
 	rule_apps_pods := admissionregistrationv1.RuleWithOperations{
 		Rule: admissionregistrationv1.Rule{
