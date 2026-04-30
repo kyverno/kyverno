@@ -742,6 +742,16 @@ func (in *PolicyExceptionSpec) DeepCopyInto(out *PolicyExceptionSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.FailureAction != nil {
+		in, out := &in.FailureAction, &out.FailureAction
+		*out = new(v1.ValidationFailureAction)
+		**out = **in
+	}
+	if in.ValidationActions != nil {
+		in, out := &in.ValidationActions, &out.ValidationActions
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
