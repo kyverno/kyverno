@@ -258,6 +258,7 @@ func Test_JSONPayload(t *testing.T) {
 		t.Skip("Test directory not found, skipping test")
 		return
 	}
+	require.NoError(t, err)
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
 	testCases := test.LoadTest(nil, testFile)
@@ -358,6 +359,29 @@ func TestRunTest_InvalidEnvoyPayloadPath(t *testing.T) {
 	_, err = runTest(out, testCase, false)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to load Envoy payloads from path")
+}
+
+func TestRunTest_ClusterPolicyWithWebhookMatchConditions(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-clusterpolicy-webhook-match-conditions")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "runTest clusterpolicy webhook match conditions: %s", out.String())
+	require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for cluster policy test")
+	assert.Empty(t, testResponse.SkippedPolicies, "expected the policy to remain valid in CLI test mode")
 }
 
 func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {

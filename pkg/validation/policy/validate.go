@@ -135,9 +135,17 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	if policy.GetSpec().CustomWebhookMatchConditions() &&
-		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
-		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+	if policy.GetSpec().CustomWebhookMatchConditions() && !mock {
+		if client == nil {
+			return warnings, fmt.Errorf("custom webhook configurations require a kubernetes client for version validation")
+		}
+		discoveryClient := client.Discovery()
+		if discoveryClient == nil || discoveryClient.CachedDiscoveryInterface() == nil {
+			return warnings, fmt.Errorf("custom webhook configurations require a kubernetes client for version validation")
+		}
+		if !kubeutils.HigherThanKubernetesVersion(discoveryClient.CachedDiscoveryInterface(), logging.GlobalLogger(), 1, 27, 0) {
+			return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+		}
 	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
