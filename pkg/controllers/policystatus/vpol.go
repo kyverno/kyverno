@@ -55,8 +55,8 @@ func (c controller) updateVpolStatus(ctx context.Context, vpol *policiesv1beta1.
 }
 
 func (c controller) updateNVpolStatus(ctx context.Context, nvpol *policiesv1beta1.NamespacedValidatingPolicy) error {
-	updateFunc := func(vpol *policiesv1beta1.NamespacedValidatingPolicy) error {
-		p := engineapi.NewNamespacedValidatingPolicy(vpol)
+	updateFunc := func(nvpol *policiesv1beta1.NamespacedValidatingPolicy) error {
+		p := engineapi.NewNamespacedValidatingPolicy(nvpol)
 		// conditions
 		conditionStatus := c.reconcileBeta1Conditions(ctx, p)
 		ready := true
@@ -70,7 +70,7 @@ func (c controller) updateNVpolStatus(ctx context.Context, nvpol *policiesv1beta
 			conditionStatus.Ready = &ready
 		}
 		// autogen
-		rules, err := vpolautogen.Autogen(vpol)
+		rules, err := vpolautogen.Autogen(nvpol)
 		if err != nil {
 			return err
 		}
@@ -78,8 +78,8 @@ func (c controller) updateNVpolStatus(ctx context.Context, nvpol *policiesv1beta
 			Configs: rules,
 		}
 		// assign
-		status := vpol.GetStatus()
-		vpol.Status = policiesv1beta1.ValidatingPolicyStatus{
+		status := nvpol.GetStatus()
+		nvpol.Status = policiesv1beta1.ValidatingPolicyStatus{
 			ConditionStatus: *conditionStatus,
 			Autogen:         autogenStatus,
 			Generated:       status.Generated,

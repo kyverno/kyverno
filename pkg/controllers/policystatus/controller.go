@@ -314,18 +314,18 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 
 	if !backgroundOnly {
 		if ready, ok := c.polStateRecorder.Ready(key); ready {
-			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+			status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.", policy.GetGeneration())
 		} else if ok {
-			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+			status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.", policy.GetGeneration())
 		}
 	}
 
 	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
 	errs := c.permissionsCheck(ctx, gvrs)
 	if errs != nil {
-		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)), policy.GetGeneration())
 	} else {
-		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+		status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.", policy.GetGeneration())
 	}
 	return status
 }
@@ -360,20 +360,19 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 
 	if !backgroundOnly {
 		if ready, ok := c.polStateRecorder.Ready(key); ready {
-			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
+			status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.", policy.GetGeneration())
 		} else if ok {
-			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
+			status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.", policy.GetGeneration())
 		}
 	}
 
 	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
 	errs := c.permissionsCheck(ctx, gvrs)
 	if errs != nil {
-		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)), policy.GetGeneration())
 	} else {
-		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
+		status.SetReadyByConditionAndObservedGeneration(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.", policy.GetGeneration())
 	}
-
 	return status
 }
 
