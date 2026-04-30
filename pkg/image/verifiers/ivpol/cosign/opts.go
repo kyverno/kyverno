@@ -119,13 +119,13 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 	if att.Keyless != nil {
 		for _, id := range att.Keyless.Identities {
-			opts.Identities = append(opts.Identities,
-				cosign.Identity{
-					Issuer:        id.Issuer,
-					Subject:       id.Subject,
-					IssuerRegExp:  id.IssuerRegExp,
-					SubjectRegExp: id.SubjectRegExp,
-				})
+			identity := cosign.Identity{
+				Issuer:        id.Issuer,
+				IssuerRegExp:  id.IssuerRegExp,
+				Subject:       id.Subject,
+				SubjectRegExp: id.SubjectRegExp,
+			}
+			opts.Identities = append(opts.Identities, identity)
 		}
 		fulcioRoots, fulcioIntermediates, err := getFulcio(ctx)
 		if err != nil {

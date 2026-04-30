@@ -543,3 +543,68 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckOptions_KeylessWithCELSubject verifies that a SubjectExpression field
+// containing a pre-evaluated CEL result stored in SubjectRegExp is correctly passed to cosign.
+func TestCheckOptions_KeylessWithCELSubject(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	// Simulate a CEL-evaluated subject: the expression has already been evaluated
+	// and the result stored in SubjectRegExp before checkOptions is called.
+	evaluatedSubject := "https://github.com/myorg/.github/workflows/release.yml@refs/heads/main"
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer: testIssuer,
+					// SubjectExpression was evaluated by EvaluateWithImage and
+					// the result was written into SubjectRegExp.
+					SubjectRegExp: evaluatedSubject,
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts.Identities, 1)
+	assert.Equal(t, testIssuer, opts.Identities[0].Issuer)
+	assert.Equal(t, evaluatedSubject, opts.Identities[0].SubjectRegExp)
+}
+
+// TestCheckOptions_KeylessWithCELSubjectRegExp verifies that a SubjectExpression field
+// with a pre-evaluated regexp value is correctly passed to cosign.
+func TestCheckOptions_KeylessWithCELSubjectRegExp(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	evaluatedRegExp := `https://github\.com/myorg/myrepo/.*`
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer:        testIssuer,
+					SubjectRegExp: evaluatedRegExp,
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts.Identities, 1)
+	assert.Equal(t, evaluatedRegExp, opts.Identities[0].SubjectRegExp)
+}
