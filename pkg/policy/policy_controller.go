@@ -108,6 +108,10 @@ type policyController struct {
 
 	// mapper
 	restMapper meta.RESTMapper
+
+	// ctx is the controller's lifecycle context, set in Run and used to propagate
+	// cancellation to long-running goroutines such as Bootstrap.
+	ctx context.Context
 }
 
 // NewPolicyController create a new PolicyController
@@ -251,8 +255,30 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		}
 		// If the policy is updated to disable synchronization, we need to remove the watchers.
 		if oldgpol.Spec.SynchronizationEnabled() && !newgpol.Spec.SynchronizationEnabled() {
-			logger.V(2).Info("removing watchers for generating policy", "name", oldgpol.GetName())
+			logger.V(2).Info("synchronization disabled, clearing watcher references for policy", "name", oldgpol.GetName())
 			pc.watchManager.RemoveWatchersForPolicy(oldgpol.GetName(), false)
+		}
+		// If synchronization is re-enabled, restore watchers — SyncWatchers won't run
+		// on its own when downstream resources already exist.
+		if !oldgpol.Spec.SynchronizationEnabled() && newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("synchronization re-enabled, restoring watchers", "name", newgpol.GetName())
+			go pc.watchManager.Bootstrap(pc.ctx, func(policyName string) bool {
+				gpol, err := pc.gpolLister.Get(policyName)
+				if err != nil {
+					return false
+				}
+				return gpol.Spec.SynchronizationEnabled()
+			})
+		}
+		// If sync stays enabled and the spec changed, clear only the metadataCache entries
+		// (not policyRefs or watchers) so that watch events arriving before SyncWatchers
+		// re-seeds the cache hit the !tracked path and are skipped instead of triggering a
+		// spurious revert of the engine's update. policyRefs is kept intact so that a
+		// subsequent RemoveWatchersForPolicy(true) on policy deletion can still find and
+		// delete the downstream resources.
+		if oldgpol.Spec.SynchronizationEnabled() && newgpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("spec changed with sync enabled, clearing desired-state cache", "name", oldgpol.GetName())
+			pc.watchManager.ClearPolicyCacheEntries(oldgpol.GetName())
 		}
 	}
 
@@ -311,6 +337,7 @@ func (pc *policyController) enqueuePolicy(policy engineapi.GenericPolicy) {
 
 // Run begins watching and syncing.
 func (pc *policyController) Run(ctx context.Context, workers int) {
+	pc.ctx = ctx
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -434,6 +461,13 @@ func (pc *policyController) syncPolicy(key string) error {
 				return nil
 			}
 			return err
+		}
+		// If synchronization is disabled, ensure no watcher is running for this policy.
+		// Guards against the race where a UR worker snapshots isSync=true just before sync
+		// is disabled, calls SyncWatchers after RemoveWatchersForPolicy has already run, and
+		// briefly recreates policyRefs. The next syncPolicy cycle cleans that up here.
+		if !gpol.Spec.SynchronizationEnabled() {
+			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), false)
 		}
 		// create UR on policy events to update/generate downstream resources
 		if gpol.Spec.SynchronizationEnabled() {

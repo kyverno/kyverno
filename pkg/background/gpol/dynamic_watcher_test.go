@@ -702,7 +702,11 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 			wantCacheSize: 0,
 		},
 		{
-			name: "skip delete when GenerateSourceUIDLabel present",
+			// GeneratingPolicy uses CEL expressions rather than clone-based generation; there
+			// is no separate source resource whose lifecycle controls the downstream. The
+			// !hasSource guard (which skipped deletion when GenerateSourceUIDLabel was set)
+			// has been removed: all cached downstreams are deleted when deleteDownstream=true.
+			name: "delete downstream even when GenerateSourceUIDLabel is present",
 			fields: fields{
 				client: &MockClient{},
 				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
@@ -727,7 +731,7 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
 			},
 			args:          args{"pol1", true},
-			wantDeleted:   nil,
+			wantDeleted:   []string{"Pod/isolated-ns/res-test"},
 			wantCacheSize: 0,
 		},
 	}
@@ -1058,17 +1062,24 @@ func TestWatchManager_CacheIntegrity(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		testFunc func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured)
+		name        string
+		wantRemoved bool // true if the cache entry should be gone after the operation
+		testFunc    func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured)
 	}{
 		{
-			name: "handleUpdate must not mutate cached object",
+			name:        "handleUpdate must not mutate cached object",
+			wantRemoved: false,
 			testFunc: func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured) {
 				wm.handleUpdate(modifiedObj, gvr)
 			},
 		},
 		{
-			name: "handleDelete must not mutate cached object",
+			// handleDelete untrack the old entry and recreates the resource; the new
+			// resource will get a fresh UID so the old cache entry is intentionally
+			// removed. Verify that (a) it is removed and (b) the original Data pointer
+			// was not mutated (DeepCopy was used before clearing fields for recreate).
+			name:        "handleDelete removes entry and must not mutate original Data",
+			wantRemoved: true,
 			testFunc: func(t *testing.T, wm *WatchManager, gvr schema.GroupVersionResource, cachedObj *unstructured.Unstructured, modifiedObj *unstructured.Unstructured) {
 				deletedObj := cachedObj.DeepCopy()
 				deletedObj.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "kyverno"})
@@ -1107,12 +1118,23 @@ func TestWatchManager_CacheIntegrity(t *testing.T) {
 
 			tt.testFunc(t, wm, gvr, cachedObj, modifiedObj)
 
-			cached, exists := wm.dynamicWatchers[gvr].metadataCache[originalUID]
-			assert.True(t, exists, "cached resource should still exist in map")
-			assert.Equal(t, originalUID, cached.Data.GetUID(), "cached UID must not be mutated")
-			assert.Equal(t, originalRV, cached.Data.GetResourceVersion(), "cached ResourceVersion must not be mutated")
-			ts := cached.Data.GetCreationTimestamp()
-			assert.False(t, ts.IsZero(), "cached CreationTimestamp must not be zeroed")
+			if tt.wantRemoved {
+				// Entry was removed: verify it is gone and that the original Data
+				// pointer was not mutated by the DeepCopy-then-clear-fields path.
+				_, exists := wm.dynamicWatchers[gvr].metadataCache[originalUID]
+				assert.False(t, exists, "cache entry should be removed after successful recreate")
+				assert.Equal(t, originalUID, cachedObj.GetUID(), "original Data UID must not be mutated")
+				assert.Equal(t, originalRV, cachedObj.GetResourceVersion(), "original Data ResourceVersion must not be mutated")
+				ts := cachedObj.GetCreationTimestamp()
+				assert.False(t, ts.IsZero(), "original Data CreationTimestamp must not be zeroed")
+			} else {
+				cached, exists := wm.dynamicWatchers[gvr].metadataCache[originalUID]
+				assert.True(t, exists, "cached resource should still exist in map")
+				assert.Equal(t, originalUID, cached.Data.GetUID(), "cached UID must not be mutated")
+				assert.Equal(t, originalRV, cached.Data.GetResourceVersion(), "cached ResourceVersion must not be mutated")
+				ts := cached.Data.GetCreationTimestamp()
+				assert.False(t, ts.IsZero(), "cached CreationTimestamp must not be zeroed")
+			}
 		})
 	}
 }

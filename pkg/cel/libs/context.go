@@ -3,7 +3,10 @@ package libs
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -69,8 +72,14 @@ type contextProvider struct {
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
-	cliEvaluation      bool
-	restMapper         meta.RESTMapper
+	// genMu serialises the SetGenerateContext → GenerateResources →
+	// ClearGeneratedResources sequence. With 10 concurrent background workers
+	// sharing this singleton, two URs for different policies can otherwise race
+	// on genCtx and stamp each other's policy name onto generated resource labels.
+	genMu         sync.Mutex
+	genLocked     atomic.Bool // true while genMu is held; guards against unlock-without-lock panics
+	cliEvaluation bool
+	restMapper    meta.RESTMapper
 }
 
 func NewContextProvider(
@@ -208,7 +217,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(namespace)
 			item.SetResourceVersion("")
 			// check if the resource is already generated
-			_, err := cp.client.GetResource(
+			existing, err := cp.client.GetResource(
 				context.TODO(),
 				item.GetAPIVersion(),
 				item.GetKind(),
@@ -216,8 +225,8 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				item.GetName(),
 			)
 
-			// if the resource is not found, create it
-			if err != nil && apierrors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
+				// Resource doesn't exist yet — create it.
 				if !cp.genCtx.restoreCache {
 					generatedRes, err := cp.client.CreateResource(
 						context.TODO(),
@@ -234,6 +243,76 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				}
 			} else if err != nil {
 				return err
+			} else {
+				if cp.genCtx.restoreCache {
+					// Bootstrap mode — populate cache without writing to the cluster.
+					cp.generatedResources = append(cp.generatedResources, existing)
+				} else {
+					// Resource already exists — mirror the old ClusterPolicy behaviour:
+					// diff the desired state against the cluster and update only if needed,
+					// instead of the previous delete+recreate on every Synchronize UR.
+					//
+					// Build the desired object: existing metadata (UID, resourceVersion…)
+					// merged with the content from the CEL expression plus correct labels.
+					desired := existing.DeepCopy()
+					for k, v := range item.Object {
+						if k != "metadata" && k != "status" {
+							desired.Object[k] = v
+						}
+					}
+					cp.addGenerateLabels(desired)
+
+					// Determine whether the cluster state matches the desired state.
+					// Check all management labels set by addGenerateLabels, not just the
+					// policy name, to catch stale trigger metadata from prior label races.
+					managedLabels := []string{
+						kyverno.LabelAppManagedBy,
+						common.GeneratePolicyLabel,
+						common.GenerateTriggerNameLabel,
+						common.GenerateTriggerNSLabel,
+						common.GenerateTriggerUIDLabel,
+						common.GenerateTriggerKindLabel,
+						common.GenerateTriggerGroupLabel,
+						common.GenerateTriggerVersionLabel,
+					}
+					existingLabels := existing.GetLabels()
+					desiredLabels := desired.GetLabels()
+					needsUpdate := false
+					for _, lbl := range managedLabels {
+						if desiredLabels[lbl] != existingLabels[lbl] {
+							needsUpdate = true
+							break
+						}
+					}
+					if !needsUpdate {
+						for k := range item.Object {
+							if k == "metadata" || k == "status" {
+								continue
+							}
+							if !reflect.DeepEqual(desired.Object[k], existing.Object[k]) {
+								needsUpdate = true
+								break
+							}
+						}
+					}
+
+					if needsUpdate {
+						updated, err := cp.client.UpdateResource(
+							context.TODO(),
+							desired.GetAPIVersion(),
+							desired.GetKind(),
+							desired.GetNamespace(),
+							desired,
+							false,
+						)
+						if err != nil {
+							return err
+						}
+						cp.generatedResources = append(cp.generatedResources, updated)
+					} else {
+						cp.generatedResources = append(cp.generatedResources, existing)
+					}
+				}
 			}
 		}
 	}
@@ -267,6 +346,10 @@ func (cp *contextProvider) SetGenerateContext(
 	polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
 	restoreCache bool,
 ) {
+	// Hold the lock until ClearGeneratedResources to prevent concurrent workers
+	// from interleaving their genCtx writes and GenerateResources calls.
+	cp.genMu.Lock()
+	cp.genLocked.Store(true)
 	cp.genCtx.policyName = polName
 	cp.genCtx.triggerName = triggerName
 	cp.genCtx.triggerNamespace = triggerNamespace
@@ -297,6 +380,11 @@ func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionR
 
 func (cp *contextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
+	// Only unlock if SetGenerateContext was called; guards against unlock-without-lock
+	// panics when Evaluate is called outside the normal engine path (e.g. CLI mode).
+	if cp.genLocked.CompareAndSwap(true, false) {
+		cp.genMu.Unlock()
+	}
 }
 
 func (cp *contextProvider) getResourceClient(groupVersion schema.GroupVersion, resource string, namespace string) dynamic.ResourceInterface {

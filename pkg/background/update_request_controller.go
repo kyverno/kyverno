@@ -140,6 +140,18 @@ func (c *controller) Run(ctx context.Context, workers int) {
 		return
 	}
 
+	// Restore watchers for existing downstream resources; completed URs are gone
+	// after a restart so SyncWatchers won't run until the next trigger.
+	// Only restore watchers for policies that currently have synchronize enabled;
+	// sync-disabled policies should not have their downstreams protected.
+	go c.watchManager.Bootstrap(ctx, func(policyName string) bool {
+		pol, err := c.gpolProvider.Get(ctx, policyName)
+		if err != nil {
+			return false
+		}
+		return pol.Policy.GetSpec().SynchronizationEnabled()
+	})
+
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
