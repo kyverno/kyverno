@@ -1436,6 +1436,25 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 	assert.True(t, found, "Should have at least one failed rule")
 }
 
+func TestLoadPoliciesReportsInvalidPolicyFiles(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths: []string{"../../_testdata/policies/invalid-schema.yaml"},
+	}
+
+	policies, _, _, _, _, _, _, _, _, _, _, _, _, _, _, skippedInvalidPolicies, err := config.loadPolicies()
+	assert.NoError(t, err)
+	assert.Empty(t, policies)
+	assert.Len(t, skippedInvalidPolicies.loadErrors, 1)
+	assert.Contains(t, skippedInvalidPolicies.loadErrors[0].path, "invalid-schema.yaml")
+	assert.ErrorContains(t, skippedInvalidPolicies.loadErrors[0].err, "unknown field")
+
+	var out bytes.Buffer
+	printSkippedAndInvalidPolicies(&out, skippedInvalidPolicies)
+	assert.Contains(t, out.String(), "Policy files skipped due to load errors")
+	assert.Contains(t, out.String(), "invalid-schema.yaml")
+	assert.Contains(t, out.String(), "unknown field")
+}
+
 func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 	config := ApplyCommandConfig{
 		PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
