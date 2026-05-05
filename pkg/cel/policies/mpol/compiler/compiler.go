@@ -28,7 +28,6 @@ import (
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/common"
 	environment "k8s.io/apiserver/pkg/cel/environment"
@@ -36,10 +35,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/mutation"
 )
 
-var (
-	mpolCompilerVersion  = version.MajorMinor(2, 0)
-	compileExtendedError = "mutating policy extended compiler " + mpolCompilerVersion.String() + " error: %s"
-)
+var compileExtendedError = "mutating policy extended compiler " + compiler.KyvernoVersion.String() + " error: %s"
 
 type Compiler interface {
 	Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
@@ -136,8 +132,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(mpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,82 +153,67 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		environment.UnversionedLib(library.JSONPatch), // the kubernetes jsonpatch library to enable escapeKey
 		generator.Lib(
 			generator.Context{ContextInterface: libCtx},
-			generator.Latest(),
+			compiler.KyvernoVersion,
 		),
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libCtx},
-			globalcontext.Latest(),
+			compiler.KyvernoVersion,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libCtx},
 			namespace,
-			resource.Latest(),
+			compiler.KyvernoVersion,
 		),
 		image.Lib(
-			image.Latest(),
+			compiler.KyvernoVersion,
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libCtx},
-			imagedata.Latest(),
+			compiler.KyvernoVersion,
 		),
 		hash.Lib(
-			hash.Latest(),
+			compiler.KyvernoVersion,
 		),
 		math.Lib(
-			math.Latest(),
+			compiler.KyvernoVersion,
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			json.Latest(),
+			compiler.KyvernoVersion,
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			yaml.Latest(),
+			compiler.KyvernoVersion,
 		),
 		random.Lib(
-			random.Latest(),
+			compiler.KyvernoVersion,
 		),
 		x509.Lib(
-			x509.Latest(),
+			compiler.KyvernoVersion,
 		),
 		time.Lib(
-			time.Latest(),
+			compiler.KyvernoVersion,
 		),
 		transform.Lib(
-			transform.Latest(),
+			compiler.KyvernoVersion,
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			compiler.KyvernoVersion,
 		),
 		user.Lib(
-			user.Latest(),
+			compiler.KyvernoVersion,
 		),
 		http.Lib(
 			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
-			http.Latest(),
+			compiler.KyvernoVersion,
 		),
 	}
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: mpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libraries
-		environment.VersionedOptions{
-			IntroducedVersion: mpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
-		},
-	)
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	extendedEnv, err := extendedBase.Env(environment.StoredExpressions)
-	if err != nil {
-		return nil, nil, err
-	}
-	return extendedEnv, variablesProvider, nil
+	return extendedBase, variablesProvider, nil
 }
