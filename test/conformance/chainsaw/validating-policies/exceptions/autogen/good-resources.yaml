@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: public.ecr.aws/docker/library/nginx:latest
         securityContext:
           allowPrivilegeEscalation: false
 ---
@@ -41,7 +41,7 @@ spec:
         spec:
           containers:
           - name: secure-container
-            image: busybox
+            image: public.ecr.aws/docker/library/busybox
             command: ["echo", "Hello, world"]
             securityContext:
               allowPrivilegeEscalation: false 
@@ -69,7 +69,7 @@ spec:
     spec:
       containers:
       - name: my-app-container
-        image: nginx
+        image: public.ecr.aws/docker/library/nginx
         securityContext:
           allowPrivilegeEscalation: false
         

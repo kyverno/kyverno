@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: nginx-container
-          image: nginx:latest
+          image: public.ecr.aws/docker/library/nginx:latest
           ports:
             - containerPort: 80
           resources:
@@ -29,7 +29,7 @@ spec:
               cpu: "0.5"
               memory: "128Mi"
         - name: redis-container
-          image: redis:latest
+          image: public.ecr.aws/docker/library/redis:latest
           ports:
             - containerPort: 6379
           resources:
@@ -40,7 +40,7 @@ spec:
               cpu: "0.25"
               memory: "256Mi"
         - name: busybox-container
-          image: busybox:latest
+          image: public.ecr.aws/docker/library/busybox:latest
           command: ["/bin/sh", "-c", "while true; do echo 'Hello from BusyBox'; sleep 10; done"]
           resources:
             limits:

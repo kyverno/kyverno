@@ -79,13 +79,13 @@ func (v *validationHandler) HandleValidationEnforce(
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string, []engineapi.EngineResponse) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
-	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
+	logger := v.log.WithValues("action", "validate", "resource", resourceName)
 
 	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, policies)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, append(policies, auditWarnPolicies...))
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
 		return false, msg, nil, nil
@@ -154,7 +154,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	// create the admission report if any of the policies involved doesn't have the report exclusion label
 	if NeedsReports(request, policyContext.NewResource(), v.admissionReports) && hasReportablePolicy(policies) {
-		go func() {
+		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				if reportutils.IsNamespaceTerminationError(err) {
 					// Log namespace termination errors at debug level as they are expected

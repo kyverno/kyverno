@@ -8,6 +8,7 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -108,7 +109,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 					attr.GetOperation(),
 					nil,
 					attr.IsDryRun(),
-					nil,
+					attr.GetUserInfo(),
 				)
 			}
 		}
@@ -141,8 +142,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 
 	var namespace *corev1.Namespace
@@ -170,7 +170,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 				attr.GetOperation(),
 				nil,
 				attr.IsDryRun(),
-				nil,
+				attr.GetUserInfo(),
 			)
 		}
 	}
@@ -292,8 +292,7 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 
 	var namespace *corev1.Namespace

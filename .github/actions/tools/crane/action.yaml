@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install crane
+description: Install crane (container image tool)
+
+runs:
+  using: composite
+  steps:
+    - uses: imjasonh/setup-crane@6da1ae018866400525525ce74ff892880c099987 # v0.5

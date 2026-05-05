@@ -8,6 +8,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
+    {{- with .Values.backgroundController.labels }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
+    {{- end }}
   {{- with .Values.backgroundController.annotations }}
   annotations:
     {{- tpl (toYaml .) $ | nindent 4 }}
@@ -53,7 +56,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.backgroundController.priorityClassName }}
+      {{- with .Values.backgroundController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.backgroundController.hostNetwork }}
@@ -118,6 +121,11 @@ spec:
             {{- if not .Values.backgroundController.metering.disabled }}
             - --otelConfig={{ .Values.backgroundController.metering.config }}
             - --metricsPort={{ .Values.backgroundController.metering.port }}
+            {{- if .Values.backgroundController.metering.secure }}
+            - --metricsCASecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
+            - --metricsTLSSecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
+            - --metricsKeyAlgorithm={{ .Values.backgroundController.metering.tlsKeyAlgorithm | default "RSA" }}
+            {{- end }}
             {{- with .Values.backgroundController.metering.collector }}
             - --otelCollector={{ . }}
             {{- end }}
@@ -138,6 +146,7 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
+              "controllerRuntimeMetrics"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
@@ -176,8 +185,10 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume (not $automountSAToken)}}
           volumeMounts:
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
             {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
             - name: ca-certificates
               mountPath: /etc/ssl/certs/ca-certificates.crt
@@ -190,9 +201,20 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
             {{- end }}
-          {{- end }}
-      {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume (not $automountSAToken)}}
+            {{- with .Values.backgroundController.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
+      - name: apicall-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                path: token
+                expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                {{- with .Values.apiCallToken.audience }}
+                audience: {{ . }}
+                {{- end }}
       {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
       - name: ca-certificates
         configMap:
@@ -206,15 +228,17 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- end }}
-      {{- end }}
       {{- if not $automountSAToken }}
       - name: serviceaccount-token
         projected:
           defaultMode: 0444
           sources:
             - serviceAccountToken:
-                expirationSeconds: 3607
+                expirationSeconds: {{ .Values.backgroundController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                 path: token
+                {{- with .Values.backgroundController.rbac.serviceAccount.projectedServiceAccountToken.audience }}
+                audience: {{ . }}
+                {{- end }}
             - configMap:
                 name: kube-root-ca.crt
                 items:
@@ -226,6 +250,9 @@ spec:
                     fieldRef:
                       apiVersion: v1
                       fieldPath: metadata.namespace
+      {{- end }}
+      {{- with .Values.backgroundController.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end -}}
 {{- end -}}

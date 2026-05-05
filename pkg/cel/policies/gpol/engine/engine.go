@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -19,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -71,25 +74,22 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 	// resolve namespace
 	var namespace runtime.Object
 	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
+
+	startTime := time.Now()
+	genReresponse := e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context, string(object.GetUID()), cacheRestore)
+	if genReresponse.Result != nil {
+		genReresponse.Result = ptr.To(genReresponse.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+	}
 	response.Policies = append(
 		response.Policies,
-		e.generate(
-			context.TODO(),
-			policy,
-			attr,
-			&request.Request,
-			namespace,
-			request.Context,
-			string(object.GetUID()),
-			cacheRestore,
-		),
+		genReresponse,
 	)
 	return response, nil
 }

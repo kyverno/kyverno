@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Executor interface {
@@ -56,7 +56,13 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 	}
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
+		// Check for permission errors and provide clear error messages
+		if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+			// StatusError contains detailed message about the permission issue
+			// This surfaces RBAC errors that would otherwise only appear in debug logs
+			return nil, fmt.Errorf("failed to %v resource with raw url: %s: permission denied: %v", method, path, err)
+		}
+		return nil, fmt.Errorf("failed to %v resource with raw url: %s: %v", method, path, err)
 	}
 	a.logger.V(4).Info("executed APICall", "name", a.name, "path", path, "method", method, "len", len(jsonData))
 	return jsonData, nil
@@ -146,8 +152,7 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	}
 
 	if req.Header.Get("Authorization") == "" {
-		token := a.getToken()
-		if token != "" {
+		if token, ok := readScopedToken(); ok && token != "" {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
 	}
@@ -155,20 +160,12 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) getToken() string {
-	fileName := "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	b, err := os.ReadFile(fileName)
-	if err != nil {
-		a.logger.Info("failed to read service account token", "path", fileName)
-		return ""
-	}
-
-	return string(b)
-}
-
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
-		return http.DefaultClient, nil
+		return &http.Client{
+			Timeout: timeout,
+		}, nil
 	}
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
@@ -182,6 +179,7 @@ func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client
 	}
 	return &http.Client{
 		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+		Timeout:   timeout,
 	}, nil
 }
 

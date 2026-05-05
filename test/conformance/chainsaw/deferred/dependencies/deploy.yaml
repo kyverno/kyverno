@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: cost-model
-        image: nginx:1.14.2
+        image: public.ecr.aws/docker/library/nginx:1.14.2
         resources:
           requests:
             cpu: 350m

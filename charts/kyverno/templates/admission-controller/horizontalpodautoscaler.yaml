@@ -14,12 +14,22 @@ spec:
   minReplicas: {{ .Values.admissionController.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.admissionController.autoscaling.maxReplicas }}
   metrics:
+    {{- if .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
     - resource:
         name: cpu
         target:
           averageUtilization: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
       type: Resource
+    {{- end }}
+    {{- if .Values.admissionController.autoscaling.targetMemoryUtilizationPercentage }}
+    - resource:
+        name: memory
+        target:
+          averageUtilization: {{ .Values.admissionController.autoscaling.targetMemoryUtilizationPercentage }}
+          type: Utilization
+      type: Resource
+    {{- end }}
   {{- with .Values.admissionController.autoscaling.behavior }}
   behavior:
     {{- tpl (toYaml .) $ | nindent 4 }}

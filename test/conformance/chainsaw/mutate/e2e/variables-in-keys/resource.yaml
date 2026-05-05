@@ -22,7 +22,7 @@ spec:
         app: busybox
     spec:
       containers:
-      - image: busybox:1.28
+      - image: public.ecr.aws/docker/library/busybox:1.28
         name: busybox
         command: ["sleep", "9999"]
         resources:
@@ -32,7 +32,7 @@ spec:
           limits:
             cpu: 100m
             memory: 10Mi
-      - image: busybox:1.28
+      - image: public.ecr.aws/docker/library/busybox:1.28
         name: busybox1
         command: ["sleep", "9999"]
         resources:

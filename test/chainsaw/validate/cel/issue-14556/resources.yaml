@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-resource-a
+  namespace: ns-a
+  labels:
+    test: a
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-resource-b
+  namespace: ns-b
+  labels:
+    test: b

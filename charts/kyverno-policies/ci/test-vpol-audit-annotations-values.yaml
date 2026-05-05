@@ -1,0 +1,17 @@
+policyType: ValidatingPolicy
+podSecurityStandard: baseline
+
+auditAnnotations:
+  evaluated-by: "'kyverno-policies-helm'"
+
+auditAnnotationsByPolicy:
+  disallow-host-path:
+    violation-details: >-
+      has(object.spec.volumes) ? 'hostPath volumes found: ' + object.spec.volumes.filter(v, has(v.hostPath)).map(v, v.name).join(', ') : 'no volumes'
+  disallow-host-namespaces:
+    host-namespace-violation: >-
+      (has(object.spec.hostPID) && object.spec.hostPID ? 'hostPID ' : '') +
+      (has(object.spec.hostIPC) && object.spec.hostIPC ? 'hostIPC ' : '') +
+      (has(object.spec.hostNetwork) && object.spec.hostNetwork ? 'hostNetwork' : '')
+    # Override the default evaluated-by key with a policy-specific value
+    evaluated-by: "'test-override'"

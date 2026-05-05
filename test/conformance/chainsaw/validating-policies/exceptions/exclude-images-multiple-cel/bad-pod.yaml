@@ -5,12 +5,12 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: busybox:latest
+    image: public.ecr.aws/docker/library/busybox:latest
     securityContext:
       allowPrivilegeEscalation: true
       runAsNonRoot: true
   - name: container02
-    image: ubuntu:latest
+    image: public.ecr.aws/docker/library/ubuntu:latest
     securityContext:
       allowPrivilegeEscalation: true
       runAsNonRoot: true
@@ -22,11 +22,11 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: busybox:latest
+    image: public.ecr.aws/docker/library/busybox:latest
     securityContext:
       allowPrivilegeEscalation: true
   - name: container02
-    image: ubuntu:latest
+    image: public.ecr.aws/docker/library/ubuntu:latest
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true

@@ -200,7 +200,7 @@ func testCommandExecute(
 func checkResult(
 	test v1alpha1.TestResult,
 	fs billy.Filesystem,
-	resoucePath string,
+	resourcePath string,
 	response engineapi.EngineResponse,
 	rule engineapi.RuleResponse,
 	actualResource unstructured.Unstructured,
@@ -209,7 +209,7 @@ func checkResult(
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, expectedPatchResources))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -224,7 +224,7 @@ func checkResult(
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -245,19 +245,28 @@ func checkResult(
 	return true, result.Description, "Ok"
 }
 
+func isRulelessPolicyKind(kind string) bool {
+	switch kind {
+	case "ValidatingPolicy", "NamespacedValidatingPolicy",
+		"ValidatingAdmissionPolicy",
+		"MutatingPolicy", "NamespacedMutatingPolicy",
+		"MutatingAdmissionPolicy",
+		"ImageValidatingPolicy", "NamespacedImageValidatingPolicy",
+		"GeneratingPolicy", "NamespacedGeneratingPolicy",
+		"DeletingPolicy", "NamespacedDeletingPolicy":
+		return true
+	}
+	return false
+}
+
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
-	var matches []engineapi.RuleResponse
-	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
-		matches = responses
-	} else {
-		for _, response := range responses {
-			rule := response.Name()
-			if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
-				continue
-			}
-			matches = append(matches, response)
+	matches := make([]engineapi.RuleResponse, 0, len(responses))
+	for _, response := range responses {
+		rule := response.Name()
+		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+			continue
 		}
+		matches = append(matches, response)
 	}
 	return matches
 }

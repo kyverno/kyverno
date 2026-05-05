@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: webserver
-    image: nginx:latest
+    image: public.ecr.aws/docker/library/nginx:latest
     ports:
     - hostPort: 80
       containerPort: 8080

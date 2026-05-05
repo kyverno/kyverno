@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// mockAdmissionHandler creates a handler that returns a fixed response for testing
 func mockAdmissionHandler(response AdmissionResponse) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		return response
@@ -85,6 +86,12 @@ func TestWithAdmission(t *testing.T) {
 			requestBody:        []byte(`{"key": "value"`),
 			contentType:        "application/json",
 			expectedStatusCode: http.StatusExpectationFailed,
+		},
+		{
+			name:               "Nil Request Field",
+			requestBody:        []byte(`{"kind":"AdmissionReview","apiVersion":"admission.k8s.io/v1"}`),
+			contentType:        "application/json",
+			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			name: "Handler Returns Not Allowed",

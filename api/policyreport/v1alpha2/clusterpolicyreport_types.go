@@ -83,7 +83,7 @@ type ClusterPolicyReportList struct {
 }
 
 func (r *ClusterPolicyReport) ToOpenReports() *openreportsv1alpha1.ClusterReport {
-	res := []openreportsv1alpha1.ReportResult{}
+	res := make([]openreportsv1alpha1.ReportResult, 0, len(r.GetResults()))
 	for _, r := range r.GetResults() {
 		res = append(res, openreportsv1alpha1.ReportResult{
 			Source:           r.Source,

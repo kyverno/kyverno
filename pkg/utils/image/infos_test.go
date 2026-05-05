@@ -256,6 +256,12 @@ func Test_addDefaultRegistry(t *testing.T) {
 			enableDefaultRegistryMutation: true,
 			want:                          "docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
 		},
+		{
+			defaultRegistry:               "123456789012.dkr.ecr.eu-west-3.amazonaws.com/docker",
+			enableDefaultRegistryMutation: true,
+			input:                         "test/nginx:v10.3",
+			want:                          "123456789012.dkr.ecr.eu-west-3.amazonaws.com/docker/test/nginx:v10.3",
+		},
 	}
 
 	for _, tt := range tests {

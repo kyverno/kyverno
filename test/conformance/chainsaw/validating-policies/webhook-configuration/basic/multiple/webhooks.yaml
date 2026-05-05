@@ -33,19 +33,19 @@ webhooks:
     apiVersions:
     - v1
     operations:
-    - CREATE
-    - UPDATE
+    - DELETE
     resources:
-    - deployments
+    - configmaps
     scope: '*'
   - apiGroups:
     - apps
     apiVersions:
     - v1
     operations:
-    - DELETE
+    - CREATE
+    - UPDATE
     resources:
-    - configmaps
+    - deployments
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 10

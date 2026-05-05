@@ -12,7 +12,7 @@ results:
   policy: mutate-existing-secret
   resources:
   - secret-1
-  result: fail
+  result: pass
   rule: mutate-secret-on-configmap-create
 targetResources:
 - raw-secret.yaml

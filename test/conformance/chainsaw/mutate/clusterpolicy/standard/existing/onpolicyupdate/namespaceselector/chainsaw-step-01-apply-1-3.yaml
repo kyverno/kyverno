@@ -5,5 +5,5 @@ metadata:
   namespace: org-label-inheritance-existing-ns
 spec:
   containers:
-  - image: nginx:latest
+  - image: public.ecr.aws/docker/library/nginx:latest
     name: test-org

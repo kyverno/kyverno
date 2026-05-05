@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: busybox1
-    image: busybox
+    image: public.ecr.aws/docker/library/busybox
     args:
     - sleep
     - 1d
@@ -15,7 +15,7 @@ spec:
         type: foo
   initContainers:
   - name: busybox2
-    image: busybox
+    image: public.ecr.aws/docker/library/busybox
     args:
     - sleep
     - 1d

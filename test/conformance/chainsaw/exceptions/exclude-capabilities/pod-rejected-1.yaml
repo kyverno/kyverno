@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: nginx:1.1.9
+    image: public.ecr.aws/docker/library/nginx:1.1.9
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true

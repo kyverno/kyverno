@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -151,6 +152,9 @@ func Test_servicePostRequest(t *testing.T) {
 				Method: "POST",
 				Service: &kyvernov1.ServiceCall{
 					URL: s.URL + "/resource",
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Authorization", Value: "Bearer 1234567890"},
+					},
 				},
 			},
 		},
@@ -284,6 +288,7 @@ func Test_serviceHeaders(t *testing.T) {
 			Service: &kyvernov1.ServiceCall{
 				URL: s.URL + "/resource",
 				Headers: []kyvernov1.HTTPHeader{
+					{Key: "Authorization", Value: "Bearer 1234567890"},
 					{Key: "Content-Type", Value: "application/json"},
 					{Key: "Custom-Key", Value: "CustomVal"},
 				},
@@ -301,7 +306,7 @@ func Test_serviceHeaders(t *testing.T) {
 	var responseHeaders map[string][]string
 	err = json.Unmarshal(data, &responseHeaders)
 	assert.NilError(t, err)
-	assert.Equal(t, 4, len(responseHeaders))
+	assert.Equal(t, 5, len(responseHeaders))
 	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
 }
@@ -388,4 +393,55 @@ func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
 	assert.NilError(t, err)
 	_, err = call.Fetch(context.TODO())
 	assert.NilError(t, err)
+}
+
+func Test_contextCancellation(t *testing.T) {
+	// Server that delays response longer than our context timeout
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second)
+		w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Authorization", Value: "Bearer 1234567890"},
+					},
+				},
+			},
+		},
+	}
+
+	// Create a context that will timeout quickly
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	engineCtx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, engineCtx, nil, apiConfig, "")
+	assert.NilError(t, err)
+
+	_, err = call.FetchAndLoad(ctx)
+	assert.Assert(t, err != nil, "expected error due to context cancellation")
+	assert.Assert(t, context.DeadlineExceeded == ctx.Err(), "context should be cancelled")
+}
+
+func Test_APICallConfiguration_GetTimeout(t *testing.T) {
+	// Default timeout via constructor
+	config := NewAPICallConfiguration(1000, 30*time.Second)
+	assert.Equal(t, 30*time.Second, config.GetTimeout())
+
+	// Custom timeout configuration
+	customTimeout := 10 * time.Second
+	config = NewAPICallConfiguration(1000, customTimeout)
+	assert.Equal(t, customTimeout, config.GetTimeout())
+
+	// Zero timeout means no timeout (as documented in flag help text)
+	config = APICallConfiguration{maxAPICallResponseLength: 1000, timeout: 0}
+	assert.Equal(t, time.Duration(0), config.GetTimeout())
 }

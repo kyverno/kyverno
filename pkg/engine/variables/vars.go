@@ -451,7 +451,7 @@ func resolveReference(fullDocument interface{}, reference, absolutePath string) 
 
 	valFromReference, err := getValueFromReference(fullDocument, path)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	if operation == operator.Equal { // if operator does not exist return raw value

@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+envoyPayloads:
+- ./request.json
+kind: Test
+metadata:
+  name: vpol-envoy-deny
+policies:
+- ./policy.yaml
+results:
+- kind: ""
+  policy: envoy-deny
+  result: fail

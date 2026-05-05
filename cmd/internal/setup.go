@@ -13,7 +13,7 @@ import (
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -45,7 +45,7 @@ type SetupResult struct {
 	LeaderElectionClient   kubeclient.UpstreamInterface
 	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
-	RegistrySecretLister   corev1listers.SecretNamespaceLister
+	RegistrySecretLister   corev1listers.SecretLister
 	KyvernoClient          kyvernoclient.UpstreamInterface
 	DynamicClient          dynamicclient.UpstreamInterface
 	ApiServerClient        apiserverclient.UpstreamInterface
@@ -74,7 +74,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
 	var registryClient registryclient.Client
-	var registrySecretLister corev1listers.SecretNamespaceLister
+	var registrySecretLister corev1listers.SecretLister
 	if config.UsesRegistryClient() {
 		registryClient, registrySecretLister = setupRegistryClient(ctx, logger, client)
 	}

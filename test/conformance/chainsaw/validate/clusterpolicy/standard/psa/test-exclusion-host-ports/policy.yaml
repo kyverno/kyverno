@@ -19,13 +19,13 @@ spec:
         exclude:
         - controlName: "Host Ports"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].ports[*].hostPort"
           values:
           - "10"
         - controlName: "Host Ports"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.initContainers[*].ports[*].hostPort"
           values:
           - "20"

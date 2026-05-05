@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: nginx:latest
+    image: public.ecr.aws/docker/library/nginx:latest
     # Grant necessary permissions using SecurityContext (optional)
     securityContext:
       runAsUser: 0

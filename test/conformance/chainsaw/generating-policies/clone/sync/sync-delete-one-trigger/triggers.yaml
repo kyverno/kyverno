@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clone-sync-delete-one-trigger-1
+  namespace: clone-sync-delete-one-trigger-1
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clone-sync-delete-one-trigger-2
+  namespace: clone-sync-delete-one-trigger-2
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

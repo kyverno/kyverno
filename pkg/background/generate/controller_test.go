@@ -12,10 +12,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // fakeClusterPolicyLister returns NotFound for all policy lookups
@@ -297,8 +301,251 @@ func TestProcessUR_NilPolicy_NoGeneratedResources(t *testing.T) {
 	}, "ProcessUR should not panic when policy is deleted and no GeneratedResources exist")
 }
 
+// fakeNamespaceLister returns errors for namespace lookups
+type fakeNamespaceLister struct {
+	err error
+}
+
+func (f *fakeNamespaceLister) List(selector labels.Selector) ([]*corev1.Namespace, error) {
+	return nil, f.err
+}
+
+func (f *fakeNamespaceLister) Get(name string) (*corev1.Namespace, error) {
+	return nil, f.err
+}
+
+// TestProcessUR_ApplyGenerateError_MarksURFailed tests that when applyGenerate()
+// returns an error, the UpdateRequest is marked as Failed (not Success).
+//
+// This test validates the fix for the bug where applyGenerate errors were logged
+// and evented but NOT added to the failures slice, causing updateStatus to
+// incorrectly mark the UR as Success.
+//
+// The test will:
+// - FAIL on the old code (where errors were silently dropped)
+// - PASS with the fix applied (where errors are added to failures slice)
+func TestProcessUR_ApplyGenerateError_MarksURFailed(t *testing.T) {
+	// Create a status control that tracks which methods are called
+	statusControl := &fakeStatusControl{}
+
+	// Create a policy that EXISTS (not NotFound) with a generate rule
+	// The policy has a namespace selector so that GetNamespaceSelectorsFromNamespaceLister
+	// will attempt to fetch the namespace
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-generate-policy",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "generate-configmap",
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"ConfigMap"},
+							// NamespaceSelector triggers the namespace lookup path in applyGenerate
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "test"},
+							},
+						},
+					},
+					Generation: &kyvernov1.Generation{
+						GeneratePattern: kyvernov1.GeneratePattern{
+							ResourceSpec: kyvernov1.ResourceSpec{
+								Kind:       "Secret",
+								APIVersion: "v1",
+								Name:       "generated-secret",
+								Namespace:  "default",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Policy lister returns the policy (NOT NotFound)
+	policyLister := &fakeClusterPolicyLister{
+		policy: policy,
+	}
+
+	// Namespace lister returns an error - this will cause applyGenerate to fail
+	// when it tries to get namespace labels for the namespace selector
+	nsLister := &fakeNamespaceLister{
+		err: errors.New("simulated namespace lookup failure"),
+	}
+
+	controller := &GenerateController{
+		client:        dclient.NewEmptyFakeClient(),
+		statusControl: statusControl,
+		policyLister:  policyLister,
+		npolicyLister: &fakePolicyLister{},
+		nsLister:      nsLister,
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	// Create the trigger object JSON for the AdmissionRequest
+	// This allows GetTrigger to extract the object without fetching from cluster
+	triggerJSON := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"trigger-cm","namespace":"test-namespace"}}`)
+
+	// Create an UpdateRequest that references the existing policy
+	// We provide an AdmissionRequest so GetTrigger extracts from it (not from cluster)
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-apply-error",
+			Namespace: "kyverno",
+		},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "test-generate-policy",
+			RuleContext: []kyvernov2.RuleContext{
+				{
+					Rule: "generate-configmap",
+					Trigger: kyvernov1.ResourceSpec{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+						Namespace:  "test-namespace",
+						Name:       "trigger-cm",
+					},
+				},
+			},
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					// Provide AdmissionRequest so GetTrigger extracts object from here
+					// instead of fetching from cluster (which would fail)
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Update, // Update operation extracts from request
+						Object: runtime.RawExtension{
+							Raw: triggerJSON,
+						},
+					},
+					Operation: admissionv1.Update,
+				},
+			},
+		},
+		Status: kyvernov2.UpdateRequestStatus{},
+	}
+
+	// Process the UR - applyGenerate will fail due to namespace lookup error
+	err := controller.ProcessUR(ur)
+
+	// CRITICAL ASSERTIONS:
+	// With the bug fix, Failed() should be called because the error from
+	// applyGenerate is now added to the failures slice.
+	// Without the fix, Success() would be called because failures slice was empty.
+
+	assert.True(t, statusControl.failedCalled,
+		"statusControl.Failed() should be called when applyGenerate returns an error")
+	assert.False(t, statusControl.successCalled,
+		"statusControl.Success() should NOT be called when applyGenerate returns an error")
+
+	// Additional sanity check - we expect no error from ProcessUR itself
+	// since updateStatus with our fake doesn't return an error
+	assert.NoError(t, err, "ProcessUR should not return error when status update succeeds")
+}
+
+// TestProcessUR_ApplyGenerateError_MultipleRules tests that when applyGenerate()
+// fails for one rule but succeeds for another, the UR is still marked as Failed.
+func TestProcessUR_ApplyGenerateError_MultipleRules_StillFails(t *testing.T) {
+	statusControl := &fakeStatusControl{}
+
+	// Policy with a rule that has a namespace selector (will trigger ns lookup)
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-multi-rule-policy",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "rule-that-will-fail",
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"ConfigMap"},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "test"},
+							},
+						},
+					},
+					Generation: &kyvernov1.Generation{
+						GeneratePattern: kyvernov1.GeneratePattern{
+							ResourceSpec: kyvernov1.ResourceSpec{
+								Kind:       "Secret",
+								APIVersion: "v1",
+								Name:       "generated-secret",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	policyLister := &fakeClusterPolicyLister{
+		policy: policy,
+	}
+
+	// Namespace lister fails - causes applyGenerate to return error
+	nsLister := &fakeNamespaceLister{
+		err: errors.New("namespace not found"),
+	}
+
+	controller := &GenerateController{
+		client:        dclient.NewEmptyFakeClient(),
+		statusControl: statusControl,
+		policyLister:  policyLister,
+		npolicyLister: &fakePolicyLister{},
+		nsLister:      nsLister,
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	triggerJSON := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"trigger","namespace":"some-namespace"}}`)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-multi-rule",
+			Namespace: "kyverno",
+		},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "test-multi-rule-policy",
+			RuleContext: []kyvernov2.RuleContext{
+				{
+					Rule: "rule-that-will-fail",
+					Trigger: kyvernov1.ResourceSpec{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+						Namespace:  "some-namespace",
+						Name:       "trigger",
+					},
+				},
+			},
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Update,
+						Object: runtime.RawExtension{
+							Raw: triggerJSON,
+						},
+					},
+					Operation: admissionv1.Update,
+				},
+			},
+		},
+		Status: kyvernov2.UpdateRequestStatus{},
+	}
+
+	_ = controller.ProcessUR(ur)
+
+	// Even with multiple rules where some might "succeed" (return nil),
+	// any failure should cause Failed() to be called
+	assert.True(t, statusControl.failedCalled,
+		"Failed() must be called when any rule fails")
+	assert.False(t, statusControl.successCalled,
+		"Success() must NOT be called when any rule fails")
+}
+
 // Ensure fake types satisfy the required interfaces
 var _ kyvernov1listers.ClusterPolicyLister = &fakeClusterPolicyLister{}
 var _ kyvernov1listers.PolicyLister = &fakePolicyLister{}
 var _ kyvernov1listers.PolicyNamespaceLister = &fakePolicyNamespaceLister{}
 var _ common.StatusControlInterface = &fakeStatusControl{}
+var _ corev1listers.NamespaceLister = &fakeNamespaceLister{}

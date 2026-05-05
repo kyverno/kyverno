@@ -3,20 +3,21 @@ package libs
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	"github.com/kyverno/kyverno/pkg/cel/libs/generator"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/kyverno/pkg/imageverification/imagedataloader"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/cel/libs/generator"
+	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/imagedata"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +26,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 )
+
+// a global store for the libaries context, gets initialized when NewContextProvider gets called
+// in the controller main functions
+var LibraryContext Context
+
+func GetLibsCtx() Context {
+	if LibraryContext == nil {
+		klog.V(2).Info("global library context was nil, setting to a fake context. If a real context is needed ensure that the variable is set")
+		LibraryContext = NewFakeContextProvider()
+	}
+	return LibraryContext
+}
 
 type Context interface {
 	globalcontext.ContextInterface
@@ -70,14 +84,16 @@ func NewContextProvider(
 	if err != nil {
 		return nil, err
 	}
-	return &contextProvider{
+	ctx := &contextProvider{
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
 		cliEvaluation:      cliEvaluation,
 		restMapper:         restMapper,
 		generatedResources: make([]*unstructured.Unstructured, 0),
-	}, nil
+	}
+	LibraryContext = ctx
+	return ctx, nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
@@ -137,8 +153,12 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
+	parts := strings.Split(resource, "/")
+	resource = parts[0]
+	subresources := parts[1:]
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{})
+	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
@@ -146,8 +166,12 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	if err != nil {
 		return nil, err
 	}
+	parts := strings.Split(resource, "/")
+	resource = parts[0]
+	subresources := parts[1:]
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
 }
 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {

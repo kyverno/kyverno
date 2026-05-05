@@ -8,7 +8,7 @@ spec:
   securityContext:
     runAsNonRoot: true
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     name: test-pod
     resources:
       limits:

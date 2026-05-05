@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install yq
+description: Install yq
+
+runs:
+  using: composite
+  steps:
+    - uses: mikefarah/yq@5a7e72a743649b1b3a47d1a1d8214f3453173c51 # v4.52.4

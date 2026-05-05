@@ -7,7 +7,7 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: nginx:latest
+    image: public.ecr.aws/docker/library/nginx:latest
 # ---
 # apiVersion: apps/v1
 # kind: Deployment
@@ -27,4 +27,4 @@ spec:
 #     spec:
 #       containers:
 #       - name: nginx
-#         image: nginx:latest
+#         image: public.ecr.aws/docker/library/nginx:latest

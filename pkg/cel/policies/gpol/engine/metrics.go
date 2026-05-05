@@ -26,6 +26,10 @@ func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cach
 	}
 
 	for _, policy := range response.Policies {
+		if policy.Result == nil {
+			continue
+		}
+
 		w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
 	}
 

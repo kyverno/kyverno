@@ -36,6 +36,11 @@ func New(
 }
 
 func (h *handler) Generate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	// Skip background generation for dry-run requests to honor the SideEffects: NoneOnDryRun contract.
+	if admissionutils.IsDryRun(request.AdmissionRequest) {
+		return admissionutils.Response(request.UID, nil)
+	}
+
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
@@ -135,6 +140,10 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 	if request.Namespace == "" {
 		return admissionutils.ResponseSuccess(request.UID)
 	}
+	// Skip background generation for dry-run requests to honor the SideEffects: NoneOnDryRun contract.
+	if admissionutils.IsDryRun(request.AdmissionRequest) {
+		return admissionutils.Response(request.UID, nil)
+	}
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
@@ -206,11 +215,11 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 			} else {
 				synchronize := false
 				if request.Operation == admissionv1.Update {
-					gpol, err := h.gpolLister.Get(policy)
+					ngpol, err := h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
 					if err != nil {
-						logger.Error(err, "failed to get generating policy", "policy", policy)
+						logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
 					} else {
-						synchronize = gpol.Spec.SynchronizationEnabled()
+						synchronize = ngpol.Spec.SynchronizationEnabled()
 					}
 				}
 				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "namespace", namespace)

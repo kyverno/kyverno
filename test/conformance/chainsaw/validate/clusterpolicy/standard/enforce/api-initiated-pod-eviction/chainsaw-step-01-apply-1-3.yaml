@@ -9,5 +9,5 @@ metadata:
   namespace: test-validate
 spec:
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     name: nginx

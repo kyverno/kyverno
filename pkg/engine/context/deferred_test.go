@@ -412,3 +412,26 @@ func TestDeferredLoadMatchingError(t *testing.T) {
 	err := ctx.deferred.LoadMatching("value", len(ctx.jsonRawCheckpoints))
 	assert.ErrorContains(t, err, `failed to load data`)
 }
+
+type resetLoader struct {
+	ctx Interface
+}
+
+func (l *resetLoader) Name() string    { return "reset" }
+func (l *resetLoader) HasLoaded() bool { return false }
+func (l *resetLoader) LoadData() error {
+	l.ctx.Reset()
+	return nil
+}
+
+func TestDeferredResetDuringLoad(t *testing.T) {
+	ctx := newContext()
+	l1, _ := NewDeferredLoader("reset", &resetLoader{ctx: ctx}, logger)
+	l2, _ := NewDeferredLoader("other", &mockLoader{name: "other", ctx: ctx}, logger)
+	ctx.Checkpoint()
+	ctx.Checkpoint()
+	ctx.AddDeferredLoader(l1)
+	ctx.AddDeferredLoader(l2)
+	_, err := ctx.Query("[reset, other]")
+	assert.NilError(t, err)
+}

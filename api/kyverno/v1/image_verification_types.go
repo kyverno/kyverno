@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -15,7 +15,7 @@ import (
 type ImageVerificationType string
 
 // ImageRegistryCredentialsProvidersType provides the list of credential providers required.
-type ImageRegistryCredentialsProvidersType v1alpha1.CredentialsProvidersType
+type ImageRegistryCredentialsProvidersType v1beta1.CredentialsProvidersType
 
 const (
 	Cosign         ImageVerificationType = "Cosign"
@@ -356,7 +356,8 @@ type ImageRegistryCredentials struct {
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials.
-	// Secrets must live in the Kyverno namespace.
+	// Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+	// imagePullSecrets from the resource namespace are also used.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty"`
 }

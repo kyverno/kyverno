@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: test-container
-        image: nginx
+        image: public.ecr.aws/docker/library/nginx
         ports:
         - containerPort: 80

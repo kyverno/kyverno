@@ -39,6 +39,10 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusExpectationFailed)
 			return
 		}
+		if admissionReview.Request == nil {
+			HttpError(request.Context(), writer, request, logger, errors.New("AdmissionReview request is nil"), http.StatusBadRequest)
+			return
+		}
 		logger := logger.WithValues(
 			"gvk", admissionReview.Request.Kind,
 			"gvr", admissionReview.Request.Resource.String(),

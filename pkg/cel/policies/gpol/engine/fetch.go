@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,14 +20,14 @@ type fetchProvider struct {
 	compiler    compiler.Compiler
 	gpolLister  policiesv1beta1listers.GeneratingPolicyLister
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
-	polexLister policiesv1beta1listers.PolicyExceptionLister
+	polexLister engine.PolicyExceptionLister
 }
 
 func NewFetchProvider(
 	compiler compiler.Compiler,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	fp := &fetchProvider{

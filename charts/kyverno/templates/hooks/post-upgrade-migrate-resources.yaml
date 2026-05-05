@@ -107,7 +107,7 @@ spec:
       {{- end }}
       restartPolicy: Never
       containers:
-        - name: kubectl
+        - name: kyverno-cli
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.crds.migration.image "defaultTag" (default .Chart.AppVersion .Values.crds.migration.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.crds.migration.image.pullPolicy }}
           args:
@@ -164,8 +164,11 @@ spec:
             defaultMode: 0444
             sources:
               - serviceAccountToken:
-                  expirationSeconds: 3607
+                  expirationSeconds: {{ .Values.crds.migration.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
                   path: token
+                  {{- with .Values.crds.migration.serviceAccount.projectedServiceAccountToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
               - configMap:
                   name: kube-root-ca.crt
                   items:

@@ -13,6 +13,7 @@ spec:
     - apiGroups:
         - admissionregistration.k8s.io
       clusterScope: true
+      namespaces: []
       resources:
         - mutatingwebhookconfigurations
         - validatingwebhookconfigurations
@@ -28,6 +29,7 @@ spec:
     - apiGroups:
         - rbac.authorization.k8s.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterroles
         - clusterrolebindings
@@ -47,6 +49,7 @@ spec:
     - apiGroups:
         - kyverno.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterpolicies
         - clusterpolicies/status
@@ -82,6 +85,7 @@ spec:
     - apiGroups:
         - reports.kyverno.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterephemeralreports
       verbs:
@@ -111,6 +115,7 @@ spec:
     - apiGroups:
         - wgpolicyk8s.io
       clusterScope: true
+      namespaces: []
       resources:
         - clusterpolicyreports
         - clusterpolicyreports/status
@@ -153,6 +158,7 @@ spec:
     - apiGroups:
         - authorization.k8s.io
       clusterScope: true
+      namespaces: []
       resources:
         - subjectaccessreviews
       verbs:

@@ -5,5 +5,5 @@ metadata:
   namespace: policy-exception-events-creation-ns
 spec:
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     name: nginx

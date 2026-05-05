@@ -13,6 +13,11 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
+// CloneFunc is a function type for cloning a git repository into a billy.Filesystem.
+// It can be replaced in tests to avoid real network calls while still exercising
+// the git-URL policy loading code path.
+type CloneFunc func(path string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error)
+
 func Clone(path string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error) {
 	co := &git.CloneOptions{
 		URL:           path,

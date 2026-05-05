@@ -17,4 +17,4 @@ spec:
     spec:
       containers:
       - name: test
-        image: nginx:latest
+        image: public.ecr.aws/docker/library/nginx:latest

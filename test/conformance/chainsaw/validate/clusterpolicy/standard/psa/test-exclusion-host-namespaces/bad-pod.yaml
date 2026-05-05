@@ -6,7 +6,7 @@ spec:
   hostPID: true
   containers:
   - name: nginx1
-    image: nginx
+    image: public.ecr.aws/docker/library/nginx
     args:
     - sleep
     - 1d

@@ -16,7 +16,7 @@ spec:
         spec:
           containers:
           - name: secure-container
-            image: busybox:latest
+            image: public.ecr.aws/docker/library/busybox:latest
             command: ["echo", "Hello, world"]
             securityContext:
               seccompProfile:

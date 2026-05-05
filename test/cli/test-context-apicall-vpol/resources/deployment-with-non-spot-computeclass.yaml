@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-with-non-spot-computeclass
+  namespace: test-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+    spec:
+      nodeSelector:
+        cloud.google.com/compute-class: non-spot-compute-class
+      containers:
+      - name: test-container
+        image: nginx:latest
+

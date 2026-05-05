@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Prow
+
+permissions: {}
+
+on:
+  issue_comment:
+    types:
+      - created
+      - edited
+
+jobs:
+  execute:
+    name: Prow
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+        with:
+          prow-commands: "/assign
+            /unassign
+            /lgtm
+            /milestone"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"

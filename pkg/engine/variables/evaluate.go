@@ -29,11 +29,15 @@ func Evaluate(logger logr.Logger, ctx context.EvalInterface, condition kyvernov1
 
 // EvaluateConditions evaluates all the conditions present in a slice, in a backwards compatible way
 func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions interface{}) (bool, string, error) {
+	return EvaluateConditionsWithContext(log, ctx, conditions, "")
+}
+
+func EvaluateConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions interface{}, conditionContext string) (bool, string, error) {
 	switch typedConditions := conditions.(type) {
 	case *kyvernov1.AnyAllConditions:
-		return evaluateAnyAllConditions(log, ctx, *typedConditions)
+		return evaluateAnyAllConditionsWithContext(log, ctx, *typedConditions, conditionContext)
 	case kyvernov1.AnyAllConditions:
-		return evaluateAnyAllConditions(log, ctx, typedConditions)
+		return evaluateAnyAllConditionsWithContext(log, ctx, typedConditions, conditionContext)
 	case []kyvernov1.Condition: // backwards compatibility
 		return evaluateOldConditions(log, ctx, typedConditions)
 	}
@@ -41,9 +45,16 @@ func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions i
 }
 
 func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyvernov1.AnyAllConditions) (bool, string, error) {
+	return EvaluateAnyAllConditionsWithContext(log, ctx, conditions, "")
+}
+
+func EvaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions []kyvernov1.AnyAllConditions, conditionContext string) (bool, string, error) {
+	if conditionContext == "" {
+		conditionContext = "condition"
+	}
 	var conditionTrueMessages []string
-	for _, c := range conditions {
-		if val, msg, err := evaluateAnyAllConditions(log, ctx, c); err != nil {
+	for i, c := range conditions {
+		if val, msg, err := evaluateAnyAllConditionsWithContext(log, ctx, c, fmt.Sprintf("%s[%d]", conditionContext, i)); err != nil {
 			return false, "", err
 		} else if !val {
 			return false, msg, nil
@@ -55,8 +66,7 @@ func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	return true, stringutils.JoinNonEmpty(conditionTrueMessages, ";"), nil
 }
 
-// evaluateAnyAllConditions evaluates multiple conditions as a logical AND (all) or OR (any) operation depending on the conditions
-func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions kyvernov1.AnyAllConditions) (bool, string, error) {
+func evaluateAnyAllConditionsWithContext(log logr.Logger, ctx context.EvalInterface, conditions kyvernov1.AnyAllConditions, conditionContext string) (bool, string, error) {
 	anyConditions, allConditions := conditions.AnyConditions, conditions.AllConditions
 	anyConditionsResult, allConditionsResult := true, true
 	var conditionFalseMessages []string
@@ -78,18 +88,18 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 		}
 
 		if !anyConditionsResult {
-			log.V(3).Info("no condition passed for 'any' block", "any", anyConditions)
+			log.V(3).Info("no condition passed for 'any' block", "any", anyConditions, "context", conditionContext)
 		}
 	}
 
 	// update the allConditionsResult if they are present
-	for _, condition := range allConditions {
+	for idx, condition := range allConditions {
 		if val, msg, err := Evaluate(log, ctx, condition); err != nil {
 			return false, "", err
 		} else if !val {
 			allConditionsResult = false
 			conditionFalseMessages = append(conditionFalseMessages, msg)
-			log.V(3).Info("a condition failed in 'all' block", "condition", condition, "message", msg)
+			log.V(3).Info("a condition failed in 'all' block", "condition", condition, "message", msg, "index", idx, "context", conditionContext)
 			break
 		} else {
 			conditionTrueMessages = append(conditionTrueMessages, msg)

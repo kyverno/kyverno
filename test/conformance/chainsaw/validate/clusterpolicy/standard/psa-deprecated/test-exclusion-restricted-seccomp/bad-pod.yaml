@@ -8,7 +8,7 @@ spec:
       type: Unconfined
   containers:
   - name: busybox
-    image: busybox
+    image: public.ecr.aws/docker/library/busybox
     args:
     - sleep
     - 1d
@@ -22,7 +22,7 @@ spec:
         - ALL
   initContainers:
   - name: nginx
-    image: nginx
+    image: public.ecr.aws/docker/library/nginx
     args:
     - sleep
     - 1d

@@ -3,6 +3,7 @@ package api
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -103,26 +104,36 @@ type GenericPolicy interface {
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy with its bindings
 	AsValidatingAdmissionPolicy() *ValidatingAdmissionPolicyData
+	// AsValidatingPolicyLike returns the validating policy
+	AsValidatingPolicyLike() policiesv1beta1.ValidatingPolicyLike
 	// AsValidatingPolicy returns the validating policy
 	AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy
 	// AsNamespacedValidatingPolicy returns the namespaced validating policy
 	AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy
+	// AsImageValidatingPolicyLike returns the imageverificationpolicy
+	AsImageValidatingPolicyLike() policiesv1beta1.ImageValidatingPolicyLike
 	// AsImageValidatingPolicy returns the imageverificationpolicy
 	AsImageValidatingPolicy() *policiesv1beta1.ImageValidatingPolicy
 	// AsNamespacedImageValidatingPolicy returns the namespaced imageverificationpolicy
 	AsNamespacedImageValidatingPolicy() *policiesv1beta1.NamespacedImageValidatingPolicy
 	// AsMutatingAdmissionPolicy returns the mutatingadmission policy
 	AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
+	// AsMutatingPolicyLike returns the mutating policy
+	AsMutatingPolicyLike() policiesv1beta1.MutatingPolicyLike
 	// AsMutatingPolicy returns the mutating policy
 	AsMutatingPolicy() *policiesv1beta1.MutatingPolicy
 	// AsNamespacedMutatingPolicy returns the namespaced mutating policy
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
+	// AsGeneratingPolicyLike returns the generating policy
+	AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
 	// AsNamespacedGeneratingPolicy returns the namespaced generating policy
 	AsNamespacedGeneratingPolicy() *policiesv1beta1.NamespacedGeneratingPolicy
 	// AsDeletingPolicy returns the deleting policy
 	AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike
+	// AsCleanupPolicy returns the cleanup policy
+	AsCleanupPolicy() kyvernov2.CleanupPolicyInterface
 }
 type genericPolicy struct {
 	metav1.Object
@@ -138,6 +149,7 @@ type genericPolicy struct {
 	GeneratingPolicy                *policiesv1beta1.GeneratingPolicy
 	NamespacedGeneratingPolicy      *policiesv1beta1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
+	CleanupPolicy                   kyvernov2.CleanupPolicyInterface
 	// originalAPIVersion tracks the original API version for converted policies
 	originalAPIVersion string
 }
@@ -158,12 +170,32 @@ func (p *genericPolicy) AsMutatingAdmissionPolicy() *MutatingAdmissionPolicyData
 	return p.MutatingAdmissionPolicy
 }
 
+func (p *genericPolicy) AsValidatingPolicyLike() policiesv1beta1.ValidatingPolicyLike {
+	if v := p.AsValidatingPolicy(); v != nil {
+		return v
+	}
+	if v := p.AsNamespacedValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
+}
+
 func (p *genericPolicy) AsValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
 	return p.ValidatingPolicy
 }
 
 func (p *genericPolicy) AsNamespacedValidatingPolicy() *policiesv1beta1.NamespacedValidatingPolicy {
 	return p.NamespacedValidatingPolicy
+}
+
+func (p *genericPolicy) AsImageValidatingPolicyLike() policiesv1beta1.ImageValidatingPolicyLike {
+	if v := p.AsImageValidatingPolicy(); v != nil {
+		return v
+	}
+	if v := p.AsNamespacedImageValidatingPolicy(); v != nil {
+		return v
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsImageValidatingPolicy() *policiesv1beta1.ImageValidatingPolicy {
@@ -174,12 +206,32 @@ func (p *genericPolicy) AsNamespacedImageValidatingPolicy() *policiesv1beta1.Nam
 	return p.NamespacedImageValidatingPolicy
 }
 
+func (p *genericPolicy) AsMutatingPolicyLike() policiesv1beta1.MutatingPolicyLike {
+	if m := p.AsMutatingPolicy(); m != nil {
+		return m
+	}
+	if m := p.AsNamespacedMutatingPolicy(); m != nil {
+		return m
+	}
+	return nil
+}
+
 func (p *genericPolicy) AsMutatingPolicy() *policiesv1beta1.MutatingPolicy {
 	return p.MutatingPolicy
 }
 
 func (p *genericPolicy) AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy {
 	return p.NamespacedMutatingPolicy
+}
+
+func (p *genericPolicy) AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike {
+	if g := p.AsGeneratingPolicy(); g != nil {
+		return g
+	}
+	if g := p.AsNamespacedGeneratingPolicy(); g != nil {
+		return g
+	}
+	return nil
 }
 
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
@@ -192,6 +244,10 @@ func (p *genericPolicy) AsNamespacedGeneratingPolicy() *policiesv1beta1.Namespac
 
 func (p *genericPolicy) AsDeletingPolicy() policiesv1beta1.DeletingPolicyLike {
 	return p.DeletingPolicy
+}
+
+func (p *genericPolicy) AsCleanupPolicy() kyvernov2.CleanupPolicyInterface {
+	return p.CleanupPolicy
 }
 
 func (p *genericPolicy) GetAPIVersion() string {
@@ -233,6 +289,11 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return policiesv1beta1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
 		return policiesv1beta1.GroupVersion.String()
+	case p.CleanupPolicy != nil:
+		if apiVersion := p.CleanupPolicy.GetAPIVersion(); apiVersion != "" {
+			return apiVersion
+		}
+		return kyvernov2.GroupVersion.String()
 	}
 	return ""
 }
@@ -261,6 +322,8 @@ func (p *genericPolicy) GetKind() string {
 		return "GeneratingPolicy"
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetKind()
+	case p.CleanupPolicy != nil:
+		return p.CleanupPolicy.GetKind()
 	}
 	return ""
 }
@@ -279,6 +342,8 @@ func (p *genericPolicy) IsNamespaced() bool {
 		return true
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetNamespace() != ""
+	case p.CleanupPolicy != nil:
+		return p.CleanupPolicy.IsNamespaced()
 	}
 	return false
 }
@@ -604,5 +669,15 @@ func NewDeletingPolicyFromLike(pol policiesv1beta1.DeletingPolicyLike) GenericPo
 		return NewNamespacedDeletingPolicy(typed)
 	default:
 		return nil
+	}
+}
+
+func NewCleanupPolicyFromInterface(pol kyvernov2.CleanupPolicyInterface) GenericPolicy {
+	if pol == nil {
+		return nil
+	}
+	return &genericPolicy{
+		Object:        pol,
+		CleanupPolicy: pol,
 	}
 }

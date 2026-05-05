@@ -30,4 +30,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.configmap)
+    - expression: generator.apply(variables.nsName, variables.configmap)

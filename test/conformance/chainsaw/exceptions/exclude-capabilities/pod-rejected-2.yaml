@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: busybox:1.28
+    image: public.ecr.aws/docker/library/busybox:1.28
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true

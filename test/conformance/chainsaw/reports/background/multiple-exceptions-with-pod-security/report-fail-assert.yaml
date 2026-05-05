@@ -14,7 +14,7 @@ results:
   policy: psp-baseline
   properties:
     controls: capabilities_baseline
-    controlsJSON: '[{"ID":"capabilities_baseline","Name":"Capabilities","Images":["docker.io/alpine:latest","docker.io/busybox:latest"]}]'
+    controlsJSON: '[{"ID":"capabilities_baseline","Name":"Capabilities","Images":["public.ecr.aws/docker/library/alpine:latest","public.ecr.aws/docker/library/busybox:latest"]}]'
     standard: baseline
     version: v1.29
   result: fail

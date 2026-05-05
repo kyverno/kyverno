@@ -1,12 +1,15 @@
 header:
-  schema-version: 1.0.0
-  expiration-date: '2025-01-15T01:00:00.000Z'
+  schema-version: 2.1.0
+  last-updated: '2026-03-20'
+  last-reviewed: '2026-03-20'
+  expiration-date: '2027-01-15T01:00:00.000Z'
   project-url: 'https://github.com/kyverno/kyverno'
+  project-release: '1.18.0'
   license: 'https://github.com/kyverno/kyverno/blob/main/LICENSE'
 project-lifecycle:
   bug-fixes-only: false
   core-maintainers:
-    - https://github.com/kyverno/kyverno/blob/main/MAINTAINERS.md
+    - 'https://github.com/kyverno/community/blob/main/MAINTAINERS.md'
   status: active
   release-process: 'https://github.com/kyverno/kyverno/releases'
 contribution-policy:
@@ -19,44 +22,105 @@ contribution-policy:
         - /
   contributing-policy: 'https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md'
   code-of-conduct:
-  - 'https://github.com/kyverno/kyverno/blob/main/CODE_OF_CONDUCT.md'
+    - 'https://github.com/kyverno/kyverno/blob/main/CODE_OF_CONDUCT.md'
 documentation:
-  - 'https://kyverno.io/docs/'
+  threat-model: 'https://kyverno.io/docs/guides/security/#threat-model'
+  external-interfaces: 'https://kyverno.io/docs/introduction/how-kyverno-works/'
+  verifying-artifacts: 'https://kyverno.io/docs/guides/security/#verifying-kyverno-container-images-install-manifest-and-helm-chart'
+  release-verification-identity: "Core: https://github.com/kyverno/kyverno/.github/workflows/release.yaml, Helm: https://github.com/kyverno/kyverno/.github/workflows/helm-release.yaml, Issuer: https://token.actions.githubusercontent.com"
+  sbom-access: 'https://kyverno.io/docs/guides/security/#fetching-the-sbom-for-kyverno'
+  project-members: 'https://github.com/kyverno/community/blob/main/MAINTAINERS.md'
+  roles-and-responsibilities: 'https://github.com/kyverno/community/blob/main/GOVERNANCE.md'
+  support-policy: 'https://kyverno.io/docs/installation/installation/#compatibility-matrix'
+  end-of-life-policy: 'https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types'
+  security-policy: 'https://kyverno.io/docs/security/'
+  vulnerability-reporting: 'https://kyverno.io/docs/guides/security/#disclosure-process'
 distribution-points:
   - 'https://github.com/orgs/kyverno/packages'
+  - 'https://artifacthub.io/packages/helm/kyverno/kyverno'
+  - 'https://ghcr.io/kyverno'
 security-artifacts:
   threat-model:
     threat-model-created: true
     evidence-url:
-    - 'https://kyverno.io/docs/security/#threat-model'
+      - 'https://kyverno.io/docs/security/#threat-model'
   self-assessment:
     self-assessment-created: true
     evidence-url:
-    - https://github.com/cncf/tag-security/blob/main/assessments/projects/kyverno/self-assessment.md
+      - https://github.com/cncf/tag-security/blob/main/community/assessments/projects/kyverno/self-assessment.md
 security-testing:
-- tool-type: sca
-  tool-name: Dependabot
-  tool-version: "2"
-  tool-url: https://github.com/dependabot
-  integration:
-    ad-hoc: false
-    ci: true
-    before-release: true 
+  - tool-type: sca
+    tool-name: Dependabot
+    tool-version: "2"
+    tool-url: https://github.com/dependabot/dependabot-core
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: true
+  - tool-type: sast
+    tool-name: golangci-lint
+    tool-version: v2.11.4
+    tool-url: https://github.com/golangci/golangci-lint
+    tool-rulesets:
+      - gosec
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: false
+  - tool-type: container-scanning
+    tool-name: Trivy
+    tool-version: v0.35.0
+    tool-url: https://github.com/aquasecurity/trivy
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: true
+  - tool-type: container-signing
+    tool-name: Cosign
+    tool-version: v4.1.0
+    tool-url: https://github.com/sigstore/cosign
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: true
+  - tool-type: sbom
+    tool-name: Cosign attach sbom (CycloneDX)
+    tool-version: v3.9.0
+    tool-url: https://github.com/sigstore/cosign
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: true
+  - tool-type: provenance
+    tool-name: SLSA GitHub Generator
+    tool-version: v2.1.0
+    tool-url: https://github.com/slsa-framework/slsa-github-generator
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: true
+  - tool-type: scorecard
+    tool-name: OpenSSF Scorecard
+    tool-version: v2.4.3
+    tool-url: https://github.com/ossf/scorecard
+    integration:
+      ad-hoc: false
+      ci: true
+      before-release: false
 security-contacts:
-- type: email
-  value: kyverno-security@googlegroups.com
-  primary: true
+  - type: email
+    value: kyverno-security@googlegroups.com
+    primary: true
 vulnerability-reporting:
   accepts-vulnerability-reports: true
   email-contact: kyverno-security@googlegroups.com
   security-policy: 'https://kyverno.io/docs/security/'
   bug-bounty-available: false
-  bug-bounty-url: ''
 dependencies:
   third-party-packages: true
   dependencies-lists:
-  - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
+    - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
   dependencies-lifecycle:
     policy-url: 'https://kyverno.io/docs/installation/#compatibility-matrix'
   env-dependencies-policy:
-    policy-url: ''
+    policy-url: 'https://github.com/kyverno/kyverno/blob/main/DEPENDENCY-POLICY.md'

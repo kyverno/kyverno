@@ -2,16 +2,15 @@ package utils
 
 import (
 	"github.com/go-logr/logr"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	policiesv1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1alpha1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -131,13 +130,24 @@ func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([
 
 func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, namespace string) ([]kyvernov2.PolicyException, error) {
 	var exceptions []kyvernov2.PolicyException
-	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
-		return nil, err
+	var polexs []*kyvernov2.PolicyException
+	var err error
+
+	if namespace == "*" {
+		polexs, err = polexLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		for _, polex := range polexs {
-			if polex.Spec.BackgroundProcessingEnabled() {
-				exceptions = append(exceptions, *polex)
-			}
+		polexs, err = polexLister.PolicyExceptions(namespace).List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, polex := range polexs {
+		if polex.Spec.BackgroundProcessingEnabled() {
+			exceptions = append(exceptions, *polex)
 		}
 	}
 	return exceptions, nil
@@ -284,6 +294,27 @@ func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyListe
 	return policies, nil
 }
 
+func FetchNamespacedMutatingPolicies(nmpolLister policiesv1beta1listers.NamespacedMutatingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedMutatingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var pols []*policiesv1beta1.NamespacedMutatingPolicy
+	if namespace != "" {
+		pols, err = nmpolLister.NamespacedMutatingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		pols, err = nmpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedMutatingPolicy, 0, len(pols))
+	for _, pol := range pols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
 func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageValidatingPolicyLister) ([]policiesv1beta1.ImageValidatingPolicy, error) {
 	var policies []policiesv1beta1.ImageValidatingPolicy
 	r, err := getExcludeReportingLabelRequirement()
@@ -321,8 +352,8 @@ func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1lister
 	return policies, nil
 }
 
-func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLister) ([]policiesv1alpha1.GeneratingPolicy, error) {
-	var policies []policiesv1alpha1.GeneratingPolicy
+func FetchGeneratingPolicy(gpolLister policiesv1beta1listers.GeneratingPolicyLister) ([]policiesv1beta1.GeneratingPolicy, error) {
+	var policies []policiesv1beta1.GeneratingPolicy
 	r, err := getExcludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
@@ -337,8 +368,29 @@ func FetchGeneratingPolicy(gpolLister policiesv1alpha1listers.GeneratingPolicyLi
 	return policies, nil
 }
 
-func FetchCELPolicyExceptions(celexLister policiesv1beta1listers.PolicyExceptionLister, namespace string) ([]*policiesv1beta1.PolicyException, error) {
-	exceptions, err := celexLister.PolicyExceptions(namespace).List(labels.Everything())
+func FetchNamespacedGeneratingPolicies(ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister, namespace string) ([]policiesv1beta1.NamespacedGeneratingPolicy, error) {
+	r, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	var gpols []*policiesv1beta1.NamespacedGeneratingPolicy
+	if namespace != "" {
+		gpols, err = ngpolLister.NamespacedGeneratingPolicies(namespace).List(labels.Everything().Add(*r))
+	} else {
+		gpols, err = ngpolLister.List(labels.Everything().Add(*r))
+	}
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]policiesv1beta1.NamespacedGeneratingPolicy, 0, len(gpols))
+	for _, pol := range gpols {
+		policies = append(policies, *pol)
+	}
+	return policies, nil
+}
+
+func FetchCELPolicyExceptions(celexLister celengine.PolicyExceptionLister) ([]*policiesv1beta1.PolicyException, error) {
+	exceptions, err := celexLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 				}
 			}
 		}
-	} else if gpol := genericPolicy.AsGeneratingPolicy(); gpol != nil {
+	} else if gpol := genericPolicy.AsGeneratingPolicyLike(); gpol != nil {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if ruleResponse.Status() == engineapi.RuleStatusPass {
 				rc.Pass++
@@ -151,7 +151,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 	}
 
 	// Handle MutatingPolicies
-	if policy := genericPolicy.AsMutatingPolicy(); policy != nil {
+	if policy := genericPolicy.AsMutatingPolicyLike(); policy != nil {
 		for _, rule := range response.PolicyResponse.Rules {
 			switch rule.Status() {
 			case engineapi.RuleStatusPass:

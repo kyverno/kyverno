@@ -19,13 +19,13 @@ spec:
         exclude:
         - controlName: "Privilege Escalation"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.containers[*].securityContext.allowPrivilegeEscalation"
           values:
           - "true"
         - controlName: "Privilege Escalation"
           images:
-          - nginx
+          - public.ecr.aws/docker/library/nginx
           restrictedField: "spec.initContainers[*].securityContext.allowPrivilegeEscalation"
           values:
           - "true"

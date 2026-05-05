@@ -9,11 +9,8 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,9 +34,6 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 	}
 	dataNew := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
-		compiler.GlobalContextKey:   globalcontext.Context{ContextInterface: context},
-		compiler.HttpKey:            http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:       imagedata.Context{ContextInterface: context},
 		compiler.ObjectKey:          object.UnstructuredContent(),
 		compiler.ResourceKey:        resource.Context{ContextInterface: context},
 		compiler.VariablesKey:       vars,

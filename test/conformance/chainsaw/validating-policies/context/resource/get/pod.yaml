@@ -6,7 +6,7 @@ metadata:
   name: policy-pod
 spec:
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     imagePullPolicy: Always
     name: nginx
     resources: {}

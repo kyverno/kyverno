@@ -12,7 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
@@ -50,6 +52,16 @@ func NewFakeClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersion
 		dyn:  c,
 		kube: kclient,
 	}, nil
+}
+
+// NewFakeClientWithDisco creates a fake client with the given dynamic, kube, and discovery clients.
+// Unlike NewClient, this does not start a background discovery cache polling goroutine.
+func NewFakeClientWithDisco(dyn dynamic.Interface, kube kubernetes.Interface, disco IDiscovery) Interface {
+	return &client{
+		dyn:   dyn,
+		disco: disco,
+		kube:  kube,
+	}
 }
 
 func NewEmptyFakeClient() Interface {

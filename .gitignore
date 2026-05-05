@@ -12,5 +12,6 @@ cmd/kyverno-init/kyvernopre
 cmd/cleanup-controller/cleanup-controller
 cmd/reports-controller/reports-controller
 cmd/background-controller/background-controller
+cmd/readiness-checker/readiness-checker
 coverage.out
 kyverno.tar

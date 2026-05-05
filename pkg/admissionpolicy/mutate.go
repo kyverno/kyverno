@@ -6,10 +6,10 @@ import (
 	"time"
 
 	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
-	celutils "github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	celutils "github.com/kyverno/sdk/cel/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -93,7 +93,7 @@ func processMAPNoBindings(policy *admissionregistrationv1beta1.MutatingAdmission
 		return engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil), nil
 	}
 
-	mapLogger.V(3).Info("apply mutatingadmissionpolicy %s to resource %s", policy.GetName(), resPath)
+	mapLogger.V(3).Info("applying mutatingadmissionpolicy to resource", "policy", policy.GetName(), "resource", resPath)
 	er, err = mutateResource(policy, nil, resource, nil, gvr, namespace, a, backgroundScan)
 	if err != nil {
 		mapLogger.Error(err, "failed to mutate resource with mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)

@@ -15,4 +15,4 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx
+          image: public.ecr.aws/docker/library/nginx

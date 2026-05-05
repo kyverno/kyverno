@@ -7,5 +7,5 @@ metadata:
   namespace: test-cm-lookup
 spec:
   containers:
-  - image: nginx
+  - image: public.ecr.aws/docker/library/nginx
     name: test-cm-lookup

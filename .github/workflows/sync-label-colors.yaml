@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Sync Label Colors
+
+# On-demand workflow to create or update label colors from .github/labels.yml.
+# Run manually from Actions → Sync Label Colors → Run workflow.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/labels.yml
+      - .github/workflows/sync-label-colors.yaml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install YAML parser
+        run: npm install js-yaml@4
+
+      - name: Sync labels from config
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+
+            const raw = yaml.load(fs.readFileSync('.github/labels.yml', 'utf8'));
+            if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+              core.setFailed('.github/labels.yml must be a mapping of label name → { color, description, ... }');
+              return;
+            }
+
+            const labels = Object.entries(raw).map(([name, spec]) => ({
+              name,
+              color: spec && spec.color != null ? String(spec.color) : '',
+              description: spec && spec.description != null ? String(spec.description) : '',
+            }));
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description || '',
+                });
+                core.info(`Updated label: ${label.name}`);
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description || '',
+                  });
+                  core.info(`Created label: ${label.name}`);
+                } else {
+                  core.warning(`Failed to sync label "${label.name}": ${e.message}`);
+                }
+              }
+            }
+
+            core.info(`Done — synced ${labels.length} labels.`);

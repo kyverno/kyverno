@@ -52,7 +52,8 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 			if polex.Spec.Conditions != nil {
 				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
 				if err != nil {
-					return nil
+					logger.Error(err, "failed to evaluate exception conditions", "exception", polex.GetName())
+					continue
 				}
 				if !passed {
 					continue
