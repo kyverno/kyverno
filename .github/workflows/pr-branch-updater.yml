@@ -1,0 +1,23 @@
+name: PR Branch Auto-Updater
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-branch-updater
+  cancel-in-progress: false
+
+jobs:
+  update:
+    uses: kyverno/.github/.github/workflows/pr-branch-updater.yml@995416156c093fc5d1d6d905fd619d5bb40081dd
+    secrets:
+      # Use the bot token so update-branch can also handle PRs that touch
+      # workflow files (requires workflow write permission).
+      GH_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
