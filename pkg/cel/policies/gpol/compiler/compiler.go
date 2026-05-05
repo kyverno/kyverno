@@ -26,15 +26,10 @@ import (
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var (
-	gpolCompilerVersion = version.MajorMinor(2, 0)
-	compileError        = "generating policy compiler " + gpolCompilerVersion.String() + " error: %s"
-)
+var compileError = "generating policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
 
 type Compiler interface {
 	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
@@ -46,7 +41,7 @@ func NewCompiler() Compiler {
 
 type compilerImpl struct{}
 
-func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -58,8 +53,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(gpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,75 +67,67 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	libEnvOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		generator.Lib(
+			generator.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			compiler.KyvernoVersion,
+		),
+		image.Lib(
+			compiler.KyvernoVersion,
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		hash.Lib(
+			compiler.KyvernoVersion,
+		),
+		math.Lib(
+			compiler.KyvernoVersion,
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			compiler.KyvernoVersion,
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			compiler.KyvernoVersion,
+		),
+		random.Lib(
+			compiler.KyvernoVersion,
+		),
+		x509.Lib(
+			compiler.KyvernoVersion,
+		),
+		time.Lib(
+			compiler.KyvernoVersion,
+		),
+		transform.Lib(
+			compiler.KyvernoVersion,
+		),
+		gzip.Lib(
+			compiler.KyvernoVersion,
+		),
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			compiler.KyvernoVersion,
+		),
+	}
+
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libraries
-		environment.VersionedOptions{
-			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				generator.Lib(
-					generator.Context{ContextInterface: libsctx},
-					generator.Latest(),
-				),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-			},
-		},
-	)
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -150,12 +136,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := gpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
