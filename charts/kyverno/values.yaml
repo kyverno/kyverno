@@ -36,6 +36,9 @@ global:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Global priority class name for pod priority. Non-global values will override the global value.
+  priorityClassName: ''
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
@@ -304,6 +307,14 @@ config:
 
   # -- Generate success events.
   generateSuccessEvents: false
+
+  # -- Comma-separated list of event actions for which success events should be generated.
+  # When set, only success events matching the specified actions are emitted.
+  # Requires `generateSuccessEvents` to be `true`.
+  # Valid values: "Resource Mutated", "Resource Passed", "Resource Generated", "Resource Cleaned Up".
+  # Example: "Resource Mutated" or "Resource Mutated,Resource Generated".
+  # @default -- "" (empty, all success events are emitted when generateSuccessEvents is true)
+  successEventActions: ""
 
   # -- Maximum cumulative size of context data during policy evaluation.
   # Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152).

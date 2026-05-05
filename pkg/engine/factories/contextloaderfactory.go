@@ -106,7 +106,7 @@ func (l *contextLoader) newLoader(
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
-			ldr := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext)
+			ldr := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext, l.policyNamespace)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.V(3).Info("disabled loading of ConfigMap context entry", "name", entry.Name)

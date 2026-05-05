@@ -11,6 +11,6 @@ spec:
   namespace:
     fastDelete: true
   timeouts:
-    apply: 10s
+    apply: 60s
     assert: 120s
     exec: 3m

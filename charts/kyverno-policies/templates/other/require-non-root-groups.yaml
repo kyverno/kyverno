@@ -9,8 +9,8 @@ metadata:
     pod-policies.kyverno.io/autogen-controllers: {{ . }}
     {{- end }}
     policies.kyverno.io/category: Sample
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/minversion: 1.3.6
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
