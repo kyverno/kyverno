@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type generator struct {
@@ -196,7 +197,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
 					newResource.SetAPIVersion(generatedResourceAPIVersion)
 				}
-				if targetMeta.GetNamespace() == "" {
+				if targetMeta.GetNamespace() == "" && g.isNamespacedResource(targetMeta.GetAPIVersion(), targetMeta.GetKind()) {
 					newResource.SetNamespace("default")
 				}
 
@@ -287,4 +288,24 @@ func (g *generator) loadContext(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (g *generator) isNamespacedResource(apiVersion, kind string) bool {
+	if apiVersion == "" || kind == "" {
+		return true
+	}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		g.logger.V(4).Info("failed to parse apiVersion for generated resource scope lookup", "apiVersion", apiVersion, "kind", kind, "error", err.Error())
+		return true
+	}
+	resources, err := g.client.Discovery().FindResources(gv.Group, gv.Version, kind, "")
+	if err != nil {
+		g.logger.V(4).Info("failed to discover generated resource scope", "apiVersion", apiVersion, "kind", kind, "error", err.Error())
+		return true
+	}
+	for _, resource := range resources {
+		return resource.Namespaced
+	}
+	return true
 }
