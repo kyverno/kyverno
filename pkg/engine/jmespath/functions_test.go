@@ -579,6 +579,27 @@ func Test_LabelMatch(t *testing.T) {
 			test:           `{ "app.kubernetes.io/name": "test-app" }`,
 			expectedResult: false,
 		},
+		{
+			resource: []byte(`
+			{
+				"metadata": {
+					"labels": {
+						"app": "test-app",
+						"annotations": {
+							"test": "test"
+						},
+						"ownerReferences": [
+							{
+								"name": "test"
+							}
+						]
+					}
+				}
+			}
+			`),
+			test:           `{ "app": "test-app", "annotations": { "test": "test" } }`,
+			expectedResult: true,
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
