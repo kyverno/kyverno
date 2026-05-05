@@ -5,10 +5,7 @@ import (
 	"k8s.io/apiserver/pkg/cel"
 )
 
-var (
-	RequestType       = BuildRequestType()
-	OriginRequestType = apiservercel.BuildRequestType()
-)
+var RequestType = BuildRequestType()
 
 func BuildRequestType() *cel.DeclType {
 	base := apiservercel.BuildRequestType()
