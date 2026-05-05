@@ -23,15 +23,10 @@ import (
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var (
-	dpolCompilerVersion = version.MajorMinor(2, 0)
-	compileError        = "deleting policy compiler " + dpolCompilerVersion.String() + " error: %s"
-)
+var compileError = "deleting policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
 
 type Compiler interface {
 	Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
@@ -52,12 +47,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
-	dpolEnvSet, variablesProvider, err := c.createBaseDpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := dpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseDpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -99,7 +89,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	}, nil
 }
 
-func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -113,8 +103,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 	)
 
-	base := environment.MustBaseEnvSet(dpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,68 +120,58 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			globalcontext.Latest(),
+			compiler.KyvernoVersion,
 		),
 		image.Lib(
-			image.Latest(),
+			compiler.KyvernoVersion,
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			imagedata.Latest(),
+			compiler.KyvernoVersion,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			resource.Latest(),
+			compiler.KyvernoVersion,
 		),
 		hash.Lib(
-			hash.Latest(),
+			compiler.KyvernoVersion,
 		),
 		math.Lib(
-			math.Latest(),
+			compiler.KyvernoVersion,
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			json.Latest(),
+			compiler.KyvernoVersion,
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			yaml.Latest(),
+			compiler.KyvernoVersion,
 		),
 		random.Lib(
-			random.Latest(),
+			compiler.KyvernoVersion,
 		),
 		x509.Lib(
-			x509.Latest(),
+			compiler.KyvernoVersion,
 		),
 		time.Lib(
-			time.Latest(),
+			compiler.KyvernoVersion,
 		),
 		transform.Lib(
-			transform.Latest(),
+			compiler.KyvernoVersion,
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			compiler.KyvernoVersion,
 		),
 		http.Lib(
 			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
-			http.Latest(),
+			compiler.KyvernoVersion,
 		),
 	}
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libaries
-		environment.VersionedOptions{
-			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
-		},
-	)
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}
