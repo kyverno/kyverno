@@ -4,8 +4,14 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
 	"github.com/kyverno/sdk/cel/libs/image"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/library"
 )
+
+// breaking change history is stored inside the library structure. each policy compiler can pass a kyverno
+// version from which it wants its libraries to be at. during a backport, you can set this to the version
+// you are building.
+var KyvernoVersion = version.MajorMinor(1, 18)
 
 func DefaultEnvOptions() []cel.EnvOption {
 	return []cel.EnvOption{
@@ -17,11 +23,13 @@ func DefaultEnvOptions() []cel.EnvOption {
 		cel.OptionalTypes(),
 		ext.Bindings(),
 		ext.Encoders(),
-		ext.Lists(),
+		// versions below match the kubernetes base env set behavior (k8s.io/apiserver/pkg/cel/environment).
+		// we moved away from using it directly, but we want to preserve the same library versions.
+		ext.Lists(ext.ListsVersion(3)),
 		ext.Math(),
 		ext.Protos(),
 		ext.Sets(),
-		ext.Strings(),
+		ext.Strings(ext.StringsVersion(2)),
 		// register kubernetes libs
 		library.CIDR(),
 		library.Format(),
@@ -30,7 +38,7 @@ func DefaultEnvOptions() []cel.EnvOption {
 		library.Regex(),
 		library.URLs(),
 		library.Quantity(),
-		library.SemverLib(),
+		library.SemverLib(library.SemverVersion(1)),
 	}
 }
 
@@ -48,6 +56,6 @@ func NewMatchImageEnv() (*cel.Env, error) {
 	}
 	return base.Extend(
 		cel.Variable(ImageRefKey, cel.StringType),
-		image.Lib(image.Latest()),
+		image.Lib(KyvernoVersion),
 	)
 }
