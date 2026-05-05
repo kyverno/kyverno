@@ -181,6 +181,18 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
+				effectiveAPIVersion := targetMeta.GetAPIVersion()
+				if effectiveAPIVersion == "" {
+					effectiveAPIVersion = generatedObj.GetAPIVersion()
+					newResource.SetAPIVersion(effectiveAPIVersion)
+				}
+
+				effectiveNamespace := targetMeta.GetNamespace()
+				if effectiveNamespace == "" && g.isNamespacedResource(effectiveAPIVersion, targetMeta.GetKind()) {
+					effectiveNamespace = "default"
+				}
+				newResource.SetNamespace(effectiveNamespace)
+
 				if !g.rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
@@ -193,18 +205,11 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 
 				logger.V(4).Info("updating existing resource")
-				if targetMeta.GetAPIVersion() == "" {
-					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
-					newResource.SetAPIVersion(generatedResourceAPIVersion)
-				}
-				if targetMeta.GetNamespace() == "" && g.isNamespacedResource(targetMeta.GetAPIVersion(), targetMeta.GetKind()) {
-					newResource.SetNamespace("default")
-				}
 
 				if g.policy.GetSpec().UseServerSideApply {
-					_, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+					_, err = g.client.ApplyResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, targetMeta.GetName(), newResource, false, "generate")
 				} else {
-					_, err = g.client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+					_, err = g.client.UpdateResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, newResource, false)
 				}
 				if err != nil {
 					logger.Error(err, "failed to update resource")
