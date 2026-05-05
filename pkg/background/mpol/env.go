@@ -1,13 +1,10 @@
 package mpol
 
 import (
-	"context"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/hash"
 	"github.com/kyverno/sdk/cel/libs/http"
@@ -22,12 +19,8 @@ import (
 	"github.com/kyverno/sdk/cel/libs/user"
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
-
-var targetConstraintsEnvironmentVersion = version.MajorMinor(1, 0)
 
 func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, error) {
 	baseOpts := compiler.DefaultEnvOptions()
@@ -36,8 +29,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(targetConstraintsEnvironmentVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, err
 	}
@@ -51,82 +43,60 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
 	libEnvOpts := []cel.EnvOption{
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			globalcontext.Latest(),
+			compiler.KyvernoVersion,
 		),
 		image.Lib(
-			image.Latest(),
+			compiler.KyvernoVersion,
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			imagedata.Latest(),
+			compiler.KyvernoVersion,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			resource.Latest(),
+			compiler.KyvernoVersion,
 		),
 		user.Lib(
-			user.Latest(),
+			compiler.KyvernoVersion,
 		),
 		math.Lib(
-			math.Latest(),
+			compiler.KyvernoVersion,
 		),
 		hash.Lib(
-			hash.Latest(),
+			compiler.KyvernoVersion,
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			json.Latest(),
+			compiler.KyvernoVersion,
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			yaml.Latest(),
+			compiler.KyvernoVersion,
 		),
 		random.Lib(
-			random.Latest(),
+			compiler.KyvernoVersion,
 		),
 		time.Lib(
-			time.Latest(),
+			compiler.KyvernoVersion,
 		),
 		transform.Lib(
-			transform.Latest(),
+			compiler.KyvernoVersion,
 		),
 		x509.Lib(
-			x509.Latest(),
+			compiler.KyvernoVersion,
 		),
-	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
-			http.Latest(),
-		))
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			compiler.KyvernoVersion,
+		),
 	}
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedEnvSet, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: targetConstraintsEnvironmentVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libaries
-		environment.VersionedOptions{
-			IntroducedVersion: targetConstraintsEnvironmentVersion,
-			EnvOptions:        libEnvOpts,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return extendedEnvSet.StoredExpressionsEnv(), nil
+	return env.Extend(append(baseOpts, libEnvOpts...)...)
 }
