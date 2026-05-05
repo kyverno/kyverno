@@ -29,13 +29,9 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
-
-var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
 	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
@@ -57,12 +53,7 @@ type compilerImpl struct {
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, err))
-	}
-
-	env, err := ivpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -163,7 +154,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *engine.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*cel.Env, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -182,8 +173,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		)
 	}
 
-	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -201,69 +191,59 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			globalcontext.Latest(),
+			engine.KyvernoVersion,
 		),
 		image.Lib(
-			image.Latest(),
+			engine.KyvernoVersion,
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			imagedata.Latest(),
+			engine.KyvernoVersion,
 		),
 		imageverify.Lib(
-			imageverify.Latest(), c.ictx, ivpol, c.lister,
+			engine.KyvernoVersion, c.ictx, ivpol, c.lister,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			resource.Latest(),
+			engine.KyvernoVersion,
 		),
 		user.Lib(
-			user.Latest(),
+			engine.KyvernoVersion,
 		),
 		math.Lib(
-			math.Latest(),
+			engine.KyvernoVersion,
 		),
 		hash.Lib(
-			hash.Latest(),
+			engine.KyvernoVersion,
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			json.Latest(),
+			engine.KyvernoVersion,
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			yaml.Latest(),
+			engine.KyvernoVersion,
 		),
 		random.Lib(
-			random.Latest(),
+			engine.KyvernoVersion,
 		),
 		time.Lib(
-			time.Latest(),
+			engine.KyvernoVersion,
 		),
 		transform.Lib(
-			transform.Latest(),
+			engine.KyvernoVersion,
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			engine.KyvernoVersion,
 		),
 		http.Lib(
 			http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
-			http.Latest(),
+			engine.KyvernoVersion,
 		),
 	}
 
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: ivpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libaries
-		environment.VersionedOptions{
-			IntroducedVersion: ivpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
-		},
-	)
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}
