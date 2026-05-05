@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-secret
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: dGxzLWNydA==
+  tls.key: dGxzLWtleQ==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opaque-secret
+  namespace: default
+type: Opaque
+data:
+  password: cGFzc3dvcmQ=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-with-tls-secret
+  namespace: default
+  labels:
+    secretRef: tls-secret
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-with-tls-secret
+  template:
+    metadata:
+      labels:
+        app: app-with-tls-secret
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.21
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-with-opaque-secret
+  namespace: default
+  labels:
+    secretRef: opaque-secret
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-with-opaque-secret
+  template:
+    metadata:
+      labels:
+        app: app-with-opaque-secret
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.21
