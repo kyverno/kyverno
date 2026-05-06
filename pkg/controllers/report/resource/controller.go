@@ -24,13 +24,12 @@ import (
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/dump"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -111,8 +110,6 @@ type controller struct {
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
-	adminCtx        context.Context
-	adminCancel     context.CancelFunc
 	watchDeathChan  chan (schema.GroupVersionResource)
 }
 
@@ -202,7 +199,6 @@ func NewController(
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	c.adminCtx, c.adminCancel = context.WithCancel(context.Background())
 	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	return &c
 }
@@ -212,10 +208,12 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
+	adminCtx, adminCancel := context.WithCancel(context.Background())
+	defer adminCancel()
 	go func() {
 		for {
 			select {
-			case <-c.adminCtx.Done():
+			case <-adminCtx.Done():
 				return
 			case gvr, ok := <-c.watchDeathChan:
 				if !ok {
@@ -236,8 +234,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}()
 
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
-
-	c.adminCancel()
 	c.stopDynamicWatchers()
 }
 
