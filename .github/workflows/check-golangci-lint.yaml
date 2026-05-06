@@ -32,6 +32,7 @@ jobs:
         with:
           version: v2.11.4
           skip-cache: true
+          verify: false
 
   sync-issue:
     if: always() && github.event_name == 'push'
