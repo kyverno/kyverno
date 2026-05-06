@@ -18,7 +18,11 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -141,8 +145,21 @@ func TestReconcile_DeletingError_CronStillRearmed(t *testing.T) {
 			Name: "dpol",
 		},
 		Spec: policiesv1beta1.DeletingPolicySpec{
-			Schedule:         "* * * * *",
-			MatchConstraints: nil, // nil causes deleting() to return an error immediately
+			Schedule: "* * * * *",
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
 		},
 		Status: policiesv1beta1.DeletingPolicyStatus{
 			LastExecutionTime: metav1.NewTime(
@@ -151,7 +168,7 @@ func TestReconcile_DeletingError_CronStillRearmed(t *testing.T) {
 		},
 	}
 
-	fakeClient := versionedfake.NewSimpleClientset(&pol)
+	fakeKyvernoClient := versionedfake.NewSimpleClientset(&pol)
 
 	baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -166,9 +183,22 @@ func TestReconcile_DeletingError_CronStillRearmed(t *testing.T) {
 		name: pol.Name,
 	}
 
+	// List returns a non-recoverable error to simulate a transient API server failure.
+	// Register the configmaps list kind so the fake dynamic client reaches the reactor.
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
+	dynClient.PrependReactor("list", "*", func(_ k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("connection refused")
+	})
+	dClient := dclient.NewFakeClientWithDisco(dynClient, kubefake.NewSimpleClientset(), dclient.NewFakeDiscoveryClient(nil))
+
 	c := &controller{
-		client:        dclient.NewEmptyFakeClient(),
-		kyvernoClient: fakeClient,
+		client:        dClient,
+		kyvernoClient: fakeKyvernoClient,
 		queue:         cq,
 		provider:      provider,
 	}
