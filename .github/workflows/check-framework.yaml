@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: framework tests (envtest)
 
 on:
@@ -10,9 +11,13 @@ on:
       - main
       - release-*
 
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
-  ENVTEST_VERSION: "1.33"
-  K8S_VERSION: "1.33"
+  ENVTEST_VERSION: "v0.23.0" # adjacent to 1.35
+  K8S_VERSION: "1.35"
 
 jobs:
   tests:
@@ -23,31 +28,31 @@ jobs:
       matrix:
         policy-type: [vpol, mpol, gpol]
     steps:
-    - name: Checkout
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-      with:
-        android: true
-        docker-images: false
-        dotnet: false
-        haskell: false
-        large-packages: false
-        swap-storage: false
-        tool-cache: false
-    - name: Setup Go
-      id: setup-go
-      uses: ./.github/actions/go/setup
-      with:
-        gobuild-cache-prefix: ''
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: ''
 
-    # turn to a make command
-    - name: Install envtest
-      run: |
-        go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+      # todo: turn to a make command
+      - name: Install envtest
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$ENVTEST_VERSION
 
-    - name: Setup envtest binaries
-      run: |
-        echo "KUBEBUILDER_ASSETS=$(setup-envtest use $K8S_VERSION -p path)" >> $GITHUB_ENV
+      - name: Setup envtest binaries
+        run: |
+          echo "KUBEBUILDER_ASSETS=$(setup-envtest use $K8S_VERSION -p path)" >> $GITHUB_ENV
 
-    - name: Run tests
-      run: go test -tags=integration ./test/integration/${{ matrix.policy-type }}/...
+      - name: Run tests
+        run: go test -tags=integration ./test/integration/${{ matrix.policy-type }}/...
