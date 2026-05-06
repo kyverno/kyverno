@@ -494,7 +494,11 @@ func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
 			for _, r := range responses {
 				if r.Policy().GetName() == "generate-env-config" {
 					found = true
-					// Verify the policy produced a pass/fail result based on the configmap lookup
+					require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+					// Verify the policy produced a pass result
+					for _, rule := range r.PolicyResponse.Rules {
+						assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected rule to pass")
+					}
 					break
 				}
 			}
