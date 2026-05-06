@@ -222,7 +222,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 				c.lock.Lock()
 				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
 					attempts := 0
-					for attempts < 5 {
+					for attempts <= 5 {
 						w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
 						if err != nil {
 							attempts++
