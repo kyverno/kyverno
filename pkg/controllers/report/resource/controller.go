@@ -2,7 +2,8 @@ package resource
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -27,6 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/dump"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -107,6 +111,9 @@ type controller struct {
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
+	adminCtx        context.Context
+	adminCancel     context.CancelFunc
+	watchDeathChan  chan (schema.GroupVersionResource)
 }
 
 func NewController(
@@ -203,7 +210,31 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
+	c.adminCtx, c.adminCancel = context.WithCancel(ctx)
+	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
+	go func() {
+		for {
+			select {
+			case <-c.adminCtx.Done():
+				return
+			case gvr := <-c.watchDeathChan:
+				c.lock.Lock()
+				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
+					w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
+					if err != nil {
+						logger.Error(err, "failed to start watcher")
+					}
+					c.dynamicWatchers[gvr] = w
+				}
+				c.lock.Unlock()
+			}
+		}
+	}()
+
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+
+	c.adminCancel()
+	close(c.watchDeathChan)
 	c.stopDynamicWatchers()
 }
 
@@ -256,7 +287,7 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
-func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*watcher, error) {
+func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, errChan chan schema.GroupVersionResource) (*watcher, error) {
 	hashes := map[types.UID]Resource{}
 	var resourceVersion string
 
@@ -323,7 +354,20 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			case watch.Deleted:
 				c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
 			case watch.Error:
-				logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+				errObject := apierrors.FromObject(event.Object)
+				statusErr, ok := errObject.(*apierrors.StatusError)
+				if !ok {
+					logger.Error(fmt.Errorf("unknown error object: %s", dump.Pretty(event.Object)), "unexpected watch error type")
+					continue
+				}
+
+				logger.Error(statusErr, fmt.Sprintf("watch error for gvr: %s", gvr))
+				// status gone error will signal for a watcher restart to the admin goroutine
+				if statusErr.ErrStatus.Code == http.StatusGone {
+					logger.V(2).Info(fmt.Sprintf("watcher for gvr %s got resource version too old, restarting", gvr))
+					errChan <- gvr
+					return
+				}
 			}
 		}
 	}(gvr)
@@ -517,7 +561,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			dynamicWatchers[gvr] = c.dynamicWatchers[gvr]
 			delete(c.dynamicWatchers, gvr)
 		} else {
-			if w, err := c.startWatcher(ctx, logger, gvr, gvk); err != nil {
+			if w, err := c.startWatcher(ctx, logger, gvr, gvk, c.watchDeathChan); err != nil {
 				logger.Error(err, "failed to start watcher")
 			} else {
 				dynamicWatchers[gvr] = w
