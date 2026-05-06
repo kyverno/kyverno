@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  ENVTEST_VERSION: "v0.23.0" # adjacent to 1.35
-  K8S_VERSION: "1.35"
+  ENVTEST_VERSION: "v0.24.0" # adjacent to 1.36
+  K8S_VERSION: "1.36"
 
 jobs:
   tests:
