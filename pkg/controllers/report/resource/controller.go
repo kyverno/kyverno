@@ -221,12 +221,10 @@ func (c *controller) Run(ctx context.Context, workers int) {
 				}
 				c.lock.Lock()
 				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
-					attempts := 0
-					for attempts <= 5 {
+					for attempts := 0; attempts <= maxRetries; attempts++ {
 						w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
 						if err != nil {
-							attempts++
-							logger.Error(err, "failed to start watcher, sleeping 2 seconds the retrying")
+							logger.Error(err, "failed to start watcher, sleeping 2 seconds then retrying")
 							time.Sleep(time.Second * 2)
 						} else {
 							c.dynamicWatchers[gvr] = w
