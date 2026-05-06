@@ -87,6 +87,18 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
+	for _, pol := range response.Policies {
+		var rules []string
+		for i := range pol.Rules {
+			if pol.Rules[i].HasStatus(engineapi.RuleStatusPass) {
+				rules = append(rules, pol.Rules[i].Name())
+			}
+		}
+		if len(rules) != 0 {
+			logger.V(2).Info("mutation rules from policy applied successfully", "policy", pol.Policy.GetName(), "rules", rules)
+		}
+	}
+
 	go func() {
 		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
