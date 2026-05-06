@@ -202,6 +202,8 @@ func NewController(
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	c.adminCtx, c.adminCancel = context.WithCancel(context.Background())
+	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	return &c
 }
 
@@ -210,21 +212,23 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	c.adminCtx, c.adminCancel = context.WithCancel(ctx)
-	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	go func() {
 		for {
 			select {
 			case <-c.adminCtx.Done():
 				return
-			case gvr := <-c.watchDeathChan:
+			case gvr, ok := <-c.watchDeathChan:
+				if !ok {
+					return
+				}
 				c.lock.Lock()
 				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
 					w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
 					if err != nil {
 						logger.Error(err, "failed to start watcher")
+					} else {
+						c.dynamicWatchers[gvr] = w
 					}
-					c.dynamicWatchers[gvr] = w
 				}
 				c.lock.Unlock()
 			}
@@ -234,7 +238,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 
 	c.adminCancel()
-	close(c.watchDeathChan)
 	c.stopDynamicWatchers()
 }
 
@@ -365,6 +368,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				// status gone error will signal for a watcher restart to the admin goroutine
 				if statusErr.ErrStatus.Code == http.StatusGone {
 					logger.V(2).Info(fmt.Sprintf("watcher for gvr %s got resource version too old, restarting", gvr))
+					watchInterface.Stop()
 					errChan <- gvr
 					return
 				}
