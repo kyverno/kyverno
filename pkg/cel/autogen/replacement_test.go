@@ -48,6 +48,16 @@ func TestUpdateGenRuleByte(t *testing.T) {
 			want:   []byte("oldObject.metadata.namespace"),
 		},
 		{
+			pbyte:  []byte("object.metadata.namespace"),
+			config: "cronjobs",
+			want:   []byte("object.metadata.namespace"),
+		},
+		{
+			pbyte:  []byte("oldObject.metadata.namespace"),
+			config: "cronjobs",
+			want:   []byte("oldObject.metadata.namespace"),
+		},
+		{
 			pbyte:  []byte("object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
 			config: "cronjobs",
 			want:   []byte("object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
