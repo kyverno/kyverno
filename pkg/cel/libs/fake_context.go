@@ -174,3 +174,14 @@ func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerN
 	cp.triggerUID = triggerUID
 	cp.restoreCache = restoreCache
 }
+
+func (f *FakeContextProvider) Clone() Context {
+	// Returns a shallow copy. Maps, clients, and other referenced mutable state remain shared.
+	// Only the copied top-level struct fields and the per-worker generatedResources list are isolated here.
+	clone := *f
+
+	// generatedResources is per-evaluation state. Ensure each worker starts with a clean slate.
+	clone.generatedResources = make([]*unstructured.Unstructured, 0)
+
+	return &clone
+}

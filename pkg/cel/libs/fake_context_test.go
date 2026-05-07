@@ -148,3 +148,37 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		assert.Nil(t, got)
 	}
 }
+
+func TestFakeContextProvider_Clone(t *testing.T) {
+	original := &FakeContextProvider{
+		generatedResources: make([]*unstructured.Unstructured, 0),
+	}
+	original.SetGenerateContext("policyA", "triggerA", "default", "v1", "", "Pod", "123", true)
+
+	// Pre-populate original to verify Clone() initializes an isolated, empty slice
+	originalResource := &unstructured.Unstructured{Object: map[string]interface{}{"kind": "ConfigMap"}}
+	original.generatedResources = append(original.generatedResources, originalResource)
+
+	cloneContext := original.Clone()
+	clone, ok := cloneContext.(*FakeContextProvider)
+	assert.True(t, ok, "cloned context should be of type *FakeContextProvider")
+
+	clone.SetGenerateContext("policyB", "triggerB", "kube-system", "v1", "", "Service", "456", false)
+
+	assert.Equal(t, "policyA", original.policyName)
+	assert.Equal(t, true, original.restoreCache)
+
+	assert.Equal(t, "policyB", clone.policyName)
+	assert.Equal(t, false, clone.restoreCache)
+
+	// Verify slice isolation
+	assert.Len(t, original.generatedResources, 1)
+	assert.Len(t, clone.generatedResources, 0)
+
+	// Verify mutations don't leak to the original provider
+	mockResource := &unstructured.Unstructured{Object: map[string]interface{}{"kind": "Pod"}}
+	clone.generatedResources = append(clone.generatedResources, mockResource)
+
+	assert.Len(t, original.generatedResources, 1)
+	assert.Len(t, clone.generatedResources, 1)
+}
