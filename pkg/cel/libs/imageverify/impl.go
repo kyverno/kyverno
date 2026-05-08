@@ -62,19 +62,34 @@ func ImageVerifyCELFuncs(
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
 	ctx := context.TODO()
+
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
 		return types.WrapErr(err)
 	} else {
+		f.logger.V(4).Info(
+			"verifying image signatures",
+			"image", image,
+			"attestors", len(attestors),
+		)
+
 		count := 0
+
 		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
 		} else if !match {
+			f.logger.V(6).Info(
+				"image did not match configured image rules",
+				"image", image,
+			)
+
 			return f.NativeToValue(count)
 		}
+
 		for _, attestor := range attestors {
 			opts := GetRemoteOptsFromPolicy(f.creds)
+
 			img, err := f.imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
@@ -84,25 +99,46 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
 					f.logger.Info("failed to verify image cosign", "error", err)
 				} else {
+					f.logger.V(6).Info(
+						"image signature verified successfully",
+						"image", image,
+					)
+
 					count += 1
 				}
 			} else if attestor.IsNotary() {
 				var certs, tsaCerts string
+
 				if attestor.Notary.Certs != nil {
 					certs = attestor.Notary.Certs.Value
 				}
+
 				if attestor.Notary.TSACerts != nil {
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
+
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify image notary", "error", err)
 				} else {
+					f.logger.V(6).Info(
+						"image signature verified successfully",
+						"image", image,
+					)
+
 					count += 1
 				}
 			}
 		}
+
+		f.logger.V(4).Info(
+			"completed image signature verification",
+			"image", image,
+			"verifiedCount", count,
+		)
+
 		return f.NativeToValue(count)
 	}
+
 }
 
 func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {

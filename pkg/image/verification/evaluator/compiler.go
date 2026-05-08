@@ -201,7 +201,11 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			engine.KyvernoVersion,
 		),
 		imageverify.Lib(
-			engine.KyvernoVersion, c.ictx, ivpol, c.lister,
+			logger,
+			engine.KyvernoVersion,
+			c.ictx,
+			ivpol,
+			c.lister,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
