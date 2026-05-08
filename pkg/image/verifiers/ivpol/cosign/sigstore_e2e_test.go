@@ -2,10 +2,12 @@
 // verification path, exercised against a real GitHub Actions Artifact
 // Attestations bundle + TSA cert chain.
 //
-// Tests are skipped when the fixtures aren't present, so this file is
-// safe to keep in the upstream tree even though the fixtures live outside
-// the repository (in /home/jim/dev/3pp/kyverno-tsa-debug). See
-// sigstore/cosign#4847 for the bug these fixtures reproduce.
+// Fixtures are loaded from $KYVERNO_TSA_FIXTURE_DIR. When that env var is
+// unset the tests skip transparently, so this file is safe to ship to
+// upstream Kyverno without bundling the actual artefacts. The reproducer
+// at github.com/jimgus/kyverno-tsa-debug produces the bundle.json and
+// tsaCertChain.pem these tests consume; see sigstore/cosign#4847 for the
+// bug they reproduce.
 
 package cosign
 

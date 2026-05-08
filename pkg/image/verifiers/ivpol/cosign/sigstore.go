@@ -114,7 +114,7 @@ func dispatchVerifyAttestations(ctx context.Context, signedImgRef name.Reference
 // each one against the composed trusted material using sigstore-go directly.
 //
 // This bypasses cosign.VerifyImageAttestations (which has the v2->v3
-// regression on the legacy TSA fields, sigstore/cosign#4849) and lets us
+// regression on the legacy TSA fields, sigstore/cosign#4847) and lets us
 // honour both TrustedMaterial and a caller-provided TSA chain.
 //
 // The TSA cert chain (if any) is read from co.TSACertificate /
@@ -175,8 +175,21 @@ func verifyImageBundleAttestations(ctx context.Context, signedImgRef name.Refere
 }
 
 // buildBundlePolicy constructs the sigstore-go verify.PolicyBuilder for an
-// IVPOL bundle verification call. It expects the image digest (which sigstore-
-// go binds the verification to) and identity matchers from CheckOpts.
+// IVPOL bundle verification call. It expects the image digest (which
+// sigstore-go binds the verification to) and identity matchers from
+// CheckOpts.
+//
+// All identities in co.Identities are passed to the policy. sigstore-go
+// evaluates them as OR — verification succeeds when the signing certificate
+// matches *any* of the configured identities. This mirrors cosign's
+// keyless-with-multiple-identities semantics so multi-identity policies
+// (e.g. a kyverno Cosign attestor with multiple Identities entries) keep
+// working when the bundle path is taken.
+//
+// Identities lacking either issuer or subject (or their regex variants) are
+// skipped — sigstore-go's NewShortCertificateIdentity rejects empty
+// matchers, and silently dropping a half-specified identity keeps the policy
+// well-formed when checkOptions has accumulated junk entries.
 func buildBundlePolicy(hash *v1.Hash, co *cosign.CheckOpts) (verify.PolicyBuilder, error) {
 	digestBytes, err := hex.DecodeString(hash.Hex)
 	if err != nil {
@@ -184,20 +197,43 @@ func buildBundlePolicy(hash *v1.Hash, co *cosign.CheckOpts) (verify.PolicyBuilde
 	}
 	artifactOpt := verify.WithArtifactDigest(hash.Algorithm, digestBytes)
 
-	if len(co.Identities) == 0 {
-		return verify.NewPolicy(artifactOpt), nil
-	}
-	id := co.Identities[0]
-	hasIssuer := id.Issuer != "" || id.IssuerRegExp != ""
-	hasSubject := id.Subject != "" || id.SubjectRegExp != ""
-	if !hasIssuer || !hasSubject {
-		return verify.NewPolicy(artifactOpt), nil
-	}
-	certID, err := verify.NewShortCertificateIdentity(id.Issuer, id.IssuerRegExp, id.Subject, id.SubjectRegExp)
+	policyOpts, err := certificateIdentityOptions(co.Identities)
 	if err != nil {
-		return verify.PolicyBuilder{}, fmt.Errorf("building certificate identity: %w", err)
+		return verify.PolicyBuilder{}, err
 	}
-	return verify.NewPolicy(artifactOpt, verify.WithCertificateIdentity(certID)), nil
+	return verify.NewPolicy(artifactOpt, policyOpts...), nil
+}
+
+// certificateIdentityOptions converts a slice of cosign.Identity entries
+// into sigstore-go verify.PolicyOption values, one per well-formed entry.
+// Half-specified identities (only an issuer or only a subject) are skipped
+// silently — sigstore-go's NewShortCertificateIdentity rejects them, and
+// surfacing an error there would break callers whose CheckOpts has
+// accumulated junk entries from upstream conversion.
+//
+// Each well-formed identity becomes a separate WithCertificateIdentity
+// option. PolicyConfig accumulates them on a CertificateIdentities slice;
+// CertificateIdentities.Verify is OR — verification succeeds when the
+// signing certificate matches any one of them. This mirrors cosign's
+// keyless-with-multiple-identities semantics.
+//
+// Split out from buildBundlePolicy so tests can assert the option count
+// directly without poking at sigstore-go's unexported PolicyConfig fields.
+func certificateIdentityOptions(identities []cosign.Identity) ([]verify.PolicyOption, error) {
+	opts := make([]verify.PolicyOption, 0, len(identities))
+	for _, id := range identities {
+		hasIssuer := id.Issuer != "" || id.IssuerRegExp != ""
+		hasSubject := id.Subject != "" || id.SubjectRegExp != ""
+		if !hasIssuer || !hasSubject {
+			continue
+		}
+		certID, err := verify.NewShortCertificateIdentity(id.Issuer, id.IssuerRegExp, id.Subject, id.SubjectRegExp)
+		if err != nil {
+			return nil, fmt.Errorf("building certificate identity for issuer=%q subject=%q: %w", id.Issuer, id.Subject, err)
+		}
+		opts = append(opts, verify.WithCertificateIdentity(certID))
+	}
+	return opts, nil
 }
 
 // buildBundleVerifyOptions translates IVPOL's CheckOpts into sigstore-go

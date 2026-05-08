@@ -309,6 +309,68 @@ func TestBuildBundlePolicy_PartialIdentityFallsBackToArtifactOnly(t *testing.T) 
 	_ = pb
 }
 
+// TestCertificateIdentityOptions_NoIdentitiesProducesNoOptions: keyless-with-
+// no-identity bundle policies just bind to the artifact; no certificate
+// identity options are added.
+func TestCertificateIdentityOptions_NoIdentitiesProducesNoOptions(t *testing.T) {
+	opts, err := certificateIdentityOptions(nil)
+	require.NoError(t, err)
+	assert.Empty(t, opts)
+}
+
+// TestCertificateIdentityOptions_MultipleWellFormedIdentitiesAreAllReturned
+// mirrors cosign's keyless-OR semantics: every well-formed identity in the
+// input becomes its own WithCertificateIdentity option. sigstore-go's
+// PolicyBuilder accumulates them on a CertificateIdentities slice;
+// CertificateIdentities.Verify documents the OR contract on the resulting
+// slice ("if ANY of them match the cert, Verify returns nil") so passing
+// every identity preserves the cosign behaviour for IVPOL attestors that
+// declare more than one Identity entry.
+func TestCertificateIdentityOptions_MultipleWellFormedIdentitiesAreAllReturned(t *testing.T) {
+	identities := []cosign.Identity{
+		{Issuer: "https://token.actions.githubusercontent.com", Subject: "https://github.com/acme/repo/.github/workflows/release.yml@refs/heads/main"},
+		{Issuer: "https://token.actions.githubusercontent.com", Subject: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"},
+		{IssuerRegExp: "https://token.actions.githubusercontent.com", SubjectRegExp: "https://github.com/acme/.+/.github/workflows/.+"},
+	}
+	opts, err := certificateIdentityOptions(identities)
+	require.NoError(t, err)
+	assert.Len(t, opts, 3, "every well-formed identity must yield its own WithCertificateIdentity option (cosign-OR semantics)")
+}
+
+// TestCertificateIdentityOptions_HalfSpecifiedIdentitiesAreSkipped:
+// identities lacking either issuer or subject (and the regex variants) are
+// silently dropped to keep the resulting policy well-formed. sigstore-go's
+// NewShortCertificateIdentity would reject them; surfacing that error in
+// IVPOL's policy build would break callers whose CheckOpts has accumulated
+// junk entries from upstream conversion.
+func TestCertificateIdentityOptions_HalfSpecifiedIdentitiesAreSkipped(t *testing.T) {
+	identities := []cosign.Identity{
+		{Issuer: "https://issuer.only.example.com"},                 // no subject — skip
+		{Subject: "subject@only.example.com"},                       // no issuer — skip
+		{Issuer: "https://issuer.example.com", Subject: "alice@ex"}, // well-formed — keep
+	}
+	opts, err := certificateIdentityOptions(identities)
+	require.NoError(t, err)
+	assert.Len(t, opts, 1)
+}
+
+// TestBuildBundlePolicy_MultipleIdentitiesAreAllPassedToPolicy ties the
+// builder back to the higher-level entry point — buildBundlePolicy threads
+// every well-formed identity through to the resulting PolicyBuilder via
+// certificateIdentityOptions.
+func TestBuildBundlePolicy_MultipleIdentitiesAreAllPassedToPolicy(t *testing.T) {
+	hash := sha256TestHash(t)
+	co := &cosign.CheckOpts{
+		Identities: []cosign.Identity{
+			{Issuer: "https://token.actions.githubusercontent.com", Subject: "https://github.com/acme/repo/.github/workflows/release.yml@refs/heads/main"},
+			{Issuer: "https://token.actions.githubusercontent.com", Subject: "https://github.com/acme/repo/.github/workflows/ci.yml@refs/heads/main"},
+		},
+	}
+	pb, err := buildBundlePolicy(hash, co)
+	require.NoError(t, err)
+	_ = pb // PolicyBuilder fields are unexported; covered via certificateIdentityOptions tests above.
+}
+
 func TestBuildBundlePolicy_BadDigestIsRejected(t *testing.T) {
 	hash := &v1.Hash{Algorithm: "sha256", Hex: "not-hex"}
 	co := &cosign.CheckOpts{}
