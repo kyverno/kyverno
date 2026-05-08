@@ -50,6 +50,7 @@ func ImageVerifyCELFuncs(
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
 	return &ivfuncs{
+		logger:          logger,
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
 		creds:           spec.Credentials,
