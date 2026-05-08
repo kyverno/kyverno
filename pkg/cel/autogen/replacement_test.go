@@ -115,6 +115,24 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 		},
+		{
+			name:   "deployments combined spec and metadata expression",
+			expr:   "object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.template.metadata.labels)",
+		},
+		{
+			name:   "cronjobs combined spec and metadata expression",
+			expr:   "object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)",
+			config: "cronjobs",
+			want:   "object.spec.jobTemplate.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.jobTemplate.spec.template.metadata.labels)",
+		},
+		{
+			name:   "cronjobs oldObject combined spec and metadata expression",
+			expr:   "oldObject.spec.containers.size() > 0 && oldObject.metadata.name != 'skip'",
+			config: "cronjobs",
+			want:   "oldObject.spec.jobTemplate.spec.template.spec.containers.size() > 0 && oldObject.spec.jobTemplate.spec.template.metadata.name != 'skip'",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

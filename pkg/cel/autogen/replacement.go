@@ -19,9 +19,7 @@ type Replacement struct {
 }
 
 func (r *Replacement) Apply(data []byte) []byte {
-	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
-	return data
+	return Apply(data, *r)
 }
 
 // replace rewrites every occurrence of from with to, except occurrences that
@@ -92,9 +90,16 @@ func isIdentifierByte(b byte) bool {
 		(b >= '0' && b <= '9')
 }
 
+// Apply performs replacements for each Replacement rule using replace(),
+// which does a single left-to-right scan per rule and never re-scans
+// already-emitted output. This prevents double-replacement corruption:
+// each replacement is applied exactly once, and text produced by an earlier
+// replacement is never re-examined by a later one because the scan position
+// always advances past the emitted output.
 func Apply(data []byte, replacements ...Replacement) []byte {
-	for _, replacement := range replacements {
-		data = replacement.Apply(data)
+	for _, r := range replacements {
+		data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
+		data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
 	}
 	return data
 }
