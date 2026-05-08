@@ -70,11 +70,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var sigs []oci.Signature
 	var verified bool
 
-	if cOpts.NewBundleFormat {
-		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
-	} else {
-		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
-	}
+	sigs, verified, err = dispatchVerify(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -129,7 +125,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	sigs, verified, err := dispatchVerifyAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
