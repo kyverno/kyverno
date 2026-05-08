@@ -315,6 +315,21 @@ func TestCertificateIdentityOptions_HalfSpecifiedIdentitiesAreSkipped(t *testing
 	assert.Len(t, opts, 1)
 }
 
+// When NewShortCertificateIdentity fails, the wrapped error must surface
+// every configured matcher — IssuerRegExp/SubjectRegExp setups would
+// otherwise log issuer="" subject="" and lose the actually-failing value.
+func TestCertificateIdentityOptions_ErrorIncludesAllConfiguredFields(t *testing.T) {
+	// `[unclosed-class` is an invalid regex; NewSANMatcher fails to
+	// compile it and bubbles the error up through NewShortCertificateIdentity.
+	identities := []cosign.Identity{
+		{Issuer: "https://issuer.example.com", SubjectRegExp: "[unclosed-class"},
+	}
+	_, err := certificateIdentityOptions(identities)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `issuer="https://issuer.example.com"`)
+	assert.Contains(t, err.Error(), `subjectRegExp="[unclosed-class"`)
+}
+
 // ---- buildBundleVerifyOptions ----
 //
 // sigstore-go's VerifierConfig requires exactly one "time" option from the

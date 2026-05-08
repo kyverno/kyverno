@@ -173,7 +173,8 @@ func certificateIdentityOptions(identities []cosign.Identity) ([]verify.PolicyOp
 		}
 		certID, err := verify.NewShortCertificateIdentity(id.Issuer, id.IssuerRegExp, id.Subject, id.SubjectRegExp)
 		if err != nil {
-			return nil, fmt.Errorf("building certificate identity for issuer=%q subject=%q: %w", id.Issuer, id.Subject, err)
+			return nil, fmt.Errorf("building certificate identity for issuer=%q issuerRegExp=%q subject=%q subjectRegExp=%q: %w",
+				id.Issuer, id.IssuerRegExp, id.Subject, id.SubjectRegExp, err)
 		}
 		opts = append(opts, verify.WithCertificateIdentity(certID))
 	}
