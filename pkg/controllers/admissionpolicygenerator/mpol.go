@@ -29,6 +29,14 @@ func (c *controller) deleteMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) enqueueMP(obj policiesv1beta1.MutatingPolicyLike) {
+	// NamespacedMutatingPolicy is handled by the namespacedmutatingpolicy controller;
+	// the admissionpolicygenerator has no MAP generation work for namespaced scope.
+	// Enqueueing it with a "MutatingPolicy/" prefix would produce a 3-part key
+	// ("MutatingPolicy/namespace/name") that cache.SplitMetaNamespaceKey cannot parse,
+	// causing a permanent retry loop in the worker.
+	if obj.GetKind() == "NamespacedMutatingPolicy" {
+		return
+	}
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		logger.Error(err, "failed to extract policy name")
