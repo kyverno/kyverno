@@ -89,24 +89,36 @@ func TestTSAOnlyTrustedMaterial_OtherMethodsReturnDefaults(t *testing.T) {
 	assert.Empty(t, tm.CTLogs())
 }
 
+func TestMergeTSAIntoTrustedMaterial_NilPublicRootIsRejected(t *testing.T) {
+	tm, err := mergeTSAIntoTrustedMaterial(nil, nil, nil, nil)
+	assert.Nil(t, tm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "public trusted root")
+}
+
 func TestMergeTSAIntoTrustedMaterial_NilLeafReturnsPublicRootUnchanged(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
-	got := mergeTSAIntoTrustedMaterial(publicRoot, nil, nil, nil)
+	got, err := mergeTSAIntoTrustedMaterial(publicRoot, nil, nil, nil)
+	require.NoError(t, err)
 	assert.Same(t, publicRoot, got)
 }
 
-func TestMergeTSAIntoTrustedMaterial_NoRootsReturnsPublicRootUnchanged(t *testing.T) {
+func TestMergeTSAIntoTrustedMaterial_LeafWithoutRootIsRejected(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	leaf, intermediate, _ := generateTSAChain(t)
-	got := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, nil)
-	assert.Same(t, publicRoot, got, "without a root cert the merge is impossible; preserve the public root")
+
+	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, nil)
+	assert.Nil(t, tm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "root")
 }
 
 func TestMergeTSAIntoTrustedMaterial_AggregatesTSAsFromBothSources(t *testing.T) {
 	publicRoot, publicTSA := publicTrustedRootWithTSA(t)
 	customLeaf, customInt, customRoot := generateTSAChain(t)
 
-	tm := mergeTSAIntoTrustedMaterial(publicRoot, customLeaf, []*x509.Certificate{customInt}, []*x509.Certificate{customRoot})
+	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, customLeaf, []*x509.Certificate{customInt}, []*x509.Certificate{customRoot})
+	require.NoError(t, err)
 
 	tsAs := tm.TimestampingAuthorities()
 	require.Len(t, tsAs, 2)
@@ -131,7 +143,8 @@ func TestMergeTSAIntoTrustedMaterial_ReturnsCollectionType(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	leaf, intermediate, rootCert := generateTSAChain(t)
 
-	tm := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{rootCert})
+	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{rootCert})
+	require.NoError(t, err)
 	_, ok := tm.(root.TrustedMaterialCollection)
 	assert.True(t, ok)
 }
@@ -143,7 +156,8 @@ func TestMergeTSAIntoTrustedMaterial_OnlyFirstRootIsUsed(t *testing.T) {
 	leaf, intermediate, root1 := generateTSAChain(t)
 	_, _, root2 := generateTSAChain(t)
 
-	tm := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{root1, root2})
+	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{root1, root2})
+	require.NoError(t, err)
 
 	tsAs := tm.TimestampingAuthorities()
 	require.Len(t, tsAs, 1)
