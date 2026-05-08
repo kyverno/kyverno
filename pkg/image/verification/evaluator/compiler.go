@@ -3,6 +3,8 @@ package evaluator
 import (
 	"context"
 
+	"github.com/kyverno/kyverno/pkg/logging"
+
 	"github.com/google/cel-go/cel"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -201,7 +203,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			engine.KyvernoVersion,
 		),
 		imageverify.Lib(
-			logger,
+			logging.WithName("ivpol/evaluator"),
 			engine.KyvernoVersion,
 			c.ictx,
 			ivpol,
