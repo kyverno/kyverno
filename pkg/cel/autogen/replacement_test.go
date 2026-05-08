@@ -47,6 +47,21 @@ func TestUpdateGenRuleByte(t *testing.T) {
 			config: "deployments",
 			want:   []byte("object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
 		},
+		{
+			pbyte:  []byte("object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)"),
+			config: "deployments",
+			want:   []byte("object.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.template.metadata.labels)"),
+		},
+		{
+			pbyte:  []byte("object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)"),
+			config: "cronjobs",
+			want:   []byte("object.spec.jobTemplate.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.jobTemplate.spec.template.metadata.labels)"),
+		},
+		{
+			pbyte:  []byte("oldObject.spec.containers.size() > 0 && oldObject.metadata.name != 'skip'"),
+			config: "cronjobs",
+			want:   []byte("oldObject.spec.jobTemplate.spec.template.spec.containers.size() > 0 && oldObject.spec.jobTemplate.spec.template.metadata.name != 'skip'"),
+		},
 	}
 	for _, tt := range tests {
 		got := Apply(tt.pbyte, ReplacementsMap[ConfigsMap[tt.config].ReplacementsRef]...)
