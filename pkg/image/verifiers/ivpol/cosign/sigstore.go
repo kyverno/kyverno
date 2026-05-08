@@ -156,21 +156,18 @@ func buildBundlePolicy(hash *v1.Hash, co *cosign.CheckOpts) (verify.PolicyBuilde
 }
 
 // certificateIdentityOptions returns one WithCertificateIdentity per
-// well-formed Identity. sigstore-go's CertificateIdentities.Verify is OR,
-// preserving cosign's keyless-with-multiple-identities semantics.
+// Identity. sigstore-go's CertificateIdentities.Verify is OR, preserving
+// cosign's keyless-with-multiple-identities semantics.
 //
-// Half-specified identities (issuer XOR subject) are skipped silently:
-// NewShortCertificateIdentity would reject them, and surfacing that as an
-// error breaks callers whose CheckOpts accumulated junk entries from
-// upstream conversion.
+// sigstore-go requires every identity to configure both an issuer matcher
+// (Issuer or IssuerRegExp) and a SAN matcher (Subject or SubjectRegExp);
+// half-specified entries error out of NewShortCertificateIdentity. The
+// error is propagated rather than silently skipped — silent skipping
+// would let a misconfigured entry weaken verification to digest-only
+// without any signal back to the operator.
 func certificateIdentityOptions(identities []cosign.Identity) ([]verify.PolicyOption, error) {
 	opts := make([]verify.PolicyOption, 0, len(identities))
 	for _, id := range identities {
-		hasIssuer := id.Issuer != "" || id.IssuerRegExp != ""
-		hasSubject := id.Subject != "" || id.SubjectRegExp != ""
-		if !hasIssuer || !hasSubject {
-			continue
-		}
 		certID, err := verify.NewShortCertificateIdentity(id.Issuer, id.IssuerRegExp, id.Subject, id.SubjectRegExp)
 		if err != nil {
 			return nil, fmt.Errorf("building certificate identity for issuer=%q issuerRegExp=%q subject=%q subjectRegExp=%q: %w",

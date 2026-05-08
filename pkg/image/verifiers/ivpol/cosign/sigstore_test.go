@@ -256,13 +256,16 @@ func TestBuildBundlePolicy_WithIssuerAndSubjectAddsIdentity(t *testing.T) {
 	_ = pb
 }
 
-func TestBuildBundlePolicy_PartialIdentityFallsBackToArtifactOnly(t *testing.T) {
+// A half-specified identity (issuer or subject criteria missing) is rejected
+// by sigstore-go's NewCertificateIdentity; buildBundlePolicy propagates that
+// rather than silently dropping the entry, since silent dropping would
+// downgrade verification to digest-only without any signal to the operator.
+func TestBuildBundlePolicy_PartialIdentityIsRejected(t *testing.T) {
 	co := &cosign.CheckOpts{
 		Identities: []cosign.Identity{{Issuer: "https://issuer.example.com"}},
 	}
-	pb, err := buildBundlePolicy(sha256TestHash(t), co)
-	require.NoError(t, err)
-	_ = pb
+	_, err := buildBundlePolicy(sha256TestHash(t), co)
+	require.Error(t, err)
 }
 
 func TestBuildBundlePolicy_BadDigestIsRejected(t *testing.T) {
@@ -304,15 +307,32 @@ func TestCertificateIdentityOptions_MultipleWellFormedIdentitiesAreAllReturned(t
 	assert.Len(t, opts, 3)
 }
 
-func TestCertificateIdentityOptions_HalfSpecifiedIdentitiesAreSkipped(t *testing.T) {
+// Half-specified entries (issuer or SAN criteria missing) are propagated
+// as errors — sigstore-go's NewCertificateIdentity rejects them, and
+// silent skipping would let a misconfigured entry weaken verification to
+// digest-only without any signal back to the operator.
+func TestCertificateIdentityOptions_IssuerOnlyIsRejected(t *testing.T) {
+	identities := []cosign.Identity{{Issuer: "https://issuer.only.example.com"}}
+	_, err := certificateIdentityOptions(identities)
+	require.Error(t, err)
+}
+
+func TestCertificateIdentityOptions_SubjectOnlyIsRejected(t *testing.T) {
+	identities := []cosign.Identity{{Subject: "subject@only.example.com"}}
+	_, err := certificateIdentityOptions(identities)
+	require.Error(t, err)
+}
+
+// One half-specified entry in a list of otherwise valid entries fails the
+// whole list — operators see the error at policy-build time rather than
+// silently losing the constraint at admission time.
+func TestCertificateIdentityOptions_OneHalfSpecifiedFailsTheWholeList(t *testing.T) {
 	identities := []cosign.Identity{
-		{Issuer: "https://issuer.only.example.com"},
-		{Subject: "subject@only.example.com"},
-		{Issuer: "https://issuer.example.com", Subject: "alice@ex"},
+		{Issuer: "https://issuer.example.com", Subject: "alice@ex"}, // valid
+		{Issuer: "https://issuer.only.example.com"},                 // half-specified
 	}
-	opts, err := certificateIdentityOptions(identities)
-	require.NoError(t, err)
-	assert.Len(t, opts, 1)
+	_, err := certificateIdentityOptions(identities)
+	require.Error(t, err)
 }
 
 // When NewShortCertificateIdentity fails, the wrapped error must surface
