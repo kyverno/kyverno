@@ -29,12 +29,15 @@ func (c *controller) deleteMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) enqueueMP(obj policiesv1beta1.MutatingPolicyLike) {
-	// NamespacedMutatingPolicy is handled by the namespacedmutatingpolicy controller;
-	// the admissionpolicygenerator has no MAP generation work for namespaced scope.
-	// Enqueueing it with a "MutatingPolicy/" prefix would produce a 3-part key
-	// ("MutatingPolicy/namespace/name") that cache.SplitMetaNamespaceKey cannot parse,
-	// causing a permanent retry loop in the worker.
-	if obj.GetKind() == "NamespacedMutatingPolicy" {
+	// Namespaced mutating policies are handled by the namespacedmutatingpolicy
+	// controller; the admissionpolicygenerator has no MAP generation work for
+	// namespaced scope. Detect them by scope instead of Kind because Kind may be
+	// unset on cached objects and in tests.
+	// Enqueueing a namespaced object with a "MutatingPolicy/" prefix would produce
+	// a 3-part key ("MutatingPolicy/namespace/name") that
+	// cache.SplitMetaNamespaceKey cannot parse, causing a permanent retry loop in
+	// the worker.
+	if obj.GetNamespace() != "" {
 		return
 	}
 	key, err := cache.MetaNamespaceKeyFunc(obj)
