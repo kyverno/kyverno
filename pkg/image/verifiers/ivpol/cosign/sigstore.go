@@ -34,14 +34,10 @@ func (t *tsaOnlyTrustedMaterial) TimestampingAuthorities() []root.TimestampingAu
 	return []root.TimestampingAuthority{t.tsa}
 }
 
-// composeTrustedMaterial closes the v2->v3 cosign-as-library regression
-// described in sigstore/cosign#4847: when the caller provides both a
-// TrustedRoot (from TUF) and a TSA cert chain (for a TSA not in any TUF
-// root), both must be honoured during sigstore-go's bundle verification.
-//
-// Returns the public root unchanged when no custom TSA leaf is provided;
-// otherwise returns a TrustedMaterialCollection whose
-// TimestampingAuthorities() aggregates TSAs from both members.
+// composeTrustedMaterial returns a TrustedMaterial that exposes both the
+// public TrustedRoot's timestamping authorities and a caller-supplied TSA
+// chain (for a TSA not present in any TUF root). With no custom leaf the
+// public root is returned unchanged.
 func composeTrustedMaterial(publicRoot *root.TrustedRoot, customTSALeaf *x509.Certificate, customTSAIntermediates, customTSARoots []*x509.Certificate) (root.TrustedMaterial, error) {
 	if publicRoot == nil {
 		return nil, errors.New("public trusted root must not be nil")
@@ -64,12 +60,10 @@ func composeTrustedMaterial(publicRoot *root.TrustedRoot, customTSALeaf *x509.Ce
 }
 
 // dispatchVerify routes signature verification by CheckOpts shape:
-//   - bundle + keyless (TrustedMaterial is *root.TrustedRoot) →
-//     verifyImageBundleAttestations (sigstore-go directly, with TSA-chain
-//     composition; closes sigstore/cosign#4847 for IVPOL).
-//   - bundle + static key → cosign.VerifyImageAttestations (cosign handles
-//     this case; the TSA-chain regression doesn't apply to it).
-//   - non-bundle → cosign.VerifyImageSignatures (legacy path).
+// bundle + keyless goes through sigstore-go directly so a caller-provided
+// TSA chain composes into the trusted material; bundle + static key goes
+// through cosign (no TSA chain to honour); non-bundle keeps the legacy
+// cosign path.
 func dispatchVerify(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 	if co.NewBundleFormat {
 		if pr, ok := co.TrustedMaterial.(*root.TrustedRoot); ok && pr != nil {
@@ -216,9 +210,9 @@ func buildBundleVerifyOptions(co *cosign.CheckOpts) []verify.VerifierOption {
 }
 
 // bundleToOCISignature wraps a verified bundle's DSSE envelope as an
-// oci.Signature, matching cosign's verifyImageAttestationsSigstoreBundle so
-// the caller's post-verification logic is engine-agnostic. Only the payload
-// is carried today (sigstore-go#328 tracks exposing more bundle data).
+// oci.Signature so the caller's post-verification logic is engine-agnostic.
+// Only the payload is carried; the cert chain and timestamp data on the
+// bundle are not propagated.
 func bundleToOCISignature(b *sgbundle.Bundle) (oci.Signature, error) {
 	if b == nil {
 		return nil, errors.New("nil bundle")

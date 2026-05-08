@@ -182,9 +182,6 @@ func TestComposeTrustedMaterial_LeafWithoutRootIsRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "root")
 }
 
-// The bug-catching test: without composition, sigstore-go's verifier sees
-// only the public root's TSAs and a bundle whose timestamp is signed by
-// the caller's TSA fails. With composition, both TSAs are visible.
 func TestComposeTrustedMaterial_AggregatesTSAsFromBothSources(t *testing.T) {
 	publicRoot, publicTSA := publicTrustedRootWithTSA(t)
 	customLeaf, customInt, customRoot := generateTSAChain(t)
