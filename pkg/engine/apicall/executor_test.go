@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"gotest.tools/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -123,6 +124,10 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 }
 
 func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t *testing.T) {
+	// Clear the blocklist so the loopback test server is reachable.
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
 	missingTokenPath := scopedTokenPath + ".missing"
 	oldPath := scopedTokenPath
 	scopedTokenPath = missingTokenPath
@@ -149,6 +154,96 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 	_, err := executor.Execute(context.TODO(), call)
 	assert.NilError(t, err)
 	assert.Equal(t, gotAuth, "")
+}
+
+func Test_validateServiceURL_BlocksHostname(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse("metadata.google.internal,169.254.169.254"))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
+	err := validateServiceURL("http://metadata.google.internal/computeMetadata/v1/")
+	assert.ErrorContains(t, err, "blocked")
+	assert.ErrorContains(t, err, "metadata.google.internal")
+}
+
+func Test_validateServiceURL_BlocksExactIP(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse("169.254.169.254"))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
+	err := validateServiceURL("http://169.254.169.254/latest/meta-data/")
+	assert.ErrorContains(t, err, "blocked")
+}
+
+func Test_validateServiceURL_AllowsUnblockedURL(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse("169.254.169.254"))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
+	err := validateServiceURL("https://my-webhook.my-namespace.svc.cluster.local/validate")
+	assert.NilError(t, err)
+}
+
+func Test_validateServiceURL_AllowlistPermitsMatch(t *testing.T) {
+	assert.NilError(t, toggle.HTTPAllowlist.Parse("https://allowed.example.com"))
+	t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
+
+	err := validateServiceURL("https://allowed.example.com/path")
+	assert.NilError(t, err)
+}
+
+func Test_validateServiceURL_AllowlistBlocksNonMatch(t *testing.T) {
+	assert.NilError(t, toggle.HTTPAllowlist.Parse("https://allowed.example.com"))
+	t.Cleanup(func() { toggle.HTTPAllowlist.Reset() })
+
+	err := validateServiceURL("https://other.example.com/path")
+	assert.ErrorContains(t, err, "not permitted")
+}
+
+func Test_validateServiceURL_SkipsCIDREntries(t *testing.T) {
+	// CIDR entries in the blocklist are enforced at dial time, not at URL validation.
+	assert.NilError(t, toggle.HTTPBlocklist.Parse("127.0.0.0/8"))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
+	// validateServiceURL itself should not error for CIDR-blocked addresses —
+	// that check happens in secureDialContext when the connection is made.
+	err := validateServiceURL("http://127.0.0.1/path")
+	assert.NilError(t, err)
+}
+
+func Test_ExecuteServiceCall_BlocksLoopbackViaCIDR(t *testing.T) {
+	// Default blocklist includes 127.0.0.0/8; ensure service calls to loopback are rejected.
+	toggle.HTTPBlocklist.Reset()
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL, // 127.0.0.1:PORT — blocked by default 127.0.0.0/8
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "blocked")
+}
+
+func Test_ExecuteServiceCall_BlocksMetadataHostname(t *testing.T) {
+	// Default blocklist includes 169.254.169.254 hostname.
+	toggle.HTTPBlocklist.Reset()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: "http://169.254.169.254/latest/meta-data/",
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "blocked")
 }
 
 // Helper function to check if string contains substring
