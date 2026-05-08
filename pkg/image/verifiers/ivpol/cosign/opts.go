@@ -145,7 +145,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		if err != nil {
 			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
 		}
-		opts.TrustedMaterial = trustedRoot
+		opts.TrustedMaterial = mergeTSAIntoTrustedMaterial(trustedRoot, opts.TSACertificate, opts.TSAIntermediateCertificates, opts.TSARootCertificates)
 	} else if att.Key != nil {
 		if len(att.Key.Data) > 0 {
 			opts.SigVerifier, err = decodePEM([]byte(att.Key.Data), signatureAlgorithmMap[att.Key.HashAlgorithm])
