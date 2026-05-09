@@ -7,10 +7,13 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type errorFile struct {
@@ -181,5 +184,58 @@ func TestGenericPolicy_AsNamespacedGeneratingPolicy(t *testing.T) {
 	// MatchConstraints should be preserved
 	if got := generic.AsNamespacedGeneratingPolicy(); got.Spec.MatchConstraints == nil {
 		t.Error("expected MatchConstraints to be set on NamespacedGeneratingPolicy")
+	}
+}
+
+func TestExtractResourcesFromPolicies_NewBranches(t *testing.T) {
+	// Exercises the 6 lines added to extractResourcesFromPolicies for
+	// NamespacedGeneratingPolicy, MutatingPolicy, and NamespacedMutatingPolicy.
+	mc := makeMatchResources("apps", "deployments")
+
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mpol"},
+		Spec:       policiesv1beta1.MutatingPolicySpec{MatchConstraints: mc},
+	}
+	nmp := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol", Namespace: "default"},
+		Spec:       policiesv1beta1.MutatingPolicySpec{MatchConstraints: mc},
+	}
+	ngp := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ngpol", Namespace: "default"},
+		Spec:       policiesv1beta1.GeneratingPolicySpec{MatchConstraints: mc},
+	}
+
+	dClient, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{},
+	)
+	if err != nil {
+		t.Fatalf("failed to create fake client: %v", err)
+	}
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	tests := []struct {
+		name   string
+		policy engineapi.GenericPolicy
+	}{
+		{"MutatingPolicy", engineapi.NewMutatingPolicy(mp)},
+		{"NamespacedMutatingPolicy", engineapi.NewNamespacedMutatingPolicy(nmp)},
+		{"NamespacedGeneratingPolicy", engineapi.NewNamespacedGeneratingPolicy(ngp)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rf := &ResourceFetcher{
+				Policies: []engineapi.GenericPolicy{tt.policy},
+				Client:   dClient,
+			}
+			info := &resourceTypeInfo{
+				gvkMap:         make(map[schema.GroupVersionKind]bool),
+				subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+			}
+			// Should not panic; the branch assigns matchResources
+			// and getKindsFromPolicy handles the fake client gracefully.
+			rf.extractResourcesFromPolicies(info)
+		})
 	}
 }
