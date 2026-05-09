@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -109,10 +110,13 @@ func cleanTest(test *v1alpha1.Test) {
 	}
 	// Normalize JSON payload names to strip ./ prefixes and normalize slashes,
 	// so trigger keys match expected resource names in test results.
-	for i, jp := range test.JSONPayloads {
-		test.JSONPayloads[i] = path.Clean(jp)
+	var cleaned []string
+	for _, jp := range test.JSONPayloads {
+		if strings.TrimSpace(jp) != "" {
+			cleaned = append(cleaned, path.Clean(jp))
+		}
 	}
-	test.JSONPayloads = removeDuplicateStrings(test.JSONPayloads)
+	test.JSONPayloads = removeDuplicateStrings(cleaned)
 }
 
 func removeDuplicateStrings(strings []string) []string {
