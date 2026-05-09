@@ -106,6 +106,11 @@ func cleanTest(test *v1alpha1.Test) {
 		}
 		test.JSONPayload = ""
 	}
+	// Normalize JSON payload names to strip ./ prefixes and normalize slashes,
+	// so trigger keys match expected resource names in test results.
+	for i, jp := range test.JSONPayloads {
+		test.JSONPayloads[i] = filepath.Clean(jp)
+	}
 	test.JSONPayloads = removeDuplicateStrings(test.JSONPayloads)
 }
 

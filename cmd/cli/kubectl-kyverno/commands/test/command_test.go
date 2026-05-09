@@ -273,6 +273,7 @@ func Test_JSONPayload(t *testing.T) {
 	t.Logf("Test output: %s", out.String())
 
 	t.Run("Check policy results match output table", func(t *testing.T) {
+		require.NotEmpty(t, testCase.Test.JSONPayloads, "Expected at least one JSON payload after migration")
 		payloadKey := testCase.Test.JSONPayloads[0]
 		responses := testResponse.Trigger[payloadKey]
 		policyResults := make(map[string]struct {
