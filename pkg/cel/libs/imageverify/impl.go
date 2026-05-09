@@ -72,7 +72,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		f.logger.V(4).Info(
 			"verifying image signatures",
 			"image", image,
-			"attestors", len(attestors),
+			"attestorsCount", len(attestors),
 		)
 
 		count := 0
