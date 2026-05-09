@@ -32,13 +32,13 @@ webhooks:
   reinvocationPolicy: Never
   rules:
   - apiGroups:
-    - batch
+    - ""
     apiVersions:
     - v1
     operations:
     - CREATE
     resources:
-    - cronjobs
+    - pods
     scope: '*'
   - apiGroups:
     - apps
@@ -59,16 +59,16 @@ webhooks:
     operations:
     - CREATE
     resources:
-    - jobs
+    - cronjobs
     scope: '*'
   - apiGroups:
-    - ""
+    - batch
     apiVersions:
     - v1
     operations:
     - CREATE
     resources:
-    - pods
+    - jobs
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 10
@@ -107,13 +107,13 @@ webhooks:
   objectSelector: {}
   rules:
   - apiGroups:
-    - batch
+    - ""
     apiVersions:
     - v1
     operations:
     - CREATE
     resources:
-    - cronjobs
+    - pods
     scope: '*'
   - apiGroups:
     - apps
@@ -134,16 +134,16 @@ webhooks:
     operations:
     - CREATE
     resources:
-    - jobs
+    - cronjobs
     scope: '*'
   - apiGroups:
-    - ""
+    - batch
     apiVersions:
     - v1
     operations:
     - CREATE
     resources:
-    - pods
+    - jobs
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 10

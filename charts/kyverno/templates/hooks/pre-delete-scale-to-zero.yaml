@@ -43,15 +43,8 @@ spec:
         - name: kubectl
           image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
-          command:
-            - kubectl
-            - scale
-            - -n
-            - {{ template "kyverno.namespace" . }}
-            - deployment
-            - -l
-            - app.kubernetes.io/part-of={{ template "kyverno.fullname" . }}
-            - --replicas=0
+          args:
+            - scale-deploy
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}

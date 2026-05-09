@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install ORAS
+description: Install ORAS (OCI Registry As Storage)
+
+runs:
+  using: composite
+  steps:
+    - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4

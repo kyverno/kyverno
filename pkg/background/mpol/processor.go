@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/cel-go/common/types"
@@ -11,23 +12,21 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	libs "github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
-	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	utilsslices "github.com/kyverno/kyverno/pkg/utils/slices"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/kyverno/sdk/cel/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +50,11 @@ type processor struct {
 	statusControl common.StatusControlInterface
 
 	eventGen event.Interface
+}
+
+type gvkItem struct {
+	gvk           schema.GroupVersionKind
+	resourceNames []string
 }
 
 func NewProcessor(client dclient.Interface,
@@ -91,16 +95,29 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
 		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		list := make([]unstructured.Unstructured, 0)
 		for ns, gvks := range results {
 			for r := range gvks {
-				if r.Kind == "Namespace" || ns == "*" {
+				if r.gvk.Kind == "Namespace" || ns == "*" {
 					ns = ""
 				}
-				targets, err = p.client.ListResource(context.TODO(), r.GroupVersion().String(), r.Kind, ns, targetConstraints.ObjectSelector)
+
+				resources, err := p.client.ListResource(context.TODO(), r.gvk.GroupVersion().String(), r.gvk.Kind, ns, targetConstraints.ObjectSelector)
 				if err != nil {
-					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.String(), ur.Spec.GetPolicyKey(), err))
+					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.gvk.String(), ur.Spec.GetPolicyKey(), err))
+					continue
 				}
+
+				if len(r.resourceNames) > 0 {
+					resources.Items = utilsslices.Filter(resources.Items, func(u unstructured.Unstructured) bool {
+						return slices.Contains(r.resourceNames, u.GetName())
+					})
+				}
+				list = append(list, resources.Items...)
 			}
+		}
+		if len(list) > 0 {
+			targets = &unstructured.UnstructuredList{Items: list}
 		}
 	} else {
 		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
@@ -133,8 +150,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			admission.Operation(""),
 			nil,
 			false,
-			// TODO
-			nil,
+			admissionpolicy.NewUser(ar.UserInfo),
 		)
 
 		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(ur.Spec.Policy), mpolengine.Or(mpolengine.ClusteredPolicy(), mpolengine.NamespacedPolicy(attr.GetNamespace()))))
@@ -144,13 +160,15 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 		if response.PatchedResource != nil {
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
-			new := response.PatchedResource
-			new.SetResourceVersion(object.GetResourceVersion())
 			if err != nil {
 				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				continue
 			}
+			new := response.PatchedResource
+			new.SetResourceVersion(object.GetResourceVersion())
 			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, ""); err != nil {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				continue
 			}
 
 			err := p.audit(object, &response)
@@ -199,10 +217,10 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	return nil
 }
 
-func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[schema.GroupVersionKind] {
-	result := make(map[string]sets.Set[schema.GroupVersionKind])
+func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[*gvkItem] {
+	result := make(map[string]sets.Set[*gvkItem])
 
-	gvkSet := sets.New[schema.GroupVersionKind]()
+	gvkSet := sets.New[*gvkItem]()
 	for _, rule := range m.ResourceRules {
 		for _, group := range rule.APIGroups {
 			for _, version := range rule.APIVersions {
@@ -220,7 +238,7 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 					if err != nil {
 						continue
 					}
-					gvkSet.Insert(gvk)
+					gvkSet.Insert(&gvkItem{gvk: gvk, resourceNames: rule.ResourceNames})
 				}
 			}
 		}
@@ -265,7 +283,7 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 	var mpol v1beta1.MutatingPolicyLike
 	var err error
 
-	var failures []error
+	failures := make([]error, 0, 1)
 	mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
 	if err == nil {
 		return mpol, nil
@@ -306,13 +324,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	}
 
 	compiledVars := pol.CompiledPolicy.GetCompiledVariables()
-	data := map[string]any{
-		compiler.ObjectKey:        originalObj.Object,
-		compiler.ResourceKey:      resource.Context{ContextInterface: p.context},
-		compiler.GlobalContextKey: globalcontext.Context{ContextInterface: p.context},
-		compiler.HttpKey:          http.Context{ContextInterface: http.NewHTTP(nil)},
-		compiler.ImageDataKey:     imagedata.Context{ContextInterface: p.context},
-	}
+	data := map[string]any{compiler.ObjectKey: originalObj.Object}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	data[compiler.VariablesKey] = vars
 	for name, variable := range compiledVars {
@@ -331,11 +343,17 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	unstructuredResources, err := p.getResourcesFromExpression(ctx, mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
 	if err != nil {
 		return nil, err
+	} else if unstructuredResources == nil {
+		return nil, nil
 	}
 
 	targets := &unstructured.UnstructuredList{}
 
 	if items, ok := unstructuredResources["items"].([]interface{}); ok {
+		if len(items) == 0 {
+			return nil, nil
+		}
+
 		for _, o := range items {
 			m, ok := o.(map[string]interface{})
 			if !ok {
@@ -352,7 +370,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 }
 
 func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
-	e, err := buildMpolTargetEvalEnv(policyNs)
+	e, err := BuildMpolTargetEvalEnv(libs.GetLibsCtx(), policyNs)
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,7 @@ spec:
   variables:
     - name: cm
       expression: >-
-        resource.Get("v1", "configmaps", object.metadata.namespace, "data-cm")
+        resource.get("v1", "configmaps", object.metadata.namespace, "data-cm")
     - name: envLabel
       expression: >-
         has(variables.cm) && 'env' in variables.cm.data ? variables.cm.data.env : 'unknown'

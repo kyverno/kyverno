@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	admissionv1 "k8s.io/apiserver/pkg/admission"
 
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -21,7 +22,6 @@ func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admissionv1.
 }
 
 func TestNewProvider(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		pols          []policiesv1beta1.MutatingPolicyLike
@@ -65,7 +65,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions)
+			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions, libs.NewFakeContextProvider())
 			if tt.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, prov)

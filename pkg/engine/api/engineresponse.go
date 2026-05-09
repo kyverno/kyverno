@@ -252,8 +252,22 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 				return *r.Validation.FailureAction
 			}
 		} else if r.HasVerifyImages() {
-			if r.VerifyImages[0].FailureAction != nil {
-				return *r.VerifyImages[0].FailureAction
+			// Check all VerifyImages entries - if ANY has Enforce, return Enforce
+			// This ensures that enforcement is not bypassed when multiple entries exist
+			var firstAction *kyvernov1.ValidationFailureAction
+			for i := range r.VerifyImages {
+				if r.VerifyImages[i].FailureAction != nil {
+					if r.VerifyImages[i].FailureAction.Enforce() {
+						return *r.VerifyImages[i].FailureAction
+					}
+					if firstAction == nil {
+						firstAction = r.VerifyImages[i].FailureAction
+					}
+				}
+			}
+			// If no Enforce found but we have an explicit action, return it
+			if firstAction != nil {
+				return *firstAction
 			}
 		}
 	}

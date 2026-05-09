@@ -95,7 +95,7 @@ spec:
         variables.nodeSelector[?'cloud.google.com/compute-class'].orValue('default')
       name: computeclassname
     - expression: >-
-        resource.Get('cloud.google.com/v1', 'computeclasses', '',
+        resource.get('cloud.google.com/v1', 'computeclasses', '',
         variables.computeclassname)
       name: computeclass
     - expression: 'variables.computeclass.?spec.?priorities.orValue([])'

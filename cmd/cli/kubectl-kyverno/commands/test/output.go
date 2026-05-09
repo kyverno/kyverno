@@ -247,7 +247,7 @@ func printTestResult(
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
 					)
-					if test.Rule == "" {
+					if test.Rule == "" || isRulelessPolicyKind(response.Policy().GetKind()) {
 						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
@@ -255,34 +255,6 @@ func printTestResult(
 					for _, rule := range rulesToCheck {
 						r := response.Resource
 						ruleName = rule.Name()
-
-						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
-							if test.IsMutatingPolicy {
-								r = response.PatchedResource
-							}
-
-							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
-							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
-								resourceSkipped = true
-								continue
-							}
-
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
-							rows = append(rows, resourceRows...)
-							continue
-						}
-
-						if test.IsGeneratingPolicy {
-							generatedResources := rule.GeneratedResources()
-							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
-
-								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
-								rows = append(rows, resourceRows...)
-							}
-							continue
-						}
 
 						if rule.RuleType() != "Generation" {
 							if rule.RuleType() == "Mutation" {
@@ -295,16 +267,14 @@ func printTestResult(
 								continue
 							}
 
-							success := ok || (!ok && test.Result == openreports.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
-								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -344,8 +314,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					success := ok || (!ok && test.Result == openreports.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}

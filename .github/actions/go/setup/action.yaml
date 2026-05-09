@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Setup Go
+description: Setup Go
+
+inputs:
+  go-version-file:
+    description: Go version file
+    default: go.mod
+  gomod-cache-prefix:
+    description: Go module cache prefix (set to '' to disable)
+    default: gomod
+  gobuild-cache-prefix:
+    description: Go build cache prefix (set to '' to disable)
+    default: gobuild
+
+outputs:
+  gomod-cache:
+    description: Go module cache path (GOMODCACHE), from install
+    value: ${{ steps.install.outputs.gomod-cache }}
+  gobuild-cache:
+    description: Go build cache path (GOCACHE), from install
+    value: ${{ steps.install.outputs.gobuild-cache }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      uses: ./.github/actions/go/install
+      with:
+        go-version-file: ${{ inputs.go-version-file }}
+    - if: inputs.gomod-cache-prefix != ''
+      uses: ./.github/actions/go/restore-cache
+      with:
+        path: ${{ steps.install.outputs.gomod-cache }}
+        cache-prefix: ${{ inputs.gomod-cache-prefix }}
+    - if: inputs.gobuild-cache-prefix != ''
+      uses: ./.github/actions/go/restore-cache
+      with:
+        path: ${{ steps.install.outputs.gobuild-cache }}
+        cache-prefix: ${{ inputs.gobuild-cache-prefix }}

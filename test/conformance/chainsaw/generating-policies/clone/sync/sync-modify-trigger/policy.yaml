@@ -29,7 +29,7 @@ spec:
     expression: "object.metadata.namespace == 'default'"
   generate:
   - expression: |
-      generator.Apply("sync-modify-trigger", [
+      generator.apply("sync-modify-trigger", [
         {
           "apiVersion": object.apiVersion,
           "kind": object.kind,

@@ -101,13 +101,13 @@ func main() {
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				logger.Error(err, "error checking if reports CRDs are installed to clean them up")
-				os.Exit(1)
+				os.Exit(0)
 			}
 			// error was nil, meaning the cluster has the wg policy api and it should be cleaned
 		} else {
 			if err := cleanUpWgPolicyReports(logger, setup.KyvernoClient.Wgpolicyk8sV1alpha2()); err != nil {
 				logger.Error(err, "error cleaning up reports belonging to wgpolicyk8s")
-				os.Exit(1)
+				os.Exit(0)
 			}
 		}
 	}

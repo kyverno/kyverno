@@ -28,7 +28,7 @@ func (c controller) updateNivpolStatus(ctx context.Context, nivpol *policiesv1be
 			conditionStatus.Ready = &ready
 		}
 		// autogen
-		rules, err := ivpolautogen.AutogenNamespaced(nivpol)
+		rules, err := ivpolautogen.Autogen(nivpol)
 		if err != nil {
 			return fmt.Errorf("failed to build autogen rules for nivpol %s: %v", nivpol.GetName(), err)
 		}

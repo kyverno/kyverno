@@ -31,4 +31,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.configmap)
+    - expression: generator.apply(variables.configmap)

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    mutated: "true"
+  name: test-configmap
+  namespace: test-ns
+data:
+  key: value

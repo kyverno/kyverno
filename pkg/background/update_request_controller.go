@@ -180,7 +180,7 @@ func (c *controller) handleErr(err error, key interface{}) {
 
 	if c.queue.NumRequeues(key) < maxRetries {
 		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
-		c.queue.AddAfter(key, time.Second)
+		c.queue.AddRateLimited(key)
 		return
 	}
 

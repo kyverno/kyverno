@@ -7,29 +7,26 @@ import (
 	"github.com/google/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/libs/globalcontext"
-	"github.com/kyverno/kyverno/pkg/cel/libs/hash"
-	"github.com/kyverno/kyverno/pkg/cel/libs/http"
-	"github.com/kyverno/kyverno/pkg/cel/libs/image"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imagedata"
-	"github.com/kyverno/kyverno/pkg/cel/libs/json"
-	"github.com/kyverno/kyverno/pkg/cel/libs/math"
-	"github.com/kyverno/kyverno/pkg/cel/libs/random"
-	"github.com/kyverno/kyverno/pkg/cel/libs/resource"
-	"github.com/kyverno/kyverno/pkg/cel/libs/time"
-	"github.com/kyverno/kyverno/pkg/cel/libs/transform"
-	"github.com/kyverno/kyverno/pkg/cel/libs/x509"
-	"github.com/kyverno/kyverno/pkg/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/sdk/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/cel/libs/gzip"
+	"github.com/kyverno/sdk/cel/libs/hash"
+	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/cel/libs/image"
+	"github.com/kyverno/sdk/cel/libs/imagedata"
+	"github.com/kyverno/sdk/cel/libs/json"
+	"github.com/kyverno/sdk/cel/libs/math"
+	"github.com/kyverno/sdk/cel/libs/random"
+	"github.com/kyverno/sdk/cel/libs/resource"
+	"github.com/kyverno/sdk/cel/libs/time"
+	"github.com/kyverno/sdk/cel/libs/transform"
+	"github.com/kyverno/sdk/cel/libs/x509"
+	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var (
-	dpolCompilerVersion = version.MajorMinor(2, 0)
-	compileError        = "deleting policy compiler " + dpolCompilerVersion.String() + " error: %s"
-)
+var compileError = "deleting policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
 
 type Compiler interface {
 	Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
@@ -50,12 +47,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 		return nil, field.ErrorList{field.Required(field.NewPath("spec"), "spec must not be nil")}
 	}
 	var allErrs field.ErrorList
-	dpolEnvSet, variablesProvider, err := c.createBaseDpolEnv(policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := dpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseDpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -63,6 +55,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	path := field.NewPath("spec")
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
+	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
 	conditions := make([]cel.Program, 0, len(spec.Conditions))
 	{
 		path := path.Child("conditions")
@@ -71,10 +67,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
-	}
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -97,7 +89,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	}, nil
 }
 
-func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -106,16 +98,12 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 		cel.Types(compiler.NamespaceType.CelType()),
 		cel.Types(compiler.RequestType.CelType()),
-		cel.Variable(compiler.GlobalContextKey, globalcontext.ContextType),
-		cel.Variable(compiler.HttpKey, http.ContextType),
-		cel.Variable(compiler.ImageDataKey, imagedata.ContextType),
 		cel.Variable(compiler.ResourceKey, resource.ContextType),
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("compiler.Exception")),
 	)
 
-	base := environment.MustBaseEnvSet(dpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -129,62 +117,61 @@ func (c *compilerImpl) createBaseDpolEnv(namespace string) (*environment.EnvSet,
 
 	baseOpts = append(baseOpts, declOptions...)
 
+	libEnvOpts := []cel.EnvOption{
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		image.Lib(
+			compiler.KyvernoVersion,
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			compiler.KyvernoVersion,
+		),
+		hash.Lib(
+			compiler.KyvernoVersion,
+		),
+		math.Lib(
+			compiler.KyvernoVersion,
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			compiler.KyvernoVersion,
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			compiler.KyvernoVersion,
+		),
+		random.Lib(
+			compiler.KyvernoVersion,
+		),
+		x509.Lib(
+			compiler.KyvernoVersion,
+		),
+		time.Lib(
+			compiler.KyvernoVersion,
+		),
+		transform.Lib(
+			compiler.KyvernoVersion,
+		),
+		gzip.Lib(
+			compiler.KyvernoVersion,
+		),
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			compiler.KyvernoVersion,
+		),
+	}
+
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libaries
-		environment.VersionedOptions{
-			IntroducedVersion: dpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				globalcontext.Lib(
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Latest(),
-				),
-				resource.Lib(
-					namespace,
-					resource.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-			},
-		},
-	)
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -61,6 +61,10 @@ var (
 	dpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("DeletingPolicy")
 	ndpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedDeletingPolicy")
 	ndpV1              = schema.GroupVersion(policiesv1.GroupVersion).WithKind("NamespacedDeletingPolicy")
+	cpV2beta1          = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("CleanupPolicy")
+	cpV2               = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("CleanupPolicy")
+	ccpV2beta1         = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterCleanupPolicy")
+	ccpV2              = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("ClusterCleanupPolicy")
 	mpV1alpha1         = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("MutatingPolicy")
 	polexv2            = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 	polexv1beta1       = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
@@ -90,9 +94,12 @@ type LoaderResults struct {
 	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
 	MAPBindings             []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	ValidatingPolicies      []policiesv1beta1.ValidatingPolicyLike
+	EnvoyPolicies           []*policiesv1beta1.ValidatingPolicy
+	HTTPPolicies            []*policiesv1beta1.ValidatingPolicy
 	ImageValidatingPolicies []policiesv1beta1.ImageValidatingPolicyLike
 	GeneratingPolicies      []policiesv1beta1.GeneratingPolicyLike
 	DeletingPolicies        []policiesv1beta1.DeletingPolicyLike
+	CleanupPolicies         []kyvernov2.CleanupPolicyInterface
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
 	PolicyCelExceptions     []*policiesv1beta1.PolicyException
 	NonFatalErrors          []LoaderError
@@ -106,12 +113,15 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
+	l.EnvoyPolicies = append(l.EnvoyPolicies, results.EnvoyPolicies...)
+	l.HTTPPolicies = append(l.HTTPPolicies, results.HTTPPolicies...)
 	l.MAPs = append(l.MAPs, results.MAPs...)
 	l.MAPBindings = append(l.MAPBindings, results.MAPBindings...)
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
+	l.CleanupPolicies = append(l.CleanupPolicies, results.CleanupPolicies...)
 	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
 	l.PolicyCelExceptions = append(l.PolicyCelExceptions, results.PolicyCelExceptions...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
@@ -295,7 +305,14 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 		if err != nil {
 			return err
 		}
-		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+		switch typed.Spec.EvaluationMode() {
+		case "Envoy":
+			results.EnvoyPolicies = append(results.EnvoyPolicies, typed)
+		case "HTTP":
+			results.HTTPPolicies = append(results.HTTPPolicies, typed)
+		default:
+			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+		}
 	case nvpV1beta1, nvpV1:
 		typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
 		if err != nil {
@@ -350,6 +367,18 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 			return err
 		}
 		results.DeletingPolicies = append(results.DeletingPolicies, typed)
+	case cpV2beta1, cpV2:
+		typed, err := convert.To[kyvernov2.CleanupPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.CleanupPolicies = append(results.CleanupPolicies, typed)
+	case ccpV2beta1, ccpV2:
+		typed, err := convert.To[kyvernov2.ClusterCleanupPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.CleanupPolicies = append(results.CleanupPolicies, typed)
 	case mpV1alpha1, mpV1beta1, mpV1:
 		typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
 		if err != nil {

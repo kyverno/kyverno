@@ -2,7 +2,8 @@ package resource
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -23,10 +24,12 @@ import (
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/dump"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -93,6 +96,7 @@ type controller struct {
 	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
+	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
@@ -106,6 +110,7 @@ type controller struct {
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
+	watchDeathChan  chan (schema.GroupVersionResource)
 }
 
 func NewController(
@@ -115,6 +120,7 @@ func NewController(
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
@@ -148,6 +154,12 @@ func NewController(
 	if mpolInformer != nil {
 		c.mpolLister = mpolInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if nmpolInformer != nil {
+		c.nmpolLister = nmpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, nmpolInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -187,6 +199,7 @@ func NewController(
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	return &c
 }
 
@@ -195,6 +208,35 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
+	adminCtx, adminCancel := context.WithCancel(context.Background())
+	defer adminCancel()
+	go func() {
+		for {
+			select {
+			case <-adminCtx.Done():
+				return
+			case gvr, ok := <-c.watchDeathChan:
+				if !ok {
+					return
+				}
+				c.lock.Lock()
+				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
+					for attempts := 0; attempts <= maxRetries; attempts++ {
+						w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
+						if err != nil {
+							logger.Error(err, "failed to start watcher, sleeping 2 seconds then retrying")
+							time.Sleep(time.Second * 2)
+						} else {
+							c.dynamicWatchers[gvr] = w
+							break
+						}
+					}
+				}
+				c.lock.Unlock()
+			}
+		}
+	}()
+
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 	c.stopDynamicWatchers()
 }
@@ -248,7 +290,7 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
-func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*watcher, error) {
+func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, errChan chan schema.GroupVersionResource) (*watcher, error) {
 	hashes := map[types.UID]Resource{}
 	var resourceVersion string
 
@@ -315,7 +357,21 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			case watch.Deleted:
 				c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
 			case watch.Error:
-				logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+				errObject := apierrors.FromObject(event.Object)
+				statusErr, ok := errObject.(*apierrors.StatusError)
+				if !ok {
+					logger.Error(fmt.Errorf("unknown error object: %s", dump.Pretty(event.Object)), "unexpected watch error type")
+					continue
+				}
+
+				logger.Error(statusErr, fmt.Sprintf("watch error for gvr: %s", gvr))
+				// status gone error will signal for a watcher restart to the admin goroutine
+				if statusErr.ErrStatus.Code == http.StatusGone {
+					logger.V(2).Info(fmt.Sprintf("watcher for gvr %s got resource version too old, restarting", gvr))
+					watchInterface.Stop()
+					errChan <- gvr
+					return
+				}
 			}
 		}
 	}(gvr)
@@ -412,8 +468,48 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.nvpolLister != nil {
+		vpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, "")
+		if err != nil {
+			return err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range vpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	if c.mpolLister != nil {
 		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mpols {
+			matchConstraints := policy.Spec.MatchConstraints
+			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+			for _, policy := range policy.Status.Autogen.Configs {
+				matchConstraints := policy.Spec.MatchConstraints
+				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+
+				kinds = append(kinds, genKinds...)
+			}
+
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.nmpolLister != nil {
+		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, "")
 		if err != nil {
 			return err
 		}
@@ -447,6 +543,20 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.nivpolLister != nil {
+		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, "")
+		if err != nil {
+			return err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range ivpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for gvk, gvr := range gvkToGvr {
 		logger := logger.WithValues("gvr", gvr, "gvk", gvk)
@@ -455,7 +565,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			dynamicWatchers[gvr] = c.dynamicWatchers[gvr]
 			delete(c.dynamicWatchers, gvr)
 		} else {
-			if w, err := c.startWatcher(ctx, logger, gvr, gvk); err != nil {
+			if w, err := c.startWatcher(ctx, logger, gvr, gvk, c.watchDeathChan); err != nil {
 				logger.Error(err, "failed to start watcher")
 			} else {
 				dynamicWatchers[gvr] = w
