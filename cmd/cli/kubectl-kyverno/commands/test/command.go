@@ -245,6 +245,20 @@ func checkResult(
 	return true, result.Description, "Ok"
 }
 
+func isRulelessPolicyKind(kind string) bool {
+	switch kind {
+	case "ValidatingPolicy", "NamespacedValidatingPolicy",
+		"ValidatingAdmissionPolicy",
+		"MutatingPolicy", "NamespacedMutatingPolicy",
+		"MutatingAdmissionPolicy",
+		"ImageValidatingPolicy", "NamespacedImageValidatingPolicy",
+		"GeneratingPolicy", "NamespacedGeneratingPolicy",
+		"DeletingPolicy", "NamespacedDeletingPolicy":
+		return true
+	}
+	return false
+}
+
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
 	var matches []engineapi.RuleResponse
 	// If test.Rule is empty, return all responses (backward compatibility)
@@ -265,7 +279,13 @@ func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleRe
 		rule := response.Name()
 		if rule == test.Rule || rule == "autogen-"+test.Rule || rule == "autogen-cronjob-"+test.Rule {
 			matches = append(matches, response)
+	matches := make([]engineapi.RuleResponse, 0, len(responses))
+	for _, response := range responses {
+		rule := response.Name()
+		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+			continue
 		}
+		matches = append(matches, response)
 	}
 	return matches
 }

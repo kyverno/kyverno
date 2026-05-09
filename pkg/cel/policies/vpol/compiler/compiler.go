@@ -29,15 +29,10 @@ import (
 	"github.com/kyverno/sdk/cel/libs/x509"
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var (
-	vpolCompilerVersion = version.MajorMinor(1, 0)
-	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
-)
+var compileError = "validating policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
 
 type Exception struct {
 	AllowedImages []string `cel:"allowedImages"`
@@ -65,12 +60,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := vpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -137,12 +127,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := vpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -208,7 +193,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -220,8 +205,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(vpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	env, err := cel.NewEnv()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -237,72 +221,64 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: vpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libaries
-		environment.VersionedOptions{
-			IntroducedVersion: vpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-			},
-		},
-	)
+	libEnvOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			compiler.KyvernoVersion,
+		),
+		image.Lib(
+			compiler.KyvernoVersion,
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			compiler.KyvernoVersion,
+		),
+		user.Lib(
+			compiler.KyvernoVersion,
+		),
+		hash.Lib(
+			compiler.KyvernoVersion,
+		),
+		math.Lib(
+			compiler.KyvernoVersion,
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			compiler.KyvernoVersion,
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			compiler.KyvernoVersion,
+		),
+		random.Lib(
+			compiler.KyvernoVersion,
+		),
+		x509.Lib(
+			compiler.KyvernoVersion,
+		),
+		time.Lib(
+			compiler.KyvernoVersion,
+		),
+		transform.Lib(
+			compiler.KyvernoVersion,
+		),
+		gzip.Lib(
+			compiler.KyvernoVersion,
+		),
+		http.Lib(
+			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			compiler.KyvernoVersion,
+		),
+	}
+
+	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}

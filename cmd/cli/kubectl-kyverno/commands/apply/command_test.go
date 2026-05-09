@@ -1087,6 +1087,67 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
+func Test_Apply_CleanupPolicies(t *testing.T) {
+	type testCase struct {
+		name      string
+		config    ApplyCommandConfig
+		wantPass  int
+		wantFail  int
+		wantRules int
+	}
+
+	testcases := []*testCase{
+		{
+			name: "namespaced-cleanup-policy-match-vs-nomatch",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1, // cleanup-pod-1 would be deleted
+			wantFail:  1, // cleanup-pod-2 would NOT be deleted
+			wantRules: 2,
+		},
+		{
+			name: "cluster-cleanup-policy-match-only",
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
+				PolicyReport:  true,
+			},
+			wantPass:  1,
+			wantFail:  0,
+			wantRules: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
+			assert.NoError(t, err)
+
+			passCount := 0
+			failCount := 0
+			rulesCount := 0
+			for _, resp := range responses {
+				for _, rule := range resp.PolicyResponse.Rules {
+					rulesCount++
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						passCount++
+					case engineapi.RuleStatusFail:
+						failCount++
+					}
+				}
+			}
+
+			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
+			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
+			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
+		})
+	}
+}
+
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -1634,4 +1695,105 @@ func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
 	err := cmd.Execute()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to parse envoy payload from")
+}
+
+func Test_Apply_LocalApiCall(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			// GET by name: web-app has ConfigMap with environment=production (passes),
+			// api-server has ConfigMap with environment=staging (fails).
+			// Validates that GET-style apiCall context entries resolve against
+			// local resources supplied via --resource.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// LIST-based apiCall (the require-pdb use case from issue #8615):
+			// web-app Deployment has a matching PDB (passes),
+			// api-server Deployment has no PDB (fails).
+			// Validates that LIST-style apiCall context entries resolve
+			// against local resources without hitting the Kubernetes API server.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// Cross-resource GET: deploy-using-approved-sa uses ServiceAccount
+			// approved-sa (label approved=yes → passes). deploy-using-regular-sa
+			// uses ServiceAccount regular-sa (label approved=no → fails).
+			// Validates that apiCall can look up a related namespaced resource
+			// referenced by a field on the evaluated resource (Deployment →
+			// ServiceAccount), exercising cross-resource resolution without a
+			// running cluster.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// Cross-resource type GET: app-with-tls-secret Deployment references
+			// Secret tls-secret (type=kubernetes.io/tls → passes).
+			// app-with-opaque-secret references Secret opaque-secret
+			// (type=Opaque → fails).
+			// Both Secrets exist so the apiCall always succeeds; validates that
+			// the resolved context variable correctly reflects each resource's
+			// field value.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-default/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-default/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 1,
+					Fail: 1,
+				},
+			}},
+		},
+		{
+			// GlobalContextEntry: policy uses globalReference to read cached
+			// ConfigMaps. Both Deployments should pass because "app-config"
+			// ConfigMap exists in the default namespace.
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-globalcontext/pol"},
+				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-globalcontext/res"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass: 2,
+					Fail: 0,
+				},
+			}},
+		},
+	}
+	for i, tc := range testcases {
+		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
 }

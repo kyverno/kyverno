@@ -10,6 +10,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	corev1 "k8s.io/api/core/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -26,6 +27,7 @@ type TestEnv struct {
 	Client          client.Client
 	KubeClient      kubernetes.Interface
 	KyvernoClient   kyvernoclient.Interface
+	DClient         dclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
 	cancel          context.CancelFunc
@@ -37,6 +39,9 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 	scheme := kruntime.NewScheme()
 	if err := policiesv1beta1.Install(scheme); err != nil {
 		return nil, fmt.Errorf("failed to install policiesv1beta1 scheme: %w", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to install corev1 scheme: %w", err)
 	}
 
 	// Initialize the global reporting config to prevent nil dereference
@@ -105,6 +110,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
 		KyvernoClient:   kyvernoClient,
+		DClient:         dc,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil

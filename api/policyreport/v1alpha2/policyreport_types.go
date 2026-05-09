@@ -70,7 +70,7 @@ func (r *PolicyReport) SetSummary(summary PolicyReportSummary) {
 }
 
 func (polr *PolicyReport) ToOpenReports() *openreportsv1alpha1.Report {
-	res := []openreportsv1alpha1.ReportResult{}
+	res := make([]openreportsv1alpha1.ReportResult, 0, len(polr.GetResults()))
 	for _, r := range polr.GetResults() {
 		res = append(res, openreportsv1alpha1.ReportResult{
 			Source:           r.Source,
