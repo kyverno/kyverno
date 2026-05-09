@@ -1034,7 +1034,6 @@ func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 	}()
 	return p.Client.GetKubeClient().Discovery().OpenAPIV3()
 }
-<<<<<<< HEAD
 
 func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 	gvk := schema.GroupVersionKind{Kind: kind}

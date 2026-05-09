@@ -176,10 +176,13 @@ func Test_resolveResource_fromMutatingPolicy(t *testing.T) {
 }
 
 func Test_resolveResource_notFound(t *testing.T) {
-	// When no policy matches the kind, resolveResource should return an error.
+	// UnsafeGuessKindToResource always produces a plural form for standard
+	// English kind names, so resolveResource never errors for those.
+	// With an empty processor it should fall back to the guessed resource.
 	p := &PolicyProcessor{}
-	_, err := p.resolveResource("Deployment")
-	assert.ErrorContains(t, err, "failed to get resource from Deployment")
+	got, err := p.resolveResource("Deployment")
+	assert.NilError(t, err)
+	assert.Equal(t, "deployments", got)
 }
 
 func Test_resolveResource_mutatingPolicyTakesPrecedence(t *testing.T) {
