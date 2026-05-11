@@ -300,5 +300,5 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		namespace = e.nsResolver(ns)
 	}
 
-	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
+	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace)
 }
