@@ -60,7 +60,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		return err
 	}
 
-	if err := rejectAnnotationsOnBundleKeylessPath(cOpts, attestor.Cosign.Annotations); err != nil {
+	if err := rejectAnnotationsOnBundlePath(cOpts, attestor.Cosign.Annotations); err != nil {
 		logger.Error(err, "image verification failed")
 		return err
 	}
@@ -127,7 +127,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		return err
 	}
 
-	if err := rejectAnnotationsOnBundleKeylessPath(cOpts, attestor.Cosign.Annotations); err != nil {
+	if err := rejectAnnotationsOnBundlePath(cOpts, attestor.Cosign.Annotations); err != nil {
 		logger.Error(err, "image verification failed")
 		return err
 	}
