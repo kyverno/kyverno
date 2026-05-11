@@ -223,8 +223,17 @@ func certificateIdentityOptions(identities []cosign.Identity) ([]verify.PolicyOp
 	return opts, nil
 }
 
-// buildBundleVerifyOptions mirrors cosign's pkg/cosign/verify.go option
-// matrix for sigstore-go's required-exactly-one observer-timestamp choice.
+// buildBundleVerifyOptions picks one of sigstore-go's required-exactly-one
+// observer-timestamp options based on the caller's CheckOpts.
+//
+// The default case (!IgnoreTlog, !UseSignedTimestamps) uses
+// WithObserverTimestamps rather than WithIntegratedTimestamps so that
+// Rekor v2-only bundles — which have zero IntegratedTime but carry an
+// RFC3161 signed timestamp — verify transparently. This is the pattern
+// in sigstore-go's own examples/sigstore-go-verification reference; cosign
+// uses WithIntegratedTimestamps and pairs it with a per-bundle Rekor-v2
+// preflight that flips UseSignedTimestamps, which is the surface area we
+// avoid by going through observer-timestamps directly.
 func buildBundleVerifyOptions(co *cosign.CheckOpts) []verify.VerifierOption {
 	var opts []verify.VerifierOption
 
@@ -239,7 +248,7 @@ func buildBundleVerifyOptions(co *cosign.CheckOpts) []verify.VerifierOption {
 	case co.UseSignedTimestamps:
 		opts = append(opts, verify.WithSignedTimestamps(1))
 	case !co.IgnoreTlog:
-		opts = append(opts, verify.WithIntegratedTimestamps(1))
+		opts = append(opts, verify.WithObserverTimestamps(1))
 	case co.SigVerifier != nil:
 		opts = append(opts, verify.WithNoObserverTimestamps())
 	default:

@@ -393,7 +393,10 @@ func TestCertificateIdentityOptions_ErrorIncludesAllConfiguredFields(t *testing.
 // WithCurrentTime, WithNoObserverTimestamps}. The option counts below
 // reflect that contract.
 
-func TestBuildBundleVerifyOptions_DefaultsEnableTlogSCTAndIntegratedTime(t *testing.T) {
+func TestBuildBundleVerifyOptions_DefaultsEnableTlogSCTAndObserverTimestamps(t *testing.T) {
+	// Default-case picks WithObserverTimestamps (accepts either signed or
+	// integrated) so Rekor v2-only bundles — which have zero IntegratedTime —
+	// don't require a separate UseSignedTimestamps preflight to verify.
 	opts := buildBundleVerifyOptions(&cosign.CheckOpts{})
 	require.Len(t, opts, 3)
 }
@@ -419,7 +422,7 @@ func TestBuildBundleVerifyOptions_IgnoreBothWithSigVerifierUsesNoObserverTimesta
 	require.Len(t, opts, 1)
 }
 
-func TestBuildBundleVerifyOptions_UseSignedTimestampsTakesPrecedenceOverIntegrated(t *testing.T) {
+func TestBuildBundleVerifyOptions_UseSignedTimestampsTakesPrecedenceOverObserver(t *testing.T) {
 	opts := buildBundleVerifyOptions(&cosign.CheckOpts{UseSignedTimestamps: true})
 	require.Len(t, opts, 3)
 }
