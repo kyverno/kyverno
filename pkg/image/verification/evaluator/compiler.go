@@ -35,20 +35,27 @@ import (
 
 type Compiler interface {
 	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
+	UpdateImageContext(imagedataloader.ImageContext)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
+	h := &imageverify.ImageContextHolder{}
+	h.Store(ictx)
 	return &compilerImpl{
-		ictx:   ictx,
-		lister: lister,
-		reqGVR: reqGVR,
+		imgCtxHolder: h,
+		lister:       lister,
+		reqGVR:       reqGVR,
 	}
 }
 
 type compilerImpl struct {
-	ictx   imagedataloader.ImageContext
-	lister k8scorev1.SecretInterface
-	reqGVR *metav1.GroupVersionResource
+	imgCtxHolder *imageverify.ImageContextHolder
+	lister       k8scorev1.SecretInterface
+	reqGVR       *metav1.GroupVersionResource
+}
+
+func (c *compilerImpl) UpdateImageContext(ictx imagedataloader.ImageContext) {
+	c.imgCtxHolder.Store(ictx)
 }
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
@@ -200,8 +207,8 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			imagedata.Context{ContextInterface: libsctx},
 			engine.KyvernoVersion,
 		),
-		imageverify.Lib(
-			engine.KyvernoVersion, c.ictx, ivpol, c.lister,
+		imageverify.LibWithHolder(
+			engine.KyvernoVersion, c.imgCtxHolder, ivpol, c.lister,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
