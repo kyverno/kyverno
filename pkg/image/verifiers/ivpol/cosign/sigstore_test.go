@@ -384,6 +384,45 @@ func TestBuildBundleVerifyOptions_UseSignedTimestampsTakesPrecedenceOverIntegrat
 	require.Len(t, opts, 3)
 }
 
+// ---- rejectAnnotationsOnBundleKeylessPath ----
+//
+// Bundle-keyless verification builds oci.Signatures via static.NewAttestation
+// from the DSSE envelope only, so the resulting Signatures carry no OCI
+// annotations. Combining annotation matchers with this path is a config
+// error worth surfacing explicitly rather than producing a misleading
+// "no signature matched" error later.
+
+func TestRejectAnnotationsOnBundleKeylessPath_NoAnnotationsIsAccepted(t *testing.T) {
+	co := &cosign.CheckOpts{NewBundleFormat: true, TrustedMaterial: emptyPublicTrustedRoot(t)}
+	err := rejectAnnotationsOnBundleKeylessPath(co, nil)
+	assert.NoError(t, err)
+}
+
+func TestRejectAnnotationsOnBundleKeylessPath_NonBundlePathAccepts(t *testing.T) {
+	// Legacy non-bundle path through cosign.VerifyImageSignatures still
+	// propagates OCI annotations on its oci.Signature results, so annotations
+	// remain supported there.
+	co := &cosign.CheckOpts{NewBundleFormat: false}
+	err := rejectAnnotationsOnBundleKeylessPath(co, map[string]string{"foo": "bar"})
+	assert.NoError(t, err)
+}
+
+func TestRejectAnnotationsOnBundleKeylessPath_StaticKeyBundlePathAccepts(t *testing.T) {
+	// Bundle path with a static key routes through cosign rather than our
+	// sigstore-go helper; cosign's bundle handler has the same limitation,
+	// but rejecting at this layer would over-restrict the static-key case.
+	co := &cosign.CheckOpts{NewBundleFormat: true, SigVerifier: stubSigVerifier{}}
+	err := rejectAnnotationsOnBundleKeylessPath(co, map[string]string{"foo": "bar"})
+	assert.NoError(t, err)
+}
+
+func TestRejectAnnotationsOnBundleKeylessPath_BundleKeylessWithAnnotationsIsRejected(t *testing.T) {
+	co := &cosign.CheckOpts{NewBundleFormat: true, TrustedMaterial: emptyPublicTrustedRoot(t)}
+	err := rejectAnnotationsOnBundleKeylessPath(co, map[string]string{"foo": "bar"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "annotations is not supported")
+}
+
 // ---- bundleToOCISignature ----
 
 func TestBundleToOCISignature_NilBundleIsRejected(t *testing.T) {

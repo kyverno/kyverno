@@ -68,6 +68,23 @@ func composeTrustedMaterial(publicRoot root.TrustedMaterial, customTSALeaf *x509
 	}, nil
 }
 
+// rejectAnnotationsOnBundleKeylessPath errors when the caller configured
+// annotation matchers on an attestor whose CheckOpts will route through
+// the sigstore-go bundle path. The bundle path returns oci.Signature
+// values built from the DSSE envelope only (via static.NewAttestation),
+// so the resulting signatures carry no OCI annotations — matching cosign's
+// own verifyImageAttestationsSigstoreBundle behaviour. Without this guard
+// the surrounding annotation-check loop in verifier.go would always fail
+// with "no signature matched the required annotations", which is a
+// misleading framing of "this combination of attestor fields isn't
+// supported".
+func rejectAnnotationsOnBundleKeylessPath(co *cosign.CheckOpts, annotations map[string]string) error {
+	if !isBundleKeyless(co) || len(annotations) == 0 {
+		return nil
+	}
+	return errors.New("attestor.cosign.annotations is not supported on the v3-bundle keyless verification path: OCI annotations are not propagated from sigstore bundle referrers (this matches cosign's own behaviour for the bundle path)")
+}
+
 // isBundleKeyless answers "should this CheckOpts go through our sigstore-go
 // path rather than cosign?". True when bundle format is in use, no static
 // public key is set (which would route through cosign's own bundle handler),

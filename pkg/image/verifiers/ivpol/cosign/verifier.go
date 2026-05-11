@@ -60,6 +60,11 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		return err
 	}
 
+	if err := rejectAnnotationsOnBundleKeylessPath(cOpts, attestor.Cosign.Annotations); err != nil {
+		logger.Error(err, "image verification failed")
+		return err
+	}
+
 	// Set appropriate claim verifier based on format
 	if cOpts.NewBundleFormat {
 		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
@@ -118,6 +123,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
+		logger.Error(err, "image verification failed")
+		return err
+	}
+
+	if err := rejectAnnotationsOnBundleKeylessPath(cOpts, attestor.Cosign.Annotations); err != nil {
 		logger.Error(err, "image verification failed")
 		return err
 	}
