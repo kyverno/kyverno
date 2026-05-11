@@ -165,7 +165,7 @@ func TestComposeTrustedMaterial_NilPublicRootIsRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "public trusted material")
 }
 
-func TestComposeTrustedMaterial_NilLeafReturnsPublicRootUnchanged(t *testing.T) {
+func TestComposeTrustedMaterial_EmptyCustomChainReturnsPublicRootUnchanged(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	tm, err := composeTrustedMaterial(publicRoot, nil, nil, nil)
 	require.NoError(t, err)
@@ -180,6 +180,26 @@ func TestComposeTrustedMaterial_LeafWithoutRootIsRejected(t *testing.T) {
 	assert.Nil(t, tm)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "root")
+}
+
+// CTLog.TSACertChain documents the leaf TSA cert as optional: the leaf
+// can live in the RFC3161 timestamp response itself. opts.go preserves
+// that contract — TSARootCertificates can be populated with TSACertificate
+// nil. composeTrustedMaterial must compose authority material in that
+// case, not silently drop the user's roots.
+func TestComposeTrustedMaterial_RootsOnlyAreExposedAsTSA(t *testing.T) {
+	publicRoot := emptyPublicTrustedRoot(t)
+	_, _, rootCert := generateTSAChain(t)
+
+	tm, err := composeTrustedMaterial(publicRoot, nil, nil, []*x509.Certificate{rootCert})
+	require.NoError(t, err)
+
+	tsAs := tm.TimestampingAuthorities()
+	require.Len(t, tsAs, 1, "the single custom root must produce one timestamping authority")
+	sta, ok := tsAs[0].(*root.SigstoreTimestampingAuthority)
+	require.True(t, ok)
+	assert.Same(t, rootCert, sta.Root)
+	assert.Nil(t, sta.Leaf, "leaf nil is honoured; sigstore-go pulls the leaf from the TSR or errors clearly")
 }
 
 func TestComposeTrustedMaterial_AggregatesTSAsFromBothSources(t *testing.T) {
@@ -218,18 +238,38 @@ func TestComposeTrustedMaterial_ReturnsCollectionType(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// SigstoreTimestampingAuthority has a single Root field. Silently truncating
-// a multi-root slice would hide a chain mixing multiple trust anchors;
-// surface the constraint at the API boundary instead.
-func TestComposeTrustedMaterial_MultipleRootsAreRejected(t *testing.T) {
+// SigstoreTimestampingAuthority has a single Root field, but TSACertChain
+// allows multiple roots — and cosign's non-bundle path (cpol/cosign/cosign.go)
+// passes the whole roots slice through. Build one SigstoreTimestampingAuthority
+// per root, sharing leaf + intermediates, so the bundle path doesn't introduce
+// a multi-root-rejection asymmetry vs. the non-bundle path.
+func TestComposeTrustedMaterial_MultipleRootsExposeOneTSAPerRoot(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	leaf, intermediate, root1 := generateTSAChain(t)
 	_, _, root2 := generateTSAChain(t)
 
 	tm, err := composeTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{root1, root2})
-	assert.Nil(t, tm)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exactly one root")
+	require.NoError(t, err)
+
+	tsAs := tm.TimestampingAuthorities()
+	require.Len(t, tsAs, 2, "two custom roots must produce two timestamping authorities (one per root)")
+
+	foundRoot1, foundRoot2 := false, false
+	for _, tsa := range tsAs {
+		st, ok := tsa.(*root.SigstoreTimestampingAuthority)
+		if !ok {
+			continue
+		}
+		assert.Same(t, leaf, st.Leaf, "each TSA shares the configured leaf")
+		switch st.Root {
+		case root1:
+			foundRoot1 = true
+		case root2:
+			foundRoot2 = true
+		}
+	}
+	assert.True(t, foundRoot1, "first root must be exposed as its own TSA")
+	assert.True(t, foundRoot2, "second root must be exposed as its own TSA")
 }
 
 // ---- buildBundlePolicy ----
