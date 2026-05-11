@@ -35,18 +35,27 @@ func (t *tsaOnlyTrustedMaterial) TimestampingAuthorities() []root.TimestampingAu
 }
 
 // composeTrustedMaterial returns a TrustedMaterial that exposes both the
-// public TrustedRoot's timestamping authorities and a caller-supplied TSA
+// public trust root's timestamping authorities and a caller-supplied TSA
 // chain (for a TSA not present in any TUF root). With no custom leaf the
 // public root is returned unchanged.
-func composeTrustedMaterial(publicRoot *root.TrustedRoot, customTSALeaf *x509.Certificate, customTSAIntermediates, customTSARoots []*x509.Certificate) (root.TrustedMaterial, error) {
+//
+// customTSARoots must contain exactly zero or one cert: SigstoreTimestamping-
+// Authority has a single Root field, and silently truncating a longer slice
+// would hide a chain that mixes multiple trust anchors.
+func composeTrustedMaterial(publicRoot root.TrustedMaterial, customTSALeaf *x509.Certificate, customTSAIntermediates, customTSARoots []*x509.Certificate) (root.TrustedMaterial, error) {
 	if publicRoot == nil {
-		return nil, errors.New("public trusted root must not be nil")
+		return nil, errors.New("public trusted material must not be nil")
 	}
 	if customTSALeaf == nil {
 		return publicRoot, nil
 	}
-	if len(customTSARoots) == 0 {
+	switch len(customTSARoots) {
+	case 0:
 		return nil, errors.New("custom TSA chain requires at least one root certificate")
+	case 1:
+		// fine
+	default:
+		return nil, fmt.Errorf("custom TSA chain must have exactly one root certificate (SigstoreTimestampingAuthority's Root is single-valued), got %d", len(customTSARoots))
 	}
 	customTSA := &root.SigstoreTimestampingAuthority{
 		Root:          customTSARoots[0],
@@ -59,28 +68,42 @@ func composeTrustedMaterial(publicRoot *root.TrustedRoot, customTSALeaf *x509.Ce
 	}, nil
 }
 
+// isBundleKeyless answers "should this CheckOpts go through our sigstore-go
+// path rather than cosign?". True when bundle format is in use, no static
+// public key is set (which would route through cosign's own bundle handler),
+// and we have non-nil trust material to compose against.
+//
+// Keyed on co.SigVerifier rather than asserting co.TrustedMaterial's concrete
+// type: opts.go is the single producer of TrustedMaterial and may legitimately
+// wrap it (the call site below also wraps it inside verifyImageBundleAttestations
+// via composeTrustedMaterial → TrustedMaterialCollection). Gating on a
+// concrete-type assertion would silently route around the bug-fix path the
+// first time TrustedMaterial isn't a bare *root.TrustedRoot.
+func isBundleKeyless(co *cosign.CheckOpts) bool {
+	return co.NewBundleFormat && co.SigVerifier == nil && co.TrustedMaterial != nil
+}
+
 // dispatchVerify routes signature verification by CheckOpts shape:
 // bundle + keyless goes through sigstore-go directly so a caller-provided
 // TSA chain composes into the trusted material; bundle + static key goes
 // through cosign (no TSA chain to honour); non-bundle keeps the legacy
 // cosign path.
 func dispatchVerify(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	if isBundleKeyless(co) {
+		return verifyImageBundleAttestations(ctx, signedImgRef, co, co.TrustedMaterial)
+	}
 	if co.NewBundleFormat {
-		if pr, ok := co.TrustedMaterial.(*root.TrustedRoot); ok && pr != nil {
-			return verifyImageBundleAttestations(ctx, signedImgRef, co, pr)
-		}
 		return cosign.VerifyImageAttestations(ctx, signedImgRef, co)
 	}
 	return cosign.VerifyImageSignatures(ctx, signedImgRef, co)
 }
 
 // dispatchVerifyAttestations is dispatchVerify's sibling for the attestation
-// flow; the only difference is the non-bundle fallback.
+// flow; the only difference is the non-bundle fallback uses
+// cosign.VerifyImageAttestations rather than cosign.VerifyImageSignatures.
 func dispatchVerifyAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-	if co.NewBundleFormat {
-		if pr, ok := co.TrustedMaterial.(*root.TrustedRoot); ok && pr != nil {
-			return verifyImageBundleAttestations(ctx, signedImgRef, co, pr)
-		}
+	if isBundleKeyless(co) {
+		return verifyImageBundleAttestations(ctx, signedImgRef, co, co.TrustedMaterial)
 	}
 	return cosign.VerifyImageAttestations(ctx, signedImgRef, co)
 }
@@ -92,7 +115,7 @@ func dispatchVerifyAttestations(ctx context.Context, signedImgRef name.Reference
 // (TSACertificate / TSAIntermediateCertificates / TSARootCertificates),
 // which checkOptions populated from CTLog.TSACertChain — re-using the
 // already-parsed certs rather than re-parsing the PEM.
-func verifyImageBundleAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts, publicRoot *root.TrustedRoot) ([]oci.Signature, bool, error) {
+func verifyImageBundleAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts, publicRoot root.TrustedMaterial) ([]oci.Signature, bool, error) {
 	bundles, hash, err := cosign.GetBundles(ctx, signedImgRef, co.RegistryClientOpts)
 	if err != nil {
 		return nil, false, fmt.Errorf("fetching bundles: %w", err)

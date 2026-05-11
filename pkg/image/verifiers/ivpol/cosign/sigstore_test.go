@@ -162,7 +162,7 @@ func TestComposeTrustedMaterial_NilPublicRootIsRejected(t *testing.T) {
 	tm, err := composeTrustedMaterial(nil, nil, nil, nil)
 	assert.Nil(t, tm)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "public trusted root")
+	assert.Contains(t, err.Error(), "public trusted material")
 }
 
 func TestComposeTrustedMaterial_NilLeafReturnsPublicRootUnchanged(t *testing.T) {
@@ -218,22 +218,18 @@ func TestComposeTrustedMaterial_ReturnsCollectionType(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// SigstoreTimestampingAuthority has a single Root field; only the first
-// element of customTSARoots is used.
-func TestComposeTrustedMaterial_OnlyFirstRootIsUsed(t *testing.T) {
+// SigstoreTimestampingAuthority has a single Root field. Silently truncating
+// a multi-root slice would hide a chain mixing multiple trust anchors;
+// surface the constraint at the API boundary instead.
+func TestComposeTrustedMaterial_MultipleRootsAreRejected(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	leaf, intermediate, root1 := generateTSAChain(t)
 	_, _, root2 := generateTSAChain(t)
 
 	tm, err := composeTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{root1, root2})
-	require.NoError(t, err)
-
-	tsAs := tm.TimestampingAuthorities()
-	require.Len(t, tsAs, 1)
-	sta, ok := tsAs[0].(*root.SigstoreTimestampingAuthority)
-	require.True(t, ok)
-	assert.Same(t, root1, sta.Root)
-	assert.NotSame(t, root2, sta.Root)
+	assert.Nil(t, tm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exactly one root")
 }
 
 // ---- buildBundlePolicy ----
