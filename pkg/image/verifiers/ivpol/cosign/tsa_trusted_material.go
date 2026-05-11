@@ -3,7 +3,6 @@ package cosign
 import (
 	"crypto/x509"
 	"errors"
-	"fmt"
 
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
@@ -25,8 +24,8 @@ func (t *tsaOnlyTrustedMaterial) TimestampingAuthorities() []root.TimestampingAu
 
 // mergeTSAIntoTrustedMaterial returns a TrustedMaterial that exposes both
 // the public trust root's timestamping authorities and a caller-supplied
-// TSA chain. With no leaf, the public root is returned unchanged (no
-// custom TSA configured).
+// TSA chain. When the caller supplies no custom material (leaf, intermediates,
+// and roots all empty), the public root is returned unchanged.
 //
 // The merged material reaches sigstore-go's bundle verifier when cosign's
 // pkg/cosign.verificationOptions wraps co.TrustedMaterial — the verifier
@@ -34,31 +33,32 @@ func (t *tsaOnlyTrustedMaterial) TimestampingAuthorities() []root.TimestampingAu
 // TrustedMaterialCollection's TimestampingAuthorities aggregates from all
 // its members.
 //
-// roots must contain exactly zero or one cert: SigstoreTimestampingAuthority
-// has a single Root field, and silently truncating a longer slice would hide
-// a chain that mixes multiple trust anchors.
-func mergeTSAIntoTrustedMaterial(publicRoot root.TrustedMaterial, leaf *x509.Certificate, intermediates, roots []*x509.Certificate) (root.TrustedMaterial, error) {
+// SigstoreTimestampingAuthority has a single Root field, so each root in the
+// caller's slice gets its own authority entry (all sharing the same leaf and
+// intermediates). The leaf may be nil — sigstore-go's verifier accepts a nil
+// Leaf and pulls the signing cert from the TSR when present, or errors
+// clearly when neither is available. This matches cpol/cosign's non-bundle
+// path (which accepts leaf-less, multi-root TSA chains) and means callers
+// don't need to know whether their bundle uses the legacy or new format.
+func mergeTSAIntoTrustedMaterial(publicRoot root.TrustedMaterial, customTSALeaf *x509.Certificate, customTSAIntermediates, customTSARoots []*x509.Certificate) (root.TrustedMaterial, error) {
 	if publicRoot == nil {
 		return nil, errors.New("public trusted material must not be nil")
 	}
-	if leaf == nil {
+	if customTSALeaf == nil && len(customTSAIntermediates) == 0 && len(customTSARoots) == 0 {
 		return publicRoot, nil
 	}
-	switch len(roots) {
-	case 0:
+	if len(customTSARoots) == 0 {
 		return nil, errors.New("custom TSA chain requires at least one root certificate")
-	case 1:
-		// fine
-	default:
-		return nil, fmt.Errorf("custom TSA chain must have exactly one root certificate (SigstoreTimestampingAuthority's Root is single-valued), got %d", len(roots))
 	}
-	customTSA := &root.SigstoreTimestampingAuthority{
-		Root:          roots[0],
-		Intermediates: intermediates,
-		Leaf:          leaf,
+	members := root.TrustedMaterialCollection{publicRoot}
+	for _, r := range customTSARoots {
+		members = append(members, &tsaOnlyTrustedMaterial{
+			tsa: &root.SigstoreTimestampingAuthority{
+				Root:          r,
+				Intermediates: customTSAIntermediates,
+				Leaf:          customTSALeaf,
+			},
+		})
 	}
-	return root.TrustedMaterialCollection{
-		publicRoot,
-		&tsaOnlyTrustedMaterial{tsa: customTSA},
-	}, nil
+	return members, nil
 }

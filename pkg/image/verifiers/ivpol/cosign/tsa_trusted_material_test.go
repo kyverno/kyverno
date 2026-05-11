@@ -96,7 +96,7 @@ func TestMergeTSAIntoTrustedMaterial_NilPublicRootIsRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "public trusted material")
 }
 
-func TestMergeTSAIntoTrustedMaterial_NilLeafReturnsPublicRootUnchanged(t *testing.T) {
+func TestMergeTSAIntoTrustedMaterial_EmptyCustomChainReturnsPublicRootUnchanged(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	got, err := mergeTSAIntoTrustedMaterial(publicRoot, nil, nil, nil)
 	require.NoError(t, err)
@@ -111,6 +111,25 @@ func TestMergeTSAIntoTrustedMaterial_LeafWithoutRootIsRejected(t *testing.T) {
 	assert.Nil(t, tm)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "root")
+}
+
+// Roots-only (no caller leaf) is a valid configuration: cpol/cosign accepts
+// it on its non-bundle path, and sigstore-go's verifier reads the signing
+// cert from the TSR when Leaf is nil.
+func TestMergeTSAIntoTrustedMaterial_RootsOnlyAreExposedAsTSA(t *testing.T) {
+	publicRoot := emptyPublicTrustedRoot(t)
+	_, _, rootCert := generateTSAChain(t)
+
+	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, nil, nil, []*x509.Certificate{rootCert})
+	require.NoError(t, err)
+
+	tsAs := tm.TimestampingAuthorities()
+	require.Len(t, tsAs, 1)
+	st, ok := tsAs[0].(*root.SigstoreTimestampingAuthority)
+	require.True(t, ok)
+	assert.Same(t, rootCert, st.Root)
+	assert.Empty(t, st.Intermediates)
+	assert.Nil(t, st.Leaf)
 }
 
 func TestMergeTSAIntoTrustedMaterial_AggregatesTSAsFromBothSources(t *testing.T) {
@@ -149,16 +168,36 @@ func TestMergeTSAIntoTrustedMaterial_ReturnsCollectionType(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// SigstoreTimestampingAuthority has a single Root field. Silently truncating
-// a multi-root slice would hide a chain mixing multiple trust anchors;
-// surface the constraint at the API boundary instead.
-func TestMergeTSAIntoTrustedMaterial_MultipleRootsAreRejected(t *testing.T) {
+// SigstoreTimestampingAuthority has a single Root field. A caller chain that
+// trusts multiple roots is exposed as one authority per root, all sharing the
+// same leaf and intermediates. This matches cpol/cosign's non-bundle path,
+// which iterates the caller's roots and accepts a timestamp anchored at any
+// of them.
+func TestMergeTSAIntoTrustedMaterial_MultipleRootsExposeOneTSAPerRoot(t *testing.T) {
 	publicRoot := emptyPublicTrustedRoot(t)
 	leaf, intermediate, root1 := generateTSAChain(t)
 	_, _, root2 := generateTSAChain(t)
 
 	tm, err := mergeTSAIntoTrustedMaterial(publicRoot, leaf, []*x509.Certificate{intermediate}, []*x509.Certificate{root1, root2})
-	assert.Nil(t, tm)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exactly one root")
+	require.NoError(t, err)
+
+	tsAs := tm.TimestampingAuthorities()
+	require.Len(t, tsAs, 2)
+
+	foundRoot1, foundRoot2 := false, false
+	for _, tsa := range tsAs {
+		st, ok := tsa.(*root.SigstoreTimestampingAuthority)
+		require.True(t, ok)
+		assert.Same(t, leaf, st.Leaf)
+		require.Len(t, st.Intermediates, 1)
+		assert.Same(t, intermediate, st.Intermediates[0])
+		switch st.Root {
+		case root1:
+			foundRoot1 = true
+		case root2:
+			foundRoot2 = true
+		}
+	}
+	assert.True(t, foundRoot1, "expected a TSA anchored at root1")
+	assert.True(t, foundRoot2, "expected a TSA anchored at root2")
 }
