@@ -444,7 +444,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
-				true,
+				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 			)
 			if err != nil {
