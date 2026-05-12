@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
@@ -593,6 +595,121 @@ func TestLookupRuleResponses(t *testing.T) {
 			result := lookupRuleResponses(tt.testResult, responses...)
 			assert.Len(t, result, tt.wantCount,
 				"lookupRuleResponses returned unexpected number of responses")
+		})
+	}
+}
+
+func TestCheckResultGeneratedResources(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("test-policy")
+
+	actual := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ResourceQuota",
+			"metadata": map[string]interface{}{
+				"name":      "default-resourcequota",
+				"namespace": "hello-world-namespace",
+			},
+			"spec": map[string]interface{}{
+				"hard": map[string]interface{}{
+					"requests.cpu": "4",
+				},
+			},
+		},
+	}
+
+	matchingYAML := `apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-resourcequota
+  namespace: hello-world-namespace
+spec:
+  hard:
+    requests.cpu: "4"
+`
+	nonMatchingYAML := `apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limitrange
+  namespace: hello-world-namespace
+spec:
+  limits: []
+`
+
+	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "generated", nil)
+	response := engineapi.NewEngineResponse(
+		actual,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	makeFS := func(t *testing.T, files map[string]string) billy.Filesystem {
+		t.Helper()
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	tests := []struct {
+		name               string
+		generatedResources []string
+		fsFiles            map[string]string
+		wantOk             bool
+		wantReason         string
+	}{
+		{
+			name:               "match found in list",
+			generatedResources: []string{"nonmatch.yaml", "match.yaml"},
+			fsFiles: map[string]string{
+				"nonmatch.yaml": nonMatchingYAML,
+				"match.yaml":    matchingYAML,
+			},
+			wantOk:     true,
+			wantReason: "Ok",
+		},
+		{
+			name:               "no match in list",
+			generatedResources: []string{"nonmatch.yaml"},
+			fsFiles: map[string]string{
+				"nonmatch.yaml": nonMatchingYAML,
+			},
+			wantOk:     false,
+			wantReason: "Resource error",
+		},
+		{
+			name:               "all files missing",
+			generatedResources: []string{"missing.yaml"},
+			fsFiles:            map[string]string{},
+			wantOk:             false,
+			wantReason:         "Resource error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := makeFS(t, tt.fsFiles)
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(openreports.StatusPass),
+				},
+				TestResultData: v1alpha1.TestResultData{
+					GeneratedResources: tt.generatedResources,
+				},
+			}
+			ok, _, reason := checkResult(testResult, fs, "", response, rule, actual, true)
+			assert.Equal(t, tt.wantOk, ok)
+			assert.Equal(t, tt.wantReason, reason)
 		})
 	}
 }
