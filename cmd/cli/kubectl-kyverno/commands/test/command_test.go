@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
@@ -273,7 +275,8 @@ func Test_JSONPayload(t *testing.T) {
 	t.Logf("Test output: %s", out.String())
 
 	t.Run("Check policy results match output table", func(t *testing.T) {
-		payloadKey := testCase.Test.JSONPayload
+		require.NotEmpty(t, testCase.Test.JSONPayloads, "Expected at least one JSON payload after migration")
+		payloadKey := testCase.Test.JSONPayloads[0]
 		responses := testResponse.Trigger[payloadKey]
 		policyResults := make(map[string]struct {
 			Status string
@@ -307,6 +310,65 @@ func Test_JSONPayload(t *testing.T) {
 			assert.Equal(t, "pass", curlResult.Status, "curl policy should pass according to output table")
 			assert.Equal(t, "Ok", curlResult.Reason, "curl policy reason should be 'Ok'")
 		}
+	})
+}
+
+func Test_JSONPayloads(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-multiple-payloads")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	require.Len(t, testCase.Test.JSONPayloads, 2, "Expected 2 JSON payloads after loading")
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	t.Run("Both payloads produce trigger responses", func(t *testing.T) {
+		assert.Contains(t, testResponse.Trigger, "payload-pass.json", "pass payload should have trigger response")
+		assert.Contains(t, testResponse.Trigger, "payload-fail.json", "fail payload should have trigger response")
+	})
+
+	t.Run("Pass payload produces a passing result", func(t *testing.T) {
+		responses := testResponse.Trigger["payload-pass.json"]
+		require.NotEmpty(t, responses, "Expected responses for pass payload")
+		found := false
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-root-ca-enabled" {
+				found = true
+				for _, rule := range response.PolicyResponse.Rules {
+					assert.Equal(t, "pass", string(rule.Status()), "expected pass for pass payload")
+				}
+			}
+		}
+		assert.True(t, found, "deny-root-ca-enabled policy result not found for pass payload")
+	})
+
+	t.Run("Fail payload produces a failing result", func(t *testing.T) {
+		responses := testResponse.Trigger["payload-fail.json"]
+		require.NotEmpty(t, responses, "Expected responses for fail payload")
+		found := false
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-root-ca-enabled" {
+				found = true
+				for _, rule := range response.PolicyResponse.Rules {
+					assert.Equal(t, "fail", string(rule.Status()), "expected fail for fail payload")
+				}
+			}
+		}
+		assert.True(t, found, "deny-root-ca-enabled policy result not found for fail payload")
 	})
 }
 
@@ -593,6 +655,121 @@ func TestLookupRuleResponses(t *testing.T) {
 			result := lookupRuleResponses(tt.testResult, responses...)
 			assert.Len(t, result, tt.wantCount,
 				"lookupRuleResponses returned unexpected number of responses")
+		})
+	}
+}
+
+func TestCheckResultGeneratedResources(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("test-policy")
+
+	actual := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ResourceQuota",
+			"metadata": map[string]interface{}{
+				"name":      "default-resourcequota",
+				"namespace": "hello-world-namespace",
+			},
+			"spec": map[string]interface{}{
+				"hard": map[string]interface{}{
+					"requests.cpu": "4",
+				},
+			},
+		},
+	}
+
+	matchingYAML := `apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-resourcequota
+  namespace: hello-world-namespace
+spec:
+  hard:
+    requests.cpu: "4"
+`
+	nonMatchingYAML := `apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limitrange
+  namespace: hello-world-namespace
+spec:
+  limits: []
+`
+
+	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "generated", nil)
+	response := engineapi.NewEngineResponse(
+		actual,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	makeFS := func(t *testing.T, files map[string]string) billy.Filesystem {
+		t.Helper()
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	tests := []struct {
+		name               string
+		generatedResources []string
+		fsFiles            map[string]string
+		wantOk             bool
+		wantReason         string
+	}{
+		{
+			name:               "match found in list",
+			generatedResources: []string{"nonmatch.yaml", "match.yaml"},
+			fsFiles: map[string]string{
+				"nonmatch.yaml": nonMatchingYAML,
+				"match.yaml":    matchingYAML,
+			},
+			wantOk:     true,
+			wantReason: "Ok",
+		},
+		{
+			name:               "no match in list",
+			generatedResources: []string{"nonmatch.yaml"},
+			fsFiles: map[string]string{
+				"nonmatch.yaml": nonMatchingYAML,
+			},
+			wantOk:     false,
+			wantReason: "Resource error",
+		},
+		{
+			name:               "all files missing",
+			generatedResources: []string{"missing.yaml"},
+			fsFiles:            map[string]string{},
+			wantOk:             false,
+			wantReason:         "Resource error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := makeFS(t, tt.fsFiles)
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(openreports.StatusPass),
+				},
+				TestResultData: v1alpha1.TestResultData{
+					GeneratedResources: tt.generatedResources,
+				},
+			}
+			ok, _, reason := checkResult(testResult, fs, "", response, rule, actual, true)
+			assert.Equal(t, tt.wantOk, ok)
+			assert.Equal(t, tt.wantReason, reason)
 		})
 	}
 }
