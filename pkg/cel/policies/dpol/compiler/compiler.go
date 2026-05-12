@@ -24,6 +24,8 @@ import (
 	"github.com/kyverno/sdk/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/common"
+	"k8s.io/apiserver/pkg/cel/mutation"
 )
 
 var compileError = "deleting policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
@@ -116,6 +118,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 	}
 
 	baseOpts = append(baseOpts, declOptions...)
+	baseOpts = append(baseOpts, common.ResolverEnvOption(&mutation.DynamicTypeResolver{}))
 
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
