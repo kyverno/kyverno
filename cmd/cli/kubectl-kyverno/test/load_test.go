@@ -244,6 +244,37 @@ func TestLoadTests(t *testing.T) {
 			},
 		}},
 		wantErr: false,
+	}, {
+		name:     "ok - generatedResources",
+		dirPath:  "../_testdata/tests/test-4",
+		fileName: "kyverno-test.yaml",
+		want: []TestCase{{
+			Path: "../_testdata/tests/test-4/kyverno-test.yaml",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "add-quota-gpol",
+				},
+				Policies:  []string{"policy.yaml"},
+				Resources: []string{"resource.yaml"},
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:               "Namespace",
+						Policy:             "add-ns-quota",
+						Result:             openreports.StatusPass,
+						IsGeneratingPolicy: true,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources:          []string{"hello-world-namespace"},
+						GeneratedResources: []string{"generatedLimitRange.yaml", "generatedResourceQuota.yaml"},
+					},
+				}},
+			},
+		}},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
