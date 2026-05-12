@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+spec:
+  initContainers:
+  - name: init-setup
+    image: busybox:1.28
+  containers:
+  - name: app
+    image: nginx:latest
+  - name: sidecar
+    image: busybox:1.28
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-container-pod
+spec:
+  initContainers:
+  - name: init-setup
+    image: busybox:1.28
+  containers:
+  - name: app
+    image: nginx:latest
+  - name: bad
+    image: blocked:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-initcontainer-pod
+spec:
+  initContainers:
+  - name: init-blocked
+    image: evil:latest
+  containers:
+  - name: app
+    image: nginx:latest
