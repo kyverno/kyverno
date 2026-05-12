@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -134,13 +135,39 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	var json any
-	if testCase.Test.JSONPayload != "" {
-		fmt.Fprintln(out, "  Loading JSON payload", "...")
-		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
-		json, err = payload.Load(jsonFullPath[0])
-		if err != nil {
-			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+	type jsonPayloadEntry struct {
+		name string
+		data map[string]any
+	}
+	var jsonPayloads []jsonPayloadEntry
+	if len(testCase.Test.JSONPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading JSON payloads", "...")
+		jsonFullPaths := path.GetFullPaths(testCase.Test.JSONPayloads, testDir, isGit)
+		for i, jp := range jsonFullPaths {
+			var data any
+			var loadErr error
+
+			if isGit {
+				var fileBytes []byte
+				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
+				if loadErr == nil {
+					loadErr = json.Unmarshal(fileBytes, &data)
+				}
+			} else {
+				data, loadErr = payload.Load(jp)
+			}
+
+			if loadErr != nil {
+				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
+			}
+			if data == nil {
+				return nil, fmt.Errorf("error: JSON payload %s is empty or nil", testCase.Test.JSONPayloads[i])
+			}
+			dataMap, ok := data.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("error: JSON payload %s must be a top-level object (map)", testCase.Test.JSONPayloads[i])
+			}
+			jsonPayloads = append(jsonPayloads, jsonPayloadEntry{name: testCase.Test.JSONPayloads[i], data: dataMap})
 		}
 	}
 	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
@@ -431,8 +458,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[resourceKey] = ers
 	}
 
-	if json != nil {
-		// the policy processor is for multiple policies at once
+	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
@@ -444,7 +470,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
+			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
@@ -464,12 +490,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -484,7 +510,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				restMapper,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 			}
 			ers = append(ers, ivpols...)
 		}
@@ -492,7 +518,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
 				vars.Namespace,
 				&resultCounts,
@@ -504,12 +530,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				restMapper,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
 			}
 			ers = append(ers, dpols...)
 		}
 
-		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
+		testResponse.Trigger[jp.name] = append(testResponse.Trigger[jp.name], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
 
