@@ -36,6 +36,11 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			messages = append(messages, "test results contains duplicate resources")
 			result.Resources = unique.UnsortedList()
 		}
+		uniqueGenerated := sets.New(result.GeneratedResources...)
+		if len(result.GeneratedResources) != len(uniqueGenerated) {
+			messages = append(messages, "test results contains duplicate generated resources")
+			result.GeneratedResources = uniqueGenerated.UnsortedList()
+		}
 		results = append(results, result)
 	}
 	if compress {
@@ -44,6 +49,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			data := compressed[result.TestResultBase]
 			data.Resources = append(data.Resources, result.Resources...)
 			data.ResourceSpecs = append(data.ResourceSpecs, result.ResourceSpecs...)
+			data.GeneratedResources = append(data.GeneratedResources, result.GeneratedResources...)
 			compressed[result.TestResultBase] = data
 		}
 		results = nil
@@ -52,6 +58,11 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			if len(v.Resources) != len(unique) {
 				messages = append(messages, "test results contains duplicate resources")
 				v.Resources = unique.UnsortedList()
+			}
+			uniqueGenerated := sets.New(v.GeneratedResources...)
+			if len(v.GeneratedResources) != len(uniqueGenerated) {
+				messages = append(messages, "test results contains duplicate generated resources")
+				v.GeneratedResources = uniqueGenerated.UnsortedList()
 			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
@@ -86,6 +97,18 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		if len(a.Resources) == len(b.Resources) {
 			for i := range a.Resources {
 				if x := cmp.Compare(a.Resources[i], b.Resources[i]); x != 0 {
+					return x
+				}
+			}
+		}
+		slices.Sort(a.GeneratedResources)
+		slices.Sort(b.GeneratedResources)
+		if x := cmp.Compare(len(a.GeneratedResources), len(b.GeneratedResources)); x != 0 {
+			return x
+		}
+		if len(a.GeneratedResources) == len(b.GeneratedResources) {
+			for i := range a.GeneratedResources {
+				if x := cmp.Compare(a.GeneratedResources[i], b.GeneratedResources[i]); x != 0 {
 					return x
 				}
 			}
