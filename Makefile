@@ -906,11 +906,15 @@ test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
 test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
 	@echo Running local cli gpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-gpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-gpol
 
 .PHONY: test-cli-local-mpols
-test-cli-local-mpols: $(CLI_BIN) ## Run local CLI GPOL tests
+test-cli-local-mpols: $(CLI_BIN) ## Run local CLI MPOL tests
 	@echo Running local cli mpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-mpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-mpol
 
 .PHONY: test-cli-local-ivpols
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
@@ -921,6 +925,8 @@ test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 test-cli-local-dpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 	@echo Running local cli dpols tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-deleting-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-dpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-dpol
 
 .PHONY: test-cli-local-vaps
 test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
