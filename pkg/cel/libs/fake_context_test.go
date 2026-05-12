@@ -117,6 +117,12 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		assert.Equal(t, 0, len(got.Items))
 	}
 	{
+		// empty namespace must return resources across all namespaces
+		got, err := cp.ListResources("v1", "configmaps", "", nil)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(got.Items))
+	}
+	{
 		got, err := cp.ListResources("v1", "wrongs", "test-ns", nil)
 		assert.Error(t, err)
 		assert.Nil(t, got)
@@ -126,4 +132,29 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, got)
 	}
+}
+
+func TestFakeContextProvider_ListResources_AllNamespaces(t *testing.T) {
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	makeConfigMap := func(ns, name string) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+			ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+		}
+	}
+
+	cp := NewFakeContextProvider()
+	assert.NoError(t, cp.AddResource(gvr, makeConfigMap("ns-a", "cm-1")))
+	assert.NoError(t, cp.AddResource(gvr, makeConfigMap("ns-a", "cm-2")))
+	assert.NoError(t, cp.AddResource(gvr, makeConfigMap("ns-b", "cm-3")))
+
+	// scoped list still works
+	got, err := cp.ListResources("v1", "configmaps", "ns-a", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(got.Items))
+
+	// empty namespace = all namespaces
+	got, err = cp.ListResources("v1", "configmaps", "", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(got.Items))
 }
