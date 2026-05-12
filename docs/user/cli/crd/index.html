@@ -295,7 +295,19 @@ string
 </em>
 </td>
 <td>
-<p>JSONPayload is the JSON payload to be used in the test</p>
+<p>JSONPayload is the JSON payload to be used in the test
+Deprecated: Use JSONPayloads instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jsonPayloads</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>JSONPayloads are the JSON payloads to be used in the test</p>
 </td>
 </tr>
 <tr>
@@ -1476,6 +1488,18 @@ bool
 </td>
 <td>
 <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generatedResources</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>GeneratedResources takes a list of resource configuration files in yaml format from
+the user to compare them against the Kyverno generated resource configurations.</p>
 </td>
 </tr>
 </tbody>
