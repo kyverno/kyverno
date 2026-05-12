@@ -6,6 +6,10 @@ on:
     branches:
       - main
       - release-*
+    paths-ignore:
+      - 'docs/**'
+      - 'charts/**'
+      - '**/*.md'
   push:
     branches:
       - main
