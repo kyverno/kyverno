@@ -26,41 +26,6 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
-          checks:
-            description: Checks are the verifications to be checked in the test
-            items:
-              properties:
-                assert:
-                  description: Assert contains assertion to be performed on the relevant
-                    rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                error:
-                  description: Error contains negative assertion to be performed on
-                    the relevant rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                match:
-                  description: Match tells how to match relevant rule responses
-                  properties:
-                    policy:
-                      description: Policy filters engine responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    resource:
-                      description: Resource filters engine responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    rule:
-                      description: Rule filters rule responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                  type: object
-              required:
-              - assert
-              - error
-              type: object
-            type: array
           clusterResources:
             description: ClusterResources are the cluster resources to be used in
               the test
@@ -86,9 +51,6 @@ spec:
             items:
               type: string
             type: array
-          jsonPayload:
-            description: JSONPayload is the JSON payload to be used in the test
-            type: string
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.

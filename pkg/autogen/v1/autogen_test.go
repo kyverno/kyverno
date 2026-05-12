@@ -488,5 +488,6 @@ func Test_ValidateWithAssertion(t *testing.T) {
 	assert.Equal(t, 1, len(policies))
 
 	rules := computeRules(policies[0], "")
-	assert.Equal(t, 3, len(rules))
+	// assert field is deprecated and no longer triggers autogen of pod-controller rules
+	assert.Equal(t, 1, len(rules))
 }

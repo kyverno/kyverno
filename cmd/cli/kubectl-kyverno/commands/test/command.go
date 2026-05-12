@@ -162,9 +162,6 @@ func testCommandExecute(
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath, removeColor); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			if err := printCheckResult(test.Test.Checks, *responses, rc, &resultsTable); err != nil {
-				return fmt.Errorf("failed to print test result (%w)", err)
-			}
 			fullTable.AddFailed(resultsTable.RawRows...)
 			if !failOnly {
 				if len(outputFormat) > 0 {

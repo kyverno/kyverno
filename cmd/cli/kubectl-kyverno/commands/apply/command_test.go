@@ -669,22 +669,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
@@ -805,23 +790,7 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
-				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
 
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
@@ -880,21 +849,6 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 	}
 }
 
-// Test_Apply_JsonPayload_K8sMode_NoSegfault verifies that applying a
-// Kubernetes-mode policy against a JSON payload does not panic (segfault).
-// The K8s-mode policy should be gracefully skipped with zero results.
-func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
-	config := ApplyCommandConfig{
-		PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
-		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
-		PolicyReport: true,
-	}
-	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
-	assert.NoError(t, err, "should not crash with segfault")
-	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
-	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
-}
-
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -916,25 +870,7 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
-				JSONPaths: []string{
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
-					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
-				},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
@@ -1011,22 +947,7 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-deleting-policy/deleting-json/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-json/payload.json"},
-				PolicyReport: true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
+
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},
@@ -1291,10 +1212,9 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 			_ = input.Close()
 		}()
 	}
-	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]",
+	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]",
 		strings.Join(tc.config.PolicyPaths, ","),
 		strings.Join(tc.config.ResourcePaths, ","),
-		strings.Join(tc.config.JSONPaths, ","),
 	)
 
 	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
@@ -1356,20 +1276,6 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `Error: unknown flag: --xxx`
-	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
-}
-
-func TestCommandWithJsonAndResource(t *testing.T) {
-	cmd := Command()
-	assert.NotNil(t, cmd)
-	b := bytes.NewBufferString("")
-	cmd.SetErr(b)
-	cmd.SetArgs([]string{"--json", "foo", "--resource", "bar", "policy"})
-	err := cmd.Execute()
-	assert.Error(t, err)
-	out, err := io.ReadAll(b)
-	assert.NoError(t, err)
-	expected := `Error: both resource and json files can not be used together, use one or the other`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
