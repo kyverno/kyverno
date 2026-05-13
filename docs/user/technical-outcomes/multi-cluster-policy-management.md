@@ -38,7 +38,7 @@ Kyverno policy capabilities that support multi-cluster policy management include
 * Generating `NetworkPolicy` and `LimitRange` resources consistently across new namespaces in every cluster
 * Auditing compliance posture across clusters using Kyverno's `generate` and reporting capabilities
 * Enforcing cluster-wide image verification policies to ensure supply chain consistency
-* Applying environment labels (`env: production`, `env: staging`) via mutation to route policies conditionally
+* Applying environment labels (`environment: production`, `environment: staging`) via mutation to route policies conditionally
 
 ## Example Policy: Require Environment Label on Namespaces
 
