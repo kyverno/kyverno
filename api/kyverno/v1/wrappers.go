@@ -1,8 +1,9 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
+	"strings"
 
 	"github.com/jinzhu/copier"
 )
@@ -107,19 +108,25 @@ func (a *ConditionsWrapper) MarshalJSON() ([]byte, error) {
 }
 
 func (a *ConditionsWrapper) UnmarshalJSON(data []byte) error {
-	var err error
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	// disallow unknown fields in conditions which are generic types
+	decoder.DisallowUnknownFields()
 
-	var kyvernoOldConditions []Condition
-	if err = json.Unmarshal(data, &kyvernoOldConditions); err == nil {
+	// backward compatibility for old conditions list
+	if strings.HasPrefix(strings.TrimSpace(string(data)), "[") {
+		var kyvernoOldConditions []Condition
+		if err := decoder.Decode(&kyvernoOldConditions); err != nil {
+			return err
+		}
 		a.Conditions = kyvernoOldConditions
 		return nil
 	}
 
 	var kyvernoAnyAllConditions AnyAllConditions
-	if err = json.Unmarshal(data, &kyvernoAnyAllConditions); err == nil {
-		a.Conditions = kyvernoAnyAllConditions
-		return nil
+	if err := decoder.Decode(&kyvernoAnyAllConditions); err != nil {
+		return err
 	}
 
-	return fmt.Errorf("failed to unmarshal Conditions")
+	a.Conditions = kyvernoAnyAllConditions
+	return nil
 }
