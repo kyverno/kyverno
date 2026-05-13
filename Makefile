@@ -688,12 +688,19 @@ codegen-cli-all: codegen-cli-docs
 define generate_crd
 	@echo "{{- if $(if $(6),and .Values.groups.$(4).$(5) (not .Values.reportsServer.enabled),.Values.groups.$(4).$(5)) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@cat $(CRDS_PATH)/$(2)/$(1) \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
-		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
+		| awk '{ \
+			if ($$0 == "  annotations:") { \
+				print "  labels:"; \
+				print "    {{- include \"kyverno.crds.labels\" . | nindent 4 }}"; \
+				print $$0; \
+				print "    {{- with .Values.annotations }}"; \
+				print "    {{- toYaml . | nindent 4 }}"; \
+				print "    {{- end }}"; \
+				next; \
+			} \
+			gsub(/\(devel\)/, "$(CONTROLLER_GEN_VERSION)"); \
+			print; \
+		}' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 endef
