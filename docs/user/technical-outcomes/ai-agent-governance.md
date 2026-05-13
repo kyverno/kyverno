@@ -72,6 +72,9 @@ spec:
           - key: "{{ request.object.spec.containers[].resources.requests.\"nvidia.com/gpu\" | length(@) }}"
             operator: GreaterThan
             value: 0
+          - key: "{{ request.object.spec.containers[].resources.limits.\"nvidia.com/gpu\" | length(@) }}"
+            operator: GreaterThan
+            value: 0
       validate:
         message: "Pods requesting GPU resources must define CPU and memory limits."
         foreach:
