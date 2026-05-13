@@ -77,6 +77,10 @@ type TestResultData struct {
 
 	// Resources gives us the list of resources on which the policy is going to be applied.
 	ResourceSpecs []TestResourceSpec `json:"resourceSpecs,omitempty"`
+
+	// GeneratedResources takes a list of resource configuration files in yaml format from
+	// the user to compare them against the Kyverno generated resource configurations.
+	GeneratedResources []string `json:"generatedResources,omitempty"`
 }
 
 // TestResult declares a test result

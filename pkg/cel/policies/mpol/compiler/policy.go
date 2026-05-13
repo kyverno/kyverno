@@ -85,8 +85,8 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 	return vars
 }
 
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, nil, namespace)
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) bool {
+	data, err := prepareData(attr, request, namespace)
 	if err != nil {
 		return false
 	}
