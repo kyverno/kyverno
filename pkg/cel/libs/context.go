@@ -47,6 +47,7 @@ type Context interface {
 	resource.ContextInterface
 	generator.ContextInterface
 
+	GetHTTPMocks() map[string]interface{}
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
 	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
@@ -94,6 +95,10 @@ func NewContextProvider(
 	}
 	LibraryContext = ctx
 	return ctx, nil
+}
+
+func (cp *contextProvider) GetHTTPMocks() map[string]interface{} {
+	return nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
