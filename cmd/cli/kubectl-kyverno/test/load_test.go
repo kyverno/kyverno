@@ -244,6 +244,37 @@ func TestLoadTests(t *testing.T) {
 			},
 		}},
 		wantErr: false,
+	}, {
+		name:     "ok - generatedResources",
+		dirPath:  "../_testdata/tests/test-4",
+		fileName: "kyverno-test.yaml",
+		want: []TestCase{{
+			Path: "../_testdata/tests/test-4/kyverno-test.yaml",
+			Test: &v1alpha1.Test{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "cli.kyverno.io/v1alpha1",
+					Kind:       "Test",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "add-quota-gpol",
+				},
+				Policies:  []string{"policy.yaml"},
+				Resources: []string{"resource.yaml"},
+				Results: []v1alpha1.TestResult{{
+					TestResultBase: v1alpha1.TestResultBase{
+						Kind:               "Namespace",
+						Policy:             "add-ns-quota",
+						Result:             openreports.StatusPass,
+						IsGeneratingPolicy: true,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources:          []string{"hello-world-namespace"},
+						GeneratedResources: []string{"generatedLimitRange.yaml", "generatedResourceQuota.yaml"},
+					},
+				}},
+			},
+		}},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -397,6 +428,66 @@ func TestLoadTest(t *testing.T) {
 			tt.want.Fs = nil
 			got.Fs = nil
 			assert.DeepEqual(t, tt.want, got)
+		})
+	}
+}
+
+func TestCleanTest(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            v1alpha1.Test
+		wantJSONPayload  string
+		wantJSONPayloads []string
+	}{{
+		name: "migrate deprecated jsonPayload to jsonPayloads",
+		input: v1alpha1.Test{
+			JSONPayload: "./payload.json",
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: []string{"payload.json"},
+	}, {
+		name: "do not overwrite existing jsonPayloads",
+		input: v1alpha1.Test{
+			JSONPayload:  "old.json",
+			JSONPayloads: []string{"new.json"},
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: []string{"new.json"},
+	}, {
+		name: "normalize ./ prefix",
+		input: v1alpha1.Test{
+			JSONPayloads: []string{"./payload.json"},
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: []string{"payload.json"},
+	}, {
+		name: "filter empty entries",
+		input: v1alpha1.Test{
+			JSONPayloads: []string{"payload.json", "", "  "},
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: []string{"payload.json"},
+	}, {
+		name: "deduplicate entries",
+		input: v1alpha1.Test{
+			JSONPayloads: []string{"./payload.json", "payload.json"},
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: []string{"payload.json"},
+	}, {
+		name: "no payloads",
+		input: v1alpha1.Test{
+			Policies: []string{"policy.yaml"},
+		},
+		wantJSONPayload:  "",
+		wantJSONPayloads: nil,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test := tt.input
+			cleanTest(&test)
+			assert.Equal(t, tt.wantJSONPayload, test.JSONPayload)
+			assert.DeepEqual(t, tt.wantJSONPayloads, test.JSONPayloads)
 		})
 	}
 }

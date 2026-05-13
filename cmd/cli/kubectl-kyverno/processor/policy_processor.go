@@ -90,6 +90,7 @@ type PolicyProcessor struct {
 	// TODO
 	ContextFs                 billy.Filesystem
 	ContextPath               string
+	GlobalContextEntries      map[string]interface{}
 	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
@@ -306,7 +307,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompiler()
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -510,7 +511,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				k8sPolicies = append(k8sPolicies, pol)
 			}
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -645,7 +646,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
 		// initialize the context provider before compiling to make it globally available
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -998,6 +999,11 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
+		// Try to get OpenAPI from the cluster's discovery client.
+		// Prepend it to the composite so --crd-path and built-in schemas
+		// remain reachable even when cluster discovery succeeds.
+		// In CLI test mode the discovery client is a fake that panics
+		// on OpenAPIV3(), so we recover and skip it gracefully.
 		if client := p.tryClusterOpenAPI(); client != nil {
 			clients = append(clients, client)
 		}
@@ -1018,6 +1024,9 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
+// tryClusterOpenAPI attempts to get the OpenAPI client from the cluster's
+// discovery endpoint. Returns nil if the call panics (e.g., fake discovery
+// client in CLI test mode) or if the client is nil.
 func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1044,7 +1053,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
@@ -1058,7 +1067,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
@@ -1072,7 +1081,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
