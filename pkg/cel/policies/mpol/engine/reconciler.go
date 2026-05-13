@@ -122,7 +122,11 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var policies []Policy
 	if !mutateExisting {
 		for _, p := range r.policies {
-			policies = append(policies, p...)
+			for _, mpol := range p {
+				if mpol.Policy.GetSpec().AdmissionEnabled() {
+					policies = append(policies, mpol)
+				}
+			}
 		}
 		return policies
 	}
