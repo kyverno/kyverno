@@ -3598,3 +3598,58 @@ func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 	err := validateGlobalReference(entry)
 	assert.Nil(t, err)
 }
+
+func Test_Validate_Wildcard_Warning(t *testing.T) {
+	rawPolicy := []byte(`
+    {
+        "apiVersion": "kyverno.io/v1",
+        "kind": "ClusterPolicy",
+        "metadata": {
+           "name": "policy-with-wildcard"
+        },
+        "spec": {
+			"background": false,
+           "validationFailureAction": "Audit",
+           "rules": [
+              {
+                 "name": "wildcard-rule",
+                 "match": {
+                    "resources": {
+                       "kinds": [
+                          "*"
+                       ]
+                    }
+                 },
+                 "validate": {
+                    "message": "test validation",
+                    "pattern": {
+                       "metadata": {
+                          "labels": {
+                             "test": "test"
+                          }
+                       }
+                    }
+                 }
+              }
+           ]
+        }
+     }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	// Run the Validate function
+	warnings, err := Validate(policy, nil, nil, true, "", "")
+
+	// We expect NO error (it shouldn't block the policy)
+	assert.Nil(t, err)
+
+	// We DO expect a warning to be generated
+	assert.NotZero(t, len(warnings), "Expected warnings to be generated for wildcard")
+
+	// Check if the warning contains our specific wildcard message
+	if len(warnings) > 0 {
+		assert.Contains(t, warnings[0], "wildcard '*'")
+	}
+}

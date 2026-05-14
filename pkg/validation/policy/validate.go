@@ -142,6 +142,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
 	for _, rule := range spec.Rules {
+
+		//Check for wildecard in rule and if found add warning message since it can heavily impact performance
+		if hasWildcard(rule) {
+			msg := fmt.Sprintf("Rule '%s' matches all resources because it uses a wildcard '*'. This can heavily impact performance. Please specify exact resource kinds.", rule.Name)
+			warnings = append(warnings, msg)
+		}
+
 		if rule.HasValidate() {
 			if rule.Validation.FailureAction != nil {
 				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.FailureAction, rule.Validation.FailureActionOverrides)...)
@@ -1789,4 +1796,21 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 			}
 		}
 	}
+}
+
+// hasWildcard returns true if any kind in the rule is a wildcard "*"
+func hasWildcard(rule kyvernov1.Rule) bool {
+	// Check match constraints
+	for _, kind := range rule.MatchResources.Kinds {
+		if kind == "*" {
+			return true
+		}
+	}
+	// Check exclude constraints
+	for _, kind := range rule.ExcludeResources.Kinds {
+		if kind == "*" {
+			return true
+		}
+	}
+	return false
 }
