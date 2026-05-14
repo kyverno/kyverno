@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/cel/libs/imagedata"
 	"github.com/kyverno/sdk/cel/libs/resource"
@@ -121,6 +122,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.ObjectKey] = request
 	}
 
+	logger := logging.GlobalLogger().WithName("ivpol-evaluator")
 	images, err := engine.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
@@ -138,6 +140,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			}
 		}
 	}
+	logger.V(4).Info("verifying images with ImageValidatingPolicy", "images", imgList)
 
 	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
 		return nil, err
@@ -158,8 +161,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	data[engine.AttestorsKey] = attestors
 
 	for i, v := range c.validations {
+		logger.V(6).Info("evaluating CEL validation expression", "index", i)
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
+			logger.V(6).Info("CEL validation expression error", "index", i, "error", err)
 			return nil, err
 		}
 		// evaluate only when rule fails
@@ -178,6 +183,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
+			logger.V(6).Info("CEL validation expression failed", "index", i, "message", message)
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
 				return nil, err
@@ -191,12 +197,15 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
+		} else {
+			logger.V(6).Info("CEL validation expression passed", "index", i)
 		}
 	}
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		return nil, err
 	}
+	logger.V(4).Info("all CEL validation expressions passed")
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
 }
 
