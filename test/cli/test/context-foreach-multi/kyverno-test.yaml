@@ -6,23 +6,13 @@ policies:
 - policy.yaml
 resources:
 - resources.yaml
-variables: values.yaml
 results:
 - kind: Pod
   policy: check-images
-  rule: check-images
   resources:
   - good-pod
-  result: pass
-- kind: Pod
-  policy: check-images
-  rule: check-images
-  resources:
   - bad-container-pod
-  result: pass
-- kind: Pod
-  policy: check-images
-  rule: check-images
-  resources:
   - bad-initcontainer-pod
   result: pass
+  rule: check-images
+variables: values.yaml
