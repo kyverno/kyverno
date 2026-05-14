@@ -3,10 +3,10 @@ kind: Values
 policies:
 - name: check-images
   rules:
-  - name: check-images
-    foreachValues:
+  - foreachValues:
     - registryData:
-        - ok
-        - ok
+      - ok
+      - ok
     - initRegistryData:
-        - ok
+      - ok
+    name: check-images
