@@ -75,7 +75,7 @@ func New(
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
-		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout)
+		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout, false)
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {

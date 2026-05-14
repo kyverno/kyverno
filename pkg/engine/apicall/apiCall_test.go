@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -306,9 +307,136 @@ func Test_serviceHeaders(t *testing.T) {
 	var responseHeaders map[string][]string
 	err = json.Unmarshal(data, &responseHeaders)
 	assert.NilError(t, err)
-	assert.Equal(t, 5, len(responseHeaders))
 	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
+	assert.Equal(t, "Bearer 1234567890", responseHeaders["Authorization"][0])
+}
+
+func Test_serviceHeaders_NoAuthWhenNotProvided(t *testing.T) {
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL + "/resource",
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Content-Type", Value: "application/json"},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	_, hasAuth := responseHeaders["Authorization"]
+	assert.Assert(t, !hasAuth, "Authorization header must not be injected when not set by policy")
+}
+
+func Test_serviceHeaders_InjectSAToken(t *testing.T) {
+	tokenFile, err := os.CreateTemp("", "kyverno-test-token-*")
+	assert.NilError(t, err)
+	defer os.Remove(tokenFile.Name())
+	_, err = tokenFile.WriteString("test-sa-token-value")
+	assert.NilError(t, err)
+	tokenFile.Close()
+
+	origPath := scopedTokenPath
+	scopedTokenPath = tokenFile.Name()
+	defer func() { scopedTokenPath = origPath }()
+
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL + "/resource",
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Content-Type", Value: "application/json"},
+					},
+				},
+			},
+		},
+	}
+
+	injectionConfig := APICallConfiguration{
+		maxAPICallResponseLength: 1 * 1000 * 1000,
+		enableSATokenInjection:   true,
+	}
+
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, injectionConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "Bearer test-sa-token-value", responseHeaders["Authorization"][0], "Authorization header must be injected when enableSATokenInjection is true on the controller config")
+	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
+}
+
+func Test_serviceHeaders_InjectSAToken_ExplicitAuthNotOverwritten(t *testing.T) {
+	tokenFile, err := os.CreateTemp("", "kyverno-test-token-*")
+	assert.NilError(t, err)
+	defer os.Remove(tokenFile.Name())
+	_, err = tokenFile.WriteString("should-not-appear")
+	assert.NilError(t, err)
+	tokenFile.Close()
+
+	origPath := scopedTokenPath
+	scopedTokenPath = tokenFile.Name()
+	defer func() { scopedTokenPath = origPath }()
+
+	s := buildEchoHeaderTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL + "/resource",
+					Headers: []kyvernov1.HTTPHeader{
+						{Key: "Authorization", Value: "Bearer explicit-token"},
+					},
+				},
+			},
+		},
+	}
+
+	injectionConfig := APICallConfiguration{
+		maxAPICallResponseLength: 1 * 1000 * 1000,
+		enableSATokenInjection:   true,
+	}
+
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, injectionConfig, "")
+	assert.NilError(t, err)
+	data, err := call.FetchAndLoad(context.TODO())
+	assert.NilError(t, err)
+
+	var responseHeaders map[string][]string
+	err = json.Unmarshal(data, &responseHeaders)
+	assert.NilError(t, err)
+	assert.Equal(t, "Bearer explicit-token", responseHeaders["Authorization"][0], "explicit Authorization header must not be overwritten by SA token injection")
 }
 
 type mockClient struct{}
@@ -433,12 +561,12 @@ func Test_contextCancellation(t *testing.T) {
 
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	// Default timeout via constructor
-	config := NewAPICallConfiguration(1000, 30*time.Second)
+	config := NewAPICallConfiguration(1000, 30*time.Second, false)
 	assert.Equal(t, 30*time.Second, config.GetTimeout())
 
 	// Custom timeout configuration
 	customTimeout := 10 * time.Second
-	config = NewAPICallConfiguration(1000, customTimeout)
+	config = NewAPICallConfiguration(1000, customTimeout, false)
 	assert.Equal(t, customTimeout, config.GetTimeout())
 
 	// Zero timeout means no timeout (as documented in flag help text)
