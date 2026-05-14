@@ -26,19 +26,27 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 	}
 	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
-			rule := s.GetPolicyRule(policy.GetName(), rule.Name)
-			if rule != nil && len(rule.Values) > 0 {
-				variables := rule.Values
-				for key, value := range variables {
+			storeRule := s.GetPolicyRule(policy.GetName(), rule.Name)
+			if storeRule != nil && len(storeRule.Values) > 0 {
+				for key, value := range storeRule.Values {
 					if err := jsonContext.AddVariable(key, value); err != nil {
 						return err
 					}
 				}
 			}
-			if rule != nil && len(rule.ForEachValues) > 0 {
-				for key, value := range rule.ForEachValues {
-					if err := jsonContext.AddVariable(key, value[s.GetForeachElement()]); err != nil {
-						return err
+			if storeRule != nil && len(storeRule.ForEachValues) > 0 {
+				blockIndex, elementIndex, err := foreachIndices(jsonContext)
+				if err != nil {
+					return err
+				}
+				if blockIndex < len(storeRule.ForEachValues) {
+					blockValues := storeRule.ForEachValues[blockIndex]
+					for key, values := range blockValues {
+						if elementIndex < len(values) {
+							if err := jsonContext.AddVariable(key, values[elementIndex]); err != nil {
+								return err
+							}
+						}
 					}
 				}
 			}
@@ -63,6 +71,28 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 			inner: factory(policy, rule),
 		}
 	}
+}
+
+// foreachIndices reads foreachBlockIndex and elementIndex from the JSON context.
+// These are injected by the engine before each context load during foreach iteration.
+func foreachIndices(jsonContext enginecontext.Interface) (blockIndex int, elementIndex int, err error) {
+	if raw, qErr := jsonContext.Query("foreachBlockIndex"); qErr == nil && raw != nil {
+		switch v := raw.(type) {
+		case int64:
+			blockIndex = int(v)
+		case float64:
+			blockIndex = int(v)
+		}
+	}
+	if raw, qErr := jsonContext.Query("elementIndex"); qErr == nil && raw != nil {
+		switch v := raw.(type) {
+		case int64:
+			elementIndex = int(v)
+		case float64:
+			elementIndex = int(v)
+		}
+	}
+	return blockIndex, elementIndex, nil
 }
 
 type wrapper struct {

@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-context-foreach-multi
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: check-images
+  resources:
+  - good-pod
+  result: pass
+  rule: check-images
+- kind: Pod
+  policy: check-images
+  resources:
+  - bad-container-pod
+  result: fail
+  rule: check-images
+- kind: Pod
+  policy: check-images
+  resources:
+  - bad-initcontainer-pod
+  result: fail
+  rule: check-images
+variables: values.yaml

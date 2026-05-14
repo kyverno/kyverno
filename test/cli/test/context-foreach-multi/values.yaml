@@ -1,0 +1,13 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+policies:
+- name: check-images
+  rules:
+  - foreachValues:
+    - data:
+      - ok
+      - blocked
+    - data:
+      - ok
+      - blocked
+    name: check-images

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+spec:
+  initContainers:
+  - image: busybox:1.28
+    name: init1
+  containers:
+  - image: busybox:1.28
+    name: app1
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-container-pod
+spec:
+  initContainers:
+  - image: busybox:1.28
+    name: init1
+  containers:
+  - image: busybox:1.28
+    name: app1
+  - image: busybox:1.28
+    name: app2
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-initcontainer-pod
+spec:
+  initContainers:
+  - image: busybox:1.28
+    name: init1
+  - image: busybox:1.28
+    name: init2
+  containers:
+  - image: busybox:1.28
+    name: app1

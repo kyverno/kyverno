@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-images
+spec:
+  admission: true
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: check-images
+    validate:
+      failureAction: Audit
+      foreach:
+      - context:
+        - imageRegistry:
+            reference: '{{ element.name }}'
+          name: data
+        deny:
+          conditions:
+          - key: '{{ data }}'
+            operator: Equals
+            value: blocked
+        list: request.object.spec.containers
+      - context:
+        - imageRegistry:
+            reference: '{{ element.name }}'
+          name: data
+        deny:
+          conditions:
+          - key: '{{ data }}'
+            operator: Equals
+            value: blocked
+        list: request.object.spec.initContainers
+      message: Images are not permitted.
