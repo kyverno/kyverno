@@ -142,6 +142,12 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
 	for _, rule := range spec.Rules {
+
+		// if a rule has an external call in its conditions, we want to warn the user about potential performance implications
+		if externalWarnings := hasInsecureExternalCall(rule); len(externalWarnings) > 0 {
+			warnings = append(warnings, externalWarnings...)
+		}
+
 		if rule.HasValidate() {
 			if rule.Validation.FailureAction != nil {
 				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.FailureAction, rule.Validation.FailureActionOverrides)...)
@@ -1789,4 +1795,38 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 			}
 		}
 	}
+}
+
+func hasInsecureExternalCall(rule kyvernov1.Rule) []string {
+	var warnings []string
+	for _, contextEntry := range rule.Context {
+		if contextEntry.APICall == nil || contextEntry.APICall.Service == nil {
+			continue
+		}
+
+		service := contextEntry.APICall.Service
+
+		// 1. Encryption Check (HTTP vs HTTPS)
+		if strings.HasPrefix(strings.ToLower(service.URL), "http://") {
+			warnings = append(warnings, fmt.Sprintf("Rule '%s' uses an unencrypted HTTP call (%s). Recommendation: Use HTTPS to protect data in transit.", rule.Name, service.URL))
+		}
+
+		// 2. Integrity Check (Missing CA Bundle for HTTPS)
+		if strings.HasPrefix(strings.ToLower(service.URL), "https://") && service.CABundle == "" {
+			warnings = append(warnings, fmt.Sprintf("Rule '%s' uses HTTPS but is missing a 'caBundle'. Recommendation: Provide a CA bundle to ensure the external service's certificate is valid and trusted.", rule.Name))
+		}
+
+		// 3. Authentication Check (Missing Authorization Header)
+		hasAuth := false
+		for _, header := range service.Headers {
+			if strings.EqualFold(header.Key, "Authorization") {
+				hasAuth = true
+				break
+			}
+		}
+		if !hasAuth {
+			warnings = append(warnings, fmt.Sprintf("Rule '%s' external data lookup is missing an 'Authorization' header. Recommendation: Use authentication headers to secure access to the external service.", rule.Name))
+		}
+	}
+	return warnings
 }
