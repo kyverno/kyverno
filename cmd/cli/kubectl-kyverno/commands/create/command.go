@@ -4,6 +4,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/exception"
 	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/metrics-config"
+	networkpolicy "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/network-policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/role"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/test"
 	userinfo "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/user-info"
@@ -30,6 +31,7 @@ func Command() *cobra.Command {
 		userinfo.Command(),
 		values.Command(),
 		role.Command(),
+		networkpolicy.Command(),
 	)
 	return cmd
 }
