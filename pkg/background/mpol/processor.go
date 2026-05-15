@@ -203,6 +203,9 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	if !reportutils.ReportingCfg.MutateExistingReportsEnabled() {
 		return nil
 	}
+	if object.GetName() == "" || object.GetUID() == "" {
+		return nil
+	}
 
 	report := reportutils.BuildMutateExistingReport(object.GetNamespace(), object.GroupVersionKind(), object.GetName(), object.GetUID(), reportableEngineResponses...)
 	if len(report.GetResults()) > 0 {
