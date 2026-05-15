@@ -356,10 +356,8 @@ func (c *GenerateController) createReports(
 	resource unstructured.Unstructured,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
-	// Skip report creation for subresources (e.g., pods/exec) as they have empty name/UID.
-	// Subresources don't have their own resources in Kubernetes, so reports cannot be created for them.
-	if resource.GetName() == "" {
-		c.log.V(3).Info("skipping report creation for subresource with empty name", "gvk", resource.GroupVersionKind())
+	if resource.GetName() == "" || resource.GetUID() == "" {
+		c.log.V(3).Info("skipping report creation for subresource with empty name or uid", "gvk", resource.GroupVersionKind())
 		return nil
 	}
 

@@ -277,7 +277,7 @@ func (c *mutateExistingController) createReports(
 	// Skip report creation for resources with incomplete identity metadata (for example subresources such as pods/exec).
 	// Reports require both name and UID; if either is empty, the generated report would be invalid.
 	if resource.GetName() == "" || resource.GetUID() == "" {
-		c.log.V(3).Info("skipping report creation for resource with empty name or UID", "gvk", resource.GroupVersionKind())
+		c.log.V(3).Info("skipping report creation for subresource with empty name or uid", "gvk", resource.GroupVersionKind())
 		return nil
 	}
 

@@ -203,6 +203,9 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	if !reportutils.ReportingCfg.MutateExistingReportsEnabled() {
 		return nil
 	}
+	if object.GetName() == "" || object.GetUID() == "" {
+		return nil
+	}
 
 	// Skip report creation for subresources (e.g., pods/exec) as they have empty name/UID.
 	// Subresources don't have their own resources in Kubernetes, so reports cannot be created for them.
