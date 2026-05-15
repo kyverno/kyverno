@@ -1,3 +1,6 @@
 .helmignore
 ci/
 README.md.gotmpl
+tmpcharts-*/
+# Exclude generated docs from the release payload to keep Helm release secret size small.
+README.md
