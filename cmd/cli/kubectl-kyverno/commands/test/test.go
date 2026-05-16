@@ -289,16 +289,18 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err := v1alpha1.ValidateAPICallResponses(testCase.Test.APICallResponses); err != nil {
 		return nil, err
 	}
-	// Resolve resourceFiles → Resources before validation so downstream only sees inline resources.
+	// Validate the original entries first so mutual-exclusivity checks
+	// (data vs resources vs resourceFiles) run against the user's input.
+	if err := v1alpha1.ValidateGlobalContextEntries(testCase.Test.GlobalContextEntries); err != nil {
+		return nil, err
+	}
+	// Resolve resourceFiles → Resources so downstream only sees inline resources.
 	if len(testCase.Test.GlobalContextEntries) > 0 {
 		resolved, err := store.ResolveGCEResourceFiles(testCase.Fs, testDir, testCase.Test.GlobalContextEntries)
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load globalContextEntries resource files: %w", err)
 		}
 		testCase.Test.GlobalContextEntries = resolved
-	}
-	if err := v1alpha1.ValidateGlobalContextEntries(testCase.Test.GlobalContextEntries); err != nil {
-		return nil, err
 	}
 	resolveGlobalContextMock := store.ResolveGlobalContextMockData
 	var store store.Store
