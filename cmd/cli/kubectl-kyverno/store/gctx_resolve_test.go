@@ -106,3 +106,164 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveResourcesMockData(t *testing.T) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	rawResource := func(v map[string]interface{}) runtime.RawExtension {
+		b, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return runtime.RawExtension{Raw: b}
+	}
+
+	dep1 := map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "dep-1", "namespace": "default"},
+		"spec":       map[string]interface{}{"replicas": float64(1)},
+	}
+	dep2 := map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "dep-2", "namespace": "default"},
+		"spec":       map[string]interface{}{"replicas": float64(3)},
+	}
+
+	t.Run("resources returns []interface{} matching real k8sresource shape", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Resources: []runtime.RawExtension{
+				rawResource(dep1),
+				rawResource(dep2),
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, ok := got.([]interface{})
+		if !ok {
+			t.Fatalf("expected []interface{}, got %T", got)
+		}
+		if len(list) != 2 {
+			t.Fatalf("expected 2 resources, got %d", len(list))
+		}
+		// Each element should be map[string]interface{} matching unstructured.Object
+		for i, item := range list {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				t.Fatalf("resources[%d]: expected map[string]interface{}, got %T", i, item)
+			}
+			if m["kind"] != "Deployment" {
+				t.Fatalf("resources[%d]: expected kind=Deployment, got %v", i, m["kind"])
+			}
+		}
+	})
+
+	t.Run("resources with projection extracts metadata names", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Resources: []runtime.RawExtension{
+				rawResource(dep1),
+				rawResource(dep2),
+			},
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "names", Path: "[*].metadata.name"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, ok := got.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", got)
+		}
+		names, ok := m["names"].([]interface{})
+		if !ok {
+			t.Fatalf("expected []interface{} for names, got %T", m["names"])
+		}
+		if len(names) != 2 || names[0] != "dep-1" || names[1] != "dep-2" {
+			t.Fatalf("unexpected names: %v", names)
+		}
+	})
+
+	t.Run("resources with fieldPath", func(t *testing.T) {
+		// fieldPath on a list: "[0]" picks the first element
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name:      "g",
+			FieldPath: "[0]",
+			Resources: []runtime.RawExtension{
+				rawResource(dep1),
+				rawResource(dep2),
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, ok := got.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", got)
+		}
+		meta := m["metadata"].(map[string]interface{})
+		if meta["name"] != "dep-1" {
+			t.Fatalf("expected dep-1, got %v", meta["name"])
+		}
+	})
+
+	t.Run("resources with length projection", func(t *testing.T) {
+		// Mimics: globalReference jmesPath "items | length(@)"
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Resources: []runtime.RawExtension{
+				rawResource(dep1),
+				rawResource(dep2),
+			},
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "count", Path: "length(@)"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := got.(map[string]interface{})
+		count, ok := m["count"].(float64)
+		if !ok {
+			t.Fatalf("expected float64, got %T: %v", m["count"], m["count"])
+		}
+		if int(count) != 2 {
+			t.Fatalf("expected 2, got %v", count)
+		}
+	})
+
+	t.Run("empty resources list", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name:      "g",
+			Resources: []runtime.RawExtension{},
+		}
+		// Empty resources → routes to data path (no resources, no data → nil)
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != nil {
+			t.Fatalf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("invalid resource JSON", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Resources: []runtime.RawExtension{
+				{Raw: []byte(`{invalid`)},
+			},
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+}

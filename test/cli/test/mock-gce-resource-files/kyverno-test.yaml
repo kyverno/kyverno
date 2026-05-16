@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mock-gce-resource-files
+policies:
+- policy.yaml
+- policy-vpol.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+globalContextEntries:
+- name: gctxentry-inline-deployments
+  resourceFiles:
+  - gce-deployments.yaml
+results:
+- kind: Deployment
+  policy: check-deployment-replicas
+  resources:
+  - test-ns/test-deployment
+  result: pass
+  rule: check-min-replicas
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-replicas-cel
+  resources:
+  - test-ns/test-deployment
+  result: pass

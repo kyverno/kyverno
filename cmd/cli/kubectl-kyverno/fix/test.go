@@ -117,5 +117,19 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		return 0
 	})
 	test.Results = results
+	// Sort globalContextEntries by name for deterministic output.
+	if len(test.GlobalContextEntries) > 0 {
+		slices.SortFunc(test.GlobalContextEntries, func(a, b v1alpha1.GlobalContextEntryValue) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+		for _, entry := range test.GlobalContextEntries {
+			hasData := len(entry.Data.Raw) > 0
+			hasResources := len(entry.Resources) > 0
+			hasResourceFiles := len(entry.ResourceFiles) > 0
+			if !hasData && !hasResources && !hasResourceFiles {
+				messages = append(messages, "globalContextEntries entry "+entry.Name+" has no data source")
+			}
+		}
+	}
 	return test, messages, nil
 }

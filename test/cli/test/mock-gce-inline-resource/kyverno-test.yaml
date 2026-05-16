@@ -1,0 +1,66 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mock-gce-inline-resource
+policies:
+- policy.yaml
+- policy-vpol.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+globalContextEntries:
+- name: gctxentry-inline-deployments
+  resources:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: existing-deployment-1
+      namespace: default
+      labels:
+        app: web
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: web
+      template:
+        metadata:
+          labels:
+            app: web
+        spec:
+          containers:
+          - name: nginx
+            image: nginx:1.21
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: existing-deployment-2
+      namespace: default
+      labels:
+        app: api
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: api
+      template:
+        metadata:
+          labels:
+            app: api
+        spec:
+          containers:
+          - name: node
+            image: node:18
+results:
+- kind: Deployment
+  policy: check-deployment-replicas
+  resources:
+  - test-ns/test-deployment
+  result: pass
+  rule: check-min-replicas
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-replicas-cel
+  resources:
+  - test-ns/test-deployment
+  result: pass

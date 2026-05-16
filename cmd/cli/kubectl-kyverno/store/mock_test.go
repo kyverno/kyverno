@@ -117,5 +117,81 @@ func TestMockErrorEntry(t *testing.T) {
 	}
 }
 
+func TestMockGCtxStore_ResourcesBackedGet(t *testing.T) {
+	dep1, _ := json.Marshal(map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "dep-1", "namespace": "default"},
+	})
+	dep2, _ := json.Marshal(map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "dep-2", "namespace": "default"},
+	})
+	m := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
+		Name: "inline-deps",
+		Resources: []runtime.RawExtension{
+			{Raw: dep1},
+			{Raw: dep2},
+		},
+	}})
+	ent, ok := m.Get("inline-deps")
+	if !ok {
+		t.Fatal("expected entry")
+	}
+	v, err := ent.Get("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, ok := v.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", v)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2, got %d", len(list))
+	}
+	for i, item := range list {
+		obj, ok := item.(map[string]interface{})
+		if !ok {
+			t.Fatalf("resources[%d]: expected map, got %T", i, item)
+		}
+		if obj["kind"] != "Deployment" {
+			t.Fatalf("resources[%d]: expected Deployment, got %v", i, obj["kind"])
+		}
+	}
+}
+
+func TestMockGCtxStore_ResourcesBackedProjection(t *testing.T) {
+	dep, _ := json.Marshal(map[string]interface{}{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]interface{}{"name": "dep-1"},
+	})
+	m := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
+		Name: "proj-deps",
+		Resources: []runtime.RawExtension{
+			{Raw: dep},
+		},
+		Projections: []v1alpha1.GlobalContextProjection{
+			{Name: "names", Path: "[*].metadata.name"},
+		},
+	}})
+	ent, ok := m.Get("proj-deps")
+	if !ok {
+		t.Fatal("expected entry")
+	}
+	v, err := ent.Get("names")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, ok := v.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", v)
+	}
+	if len(names) != 1 || names[0] != "dep-1" {
+		t.Fatalf("unexpected names: %v", names)
+	}
+}
+
 var _ loaders.Store = (*mockGCtxStore)(nil)
 var _ loaders.Store = (*delegatingGCtxStore)(nil)
