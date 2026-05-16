@@ -12,7 +12,7 @@ func makeClusterPolicy(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPo
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: kyvernov1.spec{
+		Spec: kyvernov1.Spec{
 			Rules: rules,
 		},
 	}
@@ -33,22 +33,40 @@ func Test_buildPolicyWithDeletedRules(t *testing.T) {
 		wantRules    []kyvernov1.Rule
 	}{
 		{
-			name:         "returns policy containing deleted rules"
+			name:         "returns policy containing deleted rules",
 			policy:       makeClusterPolicy("p", []kyvernov1.Rule{makeRule("rule-a",nil), makeRule("rule-b",nil)}),
-			deletedRules: []deletedRules{makeRule("rule-a",nil)}
-			wantRules:    []deletedRules{makeRule("rule-a",nil)}
-		}
+			deletedRules: []kyvernov1.Rule{makeRule("rule-a",nil)},
+			wantRules:    []kyvernov1.Rule{makeRule("rule-a",nil)},
+		},
 		{
-			name:         "returns policy with empty rules when deletedRules is nil"
+			name:         "returns policy with empty rules when deletedRules is nil",
 			policy:       makeClusterPolicy("p", []kyvernov1.Rule{makeRule("rule-a",nil), makeRule("rule-b",nil)}),
-			deletedRules: []deletedRules{makeRule("rule-a",nil)}
-			wantRules:    []deletedRules{makeRule("rule-a",nil)}
-		}
+			deletedRules: nil,
+			wantRules:    nil,
+		},
 		{
-			name:         "orginal policy is not mutated"
+			name:         "original policy is not mutated",
 			policy:       makeClusterPolicy("p", []kyvernov1.Rule{makeRule("rule-a",nil)}),
-			deletedRules: []deletedRules{makeRule("rule-b",nil)}
-			wantRules:    []deletedRules{makeRule("rule-b",nil)}
-		}
+			deletedRules: []kyvernov1.Rule{makeRule("rule-b",nil)},
+			wantRules:    []kyvernov1.Rule{makeRule("rule-b",nil)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+		    originalRuleCount := len(tt.policy.GetSpec().Rules)
+			
+			returnedPolicy := buildPolicyWithDeletedRules(tt.policy, tt.deletedRules)
+
+			if len(returnedPolicy.GetSpec().Rules) != len(tt.wantRules) {
+				t.Errorf("buildPolicyWithDeletedRules() rules len = %d, want %d",
+				 len(returnedPolicy.GetSpec().Rules), len(tt.wantRules))
+			}
+
+			if len(tt.policy.GetSpec().Rules) != originalRuleCount {
+				t.Errorf("buildPolicyWithDeletedRules() mutated the orginal policy: had %d rules, now %d",
+				 originalRuleCount, len(tt.policy.GetSpec().Rules))
+			}
+		})
 	}
 }
