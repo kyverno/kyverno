@@ -3,6 +3,7 @@ package fix
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -123,9 +124,9 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			return cmp.Compare(a.Name, b.Name)
 		})
 		for _, entry := range test.GlobalContextEntries {
-			hasData := len(entry.Data.Raw) > 0
-			hasResources := len(entry.Resources) > 0
-			hasResourceFiles := len(entry.ResourceFiles) > 0
+			hasData := len(entry.Data.Raw) > 0 && strings.TrimSpace(string(entry.Data.Raw)) != "null"
+			hasResources := entry.Resources != nil
+			hasResourceFiles := entry.ResourceFiles != nil
 			if !hasData && !hasResources && !hasResourceFiles {
 				messages = append(messages, "globalContextEntries entry "+entry.Name+" has no data source")
 			}

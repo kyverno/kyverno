@@ -1,4 +1,9 @@
 apiVersion: cli.kyverno.io/v1alpha1
+globalContextEntries:
+- data: null
+  name: gctxentry-inline-deployments
+  resourceFiles:
+  - gce-deployments.yaml
 kind: Test
 metadata:
   name: mock-gce-resource-files
@@ -7,11 +12,6 @@ policies:
 - policy-vpol.yaml
 resources:
 - resources.yaml
-variables: values.yaml
-globalContextEntries:
-- name: gctxentry-inline-deployments
-  resourceFiles:
-  - gce-deployments.yaml
 results:
 - kind: Deployment
   policy: check-deployment-replicas
@@ -25,3 +25,4 @@ results:
   resources:
   - test-ns/test-deployment
   result: pass
+variables: values.yaml

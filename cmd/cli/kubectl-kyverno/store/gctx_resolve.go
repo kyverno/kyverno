@@ -18,7 +18,7 @@ func ResolveGlobalContextMockData(entry v1alpha1.GlobalContextEntryValue) (inter
 
 func resolveGlobalContextMockData(jp jmespath.Interface, entry v1alpha1.GlobalContextEntryValue) (interface{}, error) {
 	// Route to the resources path when inline K8s manifests are provided.
-	if len(entry.Resources) > 0 {
+	if entry.Resources != nil {
 		return resolveResourcesMockData(jp, entry)
 	}
 	return resolveDataMockData(jp, entry)

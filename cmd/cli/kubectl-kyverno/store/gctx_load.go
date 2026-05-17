@@ -27,7 +27,7 @@ func ResolveGCEResourceFiles(
 		if len(entry.ResourceFiles) == 0 {
 			continue
 		}
-		var allResources []runtime.RawExtension
+		allResources := make([]runtime.RawExtension, 0)
 		for _, filePath := range entry.ResourceFiles {
 			resources, err := loadResourceFile(fs, testDir, filePath)
 			if err != nil {

@@ -239,8 +239,8 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 		}
 
 		hasData := len(strings.TrimSpace(string(e.Data.Raw))) > 0 && strings.TrimSpace(string(e.Data.Raw)) != "null"
-		hasResources := len(e.Resources) > 0
-		hasResourceFiles := len(e.ResourceFiles) > 0
+		hasResources := e.Resources != nil
+		hasResourceFiles := e.ResourceFiles != nil
 
 		// data, resources, and resourceFiles are mutually exclusive
 		sourceCount := 0
