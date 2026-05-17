@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Executor interface {
@@ -76,7 +78,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
 
-	client, err := a.buildHTTPClient(apiCall.Service)
+	client, err := a.buildHTTPClient(ctx, apiCall.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -142,16 +144,27 @@ func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APIC
 		return nil, fmt.Errorf("failed to build request for APICall %s: %w", a.name, err)
 	}
 
-	if err := a.addHTTPHeaders(req, apiCall.Service.Headers); err != nil {
+	if err := a.addHTTPHeaders(ctx, req, apiCall.Service.Headers); err != nil {
 		return nil, fmt.Errorf("failed to add headers for APICall %s: %w", a.name, err)
 	}
 
 	return req, nil
 }
 
-func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHeader) error {
+func (a *executor) addHTTPHeaders(ctx context.Context, req *http.Request, headers []kyvernov1.HTTPHeader) error {
 	for _, header := range headers {
-		req.Header.Add(header.Key, header.Value)
+		if (header.Value != "") == (header.ValueFrom != nil) {
+			return fmt.Errorf("header %q: exactly one of value or valueFrom must be set", header.Key)
+		}
+		val := header.Value
+		if header.ValueFrom != nil {
+			resolved, err := a.resolveValueFrom(ctx, header.ValueFrom)
+			if err != nil {
+				return fmt.Errorf("header %q: failed to resolve valueFrom: %w", header.Key, err)
+			}
+			val = resolved
+		}
+		req.Header.Add(header.Key, val)
 	}
 
 	if req.Header.Get("Authorization") == "" {
@@ -163,15 +176,27 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+func (a *executor) buildHTTPClient(ctx context.Context, service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
-	if service == nil || service.CABundle == "" {
-		return &http.Client{
-			Timeout: timeout,
-		}, nil
+	if service == nil {
+		return &http.Client{Timeout: timeout}, nil
+	}
+	if service.CABundle != "" && service.CABundleFrom != nil {
+		return nil, fmt.Errorf("at most one of caBundle or caBundleFrom may be set for APICall %s", a.name)
+	}
+	caBundle := service.CABundle
+	if service.CABundleFrom != nil {
+		resolved, err := a.resolveValueFrom(ctx, service.CABundleFrom)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve caBundleFrom for APICall %s: %w", a.name, err)
+		}
+		caBundle = resolved
+	}
+	if caBundle == "" {
+		return &http.Client{Timeout: timeout}, nil
 	}
 	caCertPool := x509.NewCertPool()
-	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
+	if ok := caCertPool.AppendCertsFromPEM([]byte(caBundle)); !ok {
 		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
 	}
 	transport := &http.Transport{
@@ -198,4 +223,77 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 	}
 
 	return buffer, nil
+}
+
+func (a *executor) resolveNamespace(selectorNS string) (string, error) {
+	if a.policyNamespace != "" {
+		if selectorNS == "" {
+			return a.policyNamespace, nil
+		}
+		if selectorNS != a.policyNamespace {
+			return "", fmt.Errorf("cross-namespace reference not allowed: selector namespace %q differs from policy namespace %q", selectorNS, a.policyNamespace)
+		}
+		return selectorNS, nil
+	}
+	if selectorNS == "" {
+		return "", fmt.Errorf("namespace is required in selector for cluster-scoped context")
+	}
+	return selectorNS, nil
+}
+
+func (a *executor) resolveSecretKeyRef(ctx context.Context, ref *kyvernov1.SecretKeySelector) (string, error) {
+	namespace, err := a.resolveNamespace(ref.Namespace)
+	if err != nil {
+		return "", err
+	}
+	obj, err := a.client.GetResource(ctx, "v1", "Secret", namespace, ref.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get secret %s/%s: %w", namespace, ref.Name, err)
+	}
+	data, ok, err := unstructured.NestedStringMap(obj.Object, "data")
+	if err != nil || !ok {
+		return "", fmt.Errorf("secret %s/%s has no data", namespace, ref.Name)
+	}
+	val, ok := data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %q not found in secret %s/%s", ref.Key, namespace, ref.Name)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(val)
+	if err != nil {
+		return "", fmt.Errorf("failed to base64-decode key %q from secret %s/%s: %w", ref.Key, namespace, ref.Name, err)
+	}
+	return string(decoded), nil
+}
+
+func (a *executor) resolveConfigMapKeyRef(ctx context.Context, ref *kyvernov1.ConfigMapKeySelector) (string, error) {
+	namespace, err := a.resolveNamespace(ref.Namespace)
+	if err != nil {
+		return "", err
+	}
+	obj, err := a.client.GetResource(ctx, "v1", "ConfigMap", namespace, ref.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get configmap %s/%s: %w", namespace, ref.Name, err)
+	}
+	data, ok, err := unstructured.NestedStringMap(obj.Object, "data")
+	if err != nil || !ok {
+		return "", fmt.Errorf("configmap %s/%s has no data", namespace, ref.Name)
+	}
+	val, ok := data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %q not found in configmap %s/%s", ref.Key, namespace, ref.Name)
+	}
+	return val, nil
+}
+
+func (a *executor) resolveValueFrom(ctx context.Context, source *kyvernov1.SecretOrConfigMapSource) (string, error) {
+	if source.SecretKeyRef != nil && source.ConfigMapKeyRef != nil {
+		return "", fmt.Errorf("only one of secretKeyRef or configMapKeyRef may be specified")
+	}
+	if source.SecretKeyRef == nil && source.ConfigMapKeyRef == nil {
+		return "", fmt.Errorf("one of secretKeyRef or configMapKeyRef must be specified")
+	}
+	if source.SecretKeyRef != nil {
+		return a.resolveSecretKeyRef(ctx, source.SecretKeyRef)
+	}
+	return a.resolveConfigMapKeyRef(ctx, source.ConfigMapKeyRef)
 }
