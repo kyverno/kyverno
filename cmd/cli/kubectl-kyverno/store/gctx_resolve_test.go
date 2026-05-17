@@ -244,13 +244,17 @@ func TestResolveResourcesMockData(t *testing.T) {
 			Name:      "g",
 			Resources: []runtime.RawExtension{},
 		}
-		// Empty resources → routes to data path (no resources, no data → nil)
+		// Empty but non-nil Resources slice → routes to resolveResourcesMockData → returns empty []interface{}
 		got, err := resolveGlobalContextMockData(jp, entry)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got != nil {
-			t.Fatalf("expected nil, got %v", got)
+		list, ok := got.([]interface{})
+		if !ok {
+			t.Fatalf("expected []interface{}, got %T", got)
+		}
+		if len(list) != 0 {
+			t.Fatalf("expected empty list, got %v", list)
 		}
 	})
 
