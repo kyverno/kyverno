@@ -12,6 +12,7 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -39,7 +40,7 @@ func New(
 	kyvernoClient versioned.Interface,
 	gceLister kyvernov2beta1listers.GlobalContextEntryLister,
 	logger logr.Logger,
-	client apicall.ClientInterface,
+	client engineapi.Client,
 	call kyvernov1.APICall,
 	period time.Duration,
 	maxResponseLength int64,
@@ -76,7 +77,7 @@ func New(
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout)
-		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
+		caller := apicall.NewExecutor(logger, "globalcontext", client, config, "")
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {

@@ -3,6 +3,7 @@ package apicall
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -23,6 +25,10 @@ func (c *mockClientWithError) RawAbsPath(ctx context.Context, path string, metho
 	return nil, c.err
 }
 
+func (c *mockClientWithError) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func Test_ExecuteK8sAPICall_ForbiddenError(t *testing.T) {
 	// Create a Forbidden error similar to what K8s API returns
 	forbiddenErr := apierrors.NewForbidden(
@@ -32,7 +38,7 @@ func Test_ExecuteK8sAPICall_ForbiddenError(t *testing.T) {
 	)
 
 	client := &mockClientWithError{err: forbiddenErr}
-	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig, "")
 
 	call := &kyvernov1.APICall{
 		URLPath: "/apis/storage.k8s.io/v1/volumeattachments",
@@ -50,7 +56,7 @@ func Test_ExecuteK8sAPICall_UnauthorizedError(t *testing.T) {
 	unauthorizedErr := apierrors.NewUnauthorized("access denied")
 
 	client := &mockClientWithError{err: unauthorizedErr}
-	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig, "")
 
 	call := &kyvernov1.APICall{
 		URLPath: "/api/v1/namespaces",
@@ -71,7 +77,7 @@ func Test_ExecuteK8sAPICall_OtherError(t *testing.T) {
 	)
 
 	client := &mockClientWithError{err: notFoundErr}
-	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig, "")
 
 	call := &kyvernov1.APICall{
 		URLPath: "/api/v1/namespaces/default/configmaps/test-config",
@@ -92,7 +98,7 @@ func Test_ExecuteK8sAPICall_GenericError(t *testing.T) {
 	genericErr := errors.New("connection timeout")
 
 	client := &mockClientWithError{err: genericErr}
-	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig, "")
 
 	call := &kyvernov1.APICall{
 		URLPath: "/api/v1/pods",
@@ -110,7 +116,7 @@ func Test_ExecuteK8sAPICall_GenericError(t *testing.T) {
 
 func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 	client := &mockClient{}
-	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig, "")
 
 	call := &kyvernov1.APICall{
 		URLPath: "/api/v1/namespaces",
@@ -138,7 +144,7 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 	}))
 	defer s.Close()
 
-	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig, "")
 	call := &kyvernov1.APICall{
 		Method: "GET",
 		Service: &kyvernov1.ServiceCall{

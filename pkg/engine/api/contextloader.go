@@ -22,7 +22,7 @@ type ContextLoader interface {
 	Load(
 		ctx context.Context,
 		jp jmespath.Interface,
-		client RawClient,
+		client Client,
 		rclientFactory RegistryClientFactory,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,

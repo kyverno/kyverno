@@ -22,10 +22,11 @@ type Executor interface {
 }
 
 type executor struct {
-	logger logr.Logger
-	name   string
-	client ClientInterface
-	config APICallConfiguration
+	logger          logr.Logger
+	name            string
+	client          ClientInterface
+	config          APICallConfiguration
+	policyNamespace string
 }
 
 func NewExecutor(
@@ -33,12 +34,14 @@ func NewExecutor(
 	name string,
 	client ClientInterface,
 	apiCallConfig APICallConfiguration,
+	policyNamespace string,
 ) *executor {
 	return &executor{
-		logger: logger,
-		name:   name,
-		client: client,
-		config: apiCallConfig,
+		logger:          logger,
+		name:            name,
+		client:          client,
+		config:          apiCallConfig,
+		policyNamespace: policyNamespace,
 	}
 }
 

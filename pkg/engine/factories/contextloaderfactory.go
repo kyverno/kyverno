@@ -65,7 +65,7 @@ type contextLoader struct {
 func (l *contextLoader) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -88,7 +88,7 @@ func (l *contextLoader) runInitializers(jsonContext enginecontext.Interface) err
 func (l *contextLoader) loadContextEntries(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -127,7 +127,7 @@ func LoadContextLoaderEntriesWithoutInitializers(
 	l engineapi.ContextLoader,
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
@@ -142,7 +142,7 @@ func LoadContextLoaderEntriesWithoutInitializers(
 func (l *contextLoader) newLoader(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
