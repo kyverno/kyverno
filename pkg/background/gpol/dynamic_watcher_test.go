@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1115,4 +1117,38 @@ func TestWatchManager_CacheIntegrity(t *testing.T) {
 			assert.False(t, ts.IsZero(), "cached CreationTimestamp must not be zeroed")
 		})
 	}
+}
+
+func TestWatcherCleanup_DeadEntryRemovedOnExit(t *testing.T) {
+	testGVR := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res"}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: dclient.NewEmptyFakeClient(),
+		restMapper: &mockRESTMapper{
+			fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: testGVR}, nil
+			},
+		},
+		dynamicWatchers: make(map[schema.GroupVersionResource]*watcher),
+		policyRefs:      make(map[string][]schema.GroupVersionResource),
+		refCount:        make(map[schema.GroupVersionResource]int),
+	}
+
+	resource := makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)
+	err := wm.SyncWatchers("test-policy", []*unstructured.Unstructured{resource})
+	require.NoError(t, err)
+
+	wm.lock.Lock()
+	w, exists := wm.dynamicWatchers[testGVR]
+	wm.lock.Unlock()
+	require.True(t, exists)
+
+	w.watcher.Stop()
+
+	require.Eventually(t, func() bool {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		_, stillExists := wm.dynamicWatchers[testGVR]
+		return !stillExists
+	}, 2*time.Second, 10*time.Millisecond)
 }
