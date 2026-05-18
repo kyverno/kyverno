@@ -41,11 +41,11 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
-	kubeClient         kubernetes.Interface
-	dclient            dclient.Interface
-	kyvernoClient      versioned.Interface
-	store              store.Store
-	eventGen           event.Interface
+	kubeClient             kubernetes.Interface
+	dclient                dclient.Interface
+	kyvernoClient          versioned.Interface
+	store                  store.Store
+	eventGen               event.Interface
 	maxResponseLength      int64
 	apiCallTimeout         time.Duration
 	shouldUpdateStatus     bool
@@ -71,13 +71,13 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
 	c := &controller{
-		gceLister:          gceInformer.Lister(),
-		queue:              queue,
-		kubeClient:         kubeClient,
-		dclient:            dclient,
-		kyvernoClient:      kyvernoClient,
-		store:              storage,
-		eventGen:           eventGen,
+		gceLister:              gceInformer.Lister(),
+		queue:                  queue,
+		kubeClient:             kubeClient,
+		dclient:                dclient,
+		kyvernoClient:          kyvernoClient,
+		store:                  storage,
+		eventGen:               eventGen,
 		maxResponseLength:      maxResponseLength,
 		apiCallTimeout:         apiCallTimeout,
 		shouldUpdateStatus:     shouldUpdateStatus,

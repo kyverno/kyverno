@@ -808,6 +808,8 @@ features:
     maxApiCallResponseLength: 2000000
     # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
     apiCallTimeout: 30s
+    # -- If true, Kyverno injects its ServiceAccount token into outbound service calls that have no Authorization header. Set to false to opt out.
+    enableSATokenInjection: true
   logging:
     # -- Logging format
     format: text
