@@ -313,6 +313,17 @@ func Test_serviceHeaders(t *testing.T) {
 }
 
 func Test_serviceHeaders_NoAuthWhenNotProvided(t *testing.T) {
+	tokenFile, err := os.CreateTemp("", "kyverno-test-token-*")
+	assert.NilError(t, err)
+	defer os.Remove(tokenFile.Name())
+	_, err = tokenFile.WriteString("should-not-be-injected")
+	assert.NilError(t, err)
+	tokenFile.Close()
+
+	origPath := scopedTokenPath
+	scopedTokenPath = tokenFile.Name()
+	defer func() { scopedTokenPath = origPath }()
+
 	s := buildEchoHeaderTestServer()
 	defer s.Close()
 
@@ -341,7 +352,7 @@ func Test_serviceHeaders_NoAuthWhenNotProvided(t *testing.T) {
 	err = json.Unmarshal(data, &responseHeaders)
 	assert.NilError(t, err)
 	_, hasAuth := responseHeaders["Authorization"]
-	assert.Assert(t, !hasAuth, "Authorization header must not be injected when not set by policy")
+	assert.Assert(t, !hasAuth, "Authorization header must not be injected when enableSATokenInjection is false")
 }
 
 func Test_serviceHeaders_InjectSAToken(t *testing.T) {
