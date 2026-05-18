@@ -46,6 +46,7 @@ func New(
 	apiCallTimeout time.Duration,
 	shouldUpdateStatus bool,
 	jp jmespath.Interface,
+	enableSATokenInjection bool,
 ) (store.Entry, error) {
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
@@ -75,7 +76,7 @@ func New(
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
-		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout, false)
+		config := apicall.NewAPICallConfiguration(maxResponseLength, apiCallTimeout, enableSATokenInjection)
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {

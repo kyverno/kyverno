@@ -141,7 +141,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
-	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", false, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Disabled by default.")
+	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", true, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Enabled by default; set to false to opt out.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
@@ -229,6 +229,7 @@ func main() {
 				apiCallTimeout,
 				false,
 				setup.Jp,
+				enableSATokenInjection,
 			),
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...

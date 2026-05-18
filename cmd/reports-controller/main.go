@@ -310,7 +310,7 @@ func main() {
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
-	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", false, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Disabled by default.")
+	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", true, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Enabled by default; set to false to opt out.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
@@ -417,6 +417,7 @@ func main() {
 				apiCallTimeout,
 				false,
 				setup.Jp,
+				enableSATokenInjection,
 			),
 			globalcontextcontroller.Workers,
 		)
