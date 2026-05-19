@@ -29,6 +29,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetTimeoutSeconds() != nil {
 			fineGrained = append(fineGrained, policy)
+		} else if policy.IsNamespaced() {
+			fineGrained = append(fineGrained, policy)
 		} else {
 			basic = append(basic, policy)
 		}
@@ -127,6 +129,10 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 					}
 				}
+			}
+
+			if policy.IsNamespaced() && policy.GetNamespace() != "" {
+				webhook.MatchConditions = append(webhook.MatchConditions, namespaceMatchCondition(policy.GetNamespace()))
 			}
 
 			if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {

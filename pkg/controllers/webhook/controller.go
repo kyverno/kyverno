@@ -1041,13 +1041,19 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 				var ready bool
 				spec := p.GetSpec()
 				if spec.HasMutateStandard() || spec.HasVerifyImages() {
-					if spec.CustomWebhookMatchConditions() {
+					if spec.CustomWebhookMatchConditions() || p.IsNamespaced() {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
+							if p.IsNamespaced() {
+								fineGrainedIgnore.matchConditions = append(fineGrainedIgnore.matchConditions, namespaceMatchCondition(p.GetNamespace()))
+							}
 							ready = c.mergeWebhook(fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
+							if p.IsNamespaced() {
+								fineGrainedFail.matchConditions = append(fineGrainedFail.matchConditions, namespaceMatchCondition(p.GetNamespace()))
+							}
 							ready = c.mergeWebhook(fineGrainedFail, p, false)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
@@ -1306,13 +1312,19 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 				var ready bool
 				spec := p.GetSpec()
 				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
-					if spec.CustomWebhookMatchConditions() {
+					if spec.CustomWebhookMatchConditions() || p.IsNamespaced() {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
+							if p.IsNamespaced() {
+								fineGrainedIgnore.matchConditions = append(fineGrainedIgnore.matchConditions, namespaceMatchCondition(p.GetNamespace()))
+							}
 							ready = c.mergeWebhook(fineGrainedIgnore, p, true)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
+							if p.IsNamespaced() {
+								fineGrainedFail.matchConditions = append(fineGrainedFail.matchConditions, namespaceMatchCondition(p.GetNamespace()))
+							}
 							ready = c.mergeWebhook(fineGrainedFail, p, true)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
