@@ -176,8 +176,8 @@ func main() {
 			os.Exit(1)
 		}
 		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
-		// cert validator for health probes
-		certValidator := tls.NewCertRenewer(
+		// single renewer used for both health probes (CertValidator) and cert rotation (CertRenewer)
+		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
 			tls.CAValidityDuration,
@@ -277,26 +277,12 @@ func main() {
 				)
 
 				// controllers
-				renewer := tls.NewCertRenewer(
-					setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-					tls.CertRenewalInterval,
-					tls.CAValidityDuration,
-					tls.TLSValidityDuration,
-					renewBefore,
-					serverIP,
-					config.KyvernoServiceName(),
-					config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-					config.KyvernoNamespace(),
-					caSecretName,
-					tlsSecretName,
-					keyAlgorithm,
-				)
 				certController := internal.NewController(
 					certmanager.ControllerName,
 					certmanager.NewController(
 						caSecret,
 						tlsSecret,
-						renewer,
+						certRenewer,
 						caSecretName,
 						tlsSecretName,
 						config.KyvernoNamespace(),
@@ -470,7 +456,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{certValidator: certValidator},
+			probes{certValidator: certRenewer},
 			setup.Configuration,
 		)
 		// start server
