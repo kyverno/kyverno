@@ -38,6 +38,25 @@ func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	val, err := cp2.GetGlobalReference("key", "")
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]any{"hello": "world"}, val)
+
+	// Projection lookup: returns only the requested projection value
+	cp3 := NewFakeContextProvider()
+	cp3.AddGlobalReference("entry", map[string]any{
+		"names": []interface{}{"dep-1", "dep-2"},
+		"count": float64(2),
+	})
+	projVal, err := cp3.GetGlobalReference("entry", "names")
+	assert.NoError(t, err)
+	assert.Equal(t, []interface{}{"dep-1", "dep-2"}, projVal)
+
+	projVal2, err := cp3.GetGlobalReference("entry", "count")
+	assert.NoError(t, err)
+	assert.Equal(t, float64(2), projVal2)
+
+	// Missing projection returns error
+	_, err = cp3.GetGlobalReference("entry", "nonexistent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "projection")
 }
 
 func TestFakeContextProvider_AddGlobalReference_initializesNilMap(t *testing.T) {
