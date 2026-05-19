@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
@@ -64,12 +65,14 @@ var (
 // - supports certs in cronjob
 
 type probes struct {
+	logger        logr.Logger
 	certValidator tls.CertValidator
 }
 
 func (p probes) IsReady(ctx context.Context) bool {
 	valid, err := p.certValidator.ValidateCert(ctx)
 	if err != nil {
+		p.logger.Error(err, "failed to validate certificates")
 		return false
 	}
 	return valid
@@ -456,7 +459,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{certValidator: certRenewer},
+			probes{logger: setup.Logger.WithName("probes"), certValidator: certRenewer},
 			setup.Configuration,
 		)
 		// start server

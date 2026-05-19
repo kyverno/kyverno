@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/go-logr/logr"
 )
 
 type mockCertValidator struct {
@@ -43,7 +45,7 @@ func TestProbesIsReady(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := probes{certValidator: &mockCertValidator{valid: tt.valid, err: tt.err}}
+			p := probes{logger: logr.Discard(), certValidator: &mockCertValidator{valid: tt.valid, err: tt.err}}
 			if got := p.IsReady(context.Background()); got != tt.expected {
 				t.Errorf("IsReady() = %v, want %v", got, tt.expected)
 			}
@@ -52,7 +54,7 @@ func TestProbesIsReady(t *testing.T) {
 }
 
 func TestProbesIsLive(t *testing.T) {
-	p := probes{certValidator: &mockCertValidator{valid: false, err: errors.New("broken")}}
+	p := probes{logger: logr.Discard(), certValidator: &mockCertValidator{valid: false, err: errors.New("broken")}}
 	if !p.IsLive(context.Background()) {
 		t.Error("IsLive() should always return true")
 	}
