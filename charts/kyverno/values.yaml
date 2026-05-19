@@ -156,7 +156,6 @@ crds:
 
     # -- Additional CLI flags passed to the migration job
     extraArgs: {}
-      # loggingFormat: json
 
     # -- Resources to migrate
     resources:

@@ -117,7 +117,7 @@ spec:
             - {{ . }}
             {{- end }}
             {{- range $key, $value := .Values.crds.migration.extraArgs }}
-            {{- if $value }}
+            {{- if ne $value nil }}
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
