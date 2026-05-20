@@ -83,7 +83,8 @@ metadata:
   name: corporate-teams-cache
 spec:
   apiCall:
-    urlPath: "[https://api.internal.corporate/v1/teams](https://api.internal.corporate/v1/teams)"
+    service:
+      url: "https://api.internal.corporate/v1/teams"
     refreshInterval: 5m
     retryLimit: 5
 
