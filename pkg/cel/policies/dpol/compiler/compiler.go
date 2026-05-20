@@ -167,7 +167,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 			compiler.KyvernoVersion,
 		),
 		http.Lib(
-			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			compiler.KyvernoVersion,
 		),
 	}
