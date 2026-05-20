@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install k6
+description: Install k6
+
+runs:
+  using: composite
+  steps:
+    - uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2 # v1.1.0

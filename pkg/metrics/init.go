@@ -32,6 +32,7 @@ func InitMetrics(
 	caSecretInformer corev1informers.SecretInformer,
 	metricsCASecretName string,
 	metricsTLSSecretName string,
+	exemplarFilter string,
 	logger logr.Logger,
 ) (MetricsConfigManager, TlsProvider, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
@@ -95,12 +96,13 @@ func InitMetrics(
 			kubeClient,
 			logger,
 			metricsConfiguration,
+			exemplarFilter,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
 	case "prometheus":
-		meterProvider, err = NewPrometheusConfig(ctx, logger, metricsConfiguration)
+		meterProvider, err = NewPrometheusConfig(ctx, logger, metricsConfiguration, exemplarFilter)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -131,7 +133,7 @@ func InitMetrics(
 						}
 					}
 
-					meterProvider, err := NewPrometheusConfig(ctx, logger, metricsConfiguration)
+					meterProvider, err := NewPrometheusConfig(ctx, logger, metricsConfiguration, exemplarFilter)
 					if err != nil {
 						logger.Error(err, "failed to re-create MeterProvider")
 						continue

@@ -1,0 +1,11 @@
+{
+  "attributes": {
+    "request": {
+      "http": {
+        "headers": {
+          "authorization": "empty"
+        }
+      }
+    }
+  }
+}

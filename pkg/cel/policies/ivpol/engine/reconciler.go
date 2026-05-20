@@ -7,7 +7,6 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,13 +19,13 @@ type reconciler struct {
 	client       client.Client
 	lock         *sync.RWMutex
 	policies     map[string]Policy
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	client client.Client,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{

@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-configmap-for-widget
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['example.com']
+        apiVersions: ['v1']
+        operations: ['CREATE']
+        resources: ['widgets']
+  variables:
+    - name: widgetName
+      expression: 'object.metadata.name'
+  generate:
+    - expression: |
+        generator.Apply("test-namespace", [{
+          "kind": dyn("ConfigMap"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": dyn("widget-" + variables.widgetName),
+            "namespace": dyn("test-namespace")
+          }),
+          "data": dyn({
+            "widget-name": dyn(variables.widgetName)
+          })
+        }])

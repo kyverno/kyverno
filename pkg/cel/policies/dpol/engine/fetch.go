@@ -14,7 +14,7 @@ type fetchProvider struct {
 	compiler     compiler.Compiler
 	dpolLister   policiesv1beta1listers.DeletingPolicyLister
 	ndpolLister  policiesv1beta1listers.NamespacedDeletingPolicyLister
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
@@ -22,7 +22,7 @@ func NewFetchProvider(
 	compiler compiler.Compiler,
 	dpolLister policiesv1beta1listers.DeletingPolicyLister,
 	ndpolLister policiesv1beta1listers.NamespacedDeletingPolicyLister,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *fetchProvider {
 	return &fetchProvider{

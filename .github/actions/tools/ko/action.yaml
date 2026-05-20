@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install ko
+description: Install ko (container image builder for Go)
+
+runs:
+  using: composite
+  steps:
+    - uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+    - shell: bash
+      run: |
+        set -e
+        echo "KO=$(which ko)" >> $GITHUB_ENV

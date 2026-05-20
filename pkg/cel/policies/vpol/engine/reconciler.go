@@ -2,14 +2,12 @@ package engine
 
 import (
 	"context"
-	"maps"
 	"sync"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -22,14 +20,14 @@ type reconciler struct {
 	compiler     compiler.Compiler
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	compiler compiler.Compiler,
 	client client.Client,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -127,7 +125,7 @@ func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	policies := make([]Policy, 0, len(r.policies))
-	for value := range maps.Values(r.policies) {
+	for _, value := range r.policies {
 		policies = append(policies, value...)
 	}
 	return policies, nil

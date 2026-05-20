@@ -61,7 +61,7 @@ func New(
 
 func (h *handler) MutateClustered(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
 	policies := policyNamesFromContext(ctx)
-	return h.mutate(ctx, logger, admissionRequest, policies, mpolengine.And(mpolengine.MatchNames(policies...), mpolengine.ClusteredPolicy()))
+	return h.mutate(ctx, logger, admissionRequest, policies, mpolengine.And(mpolengine.MatchNames(policies...), mpolengine.ClusteredPolicy(), mpolengine.NoTargetMatchConstraintPolicy()))
 }
 
 func (h *handler) MutateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
@@ -69,7 +69,7 @@ func (h *handler) MutateNamespaced(ctx context.Context, logger logr.Logger, admi
 		return admissionutils.ResponseSuccess(admissionRequest.UID)
 	}
 	policies := policyNamesFromContext(ctx)
-	return h.mutate(ctx, logger, admissionRequest, policies, mpolengine.And(mpolengine.MatchNames(policies...), mpolengine.NamespacedPolicy(admissionRequest.Namespace)))
+	return h.mutate(ctx, logger, admissionRequest, policies, mpolengine.And(mpolengine.MatchNames(policies...), mpolengine.NamespacedPolicy(admissionRequest.Namespace), mpolengine.NoTargetMatchConstraintPolicy()))
 }
 
 func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, policies []string, predicate mpolengine.Predicate) handlers.AdmissionResponse {
@@ -88,7 +88,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}
 
 	go func() {
-		if err := h.audit(context.TODO(), response, request); err != nil {
+		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
 		}
 	}()

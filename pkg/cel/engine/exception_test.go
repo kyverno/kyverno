@@ -21,7 +21,7 @@ func (l *fakePolicyExceptionLister) List(selector labels.Selector) ([]*policiesv
 func TestListExceptions(t *testing.T) {
 	tests := []struct {
 		name       string
-		lister     policyExceptionLister
+		lister     PolicyExceptionLister
 		policyKind string
 		policyName string
 		want       []*policiesv1beta1.PolicyException

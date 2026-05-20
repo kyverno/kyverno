@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-image-data-lib
+spec:
+  concurrent: false
+  steps:
+    - name: create policy
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+          - name: file
+            value: policy.yaml
+    - name: verify-policy
+      use:
+        template: ../../../_step-templates/validating-policy-ready.yaml
+        with:
+          bindings:
+          - name: name
+            value: vpol-check-userinfo
+    - name: sleep
+      try:
+        - sleep:
+            duration: 5s
+    - name: create blocked configmap
+      try:
+        - create:
+            file: configmap.yaml
+            expect:
+              - check:
+                  ($error): >-
+                    admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy vpol-check-userinfo failed: Creation of ConfigMap "my-blocked-configmap" is not allowed for user "kubernetes-admin"

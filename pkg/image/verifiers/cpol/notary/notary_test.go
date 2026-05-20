@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"gotest.tools/assert"
 )
@@ -57,7 +57,7 @@ func TestExtractStatements(t *testing.T) {
 }
 
 func TestNotaryImageVerification(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		ImageRef: "ghcr.io/kyverno/test-verify-image:signed",
 		Cert:     cert,
 	}

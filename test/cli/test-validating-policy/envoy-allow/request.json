@@ -1,0 +1,11 @@
+{
+    "attributes": {
+      "request": {
+        "http": {
+          "method": "GET",
+          "path": "/api/v1/pods",
+          "headers": {}
+        }
+      }
+    }
+  }

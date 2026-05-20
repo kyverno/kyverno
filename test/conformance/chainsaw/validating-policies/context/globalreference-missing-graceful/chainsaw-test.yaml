@@ -6,8 +6,8 @@ metadata:
 spec:
   description: |
     This test verifies that ValidatingPolicies gracefully handle missing GlobalContextEntries
-    instead of failing hard. When a GlobalContextEntry referenced by globalContext.Get() 
-    doesn't exist, the policy should continue evaluation with null values rather than 
+    instead of failing hard. When a GlobalContextEntry referenced by globalContext.get()
+    doesn't exist, the policy should continue evaluation with null values rather than
     blocking admission.
   steps:
   - name: create namespace
@@ -79,4 +79,4 @@ spec:
           apiVersion: v1
           kind: Pod
           name: test-pod-with-gctx
-          namespace: test-globalcontext-missing 
+          namespace: test-globalcontext-missing

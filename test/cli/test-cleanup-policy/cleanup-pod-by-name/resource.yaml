@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cleanup-pod-1
+  namespace: test
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cleanup-pod-2
+  namespace: other
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+

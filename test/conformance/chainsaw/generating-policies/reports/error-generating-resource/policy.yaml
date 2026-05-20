@@ -32,4 +32,4 @@ spec:
         ]
   generate:
     - expression: >
-        variables.nsList.all(ns, generator.Apply(ns, variables.networkpolicy))
+        variables.nsList.all(ns, generator.apply(ns, variables.networkpolicy))

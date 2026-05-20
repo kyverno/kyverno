@@ -21,7 +21,7 @@ spec:
       expression: "object.metadata.labels['networkpolicies'].split('-')"
   generate:
     - expression: >
-        variables.npList.all(np, generator.Apply(object.metadata.name, [
+        variables.npList.all(np, generator.apply(object.metadata.name, [
           {
             "kind": dyn("NetworkPolicy"),
             "apiVersion": dyn("networking.k8s.io/v1"),

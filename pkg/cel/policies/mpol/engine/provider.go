@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -23,15 +25,16 @@ import (
 
 type Provider interface {
 	Fetch(context.Context, bool) []Policy
-	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string
+	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace) []string
 }
 
 func NewKubeProvider(
 	ctx context.Context,
 	compiler compiler.Compiler,
+	contextProvider libs.Context,
 	mgr ctrl.Manager,
 	c openapi.Client,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, patch.TypeConverterManager, error) {
 	typeConverter := patch.NewTypeConverterManager(nil, c)
@@ -101,6 +104,7 @@ func NewKubeProvider(
 
 type staticProvider struct {
 	policies []Policy
+	libCxt   libs.Context
 }
 
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
@@ -113,7 +117,7 @@ func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Polic
 	return filtered
 }
 
-func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -124,7 +128,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, r.libCxt) {
 				continue
 			}
 		}
@@ -137,6 +141,7 @@ func NewProvider(
 	compiler compiler.Compiler,
 	policies []policiesv1beta1.MutatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
+	libCxt libs.Context,
 ) (Provider, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
@@ -175,5 +180,5 @@ func NewProvider(
 			})
 		}
 	}
-	return &staticProvider{policies: out}, nil
+	return &staticProvider{policies: out, libCxt: libCxt}, nil
 }

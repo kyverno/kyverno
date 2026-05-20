@@ -57,9 +57,12 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 	sourceObjCopy.SetResourceVersion("")
 
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
-	if err != nil && apierrors.IsNotFound(err) {
-		// the target resource should always exist regardless of synchronize settings
-		return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// the target resource should always exist regardless of synchronize settings
+			return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
+		}
+		return newSkipGenerateResponse(nil, target, fmt.Errorf("failed to get target resource %s: %w", target.String(), err))
 	}
 
 	if targetObj != nil {

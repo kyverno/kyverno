@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    coco.io/initdata-configmap: initdata-config
+    io.katacontainers.config.runtime.cc_init_data: |+
+      version = "0.1.0"
+      algorithm = "sha384"
+
+      [data]
+      "policy.rego" = """
+      package agent_policy
+      default allow = true
+      """
+
+      "aa.toml" = """
+      [token_configs.kbs]
+      url = "https://kbs.example.com:8080"
+      """
+
+      "cdh.toml" = """
+      [kbc]
+      name = "cc_kbc"
+      url = "https://kbs.example.com:8080"
+      """
+
+  name: pod01
+  labels:
+    coco: enabled
+spec:
+  containers:
+  - name: pod01-01
+    image: nginx:latest

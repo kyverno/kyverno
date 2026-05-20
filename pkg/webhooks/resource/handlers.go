@@ -203,7 +203,11 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 	if len(verifyImagesPolicies) != 0 {
-		newRequest := patchRequest(patches, request.AdmissionRequest, logger)
+		newRequest, err := patchRequest(patches, request.AdmissionRequest, logger)
+		if err != nil {
+			logger.Error(err, "failed to patch request for image verification")
+			return admissionutils.Response(request.UID, err)
+		}
 		// rebuild context to process images updated via mutate policies
 		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 		if err != nil {

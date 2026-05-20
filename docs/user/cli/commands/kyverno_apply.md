@@ -46,7 +46,9 @@ kyverno apply [flags]
       --context-file string                File containing context data for CEL policies
       --continue-on-error                  Continue processing despite resource loading errors (default true)
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
+      --crd-path string                    crd path to be used for apply command
       --detailed-results                   If set to true, display detailed results
+      --envoy-payload strings              Path to Envoy check request payload files (JSON)
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
       --exceptions strings                 Policy exception to be considered when evaluating policies against resources
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
@@ -56,6 +58,7 @@ kyverno apply [flags]
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
   -h, --help                               help for apply
+      --http-payload strings               Path to HTTP check request payload files (JSON)
       --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag

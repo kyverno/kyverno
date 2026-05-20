@@ -16,7 +16,8 @@ const (
 )
 
 func formatError(format string, function string, values ...interface{}) error {
-	args := []interface{}{function}
+	args := make([]interface{}, 0, 1+len(values))
+	args = append(args, function)
 	args = append(args, values...)
 	return fmt.Errorf(format, args...)
 }
