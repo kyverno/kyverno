@@ -267,8 +267,7 @@ func printTestResult(
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
 
-								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 							continue
@@ -285,16 +284,14 @@ func printTestResult(
 								continue
 							}
 
-							success := ok || (!ok && test.Result == openreports.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, removeColor)
 
-								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -334,8 +331,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, removeColor)
 
-					success := ok || (!ok && test.Result == openreports.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}
