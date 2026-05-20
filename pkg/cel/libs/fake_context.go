@@ -12,6 +12,8 @@ import (
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
+	globalReferences   map[string]any
+	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
 	triggerName        string
@@ -25,8 +27,9 @@ type FakeContextProvider struct {
 
 func NewFakeContextProvider() *FakeContextProvider {
 	return &FakeContextProvider{
-		resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-		images:    map[string]map[string]any{},
+		resources:        map[string]map[string]map[string]*unstructured.Unstructured{},
+		images:           map[string]map[string]any{},
+		globalReferences: map[string]any{},
 	}
 }
 
@@ -54,8 +57,26 @@ func (cp *FakeContextProvider) AddResource(gvr schema.GroupVersionResource, obj 
 	return nil
 }
 
-func (cp *FakeContextProvider) GetGlobalReference(string, string) (any, error) {
-	panic("not implemented")
+func (cp *FakeContextProvider) AddGlobalReference(name string, data any) {
+	if cp.globalReferences == nil {
+		cp.globalReferences = map[string]any{}
+	}
+	cp.globalReferences[name] = data
+}
+
+func (cp *FakeContextProvider) SetHTTPMocks(mocks map[string]interface{}) {
+	cp.httpMocks = mocks
+}
+
+func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
+	return cp.httpMocks
+}
+
+func (cp *FakeContextProvider) GetGlobalReference(name, _ string) (any, error) {
+	if data, ok := cp.globalReferences[name]; ok {
+		return data, nil
+	}
+	return nil, nil
 }
 
 func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {
