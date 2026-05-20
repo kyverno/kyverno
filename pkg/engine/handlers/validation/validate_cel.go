@@ -24,8 +24,8 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
-	"k8s.io/client-go/tools/cache"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 type validateCELHandler struct {
