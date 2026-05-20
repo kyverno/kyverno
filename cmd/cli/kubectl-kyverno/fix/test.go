@@ -125,7 +125,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		})
 		for _, entry := range test.GlobalContextEntries {
 			hasData := len(entry.Data.Raw) > 0 && strings.TrimSpace(string(entry.Data.Raw)) != "null"
-			hasResources := entry.Resources != nil
+			hasResources := len(entry.Resources) > 0
 			hasResourceFiles := len(entry.ResourceFiles) > 0
 			if !hasData && !hasResources && !hasResourceFiles {
 				messages = append(messages, "globalContextEntries entry "+entry.Name+" has no data source")

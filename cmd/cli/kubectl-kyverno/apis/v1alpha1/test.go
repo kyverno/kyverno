@@ -238,12 +238,16 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 			}
 		}
 
+		if e.Resources != nil && len(e.Resources) == 0 {
+			return fmt.Errorf("globalContextEntries entry %q: resources must not be empty", e.Name)
+		}
+
 		if e.ResourceFiles != nil && len(e.ResourceFiles) == 0 {
 			return fmt.Errorf("globalContextEntries entry %q: resourceFiles must not be empty", e.Name)
 		}
 
 		hasData := len(strings.TrimSpace(string(e.Data.Raw))) > 0 && strings.TrimSpace(string(e.Data.Raw)) != "null"
-		hasResources := e.Resources != nil
+		hasResources := len(e.Resources) > 0
 		hasResourceFiles := len(e.ResourceFiles) > 0
 
 		// data, resources, and resourceFiles are mutually exclusive

@@ -36,27 +36,7 @@ func resolveDataMockData(jp jmespath.Interface, entry v1alpha1.GlobalContextEntr
 	if root == nil {
 		return nil, nil
 	}
-	if entry.FieldPath != "" {
-		root, err = jp.Search(entry.FieldPath, root)
-		if err != nil {
-			return nil, fmt.Errorf("globalContextEntries %q fieldPath: %w", entry.Name, err)
-		}
-	}
-	if len(entry.Projections) == 0 {
-		return root, nil
-	}
-	out := make(map[string]interface{}, len(entry.Projections))
-	for _, p := range entry.Projections {
-		if p.Name == "" {
-			return nil, fmt.Errorf("globalContextEntries %q projection name must not be empty", entry.Name)
-		}
-		v, err := jp.Search(p.Path, root)
-		if err != nil {
-			return nil, fmt.Errorf("globalContextEntries %q projection %q path %q: %w", entry.Name, p.Name, p.Path, err)
-		}
-		out[p.Name] = v
-	}
-	return out, nil
+	return applyFieldPathAndProjections(jp, entry, root)
 }
 
 // resolveResourcesMockData decodes inline resources to []interface{},
@@ -66,20 +46,22 @@ func resolveResourcesMockData(jp jmespath.Interface, entry v1alpha1.GlobalContex
 	if err != nil {
 		return nil, fmt.Errorf("globalContextEntries %q resources: %w", entry.Name, err)
 	}
+	return applyFieldPathAndProjections(jp, entry, list)
+}
 
-	var root interface{} = list
-
+// applyFieldPathAndProjections applies the optional fieldPath and projections
+// to the resolved root data. Shared by both data and resources paths.
+func applyFieldPathAndProjections(jp jmespath.Interface, entry v1alpha1.GlobalContextEntryValue, root interface{}) (interface{}, error) {
 	if entry.FieldPath != "" {
+		var err error
 		root, err = jp.Search(entry.FieldPath, root)
 		if err != nil {
 			return nil, fmt.Errorf("globalContextEntries %q fieldPath: %w", entry.Name, err)
 		}
 	}
-
 	if len(entry.Projections) == 0 {
 		return root, nil
 	}
-
 	out := make(map[string]interface{}, len(entry.Projections))
 	for _, p := range entry.Projections {
 		if p.Name == "" {

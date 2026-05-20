@@ -1,7 +1,6 @@
 apiVersion: cli.kyverno.io/v1alpha1
 globalContextEntries:
-- data: null
-  name: gctxentry-inline-deployments
+- name: gctxentry-inline-deployments
   resourceFiles:
   - gce-deployments.yaml
 kind: Test

@@ -87,6 +87,7 @@ func (cp *FakeContextProvider) GetGlobalReference(name, projection string) (any,
 			}
 			return nil, fmt.Errorf("projection %q not found in global context entry %q", projection, name)
 		}
+		return nil, fmt.Errorf("projection %q not found in global context entry %q: stored value is not an object", projection, name)
 	}
 	return data, nil
 }
