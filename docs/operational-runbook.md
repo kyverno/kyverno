@@ -49,19 +49,34 @@ Is Kyverno blocking or causing issues?
 **Blast radius:** All in-scope admission enforcement is bypassed if Kyverno is unavailable. Mutations and validations still run when Kyverno is healthy.
 
 ```bash
-# List all Kyverno webhooks
+# List all Kyverno webhooks (note the names and how many entries each has)
 kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations \
   -o name | grep kyverno
 
-# Patch failurePolicy on a ValidatingWebhookConfiguration
+# Patch failurePolicy for ALL webhook entries in a ValidatingWebhookConfiguration.
+# Replace N with the total number of webhooks[] entries (0-based); run once per index.
+COUNT=$(kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg \
+  -o jsonpath='{.webhooks}' | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+PATCHES=$(python3 -c "
+import json, sys
+n = int(sys.argv[1])
+print(json.dumps([{'op':'replace','path':f'/webhooks/{i}/failurePolicy','value':'Ignore'} for i in range(n)]))
+" "$COUNT")
 kubectl patch validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg \
-  --type='json' \
-  -p='[{"op":"replace","path":"/webhooks/0/failurePolicy","value":"Ignore"}]'
+  --type='json' -p="$PATCHES"
 
-# Patch the mutating webhook similarly
+# Repeat for the mutating webhook
+COUNT=$(kubectl get mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg \
+  -o jsonpath='{.webhooks}' | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+PATCHES=$(python3 -c "
+import json, sys
+n = int(sys.argv[1])
+print(json.dumps([{'op':'replace','path':f'/webhooks/{i}/failurePolicy','value':'Ignore'} for i in range(n)]))
+" "$COUNT")
 kubectl patch mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg \
-  --type='json' \
-  -p='[{"op":"replace","path":"/webhooks/0/failurePolicy","value":"Ignore"}]'
+  --type='json' -p="$PATCHES"
+
+# Repeat for any other kyverno webhook configurations listed above
 ```
 
 **Restore:** Patch back to `Fail` once the issue is resolved.
@@ -93,37 +108,51 @@ kubectl patch policy <policy-name> -n <namespace> \
 # ValidatingPolicy
 kubectl patch validatingpolicy <policy-name> \
   --type='merge' \
-  -p='{"spec":{"evaluation":{"admission":false}}}'
+  -p='{"spec":{"evaluation":{"admission":{"enabled":false}}}}'
 
 # MutatingPolicy
 kubectl patch mutatingpolicy <policy-name> \
   --type='merge' \
-  -p='{"spec":{"evaluation":{"admission":false}}}'
+  -p='{"spec":{"evaluation":{"admission":{"enabled":false}}}}'
 
 # Namespaced variants use the same patch on the namespaced resource kind
 ```
 
-**Restore:** Patch `spec.admission` back to `true`, or `spec.evaluation.admission` back to `true`.
+**Restore:** Patch `spec.admission` back to `true`, or `spec.evaluation.admission.enabled` back to `true`.
 
 ---
 
 ### 3. Exempt a namespace
 
-**What it does:** Labels a namespace so Kyverno skips all policies for resources in that namespace.
+**What it does:** Adds the target namespace to the webhook `namespaceSelector` exclusion list so the API server stops sending admission requests for that namespace to Kyverno.
 
 **Blast radius:** All Kyverno policies stop enforcing in that namespace.
 
-```bash
-kubectl label namespace <namespace> kyverno.io/exclude="true"
-```
-
-**Restore:**
+Kyverno's default webhook `namespaceSelector` uses `kubernetes.io/metadata.name NotIn [kyverno-namespace]`. The cleanest way to add another namespace to that exclusion is to patch the Kyverno ConfigMap, which Kyverno watches and uses to reconcile the webhook configurations:
 
 ```bash
-kubectl label namespace <namespace> kyverno.io/exclude-
+# Read the current webhooks config value
+kubectl get configmap kyverno -n kyverno -o jsonpath='{.data.webhooks}'
+
+# Add your namespace to the namespaceSelector.  The value is a JSON object;
+# set matchExpressions so both the kyverno namespace and your namespace are excluded.
+kubectl patch configmap kyverno -n kyverno --type='merge' -p='
+{
+  "data": {
+    "webhooks": "{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\",\"<namespace>\"]}]}}"
+  }
+}'
 ```
 
-> **Note:** The exact label key depends on your Kyverno configuration (`config.webhooks` in the Kyverno ConfigMap). Verify the configured exclusion label before using.
+Alternatively, patch the webhook configuration directly (note: Kyverno may reconcile and overwrite this):
+
+```bash
+# Get the current number of webhooks[] entries first, then patch each namespaceSelector
+kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg \
+  -o jsonpath='{.webhooks[*].namespaceSelector}'
+```
+
+**Restore:** Remove `<namespace>` from the `values` array in the ConfigMap `webhooks` field and re-apply.
 
 ---
 
@@ -222,7 +251,7 @@ After resolving the incident, restore enforcement in reverse order:
 1. **Verify Kyverno is healthy:** `kubectl get pods -n kyverno` — all pods Running/Ready.
 2. **Re-enable in reverse order of what you disabled:**
    - Remove `PolicyException` objects created during the incident.
-   - Remove namespace exclusion labels.
+   - Remove namespace exclusions from the Kyverno ConfigMap `webhooks` field.
    - Re-apply deleted policies from Git.
    - Restore `failurePolicy: Fail` on webhook configurations.
 3. **Run a background scan sweep** to catch any drift that occurred while enforcement was off:
@@ -240,9 +269,9 @@ After resolving the incident, restore enforcement in reverse order:
 Before restoring enforcement, capture the following:
 
 ```bash
-# Current state of all Kyverno webhook configurations
+# Current state of all Kyverno webhook configurations (full YAML — do not filter here)
 kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations \
-  -o yaml | grep -A5 kyverno > webhook-state.yaml
+  -o yaml > webhook-state.yaml
 
 # Kyverno controller logs from the incident window
 kubectl logs -n kyverno -l app.kubernetes.io/part-of=kyverno \
