@@ -68,5 +68,7 @@ spec:
               kyverno.io/policy-name: multi-rule-generate-accumulation
           status:
             state: Completed
-            # Verify that generatedResources has exactly 2 entries
+            # Verify that generatedResources has exactly the 2 expected entries
             (length(generatedResources)): 2
+            (length(generatedResources[?name == 'app-config'])): 1
+            (length(generatedResources[?name == 'db-config'])): 1
