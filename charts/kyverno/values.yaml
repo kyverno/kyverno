@@ -154,6 +154,9 @@ crds:
     # -- Enable CRDs migration using helm post upgrade hook
     enabled: true
 
+    # -- Additional CLI flags passed to the migration job
+    extraArgs: {}
+
     # -- Resources to migrate
     resources:
       - cleanuppolicies.kyverno.io
