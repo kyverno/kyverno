@@ -160,7 +160,8 @@ metadata:
   name: approved-registries-cache
 spec:
   apiCall:
-    urlPath: "[https://api.corporate.internal/v1/registries](https://api.corporate.internal/v1/registries)"
+    service:
+      url: "https://api.corporate.internal/v1/registries"
     refreshInterval: 30m
     retryLimit: 3
 
