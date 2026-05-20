@@ -284,7 +284,16 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 			Name:      "g",
 			Resources: []runtime.RawExtension{},
 		}})
-		if err == nil || !strings.Contains(err.Error(), "resources must not be empty") {
+		if err != nil {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("empty resourceFiles slice", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:          "g",
+			ResourceFiles: []string{},
+		}})
+		if err != nil {
 			t.Fatalf("got %v", err)
 		}
 	})

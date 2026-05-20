@@ -104,7 +104,7 @@ func TestMockEntry_GetProjectionNotObject(t *testing.T) {
 func TestMockErrorEntry(t *testing.T) {
 	m := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
 		Name:        "bad",
-		Data: nil,
+		Data:        nil,
 		Projections: []v1alpha1.GlobalContextProjection{{Name: "n", Path: "p"}},
 	}})
 	ent, ok := m.Get("bad")
