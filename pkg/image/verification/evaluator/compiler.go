@@ -29,9 +29,13 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
 	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
@@ -53,7 +57,12 @@ type compilerImpl struct {
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
+	env, err := ivpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -154,7 +163,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*cel.Env, *engine.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -173,7 +182,8 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		)
 	}
 
-	env, err := cel.NewEnv()
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
+	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -191,59 +201,69 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			engine.KyvernoVersion,
+			globalcontext.Latest(),
 		),
 		image.Lib(
-			engine.KyvernoVersion,
+			image.Latest(),
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			engine.KyvernoVersion,
+			imagedata.Latest(),
 		),
 		imageverify.Lib(
-			engine.KyvernoVersion, c.ictx, ivpol, c.lister,
+			imageverify.Latest(), c.ictx, ivpol, c.lister,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			engine.KyvernoVersion,
+			resource.Latest(),
 		),
 		user.Lib(
-			engine.KyvernoVersion,
+			user.Latest(),
 		),
 		math.Lib(
-			engine.KyvernoVersion,
+			math.Latest(),
 		),
 		hash.Lib(
-			engine.KyvernoVersion,
+			hash.Latest(),
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			engine.KyvernoVersion,
+			json.Latest(),
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			engine.KyvernoVersion,
+			yaml.Latest(),
 		),
 		random.Lib(
-			engine.KyvernoVersion,
+			random.Latest(),
 		),
 		time.Lib(
-			engine.KyvernoVersion,
+			time.Latest(),
 		),
 		transform.Lib(
-			engine.KyvernoVersion,
+			transform.Latest(),
 		),
 		gzip.Lib(
-			engine.KyvernoVersion,
+			gzip.Latest(),
 		),
 		http.Lib(
-			http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
-			engine.KyvernoVersion,
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+			http.Latest(),
 		),
 	}
 
-	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions:        baseOpts,
+		},
+		// libaries
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions:        libEnvOpts,
+		},
+	)
 	if err != nil {
 		return nil, nil, err
 	}
