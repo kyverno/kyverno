@@ -12,7 +12,7 @@ By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
 
 ---
 
-## ⚡ Concept & Architecture: The "Why"
+##  Concept & Architecture: The "Why"
 
 Kyverno operates natively as a Kubernetes Admission Controller webhook. When a resource lifecycle event occurs (e.g., `kubectl apply`), Kyverno intercepts the request and must determine whether to allow or deny it with minimal latency.
 
@@ -45,7 +45,7 @@ Use this mode to capture internal topology data, structural metadata, or shared 
 
 | Schema Field | Value Data Type | Required | Engine Validation Constraints |
 | :--- | :--- | :--- | :--- |
-| `group` | string | No | The Kubernetes API group (e.g., `apps`). Pass an empty string `""` for core resources. |
+ | `group` | string | Conditional | The Kubernetes API group (e.g., `apps`). Required for non-core resources. Use an empty string `""` only for core API resources with `version: v1`. |
 | `version` | string | **Yes** | The explicit API version state (e.g., `v1`, `v1beta1`). |
 | `resource` | string | **Yes** | **Must be lowercased and pluralized** (e.g., use `configmaps` or `secrets`, not `ConfigMap`). |
 | `namespace` | string | No | The target namespace boundaries. If omitted, Kyverno tracks across **all namespaces** globally. |
@@ -62,7 +62,7 @@ spec:
     version: v1
     resource: configmaps
     namespace: default
-
+```
 ### 2. External API Caching
 
 Use this mode to extract and synchronize authorization lists, identity definitions, or operational constraints managed outside the local Kubernetes ecosystem.
@@ -87,12 +87,36 @@ spec:
       url: "https://api.internal.corporate/v1/teams"
     refreshInterval: 5m
     retryLimit: 5
-
+```
 ## Data Projections (JMESPath Slicing)
 
-Caching large-scale external API payloads or extensive multi-namespace collections inside memory can stress system overhead. To mitigate this risk, Kyverno implements `projections` using **JMESPath**. 
+Caching large-scale external API payloads or extensive multi-namespace collections inside memory can stress system overhead. Kyverno supports `projections` using **JMESPath** so policies can work with a narrower, more focused view of that cached data. 
 
-Projections act as a high-performance filtering layer, parsing raw complex structures down to exact key-value primitives or explicit string arrays, pruning unnecessary payload data before it enters active system memory.
+ Projections act as a high-performance filtering layer, transforming raw complex structures into exact key-value primitives or explicit string arrays for policy consumption. This helps simplify policy evaluation and reduce the amount of data rules need to traverse, but it does not necessarily remove the underlying cached payload.
+
+```yaml
+apiVersion: kyverno.io/v2beta1
+kind: GlobalContextEntry
+metadata:
+  name: my-cached-data
+spec:
+  apiCall:
+    urlPath: "/api/v1/..." # Your API path
+    # jmesPath: "..."      # Optional: used if you need to filter the response
+  projections:
+    - key: my-projected-field  # This will be the name used in policies
+      jmesPath: "data.someField" # The path within the API response to extract
+```
+### Referencing Projected Data in a Policy
+
+Once the `GlobalContextEntry` is defined, you can reference the projected field in your Kyverno policy as follows:
+
+```yaml
+context:
+  - name: myData
+    globalReference:
+      name: my-cached-data    # Must match the 'name' in GlobalContextEntry metadata
+      key: my-projected-field # Must match the 'key' defined in projections
 
 ---
 
@@ -115,7 +139,7 @@ spec:
     version: v1
     resource: configmaps
     namespace: default
-
+```
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
@@ -146,7 +170,7 @@ spec:
           - key: "app-config"
             operator: AnyNotIn
             value: "{{ cached_configmaps }}"
-
+```
 ### 2. Caching Approved Container Registries (External API)
 
 This implementation ensures cluster deployments pull strictly from vetted, enterprise-controlled image domains stored on an external inventory catalog manager.
@@ -164,7 +188,7 @@ spec:
       url: "https://api.corporate.internal/v1/registries"
     refreshInterval: 30m
     retryLimit: 3
-
+```
 #### Step 2: Bind a Policy to the Entry
 
 Assuming the API returns: `{"allowed": ["internal-registry.io", "gcr.io/vetted-project"]}`
@@ -196,10 +220,10 @@ spec:
         deny:
           conditions:
             any:
-            - key: "{{ image_registry(element.image) }}"
+            - key: "{{ images.containers.\"{{element.name}}\".registry }}"
               operator: AnyNotIn
               value: "{{ allowed_registries }}"
-
+```
 ### 3. Caching RBAC or Organisational Metadata
 
 Useful for performance-heavy validation structures, like tracking dynamic team metadata roles across specific namespace boundaries.
@@ -216,7 +240,7 @@ spec:
     group: "rbac.authorization.k8s.io"
     version: v1
     resource: clusterrolebindings
-
+```
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
@@ -238,7 +262,7 @@ spec:
     - name: cluster_bindings
       globalReference:
         name: rbac-team-cache
-        jmesPath: "[].subjects[?kind=='User'].name"
+        jmesPath: "[].subjects[?kind=='User'].name[]"
     validate:
       message: "User initiating namespace creation is not registered in cluster role metadata."
       deny:
@@ -247,7 +271,7 @@ spec:
           - key: "{{ request.userInfo.username }}"
             operator: AnyNotIn
             value: "{{ cluster_bindings }}"
-
+```
 ## Troubleshooting
 
 When working with `GlobalContextEntry`, misconfigurations typically manifest as empty context variables inside evaluations or synchronization blockages.
