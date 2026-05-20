@@ -116,6 +116,11 @@ spec:
             - --resource
             - {{ . }}
             {{- end }}
+            {{- range $key, $value := .Values.crds.migration.extraArgs }}
+            {{- if ne $value nil }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.crds.migration.podResources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
