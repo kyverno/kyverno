@@ -10,7 +10,7 @@ The generated HTML reference docs live in [`docs/user/crd/`](../../user/crd/) an
 |---|---|---|---|
 | `kyverno.io` | v1, v1beta1, v2, v2alpha1, v2beta1 | [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v1.html) · [v1beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v1beta1.html) · [v2](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2.html) · [v2alpha1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2alpha1.html) · [v2beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2beta1.html) | v1 deprecated → v2; see [deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types) |
 | `policies.kyverno.io` | v1alpha1, v1beta1, v1 | [v1alpha1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1alpha1.html) · [v1beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1beta1.html) · [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1.html) | CEL-based policies; v1 is current |
-| `policyreport.wgpolicyk8s.io` | v1alpha2 | [v1alpha2](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_policyreport.v1alpha2.html) | Shared policy report schema |
+| `wgpolicyk8s.io` | v1alpha2 | [v1alpha2](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_policyreport.v1alpha2.html) | Shared policy report schema |
 | `reports.kyverno.io` | v1 | [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_reports.v1.html) | Kyverno-specific admission reports |
 
 > The reference docs are rendered via `htmlpreview.github.io` for convenience. The source HTML files are in `docs/user/crd/` and can also be opened locally after running `make codegen-api-docs`.
@@ -42,7 +42,7 @@ Each version tier carries different compatibility guarantees:
 | Version tier | Compatibility guarantee | Minimum deprecation notice |
 |---|---|---|
 | `v1alpha1` / `v2alpha1` | No guarantee; fields may be renamed, removed, or restructured between minor releases | 1 minor release |
-| `v1beta1` / `v2beta1` | Breaking changes discouraged; deprecated fields are retained and marked with `+deprecated` markers | 2 minor releases |
+| `v1beta1` / `v2beta1` | Breaking changes discouraged; deprecated fields are retained with a `// Deprecated.` Go comment and noted in release notes | 2 minor releases |
 | `v1` / `v2` (stable) | No breaking changes; deprecated fields are retained but may be removed after the notice period | 3 minor releases |
 
 **Deprecation procedure:**
