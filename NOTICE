@@ -1,0 +1,70 @@
+Kyverno
+Copyright The Kyverno Authors
+
+This product includes software developed by the Kyverno project
+(https://kyverno.io) and its contributors.
+
+---
+
+This product bundles third-party software. The full list of dependencies
+and their licenses is maintained in go.mod / go.sum and is audited on
+every push to main via FOSSA (https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno).
+
+The dependency inventory below was generated from the kyverno binary at
+the time of this writing (go-licenses report ./cmd/kyverno/...) and
+covers the following license categories:
+
+  Apache-2.0: 197 packages
+  MIT:          93 packages
+  BSD-3-Clause: 47 packages
+  MPL-2.0:      13 packages
+  BSD-2-Clause:  4 packages
+  ISC:           1 package
+  BSD-2-Clause-FreeBSD: 1 package
+
+The full machine-readable license inventory (package, license URL,
+SPDX identifier) is available at:
+
+  https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno
+
+---
+
+Notable third-party components and their copyright notices:
+
+Kubernetes (k8s.io/*) — Apache-2.0
+Copyright 2014 The Kubernetes Authors.
+
+controller-runtime (sigs.k8s.io/controller-runtime) — Apache-2.0
+Copyright 2018 The Kubernetes Authors.
+
+OPA / Rego (github.com/open-policy-agent/opa) — Apache-2.0
+Copyright 2016 The OPA Authors. All rights reserved.
+
+cosign / sigstore (github.com/sigstore/*) — Apache-2.0
+Copyright 2021 The Sigstore Authors.
+
+Prometheus client (github.com/prometheus/client_golang) — Apache-2.0
+Copyright 2012-2015 The Prometheus Authors.
+
+CUE (cuelang.org/go) — Apache-2.0
+Copyright 2019 CUE Authors.
+
+Go standard library (golang.org/x/*) — BSD-3-Clause
+Copyright 2009 The Go Authors.
+
+Helm (helm.sh/helm/v3) — Apache-2.0
+Copyright The Helm Authors.
+
+---
+
+For components licensed under Apache-2.0, please note that the Apache
+License 2.0 requires this NOTICE file to be included with any
+redistributed binary or source artifact. No additional NOTICE content
+from upstream dependencies is known to require propagation at the time
+of this writing; FOSSA scans are used to detect and surface any such
+requirements on an ongoing basis.
+
+---
+
+This NOTICE file was last updated: 2026-05-20
+To regenerate: go install github.com/google/go-licenses@latest && go-licenses report ./cmd/kyverno/... > licenses.csv
