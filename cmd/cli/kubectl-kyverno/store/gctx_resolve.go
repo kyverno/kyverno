@@ -26,12 +26,15 @@ func resolveGlobalContextMockData(jp jmespath.Interface, entry v1alpha1.GlobalCo
 
 // resolveDataMockData handles the existing data: path (arbitrary JSON root).
 func resolveDataMockData(jp jmespath.Interface, entry v1alpha1.GlobalContextEntryValue) (interface{}, error) {
-	root, err := v1alpha1.RawExtensionToObject(entry.Data)
+	if entry.Data == nil {
+		if len(entry.Projections) > 0 {
+			return nil, fmt.Errorf("globalContextEntries %q: data is required when projections are set", entry.Name)
+		}
+		return nil, nil
+	}
+	root, err := v1alpha1.RawExtensionToObject(*entry.Data)
 	if err != nil {
 		return nil, fmt.Errorf("globalContextEntries %q: %w", entry.Name, err)
-	}
-	if len(entry.Projections) > 0 && root == nil {
-		return nil, fmt.Errorf("globalContextEntries %q: data is required when projections are set", entry.Name)
 	}
 	if root == nil {
 		return nil, nil

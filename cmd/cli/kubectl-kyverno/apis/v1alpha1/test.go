@@ -127,7 +127,7 @@ type GlobalContextEntryValue struct {
 	// Mutually exclusive with Resources and ResourceFiles.
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Data runtime.RawExtension `json:"data,omitempty"`
+	Data *runtime.RawExtension `json:"data,omitempty"`
 
 	// Resources is a list of inline Kubernetes resource manifests.
 	// Mutually exclusive with Data and ResourceFiles.
@@ -246,7 +246,7 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 			return fmt.Errorf("globalContextEntries entry %q: resourceFiles must not be empty", e.Name)
 		}
 
-		hasData := len(strings.TrimSpace(string(e.Data.Raw))) > 0 && strings.TrimSpace(string(e.Data.Raw)) != "null"
+		hasData := e.Data != nil && len(strings.TrimSpace(string(e.Data.Raw))) > 0 && strings.TrimSpace(string(e.Data.Raw)) != "null"
 		hasResources := len(e.Resources) > 0
 		hasResourceFiles := len(e.ResourceFiles) > 0
 
@@ -269,7 +269,7 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 		}
 
 		if hasData {
-			obj, err := RawExtensionToObject(e.Data)
+			obj, err := RawExtensionToObject(*e.Data)
 			if err != nil {
 				return fmt.Errorf("globalContextEntries entry %q: data must be valid JSON: %w", e.Name, err)
 			}

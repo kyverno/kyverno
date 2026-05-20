@@ -139,7 +139,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("valid with data", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name: "g",
-			Data: runtime.RawExtension{Raw: []byte(`{}`)},
+			Data: &runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{
 				{Name: "items", Path: "deployments"},
 			},
@@ -168,7 +168,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 		dep, _ := json.Marshal(map[string]interface{}{"apiVersion": "v1", "kind": "Pod"})
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:      "g",
-			Data:      runtime.RawExtension{Raw: []byte(`{"x":1}`)},
+			Data:      &runtime.RawExtension{Raw: []byte(`{"x":1}`)},
 			Resources: []runtime.RawExtension{{Raw: dep}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
@@ -178,7 +178,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("data and resourceFiles mutually exclusive", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:          "g",
-			Data:          runtime.RawExtension{Raw: []byte(`{"x":1}`)},
+			Data:          &runtime.RawExtension{Raw: []byte(`{"x":1}`)},
 			ResourceFiles: []string{"file.yaml"},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
@@ -231,7 +231,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("projection missing name", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:        "g",
-			Data:        runtime.RawExtension{Raw: []byte(`{}`)},
+			Data:        &runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{{Name: "", Path: "p"}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "projection name") {
@@ -241,7 +241,7 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	t.Run("projection missing path", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:        "g",
-			Data:        runtime.RawExtension{Raw: []byte(`{}`)},
+			Data:        &runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{{Name: "n", Path: " "}},
 		}})
 		if err == nil || !strings.Contains(err.Error(), "path is required") {
@@ -250,8 +250,8 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	})
 	t.Run("duplicate name", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{
-			{Name: "g", Data: runtime.RawExtension{Raw: []byte(`{}`)}},
-			{Name: "g", Data: runtime.RawExtension{Raw: []byte(`{"x":1}`)}},
+			{Name: "g", Data: &runtime.RawExtension{Raw: []byte(`{}`)}},
+			{Name: "g", Data: &runtime.RawExtension{Raw: []byte(`{"x":1}`)}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "duplicate name") {
 			t.Fatalf("got %v", err)

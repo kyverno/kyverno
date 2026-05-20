@@ -34,7 +34,7 @@ func TestDelegatingGCtxStore_MockWinsRealFallback(t *testing.T) {
 	raw, _ := json.Marshal(map[string]interface{}{"only": "mock"})
 	mock := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
 		Name: "mocked",
-		Data: runtime.RawExtension{Raw: raw},
+		Data: &runtime.RawExtension{Raw: raw},
 	}})
 	real := &fakeLoaderStore{entries: map[string]gctxstore.Entry{
 		"other": &staticGctxEntry{val: "from-real"},
@@ -71,7 +71,7 @@ func TestMockEntry_GetProjection(t *testing.T) {
 	})
 	m := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
 		Name: "g",
-		Data: runtime.RawExtension{Raw: raw},
+		Data: &runtime.RawExtension{Raw: raw},
 		Projections: []v1alpha1.GlobalContextProjection{
 			{Name: "items", Path: "items"},
 		},
@@ -104,7 +104,7 @@ func TestMockEntry_GetProjectionNotObject(t *testing.T) {
 func TestMockErrorEntry(t *testing.T) {
 	m := NewMockGCtxStore([]v1alpha1.GlobalContextEntryValue{{
 		Name:        "bad",
-		Data:        runtime.RawExtension{},
+		Data: nil,
 		Projections: []v1alpha1.GlobalContextProjection{{Name: "n", Path: "p"}},
 	}})
 	ent, ok := m.Get("bad")

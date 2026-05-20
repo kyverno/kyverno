@@ -12,12 +12,12 @@ import (
 
 func TestResolveGlobalContextMockData(t *testing.T) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
-	raw := func(v interface{}) runtime.RawExtension {
+	raw := func(v interface{}) *runtime.RawExtension {
 		b, err := json.Marshal(v)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return runtime.RawExtension{Raw: b}
+		return &runtime.RawExtension{Raw: b}
 	}
 
 	t.Run("projections", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 	})
 
 	t.Run("empty data no projections", func(t *testing.T) {
-		entry := v1alpha1.GlobalContextEntryValue{Name: "g", Data: runtime.RawExtension{}}
+		entry := v1alpha1.GlobalContextEntryValue{Name: "g"}
 		got, err := resolveGlobalContextMockData(jp, entry)
 		if err != nil {
 			t.Fatal(err)
@@ -83,7 +83,7 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 	t.Run("projections require data", func(t *testing.T) {
 		entry := v1alpha1.GlobalContextEntryValue{
 			Name: "g",
-			Data: runtime.RawExtension{},
+			Data: nil,
 			Projections: []v1alpha1.GlobalContextProjection{
 				{Name: "x", Path: "y"},
 			},

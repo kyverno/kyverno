@@ -74,13 +74,13 @@ metadata:
 		raw, _ := json.Marshal(map[string]interface{}{"x": 1})
 		entries := []v1alpha1.GlobalContextEntryValue{{
 			Name: "g",
-			Data: runtime.RawExtension{Raw: raw},
+			Data: &runtime.RawExtension{Raw: raw},
 		}}
 		resolved, err := ResolveGCEResourceFiles(nil, dir, entries)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(resolved[0].Data.Raw) == 0 {
+		if resolved[0].Data == nil || len(resolved[0].Data.Raw) == 0 {
 			t.Fatal("expected Data to be preserved")
 		}
 	})
