@@ -319,6 +319,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				nil,
 				vpols,
 				expressionCache,
+				true,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
@@ -539,6 +540,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				nil,
 				ivpols,
 				expressionCache,
+				true,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
@@ -565,7 +567,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 
 func TestNamespaceMatchCondition(t *testing.T) {
 	mc := namespaceMatchCondition("team-a")
-	assert.Equal(t, "kyverno.io/namespace-policy-filter", mc.Name)
+	assert.Equal(t, "kyverno.io/namespace-policy-filter-team-a", mc.Name)
 	assert.Equal(t, "request.namespace == 'team-a'", mc.Expression)
 }
 
@@ -621,7 +623,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
-							Name:       "kyverno.io/namespace-policy-filter",
+							Name:       "kyverno.io/namespace-policy-filter-team-a",
 							Expression: "request.namespace == 'team-a'",
 						},
 					},
@@ -684,7 +686,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 							Expression: "!(request.resource.group == 'coordination.k8s.io' && request.resource.resource == 'leases')",
 						},
 						{
-							Name:       "kyverno.io/namespace-policy-filter",
+							Name:       "kyverno.io/namespace-policy-filter-team-b",
 							Expression: "request.namespace == 'team-b'",
 						},
 					},
@@ -761,7 +763,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
-							Name:       "kyverno.io/namespace-policy-filter",
+							Name:       "kyverno.io/namespace-policy-filter-ns-one",
 							Expression: "request.namespace == 'ns-one'",
 						},
 					},
@@ -783,7 +785,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
-							Name:       "kyverno.io/namespace-policy-filter",
+							Name:       "kyverno.io/namespace-policy-filter-ns-two",
 							Expression: "request.namespace == 'ns-two'",
 						},
 					},
@@ -809,6 +811,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 				nil,
 				nvpols,
 				expressionCache,
+				true,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
@@ -866,6 +869,7 @@ func TestBuildWebhookRules_ClusterPolicyNoNamespaceCondition(t *testing.T) {
 		nil,
 		policies,
 		expressionCache,
+		true,
 	)
 
 	assert.Equal(t, 1, len(webhooks))

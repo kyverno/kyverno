@@ -247,7 +247,7 @@ func (wh *webhook) isEmpty() bool {
 
 func namespaceMatchCondition(namespace string) admissionregistrationv1.MatchCondition {
 	return admissionregistrationv1.MatchCondition{
-		Name:       "kyverno.io/namespace-policy-filter",
+		Name:       fmt.Sprintf("kyverno.io/namespace-policy-filter-%s", namespace),
 		Expression: fmt.Sprintf("request.namespace == '%s'", namespace),
 	}
 }

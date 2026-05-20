@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -169,6 +170,12 @@ type controller struct {
 	stateRecorder StateRecorder
 
 	celExpressionCache *expressionCache
+}
+
+// matchConditionsSupported returns true when the cluster is running Kubernetes >= 1.27,
+// which is the minimum version that supports webhook matchConditions.
+func (c *controller) matchConditionsSupported() bool {
+	return kubeutils.HigherThanKubernetesVersion(c.discoveryClient.CachedDiscoveryInterface(), logging.GlobalLogger(), 1, 27, 0)
 }
 
 func NewController(
@@ -959,7 +966,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		mpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.matchConditionsSupported())
 
 	nmpols, err := c.getNamespacedMutatingPolicies()
 	if err != nil {
@@ -973,7 +981,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		nmpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.matchConditionsSupported())...)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -987,7 +996,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		ivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.matchConditionsSupported())...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
 	if err != nil {
@@ -1001,7 +1011,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		nivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.matchConditionsSupported())...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for _, w := range validate {
@@ -1040,18 +1051,19 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 			if p.AdmissionProcessingEnabled() {
 				var ready bool
 				spec := p.GetSpec()
+				mcSupported := c.matchConditionsSupported()
 				if spec.HasMutateStandard() || spec.HasVerifyImages() {
-					if spec.CustomWebhookMatchConditions() || p.IsNamespaced() {
+					if spec.CustomWebhookMatchConditions() || (mcSupported && p.IsNamespaced()) {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							if p.IsNamespaced() {
+							if mcSupported && p.IsNamespaced() {
 								fineGrainedIgnore.matchConditions = append(fineGrainedIgnore.matchConditions, namespaceMatchCondition(p.GetNamespace()))
 							}
 							ready = c.mergeWebhook(fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							if p.IsNamespaced() {
+							if mcSupported && p.IsNamespaced() {
 								fineGrainedFail.matchConditions = append(fineGrainedFail.matchConditions, namespaceMatchCondition(p.GetNamespace()))
 							}
 							ready = c.mergeWebhook(fineGrainedFail, p, false)
@@ -1211,7 +1223,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		pols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.matchConditionsSupported())
 
 	for i := range vpolWebhooks {
 		vpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(vpolWebhooks[i].Rules))
@@ -1229,7 +1242,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		nvpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.matchConditionsSupported())
 
 	for i := range nvpolWebhooks {
 		nvpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(nvpolWebhooks[i].Rules))
@@ -1247,7 +1261,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		gpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.matchConditionsSupported())
 
 	for i := range gpolWebhooks {
 		gpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(gpolWebhooks[i].Rules))
@@ -1265,7 +1280,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		ivpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.matchConditionsSupported())
 
 	for i := range ivpolWebhooks {
 		ivpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ivpolWebhooks[i].Rules))
@@ -1283,7 +1299,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		nivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.matchConditionsSupported())...)
 
 	policies := append(pols, nvpols...)
 	policies = append(policies, gpols...)
@@ -1311,18 +1328,19 @@ func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.
 			if p.AdmissionProcessingEnabled() {
 				var ready bool
 				spec := p.GetSpec()
+				mcSupported := c.matchConditionsSupported()
 				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
-					if spec.CustomWebhookMatchConditions() || p.IsNamespaced() {
+					if spec.CustomWebhookMatchConditions() || (mcSupported && p.IsNamespaced()) {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							if p.IsNamespaced() {
+							if mcSupported && p.IsNamespaced() {
 								fineGrainedIgnore.matchConditions = append(fineGrainedIgnore.matchConditions, namespaceMatchCondition(p.GetNamespace()))
 							}
 							ready = c.mergeWebhook(fineGrainedIgnore, p, true)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							if p.IsNamespaced() {
+							if mcSupported && p.IsNamespaced() {
 								fineGrainedFail.matchConditions = append(fineGrainedFail.matchConditions, namespaceMatchCondition(p.GetNamespace()))
 							}
 							ready = c.mergeWebhook(fineGrainedFail, p, true)

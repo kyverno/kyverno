@@ -19,7 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache, matchConditionsSupported bool) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
@@ -29,7 +29,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetTimeoutSeconds() != nil {
 			fineGrained = append(fineGrained, policy)
-		} else if policy.IsNamespaced() {
+		} else if matchConditionsSupported && policy.IsNamespaced() {
 			fineGrained = append(fineGrained, policy)
 		} else {
 			basic = append(basic, policy)
@@ -131,7 +131,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 
-			if policy.IsNamespaced() && policy.GetNamespace() != "" {
+			if matchConditionsSupported && policy.IsNamespaced() && policy.GetNamespace() != "" {
 				webhook.MatchConditions = append(webhook.MatchConditions, namespaceMatchCondition(policy.GetNamespace()))
 			}
 
