@@ -2,7 +2,7 @@ package policy
 
 import (
 	"testing"
-    
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -14,7 +14,7 @@ import (
 )
 
 func makeClusterPolicyForUR(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPolicy {
-	return &kyvernov1.ClusterPolicy {
+	return &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -104,14 +104,14 @@ func Test_newGenerateUR(t *testing.T) {
 		wantType   kyvernov2.RequestType
 	}{
 		{
-			name: "cluster policy: Spec.Policy is the bare policy name",
-			policy: engineapi.NewKyvernoPolicy(makeClusterPolicyForUR("my-cluster-policy", nil)),
-			wantPolicy: "my-cluster-policy", 
-			wantType: kyvernov2.Generate,
+			name:       "cluster policy: Spec.Policy is the bare policy name",
+			policy:     engineapi.NewKyvernoPolicy(makeClusterPolicyForUR("my-cluster-policy", nil)),
+			wantPolicy: "my-cluster-policy",
+			wantType:   kyvernov2.Generate,
 		},
 		{
-			name:       "generating policy sets Type to CELGenerate",
-			policy:     engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+			name: "generating policy sets Type to CELGenerate",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-celpolicy",
 				},
