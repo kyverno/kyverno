@@ -124,7 +124,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			return cmp.Compare(a.Name, b.Name)
 		})
 		for _, entry := range test.GlobalContextEntries {
-			hasData := entry.Data != nil && len(entry.Data.Raw) > 0 && strings.TrimSpace(string(entry.Data.Raw)) != "null"
+			hasData := entry.Data != nil && len(strings.TrimSpace(string(entry.Data.Raw))) > 0 && strings.TrimSpace(string(entry.Data.Raw)) != "null"
 			hasResources := entry.Resources != nil
 			hasResourceFiles := entry.ResourceFiles != nil
 			if !hasData && !hasResources && !hasResourceFiles {
