@@ -289,7 +289,7 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 				if trimmed == "" {
 					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be empty", e.Name, j)
 				}
-				if filepath.IsAbs(trimmed) {
+				if filepath.IsAbs(trimmed) || strings.HasPrefix(filepath.ToSlash(trimmed), "/") {
 					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be absolute", e.Name, j)
 				}
 				clean := filepath.ToSlash(filepath.Clean(trimmed))
