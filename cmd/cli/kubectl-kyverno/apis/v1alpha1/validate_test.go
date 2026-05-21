@@ -2,7 +2,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"path/filepath"
+	sysruntime "runtime"
 	"strings"
 	"testing"
 
@@ -299,7 +299,10 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 		}
 	})
 	t.Run("resourceFiles with absolute path", func(t *testing.T) {
-		absPath, _ := filepath.Abs("absolute_path.yaml")
+		absPath := "/absolute/path.yaml"
+		if sysruntime.GOOS == "windows" {
+			absPath = `C:\absolute\path.yaml`
+		}
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:          "g",
 			ResourceFiles: []string{absPath},
