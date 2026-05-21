@@ -144,9 +144,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	for _, rule := range spec.Rules {
 
 		//Check for wildecard in rule and if found add warning message since it can heavily impact performance
-		if hasWildcard(rule) {
-			msg := fmt.Sprintf("Rule '%s' matches all resources because it uses a wildcard '*'. This can heavily impact performance. Please specify exact resource kinds.", rule.Name)
-			warnings = append(warnings, msg)
+		if warningMsg, ok := hasWildcard(rule); ok {
+			warnings = append(warnings, warningMsg)
 		}
 
 		if rule.HasValidate() {
@@ -1798,19 +1797,48 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 	}
 }
 
-// hasWildcard returns true if any kind in the rule is a wildcard "*"
-func hasWildcard(rule kyvernov1.Rule) bool {
+// hasWildcard returns the appropriate warning message and true if any kind in the rule is a wildcard "*"
+func hasWildcard(rule kyvernov1.Rule) (string, bool) {
+	wildcardFound := false
+
 	// Check match constraints
 	for _, kind := range rule.MatchResources.Kinds {
 		if kind == "*" {
-			return true
+			wildcardFound = true
+			break
 		}
 	}
-	// Check exclude constraints
-	for _, kind := range rule.ExcludeResources.Kinds {
-		if kind == "*" {
-			return true
+
+	// Check exclude constraints safely (guarding against a nil pointer panic)
+	if !wildcardFound && rule.ExcludeResources != nil {
+		for _, kind := range rule.ExcludeResources.Kinds {
+			if kind == "*" {
+				wildcardFound = true
+				break
+			}
 		}
 	}
-	return false
+
+	// If no wildcard is found, exit early
+	if !wildcardFound {
+		return "", false
+	}
+
+	// Wildcard found! Call the severity function from inside to determine the message tier
+	warningMessage := checkWildcardSeverity(rule)
+	return warningMessage, true
+}
+
+// checkWildcardSeverity determines if a wildcard policy is global or namespace-restricted
+func checkWildcardSeverity(rule kyvernov1.Rule) string {
+	// Check if bounded by explicit namespaces array or a namespace selector object
+	isNamespaceScoped := len(rule.MatchResources.Namespaces) > 0 || rule.MatchResources.NamespaceSelector != nil
+
+	if isNamespaceScoped {
+		// Tier 2: Lighter informational warning for restricted scopes (per maintainer feedback)
+		return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') within a restricted namespace scope. Intercepting all resource types here still impacts admission control latency; consider specifying explicit resource kinds if possible.", rule.Name)
+	}
+
+	// Tier 1: Strong warning for cluster-wide unconstrained wildcards
+	return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') globally with no namespace isolation. This forces Kyverno to evaluate every API server request across the cluster and can degrade control-plane performance. Consider specifying explicit resource kinds or adding explicit scoping.", rule.Name)
 }

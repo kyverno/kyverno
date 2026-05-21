@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -3599,57 +3601,63 @@ func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_Validate_Wildcard_Warning(t *testing.T) {
-	rawPolicy := []byte(`
-    {
-        "apiVersion": "kyverno.io/v1",
-        "kind": "ClusterPolicy",
-        "metadata": {
-           "name": "policy-with-wildcard"
-        },
-        "spec": {
-			"background": false,
-           "validationFailureAction": "Audit",
-           "rules": [
-              {
-                 "name": "wildcard-rule",
-                 "match": {
-                    "resources": {
-                       "kinds": [
-                          "*"
-                       ]
-                    }
-                 },
-                 "validate": {
-                    "message": "test validation",
-                    "pattern": {
-                       "metadata": {
-                          "labels": {
-                             "test": "test"
-                          }
-                       }
-                    }
-                 }
-              }
-           ]
-        }
-     }`)
+func Test_HasWildcardSeverityTiers(t *testing.T) {
+	testCases := []struct {
+		name            string
+		rule            kyvernov1.Rule
+		expectWarning   bool
+		expectedContent string
+	}{
+		{
+			name: "Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "check-global",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"*"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Scoped Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "check-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds:      []string{"*"},
+						Namespaces: []string{"kube-system"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "No Wildcard Present",
+			rule: kyvernov1.Rule{
+				Name: "check-clean",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"Pod"},
+					},
+				},
+			},
+			expectWarning: false,
+		},
+	}
 
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.Nil(t, err)
-
-	// Run the Validate function
-	warnings, err := Validate(policy, nil, nil, true, "", "")
-
-	// We expect NO error (it shouldn't block the policy)
-	assert.Nil(t, err)
-
-	// We DO expect a warning to be generated
-	assert.NotZero(t, len(warnings), "Expected warnings to be generated for wildcard")
-
-	// Check if the warning contains our specific wildcard message
-	if len(warnings) > 0 {
-		assert.Contains(t, warnings[0], "wildcard '*'")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg, found := hasWildcard(tc.rule)
+			if found != tc.expectWarning {
+				t.Fatalf("expected warning found to be %v, got %v", tc.expectWarning, found)
+			}
+			if tc.expectWarning && !strings.Contains(msg, tc.expectedContent) {
+				t.Errorf("expected warning message to contain %q, but got %q", tc.expectedContent, msg)
+			}
+		})
 	}
 }
