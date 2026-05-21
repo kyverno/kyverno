@@ -87,6 +87,23 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
+	// Log successful mutation rules (align with legacy mutate logging)
+	if response.PatchedResource != nil {
+		for _, p := range response.Policies {
+			if p.Policy == nil {
+				continue
+			}
+			rules := successRules(p.Rules)
+			if len(rules) > 0 {
+				logger.V(2).Info(
+					"mutation rules from policy applied successfully",
+					"policy", p.Policy.GetName(),
+					"rules", rules,
+				)
+			}
+		}
+	}
+
 	go func() {
 		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
@@ -221,6 +238,16 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	}
 
 	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...), nil
+}
+
+func successRules(rules []engineapi.RuleResponse) []string {
+	var names []string
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusPass {
+			names = append(names, r.Name())
+		}
+	}
+	return names
 }
 
 func policyNamesFromContext(ctx context.Context) []string {
