@@ -275,6 +275,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
+| crds.migration.extraArgs | object | `{}` | Additional CLI flags passed to the migration job |
 | crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedgeneratingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
 | crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
@@ -914,6 +915,11 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
+| prometheusRule.enabled | bool | `false` | Enable PrometheusRule resource creation. Requires prometheus-operator (monitoring.coreos.com/v1 CRD) to be installed — the same prerequisite as serviceMonitor.enabled. The resource is only created when `enabled: true` and `spec` is non-empty. |
+| prometheusRule.namespace | string | `nil` | Namespace to create the PrometheusRule in. If not set, it will be created in the same namespace as the chart. |
+| prometheusRule.additionalAnnotations | object | `{}` | Additional annotations to add to the PrometheusRule. |
+| prometheusRule.additionalLabels | object | `{}` | Additional labels to add to the PrometheusRule. Must match the `ruleSelector` configured on your Prometheus instance (e.g. `release: prometheus` for kube-prometheus-stack). |
+| prometheusRule.spec | list | `[]` | Alert rule groups. Provide your own rules here; the examples below use Kyverno's histogram metrics and can serve as starting points. Thresholds MUST be tuned to your environment's measured baseline — see https://kyverno.io/docs/guides/monitoring/#alerting for guidance. |
 
 ## TLS Configuration
 
