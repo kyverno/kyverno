@@ -67,3 +67,11 @@ func (pc *policyController) listMutateURs(policyKey string, trigger *unstructure
 	}
 	return mutateURs
 }
+
+func (pc *policyController) listGenerateURs(policyKey string) []*kyvernov2.UpdateRequest {
+	generateURs, err := pc.urLister.List(labels.SelectorFromSet(backgroundcommon.GenerateLabelsSet(policyKey)))
+	if err != nil {
+		pc.log.Error(err, "failed to list update request for generate policy")
+	}
+	return generateURs
+}

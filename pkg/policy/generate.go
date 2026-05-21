@@ -128,6 +128,13 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
+	// PR1 (#16152): Deduplicate generateExisting URs per policy to avoid UR sprawl.
+	// Generate UR labels currently only include policy name, so we can only dedupe at policy granularity.
+	if existing := pc.listGenerateURs(policyKey(policy)); len(existing) > 0 {
+		logger.V(4).Info("skipping UR creation as a generate UR already exists for policy", "policy", policy.GetName(), "count", len(existing))
+		return multierr.Combine(errors...)
+	}
+
 	logger.V(4).Info("creating new UR for generate")
 	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 	if err != nil {
