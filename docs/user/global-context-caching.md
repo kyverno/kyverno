@@ -95,16 +95,15 @@ Caching large-scale external API payloads or extensive multi-namespace collectio
  Projections act as a high-performance filtering layer, transforming raw complex structures into exact key-value primitives or explicit string arrays for policy consumption. This helps simplify policy evaluation and reduce the amount of data rules need to traverse, but it does not necessarily remove the underlying cached payload.
 
 ```yaml
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: GlobalContextEntry
 metadata:
   name: my-cached-data
 spec:
   apiCall:
     urlPath: "/api/v1/..." # Your API path
-    # jmesPath: "..."      # Optional: used if you need to filter the response
   projections:
-    - key: my-projected-field  # This will be the name used in policies
+    - name: my-projected-field  # This will be the name used in policies
       jmesPath: "data.someField" # The path within the API response to extract
 ```
 ### Referencing Projected Data in a Policy
@@ -131,7 +130,7 @@ context:
     globalReference:
       name: my-cached-data    # Must match the 'name' in GlobalContextEntry metadata
       key: my-projected-field # Must match the 'key' defined in projections
-
+```
 ---
 
 ## 🛠️ Practical Use Cases & Blueprints
@@ -157,7 +156,7 @@ spec:
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2
 kind: ClusterPolicy
 metadata:
   name: require-configmap-via-gctx
@@ -208,7 +207,7 @@ spec:
 Assuming the API returns: `{"allowed": ["internal-registry.io", "gcr.io/vetted-project"]}`
 
 ```yaml
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2
 kind: ClusterPolicy
 metadata:
   name: restrict-registries-global
@@ -258,7 +257,7 @@ spec:
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v2
 kind: ClusterPolicy
 metadata:
   name: validate-team-namespace-access
