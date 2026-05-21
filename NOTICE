@@ -7,12 +7,13 @@ This product includes software developed by the Kyverno project
 ---
 
 This product bundles third-party software. The full list of dependencies
-and their licenses is maintained in go.mod / go.sum and is audited on
-every push to main via FOSSA (https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno).
+is declared in go.mod and pinned by content hash in go.sum. License
+compliance is audited on every push to main via FOSSA
+(https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno).
 
-The dependency inventory below was generated from the kyverno binary at
-the time of this writing (go-licenses report ./cmd/kyverno/...) and
-covers the following license categories:
+The dependency summary below was produced from the kyverno module
+dependency graph (go-licenses report ./cmd/kyverno/...) and covers the
+following license categories:
 
   Apache-2.0: 197 packages
   MIT:          93 packages
@@ -49,7 +50,7 @@ Copyright 2012-2015 The Prometheus Authors.
 CUE (cuelang.org/go) — Apache-2.0
 Copyright 2019 CUE Authors.
 
-Go standard library (golang.org/x/*) — BSD-3-Clause
+Go extended modules (golang.org/x/*) — BSD-3-Clause
 Copyright 2009 The Go Authors.
 
 Helm (helm.sh/helm/v3) — Apache-2.0
@@ -57,14 +58,15 @@ Copyright The Helm Authors.
 
 ---
 
-For components licensed under Apache-2.0, please note that the Apache
-License 2.0 requires this NOTICE file to be included with any
-redistributed binary or source artifact. No additional NOTICE content
-from upstream dependencies is known to require propagation at the time
-of this writing; FOSSA scans are used to detect and surface any such
-requirements on an ongoing basis.
+The Apache License 2.0 (§4(d)) requires that, where an upstream Work
+includes a NOTICE file, a readable copy of the attribution notices
+contained within it must accompany any redistribution. This NOTICE file
+satisfies that requirement for the Kyverno project itself. FOSSA scans
+are used to detect upstream NOTICE content from dependencies that may
+require propagation.
 
 ---
 
-This NOTICE file was last updated: 2026-05-20
-To regenerate: go install github.com/google/go-licenses@latest && go-licenses report ./cmd/kyverno/... > licenses.csv
+This NOTICE file was last updated: 2026-05-21
+To produce a per-package license report: go install github.com/google/go-licenses@v1.6.0 && go-licenses report ./cmd/kyverno/...
+This NOTICE is maintained manually; the command above outputs a CSV that can be used to verify or update the counts and notable components above.

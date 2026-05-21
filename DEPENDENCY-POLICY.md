@@ -53,10 +53,11 @@ Kyverno distributes third-party software as part of its container images and Hel
 - **`/var/run/ko/NOTICE`** and **`/var/run/ko/LICENSE`** — embedded in each container image at build time via `ko`'s `kodata` mechanism
 - **[FOSSA](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno)** — machine-readable inventory of all third-party licenses, updated on every push to `main`
 
-The `NOTICE` file can be regenerated from current dependencies by running:
+To produce a per-package license report from the current dependency graph:
 ```bash
-go-licenses report ./cmd/kyverno/... --template=scripts/go-licenses.tpl
+go install github.com/google/go-licenses@v1.6.0 && go-licenses report ./cmd/kyverno/...
 ```
+The `NOTICE` file is maintained manually; the command above outputs a CSV that can be used to verify or update the counts and notable components it contains.
 
 ## Vulnerability Remediation SLA
 
