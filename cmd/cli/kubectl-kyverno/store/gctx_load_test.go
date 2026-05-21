@@ -85,6 +85,26 @@ metadata:
 		}
 	})
 
+	t.Run("non-nil empty resourceFiles resolves to empty Resources list", func(t *testing.T) {
+		entries := []v1alpha1.GlobalContextEntryValue{{
+			Name:          "g",
+			ResourceFiles: []string{}, // explicitly set but empty — must NOT be skipped
+		}}
+		resolved, err := ResolveGCEResourceFiles(nil, dir, entries)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resolved[0].ResourceFiles != nil {
+			t.Fatal("expected ResourceFiles to be cleared")
+		}
+		if resolved[0].Resources == nil {
+			t.Fatal("expected Resources to be an empty (non-nil) slice, not nil")
+		}
+		if len(resolved[0].Resources) != 0 {
+			t.Fatalf("expected 0 resources, got %d", len(resolved[0].Resources))
+		}
+	})
+
 	t.Run("error on missing file", func(t *testing.T) {
 		entries := []v1alpha1.GlobalContextEntryValue{{
 			Name:          "g",

@@ -24,7 +24,7 @@ func ResolveGCEResourceFiles(
 	result := make([]v1alpha1.GlobalContextEntryValue, len(entries))
 	copy(result, entries)
 	for i, entry := range result {
-		if len(entry.ResourceFiles) == 0 {
+		if entry.ResourceFiles == nil {
 			continue
 		}
 		allResources := make([]runtime.RawExtension, 0)
