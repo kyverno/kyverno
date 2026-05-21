@@ -2,15 +2,27 @@ package policy
 
 import (
 	"testing"
-
+    
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+func makeClusterPolicyForUR(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPolicy {
+	return &kyvernov1.ClusterPolicy {
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: kyvernov1.Spec{
+			Rules: rules,
+		},
+	}
+}
 
 func Test_newMutateUR(t *testing.T) {
 	tests := []struct {
@@ -21,19 +33,19 @@ func Test_newMutateUR(t *testing.T) {
 	}{
 		{
 			name:     "Successfully creates a mutate UpdateRequest",
-			policy:   makeClusterPolicy("test-policy", nil),
+			policy:   makeClusterPolicyForUR("test-policy", nil),
 			ruleName: "check-pod-labels",
 			trigger: kyvernov1.ResourceSpec{
 				Kind:       "Pod",
 				Namespace:  "default",
 				Name:       "test-pod",
 				APIVersion: "v1",
-				UID:        "abc-123",
+				UID:        types.UID("abc-123"),
 			},
 		},
 		{
 			name:     "empty trigger fields enforcing policy without panicking",
-			policy:   makeClusterPolicy("test-policy", nil),
+			policy:   makeClusterPolicyForUR("test-policy", nil),
 			ruleName: "check-empty-fields",
 			trigger:  kyvernov1.ResourceSpec{},
 		},
@@ -93,7 +105,7 @@ func Test_newGenerateUR(t *testing.T) {
 	}{
 		{
 			name: "cluster policy: Spec.Policy is the bare policy name",
-			policy: engineapi.NewKyvernoPolicy(makeClusterPolicy("my-cluster-policy", nil)),
+			policy: engineapi.NewKyvernoPolicy(makeClusterPolicyForUR("my-cluster-policy", nil)),
 			wantPolicy: "my-cluster-policy", 
 			wantType: kyvernov2.Generate,
 		},
