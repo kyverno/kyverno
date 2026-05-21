@@ -1,3 +1,23 @@
+# Kyverno Performance Testing
+
+## Published Benchmarks and Performance Baselines
+
+Performance benchmarks for Kyverno are published at:
+
+👉 **[kyverno.io — Scaling Kyverno](https://kyverno.io/docs/installation/scaling/)**
+
+The published data includes admission controller latency (average and max) and resource consumption (CPU, memory) under varying load conditions (100–500 virtual users, single and multi-replica deployments), as well as reports controller etcd storage scaling data. These figures serve as the project's informal performance baselines.
+
+Kyverno does not publish formal SLO commitments. The benchmarks on the scaling page are observational results from controlled test runs and are intended as guidance for capacity planning. Operators should conduct load testing in their own environments using the harness described below.
+
+> **Note:** The benchmarks currently published reflect earlier Kyverno releases. A refresh for **v1.18.x** is in progress, tracked in [#14279](https://github.com/kyverno/kyverno/issues/14279).
+
+### Load Testing in CI
+
+A load-testing workflow (`.github/workflows/load-testing.yml`) exists to run automated load tests as part of the release process. Results feed into the benchmarks published on the scaling page above.
+
+---
+
 This document outlines the instructions for performance testing using [Kwok](https://kwok.sigs.k8s.io/) for the Kyverno 1.12 release.
 
 # Pre-requisite
