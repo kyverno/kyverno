@@ -45,7 +45,7 @@ Use this mode to capture internal topology data, structural metadata, or shared 
 
 | Schema Field | Value Data Type | Required | Engine Validation Constraints |
 | :--- | :--- | :--- | :--- |
- | `group` | string | Conditional | The Kubernetes API group (e.g., `apps`). Required for non-core resources. Use an empty string `""` only for core API resources with `version: v1`. |
+| `group` | string | Conditional | The Kubernetes API group (e.g., `apps`). Required for non-core resources. Use an empty string `""` only for core API resources with `version: v1`. |
 | `version` | string | **Yes** | The explicit API version state (e.g., `v1`, `v1beta1`). |
 | `resource` | string | **Yes** | **Must be lowercased and pluralized** (e.g., use `configmaps` or `secrets`, not `ConfigMap`). |
 | `namespace` | string | No | The target namespace boundaries. If omitted, Kyverno tracks across **all namespaces** globally. |
