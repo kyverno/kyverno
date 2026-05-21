@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -294,6 +295,25 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 			ResourceFiles: []string{},
 		}})
 		if err != nil {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("resourceFiles with absolute path", func(t *testing.T) {
+		absPath, _ := filepath.Abs("absolute_path.yaml")
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:          "g",
+			ResourceFiles: []string{absPath},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "must not be absolute") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("resourceFiles with path escape", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:          "g",
+			ResourceFiles: []string{"../outside.yaml"},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "must not escape the test directory") {
 			t.Fatalf("got %v", err)
 		}
 	})

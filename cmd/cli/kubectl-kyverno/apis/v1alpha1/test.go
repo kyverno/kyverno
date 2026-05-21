@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
@@ -284,8 +285,16 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 
 		if hasResourceFiles {
 			for j, f := range e.ResourceFiles {
-				if strings.TrimSpace(f) == "" {
+				trimmed := strings.TrimSpace(f)
+				if trimmed == "" {
 					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be empty", e.Name, j)
+				}
+				if filepath.IsAbs(trimmed) {
+					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be absolute", e.Name, j)
+				}
+				clean := filepath.ToSlash(filepath.Clean(trimmed))
+				if clean == ".." || strings.HasPrefix(clean, "../") {
+					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not escape the test directory", e.Name, j)
 				}
 			}
 		}

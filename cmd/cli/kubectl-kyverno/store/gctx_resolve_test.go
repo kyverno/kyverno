@@ -270,4 +270,17 @@ func TestResolveResourcesMockData(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
+
+	t.Run("null resource is rejected", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Resources: []runtime.RawExtension{
+				{Raw: []byte(`null`)},
+			},
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }

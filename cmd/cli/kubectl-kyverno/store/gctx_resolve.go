@@ -90,6 +90,9 @@ func rawExtensionListToObjects(resources []runtime.RawExtension) ([]interface{},
 		if err := json.Unmarshal(r.Raw, &obj); err != nil {
 			return nil, fmt.Errorf("resources[%d]: invalid JSON: %w", i, err)
 		}
+		if obj == nil {
+			return nil, fmt.Errorf("resources[%d]: resource must be a JSON object, got null", i)
+		}
 		list = append(list, obj)
 	}
 	return list, nil
