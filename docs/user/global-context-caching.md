@@ -128,8 +128,7 @@ Once the `GlobalContextEntry` is defined, you can reference the projected field 
 context:
   - name: myData
     globalReference:
-      name: my-cached-data    # Must match the 'name' in GlobalContextEntry metadata
-      key: my-projected-field # Must match the 'key' defined in projections
+      name: my-cached-data.my-projected-field # Use the <globalContextEntry>.<projection> naming convention
 ```
 ---
 
@@ -207,7 +206,7 @@ spec:
 Assuming the API returns: `{"allowed": ["internal-registry.io", "gcr.io/vetted-project"]}`
 
 ```yaml
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-registries-global
@@ -257,7 +256,7 @@ spec:
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-team-namespace-access
@@ -293,7 +292,7 @@ When working with `GlobalContextEntry`, misconfigurations typically manifest as 
 
 | Symptom / Error | Root Cause | Remediation Steps |
 | :--- | :--- | :--- |
-| `GlobalContextEntry` creation fails with open errors | Singular configuration constraint violation. | Ensure you configured `kubernetesResource` or `apiCall`. Defining both fields simultaneously violates resource schemas. |
+| `GlobalContextEntry` creation fails with validation/schema errors | Singular configuration constraint violation. | Ensure you configured `kubernetesResource` or `apiCall`. Defining both fields simultaneously violates resource schemas. |
 | Resource tracking results in completely empty arrays | Incorrect resource naming specification. | The `resource` tracking string **must be lowercased and pluralized**. For example, use `configmaps` instead of `ConfigMap`. |
 | Policies return `variable evaluation error` on global contexts | Kyverno controllers lack appropriate RBAC clearance. | If tracking a custom resource definition (CRD), verify Kyverno's ClusterRole possesses `get`, `list`, and `watch` permissions for that specific API group. |
 | External API caching loops fail continuously | Incorrect configuration of custom data variables. | If supplying a payload request template under an `apiCall` property, you must explicitly change the request `method` field to `POST`. |
