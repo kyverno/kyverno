@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func makeUR(n int) *kyvernov2.UpdateRequest {
@@ -154,7 +155,7 @@ func Test_newMutateUR(t *testing.T) {
 				Namespace:  "default",
 				Name:       "test-pod",
 				APIVersion: "v1",
-				UID:        "abc-123",
+				UID:        types.UID("abc-123"),
 			},
 		},
 		{
