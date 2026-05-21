@@ -6,7 +6,7 @@ Performance benchmarks for Kyverno are published at:
 
 👉 **[kyverno.io — Scaling Kyverno](https://kyverno.io/docs/installation/scaling/)**
 
-The published data includes admission controller latency (average and max) and resource consumption (CPU, memory) under varying load conditions (100–500 virtual users, single and multi-replica deployments), as well as reports controller etcd storage scaling data. These figures serve as the project's informal performance baselines.
+The published data includes admission controller latency (average and max) and resource consumption (CPU, memory) under varying load conditions (100–500 virtual users, single and multi-replica deployments), as well as etcd storage scaling data for the reports controller. These figures serve as the project's informal performance baselines.
 
 Kyverno does not publish formal SLO commitments. The benchmarks on the scaling page are observational results from controlled test runs and are intended as guidance for capacity planning. Operators should conduct load testing in their own environments using the harness described below.
 
@@ -14,9 +14,11 @@ Kyverno does not publish formal SLO commitments. The benchmarks on the scaling p
 
 ### Load Testing in CI
 
-A load-testing workflow (`.github/workflows/load-testing.yml`) exists to run automated load tests as part of the release process. Results feed into the benchmarks published on the scaling page above.
+A load-testing workflow (`.github/workflows/tests-k6.yaml`) exists to run automated load tests as part of the release process. Results feed into the benchmarks published on the scaling page above.
 
 ---
+
+> **Note:** The instructions below were written for the Kyverno 1.12 release. The tooling (Kwok, k3d, Prometheus queries) remains broadly applicable, but cluster configuration and resource defaults may differ for current releases. Verify against the current codebase before use.
 
 This document outlines the instructions for performance testing using [Kwok](https://kwok.sigs.k8s.io/) for the Kyverno 1.12 release.
 
