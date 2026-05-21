@@ -65,29 +65,29 @@ func Test_newMutateUR(t *testing.T) {
 			}
 
 			// labels
-		    if gotVal, ok := result.Labels[kyvernov2.URMutatePolicyLabel]; !ok {
+			if gotVal, ok := result.Labels[kyvernov2.URMutatePolicyLabel]; !ok {
 				t.Errorf("Labels missing key %q", kyvernov2.URMutatePolicyLabel)
-			} else if gotVal != policyKey(tt.policy) {
+			} else if gotVal != tt.policy.GetName() {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URMutatePolicyLabel,
-				gotVal, policyKey(tt.policy))
+					gotVal, tt.policy.GetName())
 			}
 			if gotVal, ok := result.Labels[kyvernov2.URMutateTriggerKindLabel]; !ok {
 				t.Errorf("Labels missing key %q", kyvernov2.URMutateTriggerKindLabel)
 			} else if gotVal != tt.trigger.GetKind() {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URMutateTriggerKindLabel,
-				gotVal, tt.trigger.GetKind())
+					gotVal, tt.trigger.GetKind())
 			}
 			if gotVal, ok := result.Labels[kyvernov2.URMutateTriggerNSLabel]; !ok {
 				t.Errorf("Labels missing key %q", kyvernov2.URMutateTriggerNSLabel)
 			} else if gotVal != tt.trigger.GetNamespace() {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URMutateTriggerNSLabel,
-				gotVal, tt.trigger.GetNamespace())
+					gotVal, tt.trigger.GetNamespace())
 			}
 			if gotVal, ok := result.Labels[kyvernov2.URMutateTriggerNameLabel]; !ok {
 				t.Errorf("Labels missing key %q", kyvernov2.URMutateTriggerNameLabel)
 			} else if gotVal != tt.trigger.GetName() {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URMutateTriggerNameLabel,
-				gotVal, tt.trigger.GetName())
+					gotVal, tt.trigger.GetName())
 			}
 
 			// every field from trigger
@@ -153,7 +153,7 @@ func Test_newGenerateUR(t *testing.T) {
 				t.Errorf("Labels missing key %q", kyvernov2.URGeneratePolicyLabel)
 			} else if gotVal != tt.wantPolicy {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URGeneratePolicyLabel,
-				gotVal, tt.wantPolicy)
+					gotVal, tt.wantPolicy)
 			}
 		})
 	}
