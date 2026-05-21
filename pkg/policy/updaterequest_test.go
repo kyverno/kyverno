@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,4 +125,124 @@ func TestFilterTriggersByNamespace(t *testing.T) {
 	assert.Len(t, filtered, 2)
 	assert.Equal(t, "dep-a", filtered[0].GetName())
 	assert.Equal(t, "team-a", filtered[1].GetName())
+}
+
+func makeClusterPolicyForUR(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPolicy {
+	return &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: kyvernov1.Spec{
+			Rules: rules,
+		},
+	}
+}
+
+func Test_newMutateUR(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   kyvernov1.PolicyInterface
+		trigger  kyvernov1.ResourceSpec
+		ruleName string
+	}{
+		{
+			name:     "Successfully creates a mutate UpdateRequest",
+			policy:   makeClusterPolicyForUR("test-policy", nil),
+			ruleName: "check-pod-labels",
+			trigger: kyvernov1.ResourceSpec{
+				Kind:       "Pod",
+				Namespace:  "default",
+				Name:       "test-pod",
+				APIVersion: "v1",
+				UID:        "abc-123",
+			},
+		},
+		{
+			name:     "empty trigger fields enforcing policy without panicking",
+			policy:   makeClusterPolicyForUR("test-policy", nil),
+			ruleName: "check-empty-fields",
+			trigger:  kyvernov1.ResourceSpec{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := newMutateUR(tt.policy, tt.trigger, tt.ruleName)
+
+			assert.Equal(t, kyvernov2.Mutate, result.Spec.Type)
+			assert.Equal(t, tt.ruleName, result.Spec.Rule)
+			assert.Equal(t, policyKey(tt.policy), result.Spec.Policy)
+
+			// labels
+			wantLabels := common.MutateLabelsSet(policyKey(tt.policy), tt.trigger)
+			for k, wantLabel := range wantLabels {
+				if gotVal, ok := result.Labels[k]; !ok {
+					t.Errorf("Labels missing key %q", k)
+				} else if gotVal != wantLabel {
+					t.Errorf("Labels[%q]: %q, want: %q", k, gotVal, wantLabel)
+				}
+			}
+
+			// every field from trigger
+			res := result.Spec.Resource
+			assert.Equal(t, tt.trigger.GetKind(), res.Kind)
+			assert.Equal(t, tt.trigger.GetNamespace(), res.Namespace)
+			assert.Equal(t, tt.trigger.GetName(), res.Name)
+			assert.Equal(t, tt.trigger.GetAPIVersion(), res.APIVersion)
+			assert.Equal(t, tt.trigger.GetUID(), res.UID)
+		})
+	}
+}
+
+func Test_newGenerateUR(t *testing.T) {
+	tests := []struct {
+		name       string
+		policy     engineapi.GenericPolicy
+		wantPolicy string
+		wantType   kyvernov2.RequestType
+	}{
+		{
+			name:       "cluster policy: Spec.Policy is the bare policy name",
+			policy:     engineapi.NewKyvernoPolicy(makeClusterPolicyForUR("my-cluster-policy", nil)),
+			wantPolicy: "my-cluster-policy",
+			wantType:   kyvernov2.Generate,
+		},
+		{
+			name: "generating policy sets Type to CELGenerate",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-celpolicy",
+				},
+			}),
+			wantPolicy: "test-celpolicy",
+			wantType:   kyvernov2.CELGenerate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := newGenerateUR(tt.policy)
+			assert.Equal(t, tt.wantType, result.Spec.Type)
+			assert.Equal(t, tt.wantPolicy, result.Spec.Policy)
+
+			// labels
+			wantLabels := common.GenerateLabelsSet(tt.wantPolicy)
+			for k, wantVal := range wantLabels {
+				if gotVal, ok := result.Labels[k]; !ok {
+					t.Errorf("Labels missing key %q", k)
+				} else if gotVal != wantVal {
+					t.Errorf("Labels[%q]: %q, want: %q", k, gotVal, wantVal)
+				}
+			}
+		})
+	}
+}
+
+func Test_newUrMeta(t *testing.T) {
+	result := newUrMeta()
+
+	assert.Equal(t, "UpdateRequest", result.Kind)
+	assert.Equal(t, "ur-", result.GenerateName)
+	assert.Equal(t, config.KyvernoNamespace(), result.Namespace)
+	assert.Equal(t, kyvernov2.SchemeGroupVersion.String(), result.APIVersion)
 }
