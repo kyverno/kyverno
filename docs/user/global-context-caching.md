@@ -109,6 +109,20 @@ spec:
 ```
 ### Referencing Projected Data in a Policy
 
+### Eventual Consistency & Performance
+**Eventual Consistency:** `GlobalContextEntry` caches are updated asynchronously. Policy evaluations may temporarily use slightly stale data until the background refresh cycle completes. Ensure your policy logic accounts for this potential delay in data propagation.
+
+**Production Security:** When implementing external API calls:
+* Use secure methods (like Kubernetes Secrets) for authentication; never hardcode credentials.
+* Ensure endpoints are protected with valid TLS certificates.
+
+**Comparison: Inline `apiCall` vs. `GlobalContextEntry`**
+| Feature | Inline `apiCall` | `GlobalContextEntry` |
+| :--- | :--- | :--- |
+| **Performance** | High overhead (call-per-request) | High performance (cached data) |
+| **Use Case** | Real-time, volatile data | Static or slowly changing data |
+| **Scalability** | Can overwhelm API servers | Significantly reduces API load |
+
 Once the `GlobalContextEntry` is defined, you can reference the projected field in your Kyverno policy as follows:
 
 ```yaml
