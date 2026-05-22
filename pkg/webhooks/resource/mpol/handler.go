@@ -87,22 +87,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
-	// Log successful mutation rules (align with legacy mutate logging)
-	if response.PatchedResource != nil {
-		for _, p := range response.Policies {
-			if p.Policy == nil {
-				continue
-			}
-			rules := successRules(p.Rules)
-			if len(rules) > 0 {
-				logger.V(2).Info(
-					"mutation rules from policy applied successfully",
-					"policy", p.Policy.GetName(),
-					"rules", rules,
-				)
-			}
-		}
-	}
+	logMutationRules(logger, response.Policies)
 
 	go func() {
 		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
@@ -240,10 +225,39 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...), nil
 }
 
+func logMutationRules(logger logr.Logger, policies []mpolengine.MutatingPolicyResponse) {
+	for _, p := range policies {
+		if p.Policy == nil || !p.Mutated || !hasSuccessfulRule(p.Rules) {
+			continue
+		}
+
+		keysAndValues := []interface{}{
+			"policy", p.Policy.GetName(),
+		}
+		if rules := successRules(p.Rules); len(rules) > 0 {
+			keysAndValues = append(keysAndValues, "rules", rules)
+		}
+
+		logger.V(2).Info(
+			"mutation rules from policy applied successfully",
+			keysAndValues...,
+		)
+	}
+}
+
+func hasSuccessfulRule(rules []engineapi.RuleResponse) bool {
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusPass {
+			return true
+		}
+	}
+	return false
+}
+
 func successRules(rules []engineapi.RuleResponse) []string {
 	var names []string
 	for _, r := range rules {
-		if r.Status() == engineapi.RuleStatusPass {
+		if r.Status() == engineapi.RuleStatusPass && r.Name() != "" {
 			names = append(names, r.Name())
 		}
 	}
