@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"testing"
 
@@ -20,7 +21,7 @@ func (m *mockResourceClient) GetResource(_ context.Context, _ string, kind strin
 	if obj, ok := m.resources[key]; ok {
 		return obj, nil
 	}
-	return &unstructured.Unstructured{}, nil
+	return nil, fmt.Errorf("resource not found: %s", key)
 }
 func (m *mockResourceClient) ListResource(_ context.Context, _ string, _ string, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
 	return nil, nil
@@ -94,5 +95,18 @@ func TestRootOwnerCreationTimestamp_NonControllerOwnerIgnored(t *testing.T) {
 	}
 	if !got.Equal(&podTs) {
 		t.Errorf("expected pod timestamp, got %v", got)
+	}
+}
+
+func TestRootOwnerCreationTimestamp_OwnerNotFound_ReturnsError(t *testing.T) {
+	// Pod references a ReplicaSet not in the mock store.
+	// Must propagate the error - not return zero timestamp which would
+	// incorrectly compare as "before" any policy and skip enforcement.
+	podTs := metav1.Unix(3000, 0)
+	pod := makeTestUnstructured("Pod", "default", "pod1", podTs, "ReplicaSet", "rs-missing", true)
+	client := &mockResourceClient{resources: map[string]*unstructured.Unstructured{}}
+	_, err := RootOwnerCreationTimestamp(context.TODO(), client, pod)
+	if err == nil {
+		t.Error("expected error when owner not found, got nil")
 	}
 }

@@ -116,6 +116,9 @@ func IsUpdateRequest(ctx engineapi.PolicyContext) bool {
 }
 
 func IsCreateRequest(ctx engineapi.PolicyContext) bool {
+	if ctx == nil {
+		return false
+	}
 	newResource := ctx.NewResource()
 	return ctx.Operation() == kyvernov1.Create ||
 		(ctx.OldResource().Object == nil && !IsEmptyUnstructured(&newResource))
@@ -159,6 +162,9 @@ func rootOwnerCreationTimestamp(
 	obj, err := client.GetResource(ctx, controllerOwner.APIVersion, controllerOwner.Kind, resource.GetNamespace(), controllerOwner.Name)
 	if err != nil {
 		return metav1.Time{}, err
+	}
+	if obj == nil {
+		return metav1.Time{}, fmt.Errorf("GetResource returned nil for %s/%s", controllerOwner.Kind, controllerOwner.Name)
 	}
 	return rootOwnerCreationTimestamp(ctx, client, *obj, depth+1)
 }

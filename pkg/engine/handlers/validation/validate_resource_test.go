@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -10,6 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func Test_validateOldObject(t *testing.T) {
@@ -370,3 +374,208 @@ var (
 		}
 	}`
 )
+
+// ── mock client + helpers for CREATE owner-chain tests ────────────────────
+
+type mockValidateClient struct {
+	resources map[string]*unstructured.Unstructured
+}
+
+func (m *mockValidateClient) GetResource(_ context.Context, _ string, kind, namespace, name string, _ ...string) (*unstructured.Unstructured, error) {
+	key := kind + "/" + namespace + "/" + name
+	if obj, ok := m.resources[key]; ok {
+		return obj, nil
+	}
+	return nil, fmt.Errorf("resource not found: %s", key)
+}
+func (m *mockValidateClient) ListResource(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return nil, nil
+}
+func (m *mockValidateClient) GetResources(_ context.Context, _, _, _, _, _, _ string, _ *metav1.LabelSelector) ([]api.Resource, error) {
+	return nil, nil
+}
+func (m *mockValidateClient) GetNamespace(_ context.Context, _ string, _ metav1.GetOptions) (*corev1.Namespace, error) {
+	return nil, nil
+}
+func (m *mockValidateClient) IsNamespaced(_, _, _ string) (bool, error) { return true, nil }
+func (m *mockValidateClient) CanI(_ context.Context, _, _, _, _, _ string) (bool, string, error) {
+	return true, "", nil
+}
+func (m *mockValidateClient) RawAbsPath(_ context.Context, _, _ string, _ io.Reader) ([]byte, error) {
+	return nil, nil
+}
+
+func makeDeployObj(name, ns string, ts metav1.Time) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetKind("Deployment")
+	u.SetAPIVersion("apps/v1")
+	u.SetName(name)
+	u.SetNamespace(ns)
+	u.SetCreationTimestamp(ts)
+	return u
+}
+
+func makeRSObj(name, ns string, ts metav1.Time, deployName string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetKind("ReplicaSet")
+	u.SetAPIVersion("apps/v1")
+	u.SetName(name)
+	u.SetNamespace(ns)
+	u.SetCreationTimestamp(ts)
+	ctrl := true
+	u.SetOwnerReferences([]metav1.OwnerReference{
+		{APIVersion: "apps/v1", Kind: "Deployment", Name: deployName, Controller: &ctrl},
+	})
+	return u
+}
+
+// allowExistingViolationsCreatePolicy: Enforce + allowExistingViolations=true
+// fails Pods that have no "team" label.
+// Policy creationTimestamp = 2024-06-01T00:00:00Z
+var allowExistingViolationsCreatePolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "require-team-label",
+		"creationTimestamp": "2024-06-01T00:00:00Z"
+	},
+	"spec": {
+		"rules": [{
+			"name": "require-team",
+			"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+			"validate": {
+				"failureAction": "Enforce",
+				"allowExistingViolations": true,
+				"message": "The label team is required",
+				"pattern": {"metadata": {"labels": {"team": "?*"}}}
+			}
+		}]
+	}
+}`
+
+// podManagedNoTeamLabel: Pod with owner ref -> ReplicaSet, missing "team" label (violates policy)
+var podManagedNoTeamLabel = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "default",
+		"creationTimestamp": "2024-06-15T00:00:00Z",
+		"ownerReferences": [{"apiVersion": "apps/v1", "kind": "ReplicaSet", "name": "test-rs", "controller": true}]
+	},
+	"spec": {"containers": [{"name": "c", "image": "nginx"}]}
+}`
+
+// podUnmanagedNoTeamLabel: Pod with no owner, missing "team" label (violates policy)
+var podUnmanagedNoTeamLabel = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod-no-owner",
+		"namespace": "default",
+		"creationTimestamp": "2024-06-15T00:00:00Z"
+	},
+	"spec": {"containers": [{"name": "c", "image": "nginx"}]}
+}`
+
+// Test_allowExistingViolations_CREATE_OwnerPredatesPolicy:
+// Root Deployment predates policy -> rule must be Skipped.
+func Test_allowExistingViolations_CREATE_OwnerPredatesPolicy(t *testing.T) {
+	mockCL := func(_ context.Context, _ []kyvernov1.ContextEntry, _ enginecontext.Interface) error { return nil }
+
+	// Deployment created 2024-01-01, BEFORE policy (2024-06-01)
+	client := &mockValidateClient{resources: map[string]*unstructured.Unstructured{
+		"ReplicaSet/default/test-rs":     makeRSObj("test-rs", "default", metav1.Date(2024, 1, 2, 0, 0, 0, 0, metav1.Now().Location()), "test-deploy"),
+		"Deployment/default/test-deploy": makeDeployObj("test-deploy", "default", metav1.Date(2024, 1, 1, 0, 0, 0, 0, metav1.Now().Location())),
+	}}
+
+	policyContext := buildContext(t, kyvernov1.Create, allowExistingViolationsCreatePolicy, podManagedNoTeamLabel, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, client)
+
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusSkip, resp.Status(),
+		"root Deployment predates policy: must be Skipped as pre-existing violation")
+}
+
+// Test_allowExistingViolations_CREATE_OwnerNewerThanPolicy:
+// Root Deployment newer than policy -> enforcement must proceed (Fail).
+func Test_allowExistingViolations_CREATE_OwnerNewerThanPolicy(t *testing.T) {
+	mockCL := func(_ context.Context, _ []kyvernov1.ContextEntry, _ enginecontext.Interface) error { return nil }
+
+	// Deployment created 2024-12-01, AFTER policy (2024-06-01)
+	client := &mockValidateClient{resources: map[string]*unstructured.Unstructured{
+		"ReplicaSet/default/test-rs":     makeRSObj("test-rs", "default", metav1.Date(2024, 12, 2, 0, 0, 0, 0, metav1.Now().Location()), "test-deploy"),
+		"Deployment/default/test-deploy": makeDeployObj("test-deploy", "default", metav1.Date(2024, 12, 1, 0, 0, 0, 0, metav1.Now().Location())),
+	}}
+
+	policyContext := buildContext(t, kyvernov1.Create, allowExistingViolationsCreatePolicy, podManagedNoTeamLabel, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, client)
+
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status(),
+		"root Deployment newer than policy: enforcement must proceed")
+}
+
+// Test_allowExistingViolations_CREATE_NoOwner_Enforced:
+// Unmanaged Pod (no ownerReferences) -> zero root timestamp must NOT skip enforcement.
+// Without the !rootTimestamp.IsZero() guard, zero time is Before() any policy
+// timestamp and would incorrectly skip a brand-new unmanaged resource.
+func Test_allowExistingViolations_CREATE_NoOwner_Enforced(t *testing.T) {
+	mockCL := func(_ context.Context, _ []kyvernov1.ContextEntry, _ enginecontext.Interface) error { return nil }
+	client := &mockValidateClient{resources: map[string]*unstructured.Unstructured{}}
+
+	policyContext := buildContext(t, kyvernov1.Create, allowExistingViolationsCreatePolicy, podUnmanagedNoTeamLabel, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, client)
+
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status(),
+		"unmanaged Pod with zero/no owner timestamp must not be skipped")
+}
+
+// Test_allowExistingViolations_CREATE_OwnerLookupFails_Enforced:
+// Owner lookup returns error -> fail-safe: enforcement must proceed (Fail).
+func Test_allowExistingViolations_CREATE_OwnerLookupFails_Enforced(t *testing.T) {
+	mockCL := func(_ context.Context, _ []kyvernov1.ContextEntry, _ enginecontext.Interface) error { return nil }
+	// empty store -> GetResource returns NotFound
+	client := &mockValidateClient{resources: map[string]*unstructured.Unstructured{}}
+
+	policyContext := buildContext(t, kyvernov1.Create, allowExistingViolationsCreatePolicy, podManagedNoTeamLabel, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, client)
+
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status(),
+		"owner lookup error must not skip enforcement (fail-safe)")
+}
+
+// Test_allowExistingViolations_UPDATE_OldObjectNotAffectedByCREATELogic:
+// On UPDATE with both old+new violating, the result must be Skip via the
+// Fail+Fail -> Skip UPDATE path. The CREATE owner-chain logic must NOT
+// fire during validateOldObject() and turn priorResp into Skip.
+func Test_allowExistingViolations_UPDATE_OldObjectNotAffectedByCREATELogic(t *testing.T) {
+	mockCL := func(_ context.Context, _ []kyvernov1.ContextEntry, _ enginecontext.Interface) error { return nil }
+
+	// Deployment predates policy - if CREATE logic leaked into validateOldObject
+	// it would wrongly turn priorResp into Skip and break the UPDATE path.
+	client := &mockValidateClient{resources: map[string]*unstructured.Unstructured{
+		"ReplicaSet/default/test-rs":     makeRSObj("test-rs", "default", metav1.Date(2024, 1, 2, 0, 0, 0, 0, metav1.Now().Location()), "test-deploy"),
+		"Deployment/default/test-deploy": makeDeployObj("test-deploy", "default", metav1.Date(2024, 1, 1, 0, 0, 0, 0, metav1.Now().Location())),
+	}}
+
+	// Both old and new violate -> Fail+Fail -> Skip via UPDATE allowExistingViolations
+	policyContext := buildContext(t, kyvernov1.Update, allowExistingViolationsCreatePolicy, podManagedNoTeamLabel, podManagedNoTeamLabel)
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule, client)
+
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusSkip, resp.Status(),
+		"UPDATE Fail+Fail must Skip via UPDATE path; CREATE owner logic must not interfere with validateOldObject")
+}
