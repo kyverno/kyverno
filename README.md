@@ -18,7 +18,7 @@ limitations under the License.
 
 **Cloud Native Policy Management 🎉**
 
-[![Build Status](https://github.com/kyverno/kyverno/actions/workflows/test.yml/badge.svg)](https://github.com/kyverno/kyverno/actions)
+[![Build Status](https://github.com/kyverno/kyverno/actions/workflows/check-tests.yaml/badge.svg)](https://github.com/kyverno/kyverno/actions/workflows/check-tests.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
@@ -74,24 +74,28 @@ Kyverno installation and reference documentation is available at [kyverno.io](ht
 Kyverno helps platform teams enforce best practices and security standards. Some common use cases include:
 
 ### 1. **Security & Compliance**
+
 - Enforce Pod Security Standards (PSS)
 - Require specific security contexts
 - Validate container image sources and signatures
 - Enforce CIS Benchmark policies
 
 ### 2. **Operational Excellence**
+
 - Auto-label workloads
 - Enforce naming conventions
 - Generate default configurations (e.g., NetworkPolicies)
 - Validate YAML and Helm manifests
 
 ### 3. **Cost Optimization**
+
 - Enforce resource quotas and limits
 - Require cost allocation labels
 - Validate instance types
 - Clean up unused resources
 
 ### 4. **Developer Guardrails**
+
 - Require readiness/liveness probes
 - Enforce ingress/egress policies
 - Validate container image versions
@@ -117,7 +121,7 @@ We’re here to help:
 Thank you for your interest in contributing to Kyverno!
 
 - ✅ Read the [Contribution Guidelines](/CONTRIBUTING.md)
-- 🤖 Read The [AI_Usage_Policy](https://github.com/kyverno/community/blob/main/AI_USAGE_POLICY.md)
+- 🤖 Read the [AI Usage Policy](https://github.com/kyverno/community/blob/main/AI_USAGE_POLICY.md)
 - 🧵 Join [GitHub Discussions](https://github.com/kyverno/kyverno/discussions)
 - 📖 Read the [Development Guide](/DEVELOPMENT.md)
 - 🏁 Check [Good First Issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) and request with `/assign`
