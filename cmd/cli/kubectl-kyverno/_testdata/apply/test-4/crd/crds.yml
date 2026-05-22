@@ -66,7 +66,7 @@ spec:
     singular: bar
     kind: Bar
     shortNames:
-      - foo
+      - bar
   scope: Namespaced
   versions:
     - name: v1

@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
@@ -254,19 +255,25 @@ func LoadCrdsFromPath(path string) error {
 		return err
 	}
 
-	apiGroupResources := []*restmapper.APIGroupResources{}
-	for _, crd := range crds {
-		apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
-	}
+	if len(crds) > 0 {
+		apiGroupResources := []*restmapper.APIGroupResources{}
+		for _, crd := range crds {
+			apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+		}
 
-	if err = addResourceGroups(apiGroupResources); err != nil {
-		return err
+		if err = addResourceGroups(apiGroupResources); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func getCrdFilePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+
 	if path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
 	}
@@ -300,7 +307,8 @@ func readCRDsFromFile(path string) ([]*apiv1.CustomResourceDefinition, error) {
 		data, err := decoder.Read()
 		if err != nil {
 			if err == io.EOF {
-				break
+				// io.EOF means nothing else to read, return immediately
+				return crds, nil
 			} else {
 				return nil, err
 			}
@@ -308,23 +316,24 @@ func readCRDsFromFile(path string) ([]*apiv1.CustomResourceDefinition, error) {
 
 		jsonData, err := yaml.ToJSON(data)
 		if err != nil {
-			return nil, err
+			log.Log.V(3).Info(fmt.Sprintf("could not convert object from --crd-path file to json: %q, skipping", err.Error()))
+			continue
 		}
 
 		obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
 		if err != nil {
-			return nil, err
+			log.Log.V(3).Info(fmt.Sprintf("could not decode object from --crd-path file: %q, skipping", err.Error()))
+			continue
 		}
 
 		crd, ok := obj.(*apiv1.CustomResourceDefinition)
 		if !ok {
-			return nil, fmt.Errorf("decoded object is not a CRD")
+			log.Log.V(3).Info(fmt.Sprintf("decoded object is not a CRD: %s, skipping", data))
+			continue
 		}
 
 		crds = append(crds, crd)
 	}
-
-	return crds, nil
 }
 
 func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.APIGroupResources {
@@ -411,7 +420,7 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 func addResourceGroups(resources []*restmapper.APIGroupResources) error {
 	processor := data.GetProcessor()
 	if processor == nil {
-		panic("adding a resource group to a nil crd processor. exiting")
+		panic("adding resource groups to a nil crd processor. exiting")
 	}
 	processor.UpdateResourceGroups(resources)
 	return nil
