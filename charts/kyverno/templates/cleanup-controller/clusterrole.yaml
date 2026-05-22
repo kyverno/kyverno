@@ -123,8 +123,10 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-{{- with .Values.cleanupController.rbac.coreClusterRole.extraResources }}
+{{- with .Values.cleanupController.rbac.coreClusterRole }}
+{{- with .extraResources }}
   {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- end }}
 {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
 ---
