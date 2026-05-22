@@ -23,7 +23,13 @@ type ImageContextHolder struct {
 }
 
 func (h *ImageContextHolder) Store(ictx imagedataloader.ImageContext) {
-	h.val.Store(&ictx)
+	if ictx == nil {
+		h.val.Store(nil)
+		return
+	}
+	p := new(imagedataloader.ImageContext)
+	*p = ictx
+	h.val.Store(p)
 }
 
 func (h *ImageContextHolder) Load() imagedataloader.ImageContext {
@@ -60,6 +66,9 @@ func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policies
 // LibWithHolder accepts a pre-created holder so imgCtx can be swapped
 // per request without recompiling the CEL environment.
 func LibWithHolder(v *version.Version, holder *ImageContextHolder, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
+	if holder == nil {
+		panic("LibWithHolder: holder must not be nil")
+	}
 	return cel.Lib(&lib{
 		version:      v,
 		imgCtxHolder: holder,

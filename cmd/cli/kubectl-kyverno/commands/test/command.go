@@ -223,7 +223,7 @@ func checkResult(
 			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
-	if test.GeneratedResource != "" {
+	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
@@ -236,6 +236,34 @@ func checkResult(
 				diff = StripANSI(diff)
 			}
 			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+		}
+	} else if len(test.GeneratedResources) > 0 {
+		matched := false
+		var lastDiff string
+		var lastErr error
+		for _, expectedRes := range test.GeneratedResources {
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if equals {
+				matched = true
+				break
+			}
+			lastDiff = diff
+		}
+		if !matched {
+			if lastDiff == "" && lastErr != nil {
+				return false, lastErr.Error(), "Resource error"
+			}
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				lastDiff = StripANSI(lastDiff)
+			}
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
