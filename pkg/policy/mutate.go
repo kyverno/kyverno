@@ -73,5 +73,20 @@ func (pc *policyController) listGenerateURs(policyKey string) []*kyvernov2.Updat
 	if err != nil {
 		pc.log.Error(err, "failed to list update request for generate policy")
 	}
-	return generateURs
+
+	filtered := make([]*kyvernov2.UpdateRequest, 0, len(generateURs))
+
+	for _, ur := range generateURs {
+		if ur.Spec.Policy != policyKey {
+			continue
+		}
+
+		if ur.Spec.Type != kyvernov2.Generate {
+			continue
+		}
+
+		filtered = append(filtered, ur)
+	}
+
+	return filtered
 }
