@@ -244,23 +244,29 @@ func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) 
 	return vals, nil
 }
 
-func LoadCrdFromPath(path string) error {
-	absPath, err := getCrdPath(path)
+func LoadCrdsFromPath(path string) error {
+	absPath, err := getCrdFilePath(path)
 	if err != nil {
 		return err
 	}
-	crd, err := readCRDFromFile(absPath)
+	crds, err := readCRDsFromFile(absPath)
 	if err != nil {
 		return err
 	}
-	apiGroupResource := apiGroupResourcesFromCRD(crd)
-	if err = addResourceGroup(apiGroupResource); err != nil {
+
+	apiGroupResources := []*restmapper.APIGroupResources{}
+	for _, crd := range crds {
+		apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+	}
+
+	if err = addResourceGroups(apiGroupResources); err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func getCrdPath(path string) (string, error) {
+func getCrdFilePath(path string) (string, error) {
 	if path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
 	}
@@ -279,26 +285,46 @@ func getCrdPath(path string) (string, error) {
 	return absPath, nil
 }
 
-func readCRDFromFile(path string) (*apiv1.CustomResourceDefinition, error) {
-	data, err := os.ReadFile(path)
+func readCRDsFromFile(path string) ([]*apiv1.CustomResourceDefinition, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	jsonData, err := yaml.ToJSON(data)
-	if err != nil {
-		return nil, err
-	}
+	defer file.Close()
+
+	decoder := yaml.NewYAMLReader(bufio.NewReader(file))
 	crdscheme.Setup()
-	obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	crd, ok := obj.(*apiv1.CustomResourceDefinition)
-	if !ok {
-		return nil, fmt.Errorf("decoded object is not a CRD")
+	var crds []*apiv1.CustomResourceDefinition
+
+	for {
+		data, err := decoder.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return nil, err
+			}
+		}
+
+		jsonData, err := yaml.ToJSON(data)
+		if err != nil {
+			return nil, err
+		}
+
+		obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		crd, ok := obj.(*apiv1.CustomResourceDefinition)
+		if !ok {
+			return nil, fmt.Errorf("decoded object is not a CRD")
+		}
+
+		crds = append(crds, crd)
 	}
 
-	return crd, nil
+	return crds, nil
 }
 
 func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.APIGroupResources {
@@ -382,11 +408,11 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 	}
 }
 
-func addResourceGroup(resource *restmapper.APIGroupResources) error {
+func addResourceGroups(resources []*restmapper.APIGroupResources) error {
 	processor := data.GetProcessor()
 	if processor == nil {
 		panic("adding a resource group to a nil crd processor. exiting")
 	}
-	processor.UpdateResourceGroup(resource)
+	processor.UpdateResourceGroups(resources)
 	return nil
 }
