@@ -47,7 +47,7 @@ func NewGCTXLoader(
 }
 
 func (g *gctxLoader) HasLoaded() bool {
-	return false
+	return g.data != nil
 }
 
 func (g *gctxLoader) LoadData() error {
