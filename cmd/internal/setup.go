@@ -58,7 +58,7 @@ type SetupResult struct {
 	RestConfig             *rest.Config
 }
 
-func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
+func Setup(config Configuration, name string, skipResourceFilters bool, certRenewalTimeout ...time.Duration) (context.Context, SetupResult, context.CancelFunc) {
 	logger := setupLogger()
 	showVersion(logger)
 	printFlagSettings(logger)
@@ -70,7 +70,11 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	ctx, sdownSignals := setupSignals(logger)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
-	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client, certmanager.DefaultCertRenewalTimeout)
+	metricsTimeout := certmanager.DefaultCertRenewalTimeout
+	if len(certRenewalTimeout) > 0 && certRenewalTimeout[0] > time.Second {
+		metricsTimeout = certRenewalTimeout[0]
+	}
+	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client, metricsTimeout)
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)

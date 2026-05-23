@@ -80,7 +80,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		certController.Run(ctx, logger, &wg)
 		// Wait for the certificate controller to create the TLS secrets
 		// This ensures they exist before InitMetrics tries to use them
-		if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*certRenewalTimeout, true, func(ctx context.Context) (bool, error) {
 			caSecret, _ := metricsCASecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsCASecretName)
 			tlsSecret, _ := metricsTLSSecretInformer.Lister().Secrets(config.KyvernoNamespace()).Get(metricsTLSSecretName)
 			return caSecret != nil && tlsSecret != nil, nil

@@ -52,6 +52,9 @@ func NewController(
 	namespace string,
 	certRenewalTimeout time.Duration,
 ) controllers.Controller {
+	if certRenewalTimeout <= 0 {
+		certRenewalTimeout = DefaultCertRenewalTimeout
+	}
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},

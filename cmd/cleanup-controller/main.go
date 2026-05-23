@@ -91,6 +91,7 @@ func main() {
 		apiCallTimeout           time.Duration
 		autoDeleteWebhooks       bool
 		tlsKeyAlgorithm          string
+		certRenewalTimeout       time.Duration
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -111,6 +112,7 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
+	flagset.DurationVar(&certRenewalTimeout, "certRenewalTimeout", certmanager.DefaultCertRenewalTimeout, "Time budget per CA or TLS certificate renewal retry sequence (applied separately to each operation).")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -130,6 +132,10 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	if certRenewalTimeout <= time.Second {
+		fmt.Fprintf(os.Stderr, "error: --certRenewalTimeout must be greater than 1s, got %v\n", certRenewalTimeout)
+		os.Exit(1)
+	}
 	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
 	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
 	if err := celcompiler.ValidateHTTPFlags(); err != nil {
@@ -280,7 +286,7 @@ func main() {
 						caSecretName,
 						tlsSecretName,
 						config.KyvernoNamespace(),
-						certmanager.DefaultCertRenewalTimeout,
+						certRenewalTimeout,
 					),
 					certmanager.Workers,
 				)
