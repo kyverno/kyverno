@@ -15,8 +15,9 @@ func TestNewFakeContextProvider(t *testing.T) {
 	cp := NewFakeContextProvider()
 	assert.Equal(
 		t, &FakeContextProvider{
-			resources: map[string]map[string]map[string]*unstructured.Unstructured{},
-			images:    map[string]map[string]any{},
+			resources:        map[string]map[string]map[string]*unstructured.Unstructured{},
+			images:           map[string]map[string]any{},
+			globalReferences: map[string]any{},
 		},
 		cp,
 	)
@@ -24,7 +25,27 @@ func TestNewFakeContextProvider(t *testing.T) {
 
 func TestFakeContextProvider_GetGlobalReference(t *testing.T) {
 	cp := &FakeContextProvider{}
-	assert.Panics(t, func() { cp.GetGlobalReference("foo", "bar") })
+	v, err := cp.GetGlobalReference("foo", "bar")
+	assert.NoError(t, err)
+	assert.Nil(t, v)
+
+	cp2 := NewFakeContextProvider()
+	v, err = cp2.GetGlobalReference("missing", "")
+	assert.NoError(t, err)
+	assert.Nil(t, v)
+
+	cp2.AddGlobalReference("key", map[string]any{"hello": "world"})
+	val, err := cp2.GetGlobalReference("key", "")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"hello": "world"}, val)
+}
+
+func TestFakeContextProvider_AddGlobalReference_initializesNilMap(t *testing.T) {
+	cp := &FakeContextProvider{}
+	cp.AddGlobalReference("k", map[string]any{"v": true})
+	got, err := cp.GetGlobalReference("k", "")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]any{"v": true}, got)
 }
 
 func TestFakeContextProvider_AddImageData(t *testing.T) {
