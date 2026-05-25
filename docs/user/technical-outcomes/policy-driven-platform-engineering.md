@@ -64,3 +64,12 @@ spec:
               team: "?*"
               environment: "?*"
 ```
+> **Note:** The `"?*"` pattern checks that the label exists and is non-empty. Platform teams can tighten this further to allow only specific values - for example, using `enum` checks like `dev | staging | prod`—depending on their organizational standards.
+
+## Related Resources
+
+- [Kyverno Documentation – Validation Rules](https://kyverno.io/docs/writing-policies/validate/)
+- [Kyverno Documentation – Mutation Rules](https://kyverno.io/docs/writing-policies/mutate/)
+- [Kyverno Policy Library – Best Practices](https://kyverno.io/policies/?policytypes=Best%20Practices)
+- [Kyverno Blog](https://kyverno.io/blog/)
+- [Kyverno - Generate Rules](https://kyverno.io/docs/writing-policies/generate/)

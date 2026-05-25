@@ -64,3 +64,11 @@ spec:
               - securityContext:
                   privileged: false
 ```
+
+## Related Resources
+
+- [Kyverno Documentation – Policy Reports](https://kyverno.io/docs/policy-reports/)
+- [Kyverno Documentation – Audit Mode vs Enforce Mode](https://kyverno.io/docs/writing-policies/validate/#validation-failure-action)
+- [Kyverno Policy Library – Compliance](https://kyverno.io/policies/)
+- [Kyverno Blog](https://kyverno.io/blog/)
+- [Kyverno Documentation – Cleanup Policies](https://kyverno.io/docs/writing-policies/cleanup/)
