@@ -163,9 +163,7 @@ func Validate(
 	if userInfo != nil {
 		user = NewUser(*userInfo)
 	} else {
-		user = NewUser(authenticationv1.UserInfo{
-			Username: "system:kyverno",
-		})
+		user = NewBackgroundUser()
 	}
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 

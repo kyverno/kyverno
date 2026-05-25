@@ -34,3 +34,14 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 		userInfo: userInfo,
 	}
 }
+
+func NewBackgroundUser() UserInfo {
+	return UserInfo{
+		userInfo: authenticationv1.UserInfo{
+			Username: "kyverno:background-evaluation",
+			UID: "",
+			Groups: []string{},
+			Extra: map[string]authenticationv1.ExtraValue{},
+		},
+	}
+}
