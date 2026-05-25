@@ -208,7 +208,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 		}
 	}
 
-	if ur.Status.State == kyvernov2.Pending {
+	if shouldProcessUpdateRequest(ur) {
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
@@ -221,6 +221,13 @@ func (c *controller) syncUpdateRequest(key string) error {
 
 	logger.V(4).Info("synced update request", "key", key, "processingTime", time.Since(startTime).String(), "ur status", urStatus)
 	return nil
+}
+
+func shouldProcessUpdateRequest(ur *kyvernov2.UpdateRequest) bool {
+    if ur.Status.State == kyvernov2.Pending {
+        return true
+    }
+    return ur.Spec.GetRequestType() == kyvernov2.Generate && ur.Status.State == kyvernov2.Failed
 }
 
 func (c *controller) enqueueUpdateRequest(obj interface{}) {
@@ -239,11 +246,16 @@ func (c *controller) addUR(obj interface{}) {
 }
 
 func (c *controller) updateUR(_, cur interface{}) {
-	curUr := cur.(*kyvernov2.UpdateRequest)
-	if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
-		return
-	}
-	c.enqueueUpdateRequest(curUr)
+    curUr := cur.(*kyvernov2.UpdateRequest)
+    if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
+        return
+    }
+    // For Generate URs, we do not want informer updates on Failed state to hot-loop.
+    // Retries should be driven by the workqueue rate limiter (AddRateLimited) when ProcessUR returns an error.
+    if curUr.Spec.GetRequestType() == kyvernov2.Generate && curUr.Status.State == kyvernov2.Failed {
+        return
+    }
+    c.enqueueUpdateRequest(curUr)
 }
 
 func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
@@ -283,6 +295,9 @@ func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.U
 	case kyvernov2.Completed:
 		errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	case kyvernov2.Failed:
+		if new.Spec.GetRequestType() == kyvernov2.Generate {
+			return new.Status.State, nil
+		}
 		new.Status.State = kyvernov2.Pending
 		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
 	}

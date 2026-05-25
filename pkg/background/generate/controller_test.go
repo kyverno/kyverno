@@ -324,6 +324,9 @@ func (f *fakeNamespaceLister) Get(name string) (*corev1.Namespace, error) {
 // The test will:
 // - FAIL on the old code (where errors were silently dropped)
 // - PASS with the fix applied (where errors are added to failures slice)
+//
+// PR2 CHANGE: ProcessUR now returns the error after status update so that
+// the workqueue rate limiter backs off on Generate UR failures.
 func TestProcessUR_ApplyGenerateError_MarksURFailed(t *testing.T) {
 	// Create a status control that tracks which methods are called
 	statusControl := &fakeStatusControl{}
@@ -438,9 +441,11 @@ func TestProcessUR_ApplyGenerateError_MarksURFailed(t *testing.T) {
 	assert.False(t, statusControl.successCalled,
 		"statusControl.Success() should NOT be called when applyGenerate returns an error")
 
-	// Additional sanity check - we expect no error from ProcessUR itself
-	// since updateStatus with our fake doesn't return an error
-	assert.NoError(t, err, "ProcessUR should not return error when status update succeeds")
+	// PR2 CHANGE: ProcessUR now returns error after status update for workqueue rate limiting
+	// This is the correct behavior - errors should be propagated so the workqueue
+	// can AddRateLimited and back off instead of tight looping
+	assert.Error(t, err,
+		"ProcessUR should return error when applyGenerate fails (enables workqueue rate limiting for Failed Generate URs)")
 }
 
 // TestProcessUR_ApplyGenerateError_MultipleRules tests that when applyGenerate()

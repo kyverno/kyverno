@@ -118,9 +118,11 @@ const (
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
 	maxContextSize                = "maxContextSize"
+	updateRequestMaxBatchSize = "updateRequestMaxBatchSize"
 )
 
 const UpdateRequestThreshold = 1000
+const UpdateRequestMaxBatchSize = 100
 
 // DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
 const DefaultMaxContextSize int64 = 2 * 1024 * 1024
@@ -216,6 +218,8 @@ type Configuration interface {
 	GetUpdateRequestThreshold() int64
 	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
 	GetMaxContextSize() int64
+	// GetUpdateRequestMaxBatchSize gets the max number of RuleContext entries per UpdateRequest for generateExisting
+	GetUpdateRequestMaxBatchSize() int
 }
 
 // configuration stores the configuration
@@ -236,6 +240,7 @@ type configuration struct {
 	callbacks                     []func()
 	updateRequestThreshold        int64
 	maxContextSize                int64
+	updateRequestMaxBatchSize int
 }
 
 type match struct {
@@ -384,6 +389,12 @@ func (cd *configuration) GetMaxContextSize() int64 {
 	return cd.maxContextSize
 }
 
+func (cd *configuration) GetUpdateRequestMaxBatchSize() int {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.updateRequestMaxBatchSize
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -416,6 +427,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
+	cd.updateRequestMaxBatchSize = UpdateRequestMaxBatchSize
 	logger.V(4).Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
 	defaultRegistry, ok := data[defaultRegistry]
@@ -564,6 +576,19 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	threshold, ok := data[updateRequestThreshold]
+	if batchSizeStr, ok := data[updateRequestMaxBatchSize]; ok {
+		urBatchSize, err := strconv.Atoi(batchSizeStr)
+		if err != nil {
+			logger.Error(err, "updateRequestMaxBatchSize is not an integer")
+		} else if urBatchSize <= 0 {
+			logger.V(2).Info("updateRequestMaxBatchSize must be > 0, ignoring", "value", urBatchSize)
+		} else {
+			cd.updateRequestMaxBatchSize = urBatchSize
+			logger.V(2).Info("updateRequestMaxBatchSize configured", "value", cd.updateRequestMaxBatchSize)
+		}
+	} else {
+		logger.V(2).Info("updateRequestMaxBatchSize not set")
+	}
 	if !ok {
 		logger.V(2).Info("enableDefaultRegistryMutation not set")
 	} else {
@@ -607,6 +632,7 @@ func (cd *configuration) unload() {
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.maxContextSize = DefaultMaxContextSize
+	cd.updateRequestMaxBatchSize = UpdateRequestMaxBatchSize
 	logger.V(2).Info("configuration unloaded")
 }
 
