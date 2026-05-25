@@ -61,8 +61,8 @@ spec:
         pattern:
           spec:
             containers:
-              - securityContext:
-                  privileged: false
+              - =(securityContext):
+                   =(privileged): false
 ```
 
 ## Related Resources

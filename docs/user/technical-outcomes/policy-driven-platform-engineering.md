@@ -72,4 +72,4 @@ spec:
 - [Kyverno Documentation – Mutation Rules](https://kyverno.io/docs/writing-policies/mutate/)
 - [Kyverno Policy Library – Best Practices](https://kyverno.io/policies/?policytypes=Best%20Practices)
 - [Kyverno Blog](https://kyverno.io/blog/)
-- [Kyverno - Generate Rules](https://kyverno.io/docs/writing-policies/generate/)
+- [Kyverno Documentation – Generate Rules](https://kyverno.io/docs/writing-policies/generate/)
