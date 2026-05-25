@@ -137,7 +137,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 
 	batchSize := pc.configuration.GetUpdateRequestMaxBatchSize()
 	if batchSize <= 0 {
-    	batchSize = config.UpdateRequestMaxBatchSize
+		batchSize = config.UpdateRequestMaxBatchSize
 	}
 
 	for _, chunk := range chunkRuleContexts(ur.Spec.RuleContext, batchSize) {
@@ -160,22 +160,25 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		}
 	}
 
-return multierr.Combine(errors...)
+	return multierr.Combine(errors...)
 }
 
 func chunkRuleContexts(in []kyvernov2.RuleContext, size int) [][]kyvernov2.RuleContext {
-    if size <= 0 || len(in) == 0 {
-        return nil
-    }
-    out := make([][]kyvernov2.RuleContext, 0, (len(in)+size-1)/size)
-    for i := 0; i < len(in); i += size {
-        end := i + size
-        if end > len(in) {
-            end = len(in)
-        }
-        out = append(out, in[i:end])
-    }
-    return out
+	if size <= 0 {
+		size = 1 // Fallback to 1 if invalid size
+	}
+	if len(in) == 0 {
+		return nil // OK to return nil if no input
+	}
+	out := make([][]kyvernov2.RuleContext, 0, (len(in)+size-1)/size)
+	for i := 0; i < len(in); i += size {
+		end := i + size
+		if end > len(in) {
+			end = len(in)
+		}
+		out = append(out, in[i:end])
+	}
+	return out
 }
 
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {

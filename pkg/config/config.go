@@ -118,7 +118,7 @@ const (
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
 	maxContextSize                = "maxContextSize"
-	updateRequestMaxBatchSize = "updateRequestMaxBatchSize"
+	updateRequestMaxBatchSize     = "updateRequestMaxBatchSize"
 )
 
 const UpdateRequestThreshold = 1000
@@ -240,7 +240,7 @@ type configuration struct {
 	callbacks                     []func()
 	updateRequestThreshold        int64
 	maxContextSize                int64
-	updateRequestMaxBatchSize int
+	updateRequestMaxBatchSize     int
 }
 
 type match struct {
@@ -586,9 +586,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.updateRequestMaxBatchSize = urBatchSize
 			logger.V(2).Info("updateRequestMaxBatchSize configured", "value", cd.updateRequestMaxBatchSize)
 		}
-	} else {
-		logger.V(2).Info("updateRequestMaxBatchSize not set")
-	}
+	} // Removed: else logger.V(2).Info("updateRequestMaxBatchSize not set")
+	// Reason: Default is always applied, so "not set" is just noise
 	if !ok {
 		logger.V(2).Info("enableDefaultRegistryMutation not set")
 	} else {

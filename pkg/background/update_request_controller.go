@@ -224,10 +224,10 @@ func (c *controller) syncUpdateRequest(key string) error {
 }
 
 func shouldProcessUpdateRequest(ur *kyvernov2.UpdateRequest) bool {
-    if ur.Status.State == kyvernov2.Pending {
-        return true
-    }
-    return ur.Spec.GetRequestType() == kyvernov2.Generate && ur.Status.State == kyvernov2.Failed
+	if ur.Status.State == kyvernov2.Pending {
+		return true
+	}
+	return ur.Spec.GetRequestType() == kyvernov2.Generate && ur.Status.State == kyvernov2.Failed
 }
 
 func (c *controller) enqueueUpdateRequest(obj interface{}) {
@@ -246,16 +246,16 @@ func (c *controller) addUR(obj interface{}) {
 }
 
 func (c *controller) updateUR(_, cur interface{}) {
-    curUr := cur.(*kyvernov2.UpdateRequest)
-    if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
-        return
-    }
-    // For Generate URs, we do not want informer updates on Failed state to hot-loop.
-    // Retries should be driven by the workqueue rate limiter (AddRateLimited) when ProcessUR returns an error.
-    if curUr.Spec.GetRequestType() == kyvernov2.Generate && curUr.Status.State == kyvernov2.Failed {
-        return
-    }
-    c.enqueueUpdateRequest(curUr)
+	curUr := cur.(*kyvernov2.UpdateRequest)
+	if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
+		return
+	}
+	// For Generate URs, we do not want informer updates on Failed state to hot-loop.
+	// Retries should be driven by the workqueue rate limiter (AddRateLimited) when ProcessUR returns an error.
+	if curUr.Spec.GetRequestType() == kyvernov2.Generate && curUr.Status.State == kyvernov2.Failed {
+		return
+	}
+	c.enqueueUpdateRequest(curUr)
 }
 
 func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
