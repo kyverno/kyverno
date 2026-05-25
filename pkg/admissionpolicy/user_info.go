@@ -4,6 +4,9 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
+// BackgroundUser provides a default, unprivileged identity for the background controller to use during CEL evaluations.
+const BackgroundUser = "kyverno:background-evaluation"
+
 // UserInfo wraps authenticationv1.UserInfo to implement user.Info interface
 type UserInfo struct {
 	userInfo authenticationv1.UserInfo
@@ -37,11 +40,8 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 
 func NewBackgroundUser() UserInfo {
 	return UserInfo{
-		userInfo: authenticationv1.UserInfo{
-			Username: "kyverno:background-evaluation",
-			UID: "",
-			Groups: []string{},
-			Extra: map[string]authenticationv1.ExtraValue{},
+		UserInfo: authenticationv1.UserInfo{
+			Username: BackgroundUser,
 		},
 	}
 }
