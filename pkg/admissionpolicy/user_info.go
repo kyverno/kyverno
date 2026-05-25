@@ -38,6 +38,8 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 	}
 }
 
+// NewBackgroundUser returns a sentinal identity to prevent CEL evaluations
+//  from crashing on missing keys. 
 func NewBackgroundUser() UserInfo {
 	return UserInfo{
 		userInfo: authenticationv1.UserInfo{
