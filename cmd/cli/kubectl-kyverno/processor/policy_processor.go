@@ -562,7 +562,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					}
 				} else {
 					for op, polNames := range p.TestPoliciesByOperation {
-						operation := admissionv1.Create
+						var operation admissionv1.Operation
 						switch strings.ToLower(op) {
 						case "delete":
 							operation = admissionv1.Delete
@@ -570,6 +570,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							operation = admissionv1.Update
 						case "connect":
 							operation = admissionv1.Connect
+						case "create":
+							operation = admissionv1.Create
+						default:
+							return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: create, update, delete, connect", op)
 						}
 						for _, polName := range polNames {
 							policiesByOperation[operation] = append(policiesByOperation[operation], polName)
@@ -594,7 +598,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						oldObject = &resource
 					case admissionv1.Update:
 						object = &resource
-						if p.OldResource != nil {
+						// if OldResource is not provided
+						if p.OldResource == nil {
+							oldObject = resource.DeepCopy()
+						} else {
 							oldObject = p.OldResource
 						}
 					case admissionv1.Connect:

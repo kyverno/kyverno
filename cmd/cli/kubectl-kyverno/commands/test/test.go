@@ -146,7 +146,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			return nil, fmt.Errorf("error: failed to load old resources (%s)", err)
 		}
 		oldResources = ProcessResources(oldResources)
-		for _, r := range oldResources {
+		uniqueOldResources, duplicatedOldResources := resource.RemoveDuplicates(oldResources)
+
+		if len(duplicatedOldResources) > 0 {
+			for dup := range duplicatedOldResources {
+				fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			}
+		}
+		for _, r := range uniqueOldResources {
 			if r != nil {
 				oldResourceMap[processor.GenerateResourceKey(r)] = r
 			}
@@ -440,7 +447,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		// Look up the matching old resource for this specific resource
 		var oldResource *unstructured.Unstructured
 		if len(oldResourceMap) > 0 {
-			oldResource = oldResourceMap[processor.GenerateResourceKey(resource)]
+			resourceKey := processor.GenerateResourceKey(resource)
+			var found bool
+			oldResource, found = oldResourceMap[resourceKey]
+			if !found {
+				fmt.Printf("no matching old resource found for resource; evaluating without oldObject %v\n", resourceKey)
+			}
 		}
 
 		policiesByOperation := map[string][]string{}
@@ -451,6 +463,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			op := res.ResourceOperation
 			if op == "" {
 				op = "CREATE"
+			}
+			op = strings.ToUpper(strings.Trim(op, " "))
+			operations := []string{"CREATE", "CONNECT", "UPDATE", "DELETE"}
+			if !slices.Contains(operations, op) {
+				return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: create, update, delete, connect", op)
 			}
 			policiesByOperation[op] = append(policiesByOperation[op], res.Policy)
 		}
