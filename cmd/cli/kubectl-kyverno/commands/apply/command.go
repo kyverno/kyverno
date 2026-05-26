@@ -157,7 +157,9 @@ func Command() *cobra.Command {
 			} else if applyCommandConfig.GenerateExceptions {
 				printExceptions(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat, applyCommandConfig.GeneratedExceptionTTL)
 			} else if table {
-				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
+				if err := printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...); err != nil {
+					return fmt.Errorf("failed to print apply results (%w)", err)
+				}
 			} else {
 				for _, response := range responses {
 					var failedRules []engineapi.RuleResponse
