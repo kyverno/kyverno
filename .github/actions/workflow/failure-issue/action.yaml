@@ -3,6 +3,15 @@
 name: Workflow failure issue
 description: Create or close a tracking issue based on workflow run conclusion.
 
+inputs:
+  conclusion:
+    description: 'Workflow conclusion (failure, cancelled, success, etc.)'
+    required: true
+  needs:
+    description: 'needs context serialized as JSON (toJSON(needs))'
+    required: false
+    default: '{}'
+
 runs:
   using: composite
   steps:
@@ -13,8 +22,8 @@ runs:
 
           const workflowName = context.workflow;
           const runId = context.runId;
-          const conclusion = '${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}';
-          const needs = ${{ toJSON(needs) }};
+          const conclusion = '${{ inputs.conclusion }}';
+          const needs = ${{ inputs.needs }};
 
           /**
            * @param {Record<string, { result?: string } | undefined>} needsObj

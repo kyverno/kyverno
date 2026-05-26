@@ -35,6 +35,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -432,7 +433,7 @@ func main() {
 	internal.ParseFlags(appConfig)
 	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
 	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
-	if _, err := celcompiler.NewCELHTTPContext(); err != nil {
+	if err := celcompiler.ValidateHTTPFlags(); err != nil {
 		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
 		os.Exit(1)
 	}
@@ -539,6 +540,9 @@ func main() {
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
+		)
+		updaterequestmetricscontroller.NewController(
+			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
 		// log policy changes
 		genericloggingcontroller.NewController(

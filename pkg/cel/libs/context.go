@@ -50,6 +50,7 @@ type Context interface {
 	resource.ContextInterface
 	generator.ContextInterface
 
+	GetHTTPMocks() map[string]interface{}
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
 	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
@@ -103,6 +104,10 @@ func NewContextProvider(
 	}
 	LibraryContext = ctx
 	return ctx, nil
+}
+
+func (cp *contextProvider) GetHTTPMocks() map[string]interface{} {
+	return nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
@@ -201,27 +206,32 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		}
 
 		for _, item := range items {
+			targetNamespace := namespace
+			if !cp.isNamespacedResource(item.GetAPIVersion(), item.GetKind()) {
+				targetNamespace = ""
+			}
+
 			// In CLI evaluation mode, we do not create the resource in the cluster
 			// but just store it in the generated resources list.
 			if cp.cliEvaluation {
 				item.SetUID("")
 				item.SetManagedFields(nil)
 				item.SetAnnotations(nil)
-				item.SetNamespace(namespace)
+				item.SetNamespace(targetNamespace)
 				item.SetResourceVersion("")
 				item.SetCreationTimestamp(metav1.Time{})
 				cp.generatedResources = append(cp.generatedResources, item)
 				continue
 			}
 			cp.addGenerateLabels(item)
-			item.SetNamespace(namespace)
+			item.SetNamespace(targetNamespace)
 			item.SetResourceVersion("")
 			// check if the resource is already generated
 			existing, err := cp.client.GetResource(
 				context.TODO(),
 				item.GetAPIVersion(),
 				item.GetKind(),
-				namespace,
+				targetNamespace,
 				item.GetName(),
 			)
 
@@ -232,7 +242,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 						context.TODO(),
 						item.GetAPIVersion(),
 						item.GetKind(),
-						namespace,
+						targetNamespace,
 						item,
 						false,
 					)
@@ -376,6 +386,21 @@ func (cp *contextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVersionR
 	}
 
 	return &r.Resource, nil
+}
+
+func (cp *contextProvider) isNamespacedResource(apiVersion, kind string) bool {
+	if cp.restMapper == nil || apiVersion == "" || kind == "" {
+		return true
+	}
+	groupVersion, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return true
+	}
+	r, err := cp.restMapper.RESTMapping(schema.GroupKind{Group: groupVersion.Group, Kind: kind}, groupVersion.Version)
+	if err != nil || r.Scope == nil {
+		return true
+	}
+	return r.Scope.Name() == meta.RESTScopeNameNamespace
 }
 
 func (cp *contextProvider) ClearGeneratedResources() {

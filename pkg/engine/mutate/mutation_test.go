@@ -238,6 +238,16 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	require.Equal(t, resource, patched)
 }
 
+type MockPolicyContext struct {
+	engineapi.PolicyContext
+	mock.Mock
+}
+
+func (m *MockPolicyContext) JSONContext() context.Interface {
+	args := m.Called()
+	return args.Get(0).(context.Interface)
+}
+
 type MockContext struct {
 	context.Interface
 	mock.Mock
@@ -251,6 +261,31 @@ func (m *MockContext) Query(query string) (interface{}, error) {
 func (m *MockContext) QueryOperation() string {
 	args := m.Called()
 	return args.Get(0).(string)
+}
+
+func TestForEach_NilPatchesJSON6902_NoPanic(t *testing.T) {
+	ctx := &MockContext{}
+	// Variable resolves to nil, which caused a bare type assertion panic before the fix
+	ctx.On("Query", mock.Anything).Return(nil, nil)
+	ctx.On("QueryOperation").Return("CREATE")
+
+	foreach := v1.ForEachMutation{
+		PatchesJSON6902: "{{ element.nonexistent }}",
+	}
+
+	var resource unstructured.Unstructured
+	resource.SetUnstructuredContent(map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]interface{}{"name": "test"},
+	})
+
+	policyContext := &MockPolicyContext{}
+	policyContext.On("JSONContext").Return(ctx)
+
+	resp := ForEach("test-rule", foreach, policyContext, resource, nil, logr.Discard())
+	assert.NotNil(t, resp)
+	assert.Equal(t, engineapi.RuleStatusError, resp.Status)
 }
 
 func TestSubstituteAllInForEach_InvalidTypeConversion(t *testing.T) {
