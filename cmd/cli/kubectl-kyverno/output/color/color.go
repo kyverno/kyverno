@@ -3,22 +3,8 @@ package color
 import (
 	"strings"
 
-	"github.com/kataras/tablewriter"
-	"github.com/kyverno/kyverno/ext/output/color"
+	ec "github.com/kyverno/kyverno/ext/output/color"
 )
-
-var (
-	HeaderBgColor int
-	HeaderFgColor int
-)
-
-func Init(noColor bool) {
-	color.Init(noColor, false)
-	if !noColor {
-		HeaderBgColor = tablewriter.BgBlackColor
-		HeaderFgColor = tablewriter.FgGreenColor
-	}
-}
 
 func Policy(namespace, name string) string {
 	if strings.Contains(name, "/") {
@@ -29,13 +15,13 @@ func Policy(namespace, name string) string {
 		}
 	}
 	if namespace == "" {
-		return color.BoldFgCyan.Sprint(name)
+		return ec.BoldFgCyan.Sprint(name)
 	}
-	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(name)
+	return ec.BoldFgCyan.Sprint(namespace) + "/" + ec.BoldFgCyan.Sprint(name)
 }
 
 func Rule(name string) string {
-	return color.BoldFgCyan.Sprint(name)
+	return ec.BoldFgCyan.Sprint(name)
 }
 
 func Resource(kind, namespace, name string) string {
@@ -47,39 +33,39 @@ func Resource(kind, namespace, name string) string {
 		}
 	}
 	if namespace == "" {
-		return color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
+		return ec.BoldFgCyan.Sprint(kind) + "/" + ec.BoldFgCyan.Sprint(name)
 	}
-	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
+	return ec.BoldFgCyan.Sprint(namespace) + "/" + ec.BoldFgCyan.Sprint(kind) + "/" + ec.BoldFgCyan.Sprint(name)
 }
 
 func Excluded() string {
-	return color.BoldYellow.Sprint("Excluded")
+	return ec.BoldYellow.Sprint("Excluded")
 }
 
 func NotFound() string {
-	return color.BoldYellow.Sprint("Not found")
+	return ec.BoldYellow.Sprint("Not found")
 }
 
 func ResultPass() string {
-	return color.BoldGreen.Sprint("Pass")
+	return ec.BoldGreen.Sprint("Pass")
 }
 
 func ResultFail() string {
-	return color.BoldRed.Sprint("Fail")
+	return ec.BoldRed.Sprint("Fail")
 }
 
 func ResultWarn() string {
-	return color.BoldYellow.Sprint("Warn")
+	return ec.BoldYellow.Sprint("Warn")
 }
 
 func ResultError() string {
-	return color.BoldRed.Sprint("Error")
+	return ec.BoldRed.Sprint("Error")
 }
 
 func ResultSkip() string {
-	return color.BoldFgCyan.Sprint("Skip")
+	return ec.BoldFgCyan.Sprint("Skip")
 }
 
 func InvalidPolicy() string {
-	return color.BoldYellow.Sprint("Invalid Policy")
+	return ec.BoldYellow.Sprint("Invalid Policy")
 }

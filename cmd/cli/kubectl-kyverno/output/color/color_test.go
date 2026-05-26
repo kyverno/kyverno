@@ -2,26 +2,12 @@ package color
 
 import (
 	"testing"
+
+	ec "github.com/kyverno/kyverno/ext/output/color"
 )
 
-func TestInit(t *testing.T) {
-	tests := []struct {
-		name    string
-		noColor bool
-	}{{
-		noColor: true,
-	}, {
-		noColor: false,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			Init(tt.noColor)
-		})
-	}
-}
-
 func TestPolicy(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name            string
 		policyNamespace string
@@ -46,7 +32,7 @@ func TestPolicy(t *testing.T) {
 }
 
 func TestRule(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name     string
 		ruleName string
@@ -65,7 +51,7 @@ func TestRule(t *testing.T) {
 }
 
 func TestResource(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name         string
 		kind         string
@@ -93,7 +79,7 @@ func TestResource(t *testing.T) {
 }
 
 func TestNotFound(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -110,7 +96,7 @@ func TestNotFound(t *testing.T) {
 }
 
 func TestResultPass(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -127,7 +113,7 @@ func TestResultPass(t *testing.T) {
 }
 
 func TestResultFail(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -144,7 +130,7 @@ func TestResultFail(t *testing.T) {
 }
 
 func TestResultWarn(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -161,7 +147,7 @@ func TestResultWarn(t *testing.T) {
 }
 
 func TestResultError(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -178,7 +164,7 @@ func TestResultError(t *testing.T) {
 }
 
 func TestResultSkip(t *testing.T) {
-	Init(true)
+	forceAndReset(t, false)
 	tests := []struct {
 		name string
 		want string
@@ -192,4 +178,14 @@ func TestResultSkip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func forceAndReset(t *testing.T, enable bool) {
+	t.Helper()
+
+	originalColorState := ec.Enabled()
+	t.Cleanup(func() {
+		ec.Force(originalColorState)
+	})
+	ec.Force(enable)
 }

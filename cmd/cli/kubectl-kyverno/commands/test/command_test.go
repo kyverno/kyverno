@@ -12,8 +12,8 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/ext/output/color"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -197,7 +197,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 }
 
 func TestResultCountsOnMismatch(t *testing.T) {
-	color.Init(true)
+	originalColorState := color.Enabled()
+	t.Cleanup(func() {
+		color.Force(originalColorState)
+	})
+	color.Force(false)
 
 	tests := []struct {
 		name     string

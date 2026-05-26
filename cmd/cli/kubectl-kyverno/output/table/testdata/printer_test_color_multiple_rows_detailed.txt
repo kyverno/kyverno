@@ -1,0 +1,12 @@
+┌────┬─────────┬───────┬───────────┬────────┬─────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│[32;1m ID [0m│[32;1m POLICY  [0m│[32;1m RULE  [0m│[32;1m RESOURCE  [0m│[32;1m RESULT [0m│[32;1m REASON  [0m│[32;1m MESSAGE                                                                                              [0m│
+├────┼─────────┼───────┼───────────┼────────┼─────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  1 │ Policy1 │ Rule1 │ Resource1 │ Pass   │ Valid   │ No issues found                                                                                      │
+│  2 │ Policy2 │ Rule2 │ Resource2 │ Fail   │ Invalid │ Error detected                                                                                       │
+│  3 │ Policy3 │ Rule3 │ Resource3 │ Warn   │ Warning │ This is a very long warning message that contains extensive details about the warning condition. The │
+│    │         │       │           │        │         │ warning has been triggered due to multiple policy violations detected during the validation process. │
+│    │         │       │           │        │         │ This includes but is not limited to configuration mismatches, potential security vulnerabilities,    │
+│    │         │       │           │        │         │ deprecated API usage, missing required annotations, insufficient resource quotas, non-compliant      │
+│    │         │       │           │        │         │ naming conventions, and various other issues that require immediate attention from the operations    │
+│    │         │       │           │        │         │ team to prevent potential runtime failures or security breaches in the production environment.       │
+└────┴─────────┴───────┴───────────┴────────┴─────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────┘

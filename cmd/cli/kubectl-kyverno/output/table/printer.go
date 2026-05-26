@@ -3,23 +3,58 @@ package table
 import (
 	"io"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
-	"github.com/lensesio/tableprinter"
+	pt "github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/kyverno/kyverno/ext/output/color"
 )
 
-func rowsLength(length int) bool {
-	return length > 10
+var (
+	headerCompact  = pt.Row{"ID", "POLICY", "RULE", "RESOURCE", "RESULT", "REASON"}
+	headerDetailed = append(append(pt.Row{}, headerCompact...), "MESSAGE")
+)
+
+func newTableWriter() pt.Writer {
+	t := pt.NewWriter()
+	t.SetStyle(pt.StyleLight)
+	t.Style().Options.DrawBorder = true
+	t.Style().Options.SeparateRows = false
+	t.Style().Options.SeparateHeader = true
+	t.Style().Size.WidthMax = 300
+	return t
 }
 
-func NewTablePrinter(out io.Writer) *tableprinter.Printer {
-	printer := tableprinter.New(out)
-	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
-	printer.CenterSeparator = "│"
-	printer.ColumnSeparator = "│"
-	printer.RowSeparator = "─"
-	printer.RowCharLimit = 300
-	printer.HeaderBgColor = color.HeaderBgColor
-	printer.HeaderFgColor = color.HeaderFgColor
-	printer.RowLengthTitle = rowsLength
-	return printer
+func Print(out io.Writer, t Table, detailed bool) error {
+	tw := newTableWriter()
+
+	header := getHeader(detailed)
+	tw.AppendHeader(header)
+	configs := make([]pt.ColumnConfig, 0, len(header))
+	for _, col := range header {
+		if colStr, ok := col.(string); ok {
+			configs = append(configs, pt.ColumnConfig{
+				Name:             colStr,
+				ColorsHeader:     color.BoldGreen,
+				WidthMax:         100,
+				WidthMaxEnforcer: text.WrapSoft,
+			})
+		}
+	}
+	tw.SetColumnConfigs(configs)
+
+	for _, row := range t.RawRows {
+		tw.AppendRow(row.forTable(detailed))
+	}
+	_, err := io.WriteString(out, tw.Render())
+	return err
+}
+
+func getHeader(detailed bool) pt.Row {
+	if detailed {
+		result := make(pt.Row, len(headerDetailed))
+		copy(result, headerDetailed)
+		return result
+	}
+	result := make(pt.Row, len(headerCompact))
+	copy(result, headerCompact)
+	return result
 }
