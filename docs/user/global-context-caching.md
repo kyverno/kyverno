@@ -1,8 +1,11 @@
 ---
-title: Global Context Caching
-description: Optimize policy execution speeds by caching cluster resources and external API data globally.
+title: GlobalContextEntry
+description: >-
+    Cache Kubernetes resources and external API data globally to optimize 
+    policy evaluation performance at scale.
 weight: 10
 ---
+
 
 # GlobalContextEntry
 
@@ -12,7 +15,42 @@ By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
 
 ---
 
+## Prerequisites
+
+Before configuring a `GlobalContextEntry`, ensure the following:
+
+- **Kyverno v2+** is installed in your cluster (`apiVersion: kyverno.io/v2`)
+- **kubectl** access with sufficient permissions to create cluster-scoped resources
+- **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
+
+````yaml
+# Example ClusterRole patch for a custom CRD
+rules:
+  - apiGroups: ["your.crd.group"]
+    resources: ["yourresources"]
+    verbs: ["get", "list", "watch"]
+````
+
+---
+
+
 ##  Concept & Architecture: The "Why"
+
+
+````mermaid
+graph TD
+    subgraph "Standard Policy Evaluation"
+        A[Incoming Request] --> B{Inline API Call}
+        B -->|Wait| C[API Server / External Service]
+        C -->|Latency| D[Evaluation Result]
+    end
+
+    subgraph "GlobalContextEntry"
+        E[Background Worker] -->|Fetch| F[Global Memory Cache]
+        G[Incoming Request] -->|Read| F
+        F -->|0ms Latency| H[Evaluation Result]
+    end
+````
 
 Kyverno operates natively as a Kubernetes Admission Controller webhook. When a resource lifecycle event occurs (e.g., `kubectl apply`), Kyverno intercepts the request and must determine whether to allow or deny it with minimal latency.
 
@@ -30,6 +68,38 @@ Instead of executing real-time fetches during admission evaluation, Kyverno dele
 1. **Background Collection:** Kyverno queries the designated cluster resource or external target once, building a localized memory structure.
 2. **Deterministic Refreshing:** Kyverno automatically triggers targeted polling cycles guided by user-configured intervals to keep the cache aligned with the cluster state.
 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organizational scales.
+
+---
+## 🚀 Getting Started
+
+The fastest way to use `GlobalContextEntry` is a two-step process: define a cache entry, then reference it in a policy.
+
+### Step 1: Create a GlobalContextEntry
+
+````yaml
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: my-first-cache
+spec:
+  kubernetesResource:
+    group: ""
+    version: v1
+    resource: configmaps
+    namespace: default
+````
+
+### Step 2: Reference it in a Policy
+
+````yaml
+context:
+  - name: cached_configmaps
+    globalReference:
+      name: my-first-cache
+      jmesPath: "[].metadata.name"
+````
+
+`{{ cached_configmaps }}` is now available inside your policy rules with zero inline API call overhead. See [Configuration Modes](#configuration-modes) for the full schema reference.
 
 ---
 
@@ -50,6 +120,8 @@ Use this mode to capture internal topology data, structural metadata, or shared 
 | `resource` | string | **Yes** | **Must be lowercased and pluralized** (e.g., use `configmaps` or `secrets`, not `ConfigMap`). |
 | `namespace` | string | No | The target namespace boundaries. If omitted, Kyverno tracks across **all namespaces** globally. |
 
+Important: Ensure the Kyverno ServiceAccount has the necessary RBAC permissions (get, list, watch) for the resources you are caching, especially when tracking Custom Resource Definitions (CRDs).
+
 #### Syntax Example: Local ConfigMap Tracking
 ```yaml
 apiVersion: kyverno.io/v2
@@ -69,10 +141,13 @@ Use this mode to extract and synchronize authorization lists, identity definitio
 
 | Schema Field | Default Value | Engine Validation Constraints |
 | :--- | :--- | :--- |
-| `refreshInterval` | `10m` | The background execution interval cadence. Evaluates standard duration tags (e.g., `30s`, `5m`, `2h`). Must be > 0s. |
-| `retryLimit` | `3` | The exhaustion limit before an active sync loop drops and throws an error flag. Minimum allowable threshold is `1`. |
+| `urlPath` | — | Path for querying the **local Kubernetes API server** (e.g., `/api/v1/namespaces`). **Mutually exclusive** with `service.url`. |
+| `service.url` | — | Full URL for **external endpoints** (e.g., `https://api.corp.internal/v1/data`). **Mutually exclusive** with `urlPath`. |
+| `refreshInterval` | `10m` | Background polling cadence. Accepts standard duration strings (e.g., `30s`, `5m`, `2h`). Must be > `0s`. |
+| `retryLimit` | `3` | Max retry attempts before the sync loop errors. Minimum value is `1`. |
+| `method` | `GET` | HTTP method. **Must be explicitly set to `POST`** if a `data` payload array is provided. |
 
-> ⚠️ **Method Enforcement:** If your `apiCall` profile passes a custom request payload under the `data` array parameter, the underlying HTTP schema engine enforces that the `method` parameter **must be explicitly configured as POST**.
+>  **Method Enforcement:** If your `apiCall` profile passes a custom request payload under the `data` array parameter, the underlying HTTP schema engine enforces that the `method` parameter **must be explicitly configured as POST**.
 
 #### Syntax Example: External Metadata Ingestion
 
@@ -92,6 +167,11 @@ spec:
 
 Caching large-scale external API payloads or extensive multi-namespace collections inside memory can stress system overhead. Kyverno supports `projections` using **JMESPath** so policies can work with a narrower, more focused view of that cached data. 
 
+>> **Note on API Sources:**
+> - Use `urlPath` when querying the **local Kubernetes API server** (e.g., fetching internal cluster resources).
+> - Use `service.url` when targeting **external endpoints** (e.g., external inventory or security services).
+> These two fields are **mutually exclusive** — only one may be defined per `apiCall` entry.
+
  Projections act as a high-performance filtering layer, transforming raw complex structures into exact key-value primitives or explicit string arrays for policy consumption. This helps simplify policy evaluation and reduce the amount of data rules need to traverse, but it does not necessarily remove the underlying cached payload.
 
 ```yaml
@@ -106,33 +186,51 @@ spec:
     - name: my-projected-field  # This will be the name used in policies
       jmesPath: "data.someField" # The path within the API response to extract
 ```
+
+
 ### Referencing Projected Data in a Policy
 
-### Eventual Consistency & Performance
-**Eventual Consistency:** `GlobalContextEntry` caches are updated asynchronously. Policy evaluations may temporarily use slightly stale data until the background refresh cycle completes. Ensure your policy logic accounts for this potential delay in data propagation.
+Once a `GlobalContextEntry` with projections is defined, reference it in your policy using the `<entryName>.<projectionName>` convention:
 
-**Production Security:** When implementing external API calls:
-* Use secure methods (like Kubernetes Secrets) for authentication; never hardcode credentials.
-* Ensure endpoints are protected with valid TLS certificates.
-
-**Comparison: Inline `apiCall` vs. `GlobalContextEntry`**
-| Feature | Inline `apiCall` | `GlobalContextEntry` |
-| :--- | :--- | :--- |
-| **Performance** | High overhead (call-per-request) | High performance (cached data) |
-| **Use Case** | Real-time, volatile data | Static or slowly changing data |
-| **Scalability** | Can overwhelm API servers | Significantly reduces API load |
-
-Once the `GlobalContextEntry` is defined, you can reference the projected field in your Kyverno policy as follows:
-
-```yaml
+````yaml
 context:
   - name: myData
     globalReference:
-      name: my-cached-data.my-projected-field # Use the <globalContextEntry>.<projection> naming convention
-```
+      name: my-cached-data.my-projected-field
+````
+
 ---
 
-## 🛠️ Practical Use Cases & Blueprints
+## ⚠️ Eventual Consistency & Operational Notes
+
+**Eventual Consistency:** Caches are updated asynchronously. Policy evaluations may briefly use slightly stale data between refresh cycles. Design your policy logic to tolerate this window, particularly for rapidly changing resources.
+
+**Production Security — External API Calls:**
+- Store credentials in Kubernetes `Secrets`, never hardcoded in the resource spec.
+- Ensure all external endpoints are protected with valid TLS certificates.
+
+**Inline `apiCall` vs. `GlobalContextEntry` — When to Use Which:**
+
+| Feature | Inline `apiCall` | `GlobalContextEntry` |
+| :--- | :--- | :--- |
+| **Performance** | High overhead (one call per request) | High performance (served from RAM cache) |
+| **Use Case** | Real-time, highly volatile data | Static or slowly changing data |
+| **Scalability** | Can overwhelm API servers under load | Significantly reduces API server load |
+| **Data Freshness** | Always current | Eventually consistent |
+
+### Behavior on Cache Failure
+
+If a `GlobalContextEntry` fails to sync (e.g., external endpoint is unreachable 
+and `retryLimit` is exhausted):
+
+- The cache retains its **last known good state** until a successful refresh occurs.
+- If no data has ever been cached (e.g., on first startup), policies referencing 
+  that entry will receive an **empty result**, which may cause unexpected denials 
+  depending on your rule logic.
+- Monitor `status.conditions` on the resource and set up alerts on Kyverno 
+  controller logs for `globalcontext` errors in production clusters.
+
+##  Practical Use Cases & Blueprints
 
 ### 1. Referencing Shared ConfigMap Data Across Multiple Policies
 
@@ -155,7 +253,7 @@ spec:
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
-apiVersion: kyverno.io/v2
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: require-configmap-via-gctx
@@ -284,6 +382,51 @@ spec:
             operator: AnyNotIn
             value: "{{ cluster_bindings }}"
 ```
+
+## Verification
+To confirm your `GlobalContextEntry` is functioning correctly, use the following commands.
+
+### 1. Check Resource Status
+
+```bash
+kubectl get gctxentry <entry-name> -o yaml
+```
+
+Look for `status.conditions` showing `Ready: True`. Errors or stale syncs surface here with descriptive messages.
+
+### 2. Check Kyverno Controller Logs
+
+```bash
+kubectl logs -n kyverno \
+  -l app.kubernetes.io/component=admissions-controller \
+  | grep globalcontext
+```
+
+
+### 3. Inspect Cached Data
+
+```bash
+kubectl get gctxentry <entry-name> \
+  -o jsonpath='{.status}' | jq .
+```
+
+This lets you verify the actual data Kyverno has cached before writing policy rules against it.
+````
+
+## Cleanup
+
+To remove a `GlobalContextEntry`:
+
+```bash
+kubectl delete gctxentry <entry-name>
+```
+
+> **Note:** Deleting a `GlobalContextEntry` that is actively referenced by running 
+> policies will cause those policies to return a `variable evaluation error` on 
+> the next admission request. Always update or remove dependent policies first.
+---
+
+
 ## Troubleshooting
 
 When working with `GlobalContextEntry`, misconfigurations typically manifest as empty context variables inside evaluations or synchronization blockages.
