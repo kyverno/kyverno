@@ -90,8 +90,9 @@ func load(content []byte) (*LoaderResults, error) {
 	return results, nil
 }
 
-func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2.PolicyException {
+func SelectFrom(resources []*unstructured.Unstructured) ([]*kyvernov2.PolicyException, []*policiesv1beta1.PolicyException) {
 	var exceptions []*kyvernov2.PolicyException
+	var celExceptions []*policiesv1beta1.PolicyException
 	for _, resource := range resources {
 		switch resource.GroupVersionKind() {
 		case exceptionV2beta1, exceptionV2:
@@ -99,8 +100,13 @@ func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2.PolicyExcep
 			if err == nil {
 				exceptions = append(exceptions, exception)
 			}
+		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+			celException, err := convert.To[policiesv1beta1.PolicyException](*resource)
+			if err == nil {
+				celExceptions = append(celExceptions, celException)
+			}
 		}
 	}
 
-	return exceptions
+	return exceptions, celExceptions
 }
