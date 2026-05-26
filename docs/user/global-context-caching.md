@@ -411,7 +411,6 @@ kubectl get gctxentry <entry-name> \
 ```
 
 This lets you verify the actual data Kyverno has cached before writing policy rules against it.
-````
 
 ## Cleanup
 
