@@ -34,7 +34,7 @@ rules:
 ---
 
 
-##  Concept & Architecture: The "Why"
+## Concept & Architecture: The "Why"
 
 
 ````mermaid
@@ -67,7 +67,7 @@ Under high cluster density, if a continuous integration or continuous deployment
 Instead of executing real-time fetches during admission evaluation, Kyverno delegates resource tracking to an asynchronous background worker loop:
 1. **Background Collection:** Kyverno queries the designated cluster resource or external target once, building a localized memory structure.
 2. **Deterministic Refreshing:** Kyverno automatically triggers targeted polling cycles guided by user-configured intervals to keep the cache aligned with the cluster state.
-3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organizational scales.
+ 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organisational scales.
 
 ---
 ##  Getting Started
@@ -188,20 +188,66 @@ spec:
 ```
 
 
-### Referencing Projected Data in a Policy
+### Referencing Cached Data in a Policy
 
-Once a `GlobalContextEntry` with projections is defined, reference it in your policy using the `<entryName>.<projectionName>` convention:
+There are two ways to reference a `GlobalContextEntry` in your policy context, 
+depending on whether you used named projections or prefer inline filtering.
 
-````yaml
+---
+
+#### Option A: Inline JMESPath (no projection defined)
+
+Apply a JMESPath filter directly at reference time using the `jmesPath` field. 
+This works on the full cached payload without requiring a named projection in the spec.
+
+```yaml
+context:
+  - name: cached_configmaps
+    globalReference:
+      name: shared-config-cache          # GlobalContextEntry name
+      jmesPath: "[].metadata.name"       # Filter applied at reference time
+```
+
+Use this when you need a quick one-off filter or the entry is shared across 
+policies that each need different slices.
+
+---
+
+#### Option B: Named Projection (projection defined in spec)
+
+If you defined a `projections` block in your `GlobalContextEntry` spec, reference 
+the pre-filtered slice using the `<entryName>.<projectionName>` dot convention:
+
+```yaml
+# GlobalContextEntry spec (defined once)
+spec:
+  apiCall:
+    urlPath: "/api/v1/..."
+  projections:
+    - name: my-projected-field
+      jmesPath: "data.someField"
+```
+
+```yaml
+# Policy reference
 context:
   - name: myData
     globalReference:
-      name: my-cached-data.my-projected-field
+      name: my-cached-data.my-projected-field  # .
+```
+
+Use this when multiple policies need the **same filtered slice** — define the 
+filter once in the spec instead of repeating `jmesPath` in every policy.
+
+---
+
+> **Summary:** Use `jmesPath` in the policy reference for one-off filters. 
+> Use named projections in the spec when the same filtered view is reused across policies.
 ````
 
 ---
 
-##  Eventual Consistency & Operational Notes
+## Eventual Consistency & Operational Notes
 
 **Eventual Consistency:** Caches are updated asynchronously. Policy evaluations may briefly use slightly stale data between refresh cycles. Design your policy logic to tolerate this window, particularly for rapidly changing resources.
 
@@ -230,7 +276,7 @@ and `retryLimit` is exhausted):
 - Monitor `status.conditions` on the resource and set up alerts on Kyverno 
   controller logs for `globalcontext` errors in production clusters.
 
-##  Practical Use Cases & Blueprints
+## Practical Use Cases & Blueprints
 
 ### 1. Referencing Shared ConfigMap Data Across Multiple Policies
 
@@ -334,7 +380,7 @@ spec:
               operator: AnyNotIn
               value: "{{ allowed_registries }}"
 ```
-### 3. Caching RBAC or Organisational Metadata
+### 3. Caching RBAC or Organizational Metadata
 
 Useful for performance-heavy validation structures, like tracking dynamic team metadata roles across specific namespace boundaries.
 
