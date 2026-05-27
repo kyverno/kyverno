@@ -1,7 +1,7 @@
 ---
 title: GlobalContextEntry
 description: >-
-    Cache Kubernetes resources and external API data globally to optimize 
+    Cache Kubernetes resources and external API data globally to optimize
     policy evaluation performance at scale.
 weight: 10
 ---
@@ -67,10 +67,10 @@ Under high cluster density, if a continuous integration or continuous deployment
 Instead of executing real-time fetches during admission evaluation, Kyverno delegates resource tracking to an asynchronous background worker loop:
 1. **Background Collection:** Kyverno queries the designated cluster resource or external target once, building a localized memory structure.
 2. **Deterministic Refreshing:** Kyverno automatically triggers targeted polling cycles guided by user-configured intervals to keep the cache aligned with the cluster state.
- 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organisational scales.
+3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organisational scales.
 
 ---
-##  Getting Started
+## Getting Started
 
 The fastest way to use `GlobalContextEntry` is a two-step process: define a cache entry, then reference it in a policy.
 
@@ -233,7 +233,7 @@ spec:
 context:
   - name: myData
     globalReference:
-      name: my-cached-data.my-projected-field  # .
+      name: my-cached-data.my-projected-field  # <entryName>.<projectionName> references the named projection
 ```
 
 Use this when multiple policies need the **same filtered slice** — define the 
@@ -243,7 +243,6 @@ filter once in the spec instead of repeating `jmesPath` in every policy.
 
 > **Summary:** Use `jmesPath` in the policy reference for one-off filters. 
 > Use named projections in the spec when the same filtered view is reused across policies.
-````
 
 ---
 
