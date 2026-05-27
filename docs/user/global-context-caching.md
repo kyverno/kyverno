@@ -48,7 +48,7 @@ graph TD
     subgraph "GlobalContextEntry"
         E[Background Worker] -->|Fetch| F[Global Memory Cache]
         G[Incoming Request] -->|Read| F
-        F -->|0ms Latency| H[Evaluation Result]
+        F -->|0 ms Latency| H[Evaluation Result]
     end
 ````
 
@@ -70,7 +70,7 @@ Instead of executing real-time fetches during admission evaluation, Kyverno dele
 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organizational scales.
 
 ---
-## 🚀 Getting Started
+##  Getting Started
 
 The fastest way to use `GlobalContextEntry` is a two-step process: define a cache entry, then reference it in a policy.
 
@@ -141,9 +141,9 @@ Use this mode to extract and synchronize authorization lists, identity definitio
 
 | Schema Field | Default Value | Engine Validation Constraints |
 | :--- | :--- | :--- |
-| `urlPath` | — | Path for querying the **local Kubernetes API server** (e.g., `/api/v1/namespaces`). **Mutually exclusive** with `service.url`. |
-| `service.url` | — | Full URL for **external endpoints** (e.g., `https://api.corp.internal/v1/data`). **Mutually exclusive** with `urlPath`. |
-| `refreshInterval` | `10m` | Background polling cadence. Accepts standard duration strings (e.g., `30s`, `5m`, `2h`). Must be > `0s`. |
+| `urlPath` | — | Path for querying the **local Kubernetes API server**. Mutually exclusive with `service.url`. |
+| `service.url` | — | Full URL for **external endpoints**. Mutually exclusive with `urlPath`. |
+| `refreshInterval` | `10m` | Background polling cadence. Accepts duration strings (e.g., `30s`, `5m`, `2h`). Must be > `0s`. |
 | `retryLimit` | `3` | Max retry attempts before the sync loop errors. Minimum value is `1`. |
 | `method` | `GET` | HTTP method. **Must be explicitly set to `POST`** if a `data` payload array is provided. |
 
@@ -167,7 +167,7 @@ spec:
 
 Caching large-scale external API payloads or extensive multi-namespace collections inside memory can stress system overhead. Kyverno supports `projections` using **JMESPath** so policies can work with a narrower, more focused view of that cached data. 
 
->> **Note on API Sources:**
+> **Note on API Sources:**
 > - Use `urlPath` when querying the **local Kubernetes API server** (e.g., fetching internal cluster resources).
 > - Use `service.url` when targeting **external endpoints** (e.g., external inventory or security services).
 > These two fields are **mutually exclusive** — only one may be defined per `apiCall` entry.
@@ -201,7 +201,7 @@ context:
 
 ---
 
-## ⚠️ Eventual Consistency & Operational Notes
+##  Eventual Consistency & Operational Notes
 
 **Eventual Consistency:** Caches are updated asynchronously. Policy evaluations may briefly use slightly stale data between refresh cycles. Design your policy logic to tolerate this window, particularly for rapidly changing resources.
 
@@ -214,7 +214,7 @@ context:
 | Feature | Inline `apiCall` | `GlobalContextEntry` |
 | :--- | :--- | :--- |
 | **Performance** | High overhead (one call per request) | High performance (served from RAM cache) |
-| **Use Case** | Real-time, highly volatile data | Static or slowly changing data |
+| **Use Case** | Real-time, volatile data | Static or slowly changing data |
 | **Scalability** | Can overwhelm API servers under load | Significantly reduces API server load |
 | **Data Freshness** | Always current | Eventually consistent |
 
@@ -434,7 +434,7 @@ When working with `GlobalContextEntry`, misconfigurations typically manifest as 
 
 | Symptom / Error | Root Cause | Remediation Steps |
 | :--- | :--- | :--- |
-| `GlobalContextEntry` creation fails with validation/schema errors | Singular configuration constraint violation. | Ensure you configured `kubernetesResource` or `apiCall`. Defining both fields simultaneously violates resource schemas. |
-| Resource tracking results in completely empty arrays | Incorrect resource naming specification. | The `resource` tracking string **must be lowercased and pluralized**. For example, use `configmaps` instead of `ConfigMap`. |
-| Policies return `variable evaluation error` on global contexts | Kyverno controllers lack appropriate RBAC clearance. | If tracking a custom resource definition (CRD), verify Kyverno's ClusterRole possesses `get`, `list`, and `watch` permissions for that specific API group. |
-| External API caching loops fail continuously | Incorrect configuration of custom data variables. | If supplying a payload request template under an `apiCall` property, you must explicitly change the request `method` field to `POST`. |
+| `GlobalContextEntry` creation fails with validation/schema errors | Singular configuration constraint violation. | Ensure you configured `kubernetesResource` **or** `apiCall`. Defining both simultaneously violates resource schemas. |
+| Resource tracking results in completely empty arrays | Incorrect resource naming specification. | The `resource` field **must be lowercased and pluralized**. Use `configmaps` instead of `ConfigMap`. |
+| Policies return `variable evaluation error` on global contexts | Kyverno controllers lack appropriate RBAC clearance. | Verify Kyverno's ClusterRole has `get`, `list`, and `watch` permissions for that specific API group. |
+| External API caching loops fail continuously | Incorrect configuration of custom data variables. | If supplying a payload under `apiCall`, explicitly set `method: POST`. |
