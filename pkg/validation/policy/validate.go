@@ -1798,44 +1798,75 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 }
 
 // hasWildcard returns the appropriate warning message and true if any kind in the rule is a wildcard "*"
+// hasWildcard traverses root, any, and all blocks across Match and Exclude requirements
+// to look for a wildcard "*". It returns the appropriate tiered warning message if found.
 func hasWildcard(rule kyvernov1.Rule) (string, bool) {
-	wildcardFound := false
-
-	// Check match constraints
+	// 1. Check match root constraints
 	for _, kind := range rule.MatchResources.Kinds {
 		if kind == "*" {
-			wildcardFound = true
-			break
+			return checkWildcardSeverity(rule, rule.MatchResources.ResourceDescription), true
 		}
 	}
 
-	// Check exclude constraints safely (guarding against a nil pointer panic)
-	if !wildcardFound && rule.ExcludeResources != nil {
-		for _, kind := range rule.ExcludeResources.Kinds {
+	// 2. Check match.any blocks
+	for _, filter := range rule.MatchResources.Any {
+		for _, kind := range filter.Kinds {
 			if kind == "*" {
-				wildcardFound = true
-				break
+				return checkWildcardSeverity(rule, filter.ResourceDescription), true
 			}
 		}
 	}
 
-	// If no wildcard is found, exit early
-	if !wildcardFound {
-		return "", false
+	// 3. Check match.all blocks
+	for _, filter := range rule.MatchResources.All {
+		for _, kind := range filter.Kinds {
+			if kind == "*" {
+				return checkWildcardSeverity(rule, filter.ResourceDescription), true
+			}
+		}
 	}
 
-	// Wildcard found! Call the severity function from inside to determine the message tier
-	warningMessage := checkWildcardSeverity(rule)
-	return warningMessage, true
+	// 4. Check exclude constraints safely (guarding against a nil pointer panic)
+	if rule.ExcludeResources != nil {
+		for _, kind := range rule.ExcludeResources.Kinds {
+			if kind == "*" {
+				return checkWildcardSeverity(rule, rule.ExcludeResources.ResourceDescription), true
+			}
+		}
+		for _, filter := range rule.ExcludeResources.Any {
+			for _, kind := range filter.Kinds {
+				if kind == "*" {
+					return checkWildcardSeverity(rule, filter.ResourceDescription), true
+				}
+			}
+		}
+		for _, filter := range rule.ExcludeResources.All {
+			for _, kind := range filter.Kinds {
+				if kind == "*" {
+					return checkWildcardSeverity(rule, filter.ResourceDescription), true
+				}
+			}
+		}
+	}
+
+	return "", false
 }
 
-// checkWildcardSeverity determines if a wildcard policy is global or namespace-restricted
-func checkWildcardSeverity(rule kyvernov1.Rule) string {
-	// Check if bounded by explicit namespaces array or a namespace selector object
-	isNamespaceScoped := len(rule.MatchResources.Namespaces) > 0 || rule.MatchResources.NamespaceSelector != nil
+// checkWildcardSeverity determines if a wildcard policy is globally unconstrained or isolated by a namespace.
+// It checks namespace scoping at both the parent rule level and the local block level where the wildcard was matched.
+func checkWildcardSeverity(rule kyvernov1.Rule, desc kyvernov1.ResourceDescription) string {
+	// Check if root match block is namespace-scoped
+	isRootMatchScoped := len(rule.MatchResources.Namespaces) > 0 || rule.MatchResources.NamespaceSelector != nil
 
-	if isNamespaceScoped {
-		// Tier 2: Lighter informational warning for restricted scopes (per maintainer feedback)
+	// Check if root exclude block is namespace-scoped
+	isRootExcludeScoped := rule.ExcludeResources != nil && (len(rule.ExcludeResources.Namespaces) > 0 || rule.ExcludeResources.NamespaceSelector != nil)
+
+	// Check if the specific nested block where the wildcard was found is namespace-scoped
+	isLocalBlockScoped := len(desc.Namespaces) > 0 || desc.NamespaceSelector != nil
+
+	// If scoped anywhere up the inheritance chain or locally, flag as Tier 2
+	if isRootMatchScoped || isRootExcludeScoped || isLocalBlockScoped {
+		// Tier 2: Lighter informational warning for restricted scopes
 		return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') within a restricted namespace scope. Intercepting all resource types here still impacts admission control latency; consider specifying explicit resource kinds if possible.", rule.Name)
 	}
 

@@ -3647,6 +3647,98 @@ func Test_HasWildcardSeverityTiers(t *testing.T) {
 			},
 			expectWarning: false,
 		},
+		{
+			name: "Nested Match Any Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "nested-any-global",
+				MatchResources: kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds: []string{"*"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Nested Match All Scoped Local Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "nested-all-local-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					All: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds:      []string{"*"},
+								Namespaces: []string{"staging"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "Nested Match Any Inherited Scope Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "nested-any-inherited-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Namespaces: []string{"production"}, // Root scope constraint
+					},
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds: []string{"*"}, // No local namespace, but inherits root
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "Exclude Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "exclude-global",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}},
+				},
+				ExcludeResources: &kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"*"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Exclude Nested Any Scoped Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "exclude-nested-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}},
+				},
+				ExcludeResources: &kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds:      []string{"*"},
+								Namespaces: []string{"dev"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
 	}
 
 	for _, tc := range testCases {
