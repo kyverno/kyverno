@@ -18,7 +18,8 @@ func RequestFilterIsInSpan(request *http.Request) bool {
 }
 
 func Transport(base http.RoundTripper, opts ...otelhttp.Option) *otelhttp.Transport {
-	o := []otelhttp.Option{defaultSpanFormatter}
+	o := make([]otelhttp.Option, 0, 1+len(opts))
+	o = append(o, defaultSpanFormatter)
 	o = append(o, opts...)
 	return otelhttp.NewTransport(base, o...)
 }

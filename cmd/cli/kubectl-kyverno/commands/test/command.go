@@ -223,7 +223,7 @@ func checkResult(
 			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
-	if test.GeneratedResource != "" {
+	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
@@ -237,6 +237,34 @@ func checkResult(
 			}
 			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
+	} else if len(test.GeneratedResources) > 0 {
+		matched := false
+		var lastDiff string
+		var lastErr error
+		for _, expectedRes := range test.GeneratedResources {
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if equals {
+				matched = true
+				break
+			}
+			lastDiff = diff
+		}
+		if !matched {
+			if lastDiff == "" && lastErr != nil {
+				return false, lastErr.Error(), "Resource error"
+			}
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				lastDiff = StripANSI(lastDiff)
+			}
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
@@ -245,19 +273,28 @@ func checkResult(
 	return true, result.Description, "Ok"
 }
 
+func isRulelessPolicyKind(kind string) bool {
+	switch kind {
+	case "ValidatingPolicy", "NamespacedValidatingPolicy",
+		"ValidatingAdmissionPolicy",
+		"MutatingPolicy", "NamespacedMutatingPolicy",
+		"MutatingAdmissionPolicy",
+		"ImageValidatingPolicy", "NamespacedImageValidatingPolicy",
+		"GeneratingPolicy", "NamespacedGeneratingPolicy",
+		"DeletingPolicy", "NamespacedDeletingPolicy":
+		return true
+	}
+	return false
+}
+
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
-	var matches []engineapi.RuleResponse
-	// Since there are no rules in case of validating admission policies, responses are returned without checking rule names.
-	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy || test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
-		matches = responses
-	} else {
-		for _, response := range responses {
-			rule := response.Name()
-			if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
-				continue
-			}
-			matches = append(matches, response)
+	matches := make([]engineapi.RuleResponse, 0, len(responses))
+	for _, response := range responses {
+		rule := response.Name()
+		if rule != test.Rule && rule != "autogen-"+test.Rule && rule != "autogen-cronjob-"+test.Rule {
+			continue
 		}
+		matches = append(matches, response)
 	}
 	return matches
 }

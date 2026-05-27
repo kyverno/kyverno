@@ -1,6 +1,7 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -24,6 +25,22 @@ import (
 )
 
 var tufMu sync.Mutex
+
+// maxIntermediateCerts limits the number of intermediate certificates accepted
+// from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
+// unbounded work in crypto/x509 certificate chain building).
+const maxIntermediateCerts = 10
+
+// pemCertBlockHeader is the PEM block header used to count certificate blocks
+// cheaply before full ASN.1 parsing.
+var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
+
+// countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
+// using a cheap byte scan, so we can reject oversized chains before doing the
+// expensive PEM/ASN.1 parsing work.
+func countPEMCertBlocks(pem []byte) int {
+	return bytes.Count(pem, pemCertBlockHeader)
+}
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	tufMu.Lock()
@@ -76,12 +93,20 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		opts.IgnoreSCT = att.CTLog.InsecureIgnoreSCT
 		opts.IgnoreTlog = att.CTLog.InsecureIgnoreTlog
 		if att.CTLog.TSACertChain != "" {
+			// Cheap pre-check on the raw PEM to reject oversized chains
+			// before expensive ASN.1 parsing (CVE-2026-32280).
+			if n := countPEMCertBlocks([]byte(att.CTLog.TSACertChain)); n > maxIntermediateCerts+2 {
+				return nil, fmt.Errorf("TSA certificate chain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
+			}
 			leaves, intermediates, roots, err := splitCertChain([]byte(att.CTLog.TSACertChain))
 			if err != nil {
 				return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
 			}
 			if len(leaves) > 1 {
 				return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+			}
+			if len(intermediates) > maxIntermediateCerts {
+				return nil, fmt.Errorf("TSA certificate chain contains too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
 			}
 			if len(leaves) == 1 {
 				opts.TSACertificate = leaves[0]
@@ -141,16 +166,24 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				return nil, fmt.Errorf("failed to load certificate from %s: %w", att.Certificate.Certificate, err)
 			}
 
-			if att.Certificate.CertificateChain != nil && att.Certificate.CertificateChain.Value == "" {
-				opts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithmMap[att.Key.HashAlgorithm])
+			if att.Certificate.CertificateChain == nil || att.Certificate.CertificateChain.Value == "" {
+				opts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithmMap[""])
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
 			} else {
-				// Verify certificate with chain
+				// Verify certificate with chain.
+				// Cheap pre-check on the raw PEM to reject oversized chains
+				// before expensive ASN.1 parsing (CVE-2026-32280).
+				if n := countPEMCertBlocks([]byte(att.Certificate.CertificateChain.Value)); n > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", n, maxIntermediateCerts+1)
+				}
 				chain, err := certChainFromBytes([]byte(att.Certificate.CertificateChain.Value))
 				if err != nil {
-					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+					return nil, fmt.Errorf("failed to load certificate chain: %w", err)
+				}
+				if len(chain) > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)
 				}
 				opts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, opts)
 				if err != nil {

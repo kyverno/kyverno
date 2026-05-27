@@ -8,7 +8,7 @@ import (
 )
 
 func buildURSpecNew(requestType kyvernov2.RequestType, policyKey string, rules []kyvernov1.Rule, trigger kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov2.UpdateRequestSpec {
-	ruleCtx := make([]kyvernov2.RuleContext, 0)
+	ruleCtx := make([]kyvernov2.RuleContext, 0, len(rules))
 	for _, rule := range rules {
 		ctx := buildRuleContext(rule, trigger, deleteDownstream)
 		ruleCtx = append(ruleCtx, ctx)
