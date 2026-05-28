@@ -441,7 +441,16 @@ Look for `status.conditions` showing `Ready: True`. Errors or stale syncs surfac
 
 ### 2. Check Kyverno Controller Logs
 
+Use the selector that matches your Kyverno installation. Standard installs commonly use
+`app.kubernetes.io/component=admission-controller`, though some environments may use
+`app.kubernetes.io/component=admissions-controller`.
+
 ```bash
+kubectl logs -n kyverno \
+  -l app.kubernetes.io/component=admission-controller \
+  | grep globalcontext
+
+# If the command above returns no Pods, try:
 kubectl logs -n kyverno \
   -l app.kubernetes.io/component=admissions-controller \
   | grep globalcontext
