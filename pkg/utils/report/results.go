@@ -416,9 +416,9 @@ func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string
 // A nil err means the resource was successfully deleted (result=pass); non-nil err means failure (result=error).
 func DeletingPolicyToReportResult(policyName string, resource unstructured.Unstructured, deletionErr error) openreportsv1alpha1.ReportResult {
 	result := openreportsv1alpha1.ReportResult{
-		Source:  SourceDeletingPolicy,
-		Policy:  policyName,
-		Scored:  true,
+		Source: SourceDeletingPolicy,
+		Policy: policyName,
+		Scored: true,
 		Subjects: []corev1.ObjectReference{{
 			APIVersion: resource.GetAPIVersion(),
 			Kind:       resource.GetKind(),
@@ -445,9 +445,9 @@ func DeletingPolicyToReportResult(policyName string, resource unstructured.Unstr
 // or ClusterCleanupPolicy run into a PolicyReport result entry.
 func CleanupPolicyToReportResult(policyName string, resource unstructured.Unstructured, deletionErr error) openreportsv1alpha1.ReportResult {
 	result := openreportsv1alpha1.ReportResult{
-		Source:  SourceCleanupPolicy,
-		Policy:  policyName,
-		Scored:  true,
+		Source: SourceCleanupPolicy,
+		Policy: policyName,
+		Scored: true,
 		Subjects: []corev1.ObjectReference{{
 			APIVersion: resource.GetAPIVersion(),
 			Kind:       resource.GetKind(),

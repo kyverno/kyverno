@@ -71,8 +71,8 @@ func (w *cleanupReportWriter) writeClusterReport(ctx context.Context, policy kyv
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 				Labels: map[string]string{
-					"app.kubernetes.io/managed-by":    "kyverno",
-					"kyverno.io/cleanup-policy.name":  policy.GetName(),
+					"app.kubernetes.io/managed-by":   "kyverno",
+					"kyverno.io/cleanup-policy.name": policy.GetName(),
 				},
 				Annotations: map[string]string{
 					"policies.kyverno.io/source": reportutils.SourceCleanupPolicy,
