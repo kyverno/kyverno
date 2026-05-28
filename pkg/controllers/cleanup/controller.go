@@ -306,6 +306,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				}
 				if metrics != nil {
 					metrics.RecordCleanupFailure(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					metrics.RecordDeletedResourceFailure(ctx, resource.GetKind(), namespace, name, policy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
@@ -315,6 +316,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			} else {
 				if metrics != nil {
 					metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
+					metrics.RecordDeletedResource(ctx, resource.GetKind(), namespace, name, policy)
 				}
 				debug.Info("resource deleted")
 				records = append(records, cleanupDeletionRecord{resource: resource, err: nil})

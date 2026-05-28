@@ -246,6 +246,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				}
 				if c.metrics != nil {
 					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletedResourceFailure(ctx, resource.GetKind(), namespace, name, policy)
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
@@ -255,6 +256,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			} else {
 				if c.metrics != nil {
 					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+					c.metrics.RecordDeletedResource(ctx, resource.GetKind(), namespace, name, policy)
 				}
 				debug.Info("resource deleted")
 				records = append(records, deletionRecord{resource: resource, err: nil})
