@@ -52,6 +52,7 @@ type controller struct {
 	cmResolver    engineapi.ConfigmapResolver
 	eventGen      event.Interface
 	metrics       pkgmetrics.DeletingMetrics
+	reportWriter  *reportWriter
 }
 
 const (
@@ -104,6 +105,7 @@ func NewController(
 		cmResolver:    cmResolver,
 		eventGen:      eventGen,
 		metrics:       pkgmetrics.GetDeletingMetrics(),
+		reportWriter:  &reportWriter{kyvernoClient: kyvernoClient},
 		provider:      provider,
 		engine:        engine,
 	}
@@ -151,6 +153,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 	debug := logger.V(4)
 	var errs []error
+	var records []deletionRecord
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: spec.DeletionPropagationPolicy,
 	}
@@ -246,6 +249,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
+				records = append(records, deletionRecord{resource: resource, err: err})
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
 				c.eventGen.Add(e)
 			} else {
@@ -253,10 +257,14 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
+				records = append(records, deletionRecord{resource: resource, err: nil})
 				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
 				c.eventGen.Add(e)
 			}
 		}
+	}
+	if c.reportWriter != nil {
+		c.reportWriter.Write(ctx, ePolicy.Policy, records)
 	}
 	return multierr.Combine(errs...)
 }

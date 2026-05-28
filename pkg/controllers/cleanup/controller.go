@@ -54,6 +54,7 @@ type controller struct {
 	eventGen      event.Interface
 	jp            jmespath.Interface
 	gctxStore     loaders.Store
+	reportWriter  *cleanupReportWriter
 }
 
 const (
@@ -109,6 +110,7 @@ func NewController(
 		eventGen:      eventGen,
 		jp:            jp,
 		gctxStore:     gctxStore,
+		reportWriter:  &cleanupReportWriter{kyvernoClient: kyvernoClient},
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
@@ -166,6 +168,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
+	var records []cleanupDeletionRecord
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: spec.DeletionPropagationPolicy,
 	}
@@ -306,6 +309,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				}
 				debug.Error(err, "failed to delete resource")
 				errs = append(errs, err)
+				records = append(records, cleanupDeletionRecord{resource: resource, err: err})
 				e := event.NewCleanupPolicyEvent(policy, resource, err)
 				c.eventGen.Add(e)
 			} else {
@@ -313,10 +317,14 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					metrics.RecordDeletedObject(ctx, kind, namespace, policy, deleteOptions.PropagationPolicy)
 				}
 				debug.Info("resource deleted")
+				records = append(records, cleanupDeletionRecord{resource: resource, err: nil})
 				e := event.NewCleanupPolicyEvent(policy, resource, nil)
 				c.eventGen.Add(e)
 			}
 		}
+	}
+	if c.reportWriter != nil {
+		c.reportWriter.Write(ctx, policy, records)
 	}
 	return multierr.Combine(errs...)
 }

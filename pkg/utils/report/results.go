@@ -16,6 +16,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
@@ -408,4 +409,71 @@ func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string
 		info = info + " Namespace=" + namespace
 	}
 	return info
+}
+
+// DeletingPolicyToReportResult converts a single resource deletion outcome (from a DeletingPolicy
+// or NamespacedDeletingPolicy run) into a PolicyReport result entry.
+// A nil err means the resource was successfully deleted (result=pass); non-nil err means failure (result=error).
+func DeletingPolicyToReportResult(policyName string, resource unstructured.Unstructured, deletionErr error) openreportsv1alpha1.ReportResult {
+	result := openreportsv1alpha1.ReportResult{
+		Source:  SourceDeletingPolicy,
+		Policy:  policyName,
+		Scored:  true,
+		Subjects: []corev1.ObjectReference{{
+			APIVersion: resource.GetAPIVersion(),
+			Kind:       resource.GetKind(),
+			Namespace:  resource.GetNamespace(),
+			Name:       resource.GetName(),
+			UID:        resource.GetUID(),
+		}},
+		Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+		Properties: map[string]string{
+			"process": "cleanup",
+		},
+	}
+	if deletionErr == nil {
+		result.Result = openreports.StatusPass
+		result.Description = "successfully deleted " + resourceRef(resource)
+	} else {
+		result.Result = openreports.StatusError
+		result.Description = "failed to delete " + resourceRef(resource) + ": " + deletionErr.Error()
+	}
+	return result
+}
+
+// CleanupPolicyToReportResult converts a single resource deletion outcome from a CleanupPolicy
+// or ClusterCleanupPolicy run into a PolicyReport result entry.
+func CleanupPolicyToReportResult(policyName string, resource unstructured.Unstructured, deletionErr error) openreportsv1alpha1.ReportResult {
+	result := openreportsv1alpha1.ReportResult{
+		Source:  SourceCleanupPolicy,
+		Policy:  policyName,
+		Scored:  true,
+		Subjects: []corev1.ObjectReference{{
+			APIVersion: resource.GetAPIVersion(),
+			Kind:       resource.GetKind(),
+			Namespace:  resource.GetNamespace(),
+			Name:       resource.GetName(),
+			UID:        resource.GetUID(),
+		}},
+		Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+		Properties: map[string]string{
+			"process": "cleanup",
+		},
+	}
+	if deletionErr == nil {
+		result.Result = openreports.StatusPass
+		result.Description = "successfully deleted " + resourceRef(resource)
+	} else {
+		result.Result = openreports.StatusError
+		result.Description = "failed to delete " + resourceRef(resource) + ": " + deletionErr.Error()
+	}
+	return result
+}
+
+// resourceRef returns a human-readable identifier for an unstructured resource.
+func resourceRef(resource unstructured.Unstructured) string {
+	if ns := resource.GetNamespace(); ns != "" {
+		return resource.GetKind() + "/" + ns + "/" + resource.GetName()
+	}
+	return resource.GetKind() + "/" + resource.GetName()
 }
