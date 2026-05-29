@@ -136,7 +136,7 @@ func (p *Policy) evaluateWithData(
 	for index, validation := range p.validations {
 		out, _, err := validation.Program.ContextEval(ctx, dataNew)
 		if err != nil {
-			return nil, err
+			return &EvaluationResult{Error: err, Index: index}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
@@ -155,17 +155,16 @@ func (p *Policy) evaluateWithData(
 			}
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				return nil, err
+				return &EvaluationResult{Error: err, Index: index}, nil
 			}
 			return &EvaluationResult{
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
-				Error:            err,
 				AuditAnnotations: auditAnnotations,
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err}, nil
+			return &EvaluationResult{Error: err, Index: index}, nil
 		}
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
