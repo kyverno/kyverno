@@ -418,6 +418,7 @@ LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
 LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
+LOCAL_READINESS_REPO   := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_READINESS_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -436,6 +437,9 @@ image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
 
 .PHONY: image-build-background-controller
 image-build-background-controller: $(BUILD_WITH)-build-background-controller
+
+.PHONY: image-build-readiness-checker
+image-build-readiness-checker: $(BUILD_WITH)-build-readiness-checker
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -1058,6 +1062,11 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@echo Load background controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
+.PHONY: kind-load-readiness-checker
+kind-load-readiness-checker: $(KIND) image-build-readiness-checker ## Build readiness-checker image and load it in kind cluster
+	@echo Load readiness-checker image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA)
+
 .PHONY: kind-load-all
 kind-load-all: ## Build images and load them in kind cluster
 kind-load-all: kind-load-kyverno-init
@@ -1065,6 +1074,7 @@ kind-load-all: kind-load-kyverno
 kind-load-all: kind-load-cleanup-controller
 kind-load-all: kind-load-reports-controller
 kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-readiness-checker
 kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
@@ -1091,6 +1101,9 @@ kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set webhooksCleanup.image.registry=$(LOCAL_REGISTRY) \
+		--set webhooksCleanup.image.repository=$(LOCAL_READINESS_REPO) \
+		--set webhooksCleanup.image.tag=$(GIT_SHA) \
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
