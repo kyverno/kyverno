@@ -295,6 +295,10 @@ func TestHandleCleanupIntegrationTestNamespaces(t *testing.T) {
 		"kube-system":           {"kubernetes.io/metadata.name": "kube-system"},
 		"default":               {"kubernetes.io/metadata.name": "default"},
 	})
+
+	// noopResolver simulates CLI/cache-miss paths where the resolver always returns nil.
+	noopResolver := func(string) *corev1.Namespace { return nil }
+
 	engine := NewEngine(nsResolver, namespaceMapper, &libs.FakeContextProvider{}, matcher)
 
 	tests := []struct {
@@ -336,6 +340,20 @@ func TestHandleCleanupIntegrationTestNamespaces(t *testing.T) {
 			assert.Equal(t, tt.wantMatch, resp.Match)
 		})
 	}
+
+	// Verify the fix holds even when the resolver returns nil (CLI / cache-miss paths):
+	// ns must be built from the resource itself so namespaceSelector still works.
+	noopEngine := NewEngine(noopResolver, namespaceMapper, &libs.FakeContextProvider{}, matcher)
+	t.Run("project namespace matches with noop resolver (CLI path)", func(t *testing.T) {
+		resp, err := noopEngine.Handle(ctx, pol, makeNs("acti-bifrost-even-env", map[string]string{"project-name": "acti-bifrost-even-env"}))
+		assert.NoError(t, err)
+		assert.True(t, resp.Match)
+	})
+	t.Run("system namespace not matched with noop resolver (CLI path)", func(t *testing.T) {
+		resp, err := noopEngine.Handle(ctx, pol, makeNs("kube-system", map[string]string{"kubernetes.io/metadata.name": "kube-system"}))
+		assert.NoError(t, err)
+		assert.False(t, resp.Match)
+	})
 }
 
 func TestHandleError(t *testing.T) {
