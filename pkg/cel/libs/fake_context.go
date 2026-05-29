@@ -72,11 +72,24 @@ func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
 	return cp.httpMocks
 }
 
-func (cp *FakeContextProvider) GetGlobalReference(name, _ string) (any, error) {
-	if data, ok := cp.globalReferences[name]; ok {
-		return data, nil
+func (cp *FakeContextProvider) GetGlobalReference(name, projection string) (any, error) {
+	data, ok := cp.globalReferences[name]
+	if !ok {
+		return nil, nil
 	}
-	return nil, nil
+	// When a projection is requested, look it up inside the stored data map.
+	// This mirrors the real contextProvider.GetGlobalReference which calls
+	// storeEntry.Get(projection) and returns only the projection value.
+	if projection != "" {
+		if m, ok := data.(map[string]interface{}); ok {
+			if v, found := m[projection]; found {
+				return v, nil
+			}
+			return nil, fmt.Errorf("projection %q not found in global context entry %q", projection, name)
+		}
+		return nil, fmt.Errorf("projection %q not found in global context entry %q: stored value is not an object", projection, name)
+	}
+	return data, nil
 }
 
 func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {
