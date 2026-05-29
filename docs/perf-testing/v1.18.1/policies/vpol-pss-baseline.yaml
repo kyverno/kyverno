@@ -1,6 +1,6 @@
 # 16 ValidatingPolicies that mirror the PSS Restricted profile used in the
 # published benchmarks (kyverno.io/docs/installation/scaling/).
-# Apply all at once:  kubectl apply -f test/load/policies/vpol-pss-baseline.yaml
+# Apply all at once:  kubectl apply -f docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml
 ---
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy

@@ -3,7 +3,7 @@
 # Run as root on the Akamai Dedicated instance.
 #
 # Usage (from your local machine):
-#   ssh root@<loader-ip> 'bash -s' < scripts/provision/akamai-setup-loader.sh
+#   ssh root@<loader-ip> 'bash -s' < docs/perf-testing/provision/akamai-setup-loader.sh
 
 set -euo pipefail
 
@@ -24,6 +24,7 @@ echo "==> Installing kubectl ..."
 curl -fsSLo /usr/local/bin/kubectl \
   "https://dl.k8s.io/release/v1.32.3/bin/linux/amd64/kubectl"
 chmod +x /usr/local/bin/kubectl
+mkdir -p /root/.kube
 
 echo "==> Building k6 with xk6-kubernetes $XK6_K8S_VERSION ..."
 export GOPATH="/root/go"
@@ -40,5 +41,5 @@ echo ""
 echo "    Expected next steps:"
 echo "      1. Copy kubeconfig from cluster node to /root/.kube/config"
 echo "         (edit server to use VLAN IP 10.0.0.10:6443 if needed)"
-echo "      2. Clone/copy the kyverno repo scripts/k6/ directory"
-echo "      3. Run: k6 run scripts/k6/vpol-script.js --vus 10 --iterations 100"
+echo "      2. Clone/copy the kyverno repo and cd into it"
+echo "      3. Run: k6 run docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js --vus 10 --iterations 100"

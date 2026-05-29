@@ -4,7 +4,7 @@
     "scenario": "baseline",
     "replicas": 0,
     "policies": [],
-    "k6_script": "scripts/k6/script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 10,
     "total_iterations": 1000,
     "extra_options": ""
@@ -14,7 +14,7 @@
     "scenario": "baseline",
     "replicas": 0,
     "policies": [],
-    "k6_script": "scripts/k6/script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -24,7 +24,7 @@
     "scenario": "baseline",
     "replicas": 0,
     "policies": [],
-    "k6_script": "scripts/k6/script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -34,7 +34,7 @@
     "scenario": "baseline",
     "replicas": 0,
     "policies": [],
-    "k6_script": "scripts/k6/script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -43,8 +43,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 10,
     "total_iterations": 1000,
     "extra_options": ""
@@ -53,8 +55,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -63,8 +67,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -73,8 +79,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -83,8 +91,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 10,
     "total_iterations": 1000,
     "extra_options": ""
@@ -93,8 +103,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -103,8 +115,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -113,8 +127,10 @@
     "name": "vpol-simple",
     "scenario": "vpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-simple.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -123,8 +139,22 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-moderate",
+    "scenario": "vpol-moderate-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -133,8 +163,10 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -143,8 +175,10 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -153,8 +187,22 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-moderate",
+    "scenario": "vpol-moderate-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -163,8 +211,10 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -173,8 +223,10 @@
     "name": "vpol-moderate",
     "scenario": "vpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-moderate.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -183,8 +235,22 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-complex",
+    "scenario": "vpol-complex-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -193,8 +259,10 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -203,8 +271,10 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -213,8 +283,22 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-complex",
+    "scenario": "vpol-complex-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -223,8 +307,10 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -233,8 +319,10 @@
     "name": "vpol-complex",
     "scenario": "vpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-complex.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -243,8 +331,22 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-pss-baseline",
+    "scenario": "vpol-pss-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -253,8 +355,10 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -263,8 +367,10 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -273,8 +379,22 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "vpol-pss-baseline",
+    "scenario": "vpol-pss-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -283,8 +403,10 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -293,8 +415,10 @@
     "name": "vpol-pss-baseline",
     "scenario": "vpol-pss-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/vpol-pss-baseline.yaml"],
-    "k6_script": "scripts/k6/vpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -303,8 +427,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 10,
     "total_iterations": 1000,
     "extra_options": ""
@@ -313,8 +439,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -323,8 +451,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -333,8 +463,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -343,8 +475,22 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "mpol-simple",
+    "scenario": "mpol-simple-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -353,8 +499,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -363,8 +511,10 @@
     "name": "mpol-simple",
     "scenario": "mpol-simple-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-simple.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-simple.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -373,8 +523,22 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "mpol-moderate",
+    "scenario": "mpol-moderate-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -383,8 +547,10 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -393,8 +559,10 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -403,8 +571,22 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "mpol-moderate",
+    "scenario": "mpol-moderate-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -413,8 +595,10 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -423,8 +607,10 @@
     "name": "mpol-moderate",
     "scenario": "mpol-moderate-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-moderate.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -433,8 +619,22 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "mpol-complex",
+    "scenario": "mpol-complex-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -443,8 +643,10 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -453,8 +655,10 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-1r",
     "replicas": 1,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -463,8 +667,22 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "mpol-complex",
+    "scenario": "mpol-complex-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -473,8 +691,10 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -483,8 +703,10 @@
     "name": "mpol-complex",
     "scenario": "mpol-complex-3r",
     "replicas": 3,
-    "policies": ["test/load/policies/mpol-complex.yaml"],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/mpol-complex.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/mpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -494,10 +716,23 @@
     "scenario": "combined-1r",
     "replicas": 1,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "combined",
+    "scenario": "combined-1r",
+    "replicas": 1,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -507,10 +742,10 @@
     "scenario": "combined-1r",
     "replicas": 1,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -520,10 +755,10 @@
     "scenario": "combined-1r",
     "replicas": 1,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""
@@ -533,10 +768,23 @@
     "scenario": "combined-3r",
     "replicas": 3,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  },
+  {
+    "name": "combined",
+    "scenario": "combined-3r",
+    "replicas": 3,
+    "policies": [
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
+    ],
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 50,
     "total_iterations": 5000,
     "extra_options": ""
@@ -546,10 +794,10 @@
     "scenario": "combined-3r",
     "replicas": 3,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 200,
     "total_iterations": 10000,
     "extra_options": ""
@@ -559,10 +807,10 @@
     "scenario": "combined-3r",
     "replicas": 3,
     "policies": [
-      "test/load/policies/vpol-moderate.yaml",
-      "test/load/policies/mpol-moderate.yaml"
+      "docs/perf-testing/v1.18.1/policies/vpol-moderate.yaml",
+      "docs/perf-testing/v1.18.1/policies/mpol-moderate.yaml"
     ],
-    "k6_script": "scripts/k6/mpol-script.js",
+    "k6_script": "docs/perf-testing/v1.18.1/scripts/k6/vpol-script.js",
     "concurrent_connections": 500,
     "total_iterations": 10000,
     "extra_options": ""

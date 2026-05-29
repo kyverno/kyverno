@@ -5,10 +5,10 @@
 #
 # Usage:
 #   export LINODE_SSH_KEY="$(cat ~/.ssh/id_ed25519.pub)"
-#   ./scripts/provision/akamai-provision.sh
+#   ./docs/perf-testing/provision/akamai-provision.sh
 #
 # To destroy after testing:
-#   ./scripts/provision/akamai-provision.sh teardown
+#   ./docs/perf-testing/provision/akamai-provision.sh teardown
 
 set -euo pipefail
 
@@ -98,10 +98,10 @@ echo "==> Instances ready."
 echo ""
 echo "Next steps:"
 echo "  1. Bootstrap the cluster node:"
-echo "     ssh root@$CLUSTER_IP 'bash -s' < scripts/provision/akamai-setup-cluster.sh"
+echo "     ssh root@$CLUSTER_IP 'bash -s' < docs/perf-testing/provision/akamai-setup-cluster.sh"
 echo ""
 echo "  2. Bootstrap the loader node:"
-echo "     ssh root@$LOADER_IP 'bash -s' < scripts/provision/akamai-setup-loader.sh"
+echo "     ssh root@$LOADER_IP 'bash -s' < docs/perf-testing/provision/akamai-setup-loader.sh"
 echo ""
 echo "  3. Copy kubeconfig from cluster to loader:"
 echo "     scp root@$CLUSTER_IP:/root/.kube/config /tmp/kyverno-perf-kubeconfig"

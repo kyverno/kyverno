@@ -10,7 +10,7 @@ GitHub Actions `ubuntu-latest` runners (4 vCPU / 16 GB) distort high-concurrency
 
 | Instance label | Linode type | vCPU | RAM | Purpose |
 |----------------|-------------|------|-----|---------|
-| `kyverno-perf-cluster` | `g6-dedicated-64` | 32 | 64 GB | KinD cluster: control plane + workers + KWOK + Prometheus |
+| `kyverno-perf-cluster` | `g6-dedicated-32` | 32 | 64 GB | KinD cluster: control plane + workers + KWOK + Prometheus |
 | `kyverno-perf-loader` | `g6-dedicated-16` | 8 | 16 GB | k6 load generator |
 
 Both instances join the `kyverno-perf-vlan` VLAN (10.0.0.0/24) so load traffic stays on a private LAN interface and avoids Akamai egress charges.
@@ -126,7 +126,6 @@ kubectl apply -f docs/perf-testing/v1.18.1/policies/mpol-complex.yaml
 
 To delete all test policies:
 ```sh
-kubectl delete validatingpolicies -l app.kubernetes.io/part-of=kyverno-perf-test 2>/dev/null || \
 kubectl delete -f docs/perf-testing/v1.18.1/policies/ --ignore-not-found
 ```
 
@@ -168,7 +167,7 @@ For MutatingPolicy scenarios, replace `vpol-script.js` with `mpol-script.js`.
 
 ### Running the Full Matrix
 
-The full test matrix is defined in `docs/perf-testing/v1.18.1/matrix.json` (54 runs across 17 scenarios × 4 load levels, minus baseline-only rows). Use `jq` to drive a loop:
+The full test matrix is defined in `docs/perf-testing/v1.18.1/matrix.json` (68 runs across 17 scenarios × 4 load levels). Use `jq` to drive a loop:
 
 ```sh
 jq -c '.[]' docs/perf-testing/v1.18.1/matrix.json | while read -r entry; do
