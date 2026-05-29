@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-simple
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: "has(object.metadata.labels)"
+    message: "Pod must have labels"
