@@ -108,10 +108,11 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		key       string
-		objects   []runtime.Object
-		checkFunc func(t *testing.T, client *versionedfake.Clientset)
+		name          string
+		key           string
+		objects       []runtime.Object
+		setupRecorder func(webhook.StateRecorder)
+		checkFunc     func(t *testing.T, client *versionedfake.Clientset)
 	}{
 		{
 			name: "ValidatingPolicy",
@@ -198,15 +199,28 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 			key:  webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, "test-nmpol", "test-ns"),
 			objects: []runtime.Object{
 				&policiesv1beta1.NamespacedMutatingPolicy{
+					TypeMeta:   metav1.TypeMeta{Kind: "NamespacedMutatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
 					ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol", Namespace: "test-ns"},
 					Spec:       policiesv1beta1.MutatingPolicySpec{MatchConstraints: emptyMatchResources},
 				},
+			},
+			setupRecorder: func(r webhook.StateRecorder) {
+				r.Record(webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, "test-nmpol", "test-ns"))
 			},
 			checkFunc: func(t *testing.T, client *versionedfake.Clientset) {
 				t.Helper()
 				pol, err := client.PoliciesV1beta1().NamespacedMutatingPolicies("test-ns").Get(context.Background(), "test-nmpol", metav1.GetOptions{})
 				require.NoError(t, err)
-				assert.NotEmpty(t, pol.Status.ConditionStatus.Conditions, "NamespacedMutatingPolicy status should have conditions")
+				var webhookCond *metav1.Condition
+				for i := range pol.Status.ConditionStatus.Conditions {
+					if pol.Status.ConditionStatus.Conditions[i].Type == string(policiesv1beta1.PolicyConditionTypeWebhookConfigured) {
+						c := pol.Status.ConditionStatus.Conditions[i]
+						webhookCond = &c
+						break
+					}
+				}
+				require.NotNil(t, webhookCond, "NamespacedMutatingPolicy WebhookConfigured condition should be set by the NMP branch in reconcileConditions")
+				assert.Equal(t, metav1.ConditionTrue, webhookCond.Status, "WebhookConfigured should be True after recording the key")
 			},
 		},
 		{
@@ -234,11 +248,15 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 
 			client := versionedfake.NewSimpleClientset(tt.objects...)
 			dc := dclient.NewEmptyFakeClient()
+			recorder := webhook.NewStateRecorder(nil)
+			if tt.setupRecorder != nil {
+				tt.setupRecorder(recorder)
+			}
 			c := controller{
 				dclient:          dc,
 				client:           client,
 				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
-				polStateRecorder: webhook.NewStateRecorder(nil),
+				polStateRecorder: recorder,
 			}
 
 			err := c.reconcile(ctx, logr.Discard(), tt.key, "", "")
