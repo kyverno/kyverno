@@ -295,6 +295,13 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		// MutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status
+	case webhook.NamespacedMutatingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, policy.GetName(), policy.GetNamespace())
+		matchConstraints = policy.AsNamespacedMutatingPolicy().GetMatchConstraints()
+		backgroundOnly = (!policy.AsNamespacedMutatingPolicy().GetSpec().AdmissionEnabled() && policy.AsNamespacedMutatingPolicy().GetSpec().BackgroundEnabled())
+		// NamespacedMutatingPolicy uses v1beta1.ConditionStatus, convert to return type
+		v1beta1Status := policy.AsNamespacedMutatingPolicy().GetStatus().ConditionStatus
+		status = &v1beta1Status
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
