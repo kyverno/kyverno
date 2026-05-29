@@ -45,6 +45,20 @@ Dependabot groups related packages (Kubernetes, Sigstore, OpenTelemetry) to redu
 
 Kyverno publishes a [compatibility matrix](https://kyverno.io/docs/installation/#compatibility-matrix) documenting which versions of Kubernetes are supported by each Kyverno release. Dependencies that fall out of upstream support are upgraded or replaced as part of the regular release cycle.
 
+## Third-Party Attribution
+
+Kyverno distributes third-party software as part of its container images and Helm chart. Attribution notices are provided in the following locations:
+
+- **[NOTICE](NOTICE)** — repo-root notice file listing project copyright and notable upstream attributions
+- **`/var/run/ko/NOTICE`** and **`/var/run/ko/LICENSE`** — embedded in each container image at build time via `ko`'s `kodata` mechanism
+- **[FOSSA](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno)** — machine-readable inventory of all third-party licenses, updated on every push to `main`
+
+To produce a per-package license report from the current dependency graph:
+```bash
+go install github.com/google/go-licenses@v1.6.0 && go-licenses report ./cmd/kyverno/...
+```
+The `NOTICE` file is maintained manually; the command above outputs a CSV that can be used to verify or update the counts and notable components it contains.
+
 ## Vulnerability Remediation SLA
 
 When a vulnerability is confirmed in Kyverno or one of its dependencies, the security response team targets the following fix timelines, measured from the date of confirmed triage:
