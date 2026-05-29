@@ -59,7 +59,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 			resource.GetName(),
 			mapping.Resource,
 			"",
-			"",
+			admission.Create,
 			nil,
 			false,
 			nil,
@@ -67,6 +67,12 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 
 		if namespace != "" {
 			ns = e.nsResolver(namespace)
+		} else if resource.GroupVersionKind().Group == "" && resource.GetKind() == "Namespace" {
+			// For Namespace resources (cluster-scoped), use the resource itself as the
+			// namespace context so that namespaceSelector and namespaceObject work correctly.
+			if resolved := e.nsResolver(resource.GetName()); resolved != nil {
+				ns = resolved
+			}
 		}
 
 		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
