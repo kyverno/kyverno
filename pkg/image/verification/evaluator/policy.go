@@ -196,6 +196,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 				Error:            err,
 			}, nil
 		} else if err != nil {
+			logger.V(6).Info("CEL validation expression result conversion error", "index", i, "error", err)
 			return &EvaluationResult{Error: err}, nil
 		} else {
 			logger.V(6).Info("CEL validation expression passed", "index", i)
