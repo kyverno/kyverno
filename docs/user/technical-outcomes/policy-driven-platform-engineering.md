@@ -64,7 +64,7 @@ spec:
               team: "?*"
               environment: "?*"
 ```
-> **Note:** The `"?*"` pattern checks that the label exists and is non-empty. Platform teams can tighten this further to allow only specific values - for example, using `enum` checks like `dev | staging | prod`—depending on their organizational standards.
+> **Note:** The `"?*"` pattern checks that the label exists and is non-empty. Platform teams can tighten this further to allow only specific values—for example, by restricting the label to an allowed set like `"dev | staging | prod"`—depending on their organizational standards.
 
 ## Related Resources
 

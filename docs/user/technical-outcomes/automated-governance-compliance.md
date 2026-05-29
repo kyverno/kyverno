@@ -62,7 +62,7 @@ spec:
           spec:
             containers:
               - =(securityContext):
-                   =(privileged): false
+                  =(privileged): false
 ```
 
 ## Related Resources
