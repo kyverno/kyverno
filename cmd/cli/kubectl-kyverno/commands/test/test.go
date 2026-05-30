@@ -464,10 +464,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			if op == "" {
 				op = "CREATE"
 			}
-			op = strings.ToUpper(strings.Trim(op, " "))
+			op = strings.ToUpper(strings.TrimSpace(op))
 			operations := []string{"CREATE", "CONNECT", "UPDATE", "DELETE"}
 			if !slices.Contains(operations, op) {
-				return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: create, update, delete, connect", op)
+				return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: CREATE, UPDATE, DELETE, CONNECT", op)
 			}
 			policiesByOperation[op] = append(policiesByOperation[op], res.Policy)
 		}

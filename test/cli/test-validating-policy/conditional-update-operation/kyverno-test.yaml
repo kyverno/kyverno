@@ -15,4 +15,3 @@ results:
   resources:
   - prod-app
   result: fail
-variables: values.yaml
