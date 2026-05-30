@@ -1,9 +1,0 @@
-apiVersion: cli.kyverno.io/v1alpha1
-kind: Values
-policies:
-- name: deny-delete-production-pod
-  resources:
-  - name: prod-app
-- name: deny-create-production-pod
-  resources:
-  - name: prod-app
