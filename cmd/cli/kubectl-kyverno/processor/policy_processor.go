@@ -592,8 +592,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						object = &resource
 						// if OldResource is not provided
 						if p.OldResource == nil {
-							oldObject = resource.DeepCopy()
-							fmt.Fprintf(p.Out, "UPDATE operations require an old resource but it's missing\n")
+							return nil, fmt.Errorf("UPDATE operations require an old resource but it's missing")
 						} else {
 							oldObject = p.OldResource
 						}
