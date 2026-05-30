@@ -235,7 +235,15 @@ func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, cryp
 	} else if len(certs) == 1 {
 		return secret, key, certs[0], nil
 	} else {
-		return nil, nil, nil, err
+		// Multiple certs in PEM bundle (e.g. leaf + intermediate from cert-manager).
+		// Prefer the first non-CA certificate (the leaf); fall back to certs[0]
+		// if all certs happen to be CAs.
+		for _, cert := range certs {
+			if !cert.IsCA {
+				return secret, key, cert, nil
+			}
+		}
+		return secret, key, certs[0], nil
 	}
 }
 
