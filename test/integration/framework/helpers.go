@@ -223,3 +223,20 @@ func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation,
 	}
 	return req
 }
+
+// NamespaceAdmissionRequest builds a CREATE admission request for a cluster-scoped Namespace.
+// Mirrors the shape of PodAdmissionRequest for use as a trigger in gpol sync-clone tests
+// where the chainsaw scenarios use Namespace CREATE/UPDATE as the trigger.
+func NamespaceAdmissionRequest(name string, raw []byte) handlers.AdmissionRequest {
+	return handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID(uuid.New().String()),
+			Operation: admissionv1.Create,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			Name:      name,
+			Object:    runtime.RawExtension{Raw: raw},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+}
