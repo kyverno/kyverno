@@ -140,7 +140,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		// to check the API-server version against, so the dclient is nil.
 		// Calling client.GetKubeClient().Discovery() here without a guard
 		// segfaults the CLI on any policy that declares
-		// spec.webhookConfigurations.matchConditions (#15833). Skip the
+		// spec.webhookConfiguration.matchConditions (#15833). Skip the
 		// version check offline; the real admission path still enforces
 		// it because mock is false there.
 		if !mock && !kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
