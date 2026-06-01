@@ -566,8 +566,7 @@ kubectl logs -n kyverno \
 ### 4. Inspect the Cached Payload
 
 ```bash
-kubectl get gctxentry <entry-name> \
-  -o jsonpath='{.status}' | jq .
+kubectl get gctxentry <entry-name> -o yaml
 ```
 
 Run this before writing policy rules to confirm the exact data structure
