@@ -31,6 +31,7 @@ func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cach
 		}
 
 		w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+		w.metrics.RecordResult(context.TODO(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
 	}
 
 	return response, nil
