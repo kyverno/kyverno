@@ -574,9 +574,7 @@ kubectl logs -n kyverno \
 ```
 
 > **Note:** Replace `<your-component-label>` with the value found above.
-> Common values depending on your Kyverno version are:
-> - `admission-controller`
-> - `admissions-controller`
+> The correct label value is `admission-controller`.
 
 ### 4. Inspect the Cached Payload
 
