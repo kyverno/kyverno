@@ -91,17 +91,19 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
-func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, verifiedDigest string, useCache bool) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
 		return false, nil
+	} else if verifiedDigest == "" {
+		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	stored := c.cache.SetWithTTL(key, verifiedDigest, 1, c.ttl)
 	c.cache.Wait()
 	if stored {
 		return true, nil
@@ -109,18 +111,22 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, string, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
-		return false, nil
+		return false, "", nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
-		return false, nil
+		return false, "", nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
-	_, found := c.cache.Get(key)
-	if found {
-		return true, nil
+	value, found := c.cache.Get(key)
+	if !found {
+		return false, "", nil
 	}
-	return false, nil
+	verifiedDigest, ok := value.(string)
+	if !ok || verifiedDigest == "" {
+		return false, "", nil
+	}
+	return true, verifiedDigest, nil
 }

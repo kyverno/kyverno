@@ -1093,7 +1093,9 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "verified from cache")
+	// cache hits still resolve the tag digest for binding, so the speedup is less than skipping all registry calls
+	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be faster on cache hit.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheDisabled(t *testing.T) {
@@ -1307,16 +1309,12 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "verified from cache")
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
