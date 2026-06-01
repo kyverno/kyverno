@@ -31,11 +31,28 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 ```yaml
 # Example ClusterRole patch for a custom CRD
-rules:
-  - apiGroups: ["your.crd.group"]
-    resources: ["yourresources"]
-    verbs: ["get", "list", "watch"]
+If you are caching a Custom Resource Definition (CRD), patch Kyverno's
+existing ClusterRole to grant the required permissions:
+
+```bash
+kubectl patch clusterrole kyverno:admission-controller \
+  --type='json' \
+  -p='[{
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": ["your.crd.group"],
+      "resources": ["yourresources"],
+      "verbs": ["get", "list", "watch"]
+    }
+  }]'
 ```
+
+> **Note:** This patches Kyverno's existing ClusterRole rather than
+> creating a new one. Replace `your.crd.group` and `yourresources`
+> with your actual CRD API group and resource name (lowercased,
+> pluralized). Standard Kubernetes resources like `configmaps` and
+> `secrets` already have permissions granted by default — no patch needed.
 
 ---
 
