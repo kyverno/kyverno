@@ -11,7 +11,10 @@ weight: 10
 
 A `GlobalContextEntry` is a cluster-scoped custom resource that enables Kyverno to cache Kubernetes API resources or external HTTP responses directly within its local memory pool.
 
-By centralizing and pre-fetching heavy datasets, multiple policies can evaluate incoming mutation, validation, or generation requests instantly via a `globalReference` variable. This system shifts data access from a reactive, synchronous lookup model to a proactive, highly parallel asynchronous tracking mechanism.
+By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
+incoming mutation, validation, or generation requests instantly by adding a 
+`context` entry using `globalReference`. The cached data is then accessible 
+via the variable name assigned in that context entry (e.g., `cached_configmaps`).
 
 ---
 
@@ -19,7 +22,11 @@ By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
 
 Before configuring a `GlobalContextEntry`, ensure the following:
 
-- **Kyverno v2+** is installed in your cluster
+- **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
+  was introduced in this release). Verify your version with:
+```bash
+  kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
+```
 
 > **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
 > while `ClusterPolicy` and `Policy` resources continue to use
