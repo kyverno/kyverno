@@ -349,6 +349,70 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_DeterministicOrder(t *testing.T) {
+	newPolicy := func(name string) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				WebhookConfiguration: &policiesv1beta1.WebhookConfiguration{
+					TimeoutSeconds: ptr.To(int32(20)),
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"*"},
+									APIVersions: []string{"*"},
+									Resources:   []string{"*"},
+									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policyA := engineapi.NewValidatingPolicy(newPolicy("a-policy"))
+	policyB := engineapi.NewValidatingPolicy(newPolicy("b-policy"))
+
+	webhooksAB := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{policyA, policyB},
+		NewExpressionCache(),
+	)
+	webhooksBA := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{policyB, policyA},
+		NewExpressionCache(),
+	)
+
+	assert.Equal(t, webhooksAB, webhooksBA)
+	assert.Equal(t, []string{
+		config.ValidatingPolicyWebhookName + "-fail-finegrained-a-policy",
+		config.ValidatingPolicyWebhookName + "-fail-finegrained-b-policy",
+	}, []string{
+		webhooksAB[0].Name,
+		webhooksAB[1].Name,
+	})
+}
+
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
