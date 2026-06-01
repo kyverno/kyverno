@@ -1,8 +1,8 @@
 ---
-title: GlobalContextEntry
+title: Global Context Caching
 description: >-
-    Cache Kubernetes resources and external API data globally to optimize
-    policy evaluation performance at scale.
+    Use GlobalContextEntry to cache Kubernetes resources and external API
+    data globally, optimizing policy evaluation performance at scale.
 weight: 10
 ---
 
@@ -19,7 +19,13 @@ By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
 
 Before configuring a `GlobalContextEntry`, ensure the following:
 
-- **Kyverno v2+** is installed in your cluster (`apiVersion: kyverno.io/v2`)
+- - **Kyverno v2+** is installed in your cluster
+
+> **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
+> while `ClusterPolicy` and `Policy` resources continue to use
+> `apiVersion: kyverno.io/v1`. This is expected — they are separate resource
+> kinds with independent API version tracks. Using `v1` for policies alongside
+> `v2` for `GlobalContextEntry` is correct and not a typo.
 - **kubectl** access with sufficient permissions to create cluster-scoped resources
 - **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
 
@@ -320,10 +326,28 @@ spec:
     resource: configmaps
     namespace: default
 ```
+> **JMESPath Structure Note:** The shape of cached data differs by mode:
+>
+> - **`kubernetesResource` mode** returns a raw array of objects.
+>   Use `[].metadata.name` to extract names:
+>   ```yaml
+>   jmesPath: "[].metadata.name"
+>   ```
+>
+> - **`apiCall.urlPath` mode** returns a standard Kubernetes API envelope
+>   with an `items` array. Use `items[].metadata.name` instead:
+>   ```yaml
+>   jmesPath: "items[].metadata.name"
+>   ```
+>
+> Using the wrong shape will silently return an empty result, causing
+> policies to behave unexpectedly. Check your cached payload structure
+> first using `kubectl get gctxentry <name> -o jsonpath='{.status}'`.
+
 #### Step 2: Bind a Policy to the Entry
 
 ```yaml
-apiVersion: kyverno.io/v1
+apiVersion: kyverno.io/v1 # ClusterPolicy stays on v1 — this is correct
 kind: ClusterPolicy
 metadata:
   name: require-configmap-via-gctx
