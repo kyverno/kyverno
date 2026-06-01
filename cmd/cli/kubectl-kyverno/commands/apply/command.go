@@ -218,7 +218,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
-	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
+	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().StringVar(&applyCommandConfig.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
@@ -1149,7 +1149,14 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		}
 		for _, policy := range policies {
 			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetName()))
+				var namespace string
+				if c.Namespace != "" {
+					namespace = c.Namespace
+				} else {
+					namespace = "default"
+				}
+				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s, setting it to \"%s\"", policy.GetName(), namespace))
+				policy.SetNamespace(namespace)
 			}
 		}
 	}
