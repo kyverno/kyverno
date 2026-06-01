@@ -87,6 +87,8 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 
+	logMutationRules(logger, response.Policies)
+
 	go func() {
 		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
 			logger.Error(err, "failed to create reports")
@@ -221,6 +223,45 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	}
 
 	return admissionutils.MutationResponse(request.Request.UID, nil, warnings...), nil
+}
+
+func logMutationRules(logger logr.Logger, policies []mpolengine.MutatingPolicyResponse) {
+	for _, p := range policies {
+		if p.Policy == nil || !p.Mutated || !hasSuccessfulRule(p.Rules) {
+			continue
+		}
+
+		keysAndValues := []interface{}{
+			"policy", p.Policy.GetName(),
+		}
+		if rules := successRules(p.Rules); len(rules) > 0 {
+			keysAndValues = append(keysAndValues, "rules", rules)
+		}
+
+		logger.V(2).Info(
+			"mutation rules from policy applied successfully",
+			keysAndValues...,
+		)
+	}
+}
+
+func hasSuccessfulRule(rules []engineapi.RuleResponse) bool {
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusPass {
+			return true
+		}
+	}
+	return false
+}
+
+func successRules(rules []engineapi.RuleResponse) []string {
+	var names []string
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusPass && r.Name() != "" {
+			names = append(names, r.Name())
+		}
+	}
+	return names
 }
 
 func policyNamesFromContext(ctx context.Context) []string {

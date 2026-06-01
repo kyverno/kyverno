@@ -142,6 +142,40 @@ func TestGetPatches(t *testing.T) {
 	})
 }
 
+func TestHasResourceChanges(t *testing.T) {
+	original := &unstructured.Unstructured{}
+	original.Object = map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      "test-cm",
+			"namespace": "default",
+		},
+		"data": map[string]interface{}{
+			"key1": "value1",
+		},
+	}
+
+	t.Run("returns false when the patched resource is unchanged", func(t *testing.T) {
+		patched := original.DeepCopy()
+
+		assert.False(t, hasResourceChanges(original, patched))
+	})
+
+	t.Run("returns true when the patched resource changed", func(t *testing.T) {
+		patched := original.DeepCopy()
+		data := patched.Object["data"].(map[string]interface{})
+		data["key2"] = "value2"
+
+		assert.True(t, hasResourceChanges(original, patched))
+	})
+
+	t.Run("returns false when inputs are nil", func(t *testing.T) {
+		assert.False(t, hasResourceChanges(nil, original))
+		assert.False(t, hasResourceChanges(original, nil))
+	})
+}
+
 type mockAttributes struct{}
 
 func (m *mockAttributes) GetName() string      { return "" }
