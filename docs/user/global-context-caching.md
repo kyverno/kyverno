@@ -550,23 +550,25 @@ without needing to dig through logs.
 
 ### 3. Check Kyverno Controller Logs
 
-First, discover the exact label your installation uses:
+First, discover the exact component label your installation uses:
 
 ```bash
 kubectl get pods -n kyverno --show-labels
 ```
 
-Then use the correct component label from the output to stream logs:
+Look for the `app.kubernetes.io/component` value in the output. Then use it to stream logs:
 
 ```bash
 kubectl logs -n kyverno \
-  -l app.kubernetes.io/component=admission-controller \
+  -l app.kubernetes.io/component=<your-component-label> \
   --since=10m \
   | grep -i globalcontext
 ```
 
-> **Note:** Some Kyverno installations use `admissions-controller` (plural).
-> Check your pod labels with the command above if this returns no results.
+> **Note:** Replace `<your-component-label>` with the value found above.
+> Common values depending on your Kyverno version are:
+> - `admission-controller`
+> - `admissions-controller`
 
 ### 4. Inspect the Cached Payload
 
