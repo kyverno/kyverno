@@ -349,6 +349,107 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
+	fineGrainedSpec := func(resource string) policiesv1beta1.ValidatingPolicySpec {
+		return policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{resource},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "always-true", Expression: "true"},
+			},
+		}
+	}
+	buildWith := func(webhookName, queryPath string, generic []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
+		cache := NewExpressionCache()
+		for _, p := range generic {
+			cache.AddPolicyExpressions(extractGenericPolicy(p).GetMatchConditions())
+		}
+		return buildWebhookRules(
+			config.NewDefaultConfiguration(false),
+			"", webhookName, queryPath,
+			0, nil, generic, cache,
+		)
+	}
+	vpolA := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-aardvark"},
+		Spec:       fineGrainedSpec("pods"),
+	})
+	vpolB := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-mango"},
+		Spec:       fineGrainedSpec("services"),
+	})
+	vpolC := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-zebra"},
+		Spec:       fineGrainedSpec("configmaps"),
+	})
+	nvpolAlphaA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-alpha", Name: "policy-a"},
+		Spec:       fineGrainedSpec("pods"),
+	})
+	nvpolAlphaB := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-alpha", Name: "policy-b"},
+		Spec:       fineGrainedSpec("services"),
+	})
+	nvpolBetaA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-beta", Name: "policy-a"},
+		Spec:       fineGrainedSpec("configmaps"),
+	})
+	tests := []struct {
+		name        string
+		webhookName string
+		queryPath   string
+		canonical   []engineapi.GenericPolicy
+		shuffled    []engineapi.GenericPolicy
+	}{
+		{
+			name:        "cluster-scoped CBA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolC, vpolB, vpolA},
+		},
+		{
+			name:        "cluster-scoped BCA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolB, vpolC, vpolA},
+		},
+		{
+			name:        "namespaced beta-alphaB-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolBetaA, nvpolAlphaB, nvpolAlphaA},
+		},
+		{
+			name:        "namespaced alphaB-beta-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolAlphaB, nvpolBetaA, nvpolAlphaA},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expected := buildWith(tt.webhookName, tt.queryPath, tt.canonical)
+			result := buildWith(tt.webhookName, tt.queryPath, tt.shuffled)
+			assert.Equal(t, expected, result)
+		})
+	}
+}
+
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
