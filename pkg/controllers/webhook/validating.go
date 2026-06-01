@@ -172,46 +172,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	}
 	// process basic policies
 	if len(basic) != 0 {
-		names := make([]string, 0, len(basic))
-		for _, policy := range basic {
-			names = append(names, policy.GetName())
-		}
-		slices.Sort(names)
-		dynamicPath := path.Join(names...)
-		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
-			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
-			SideEffects:             &noneOnDryRun,
-			AdmissionReviewVersions: []string{"v1"},
-		}
-		webhookFail := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
-			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
-			SideEffects:             &noneOnDryRun,
-			AdmissionReviewVersions: []string{"v1"},
-		}
-		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-
+		var basicIgnoreList, basicFailList []admissionregistrationv1.ValidatingWebhook
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
-			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
-			webhookIgnore.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
-			webhookFail.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
-			webhookFail.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
+			webhook := admissionregistrationv1.ValidatingWebhook{
+				SideEffects:             &noneOnDryRun,
+				AdmissionReviewVersions: []string{"v1"},
+			}
+
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
@@ -285,17 +253,34 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhookRules = append(webhookRules, match.RuleWithOperations)
 				}
 			}
+
+			webhook.Rules = webhookRules
+			webhook.NamespaceSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().NamespaceSelector,
+				cfg.GetWebhook().NamespaceSelector,
+			)
+			webhook.ObjectSelector = mergeLabelSelectors(
+				p.GetMatchConstraints().ObjectSelector,
+				cfg.GetWebhook().ObjectSelector,
+			)
+
 			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
-				webhookIgnore.Rules = append(webhookIgnore.Rules, webhookRules...)
+				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
+				webhook.Name = generateName(name+"-ignore", p)
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				basicIgnoreList = append(basicIgnoreList, webhook)
 			} else {
-				webhookFail.Rules = append(webhookFail.Rules, webhookRules...)
+				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
+				webhook.Name = generateName(name+"-fail", p)
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
+				basicFailList = append(basicFailList, webhook)
 			}
 		}
-		if webhookFail.Rules != nil {
-			webhooks = append(webhooks, webhookFail)
+		if basicFailList != nil {
+			webhooks = append(webhooks, basicFailList...)
 		}
-		if webhookIgnore.Rules != nil {
-			webhooks = append(webhooks, webhookIgnore)
+		if basicIgnoreList != nil {
+			webhooks = append(webhooks, basicIgnoreList...)
 		}
 	}
 	return webhooks
