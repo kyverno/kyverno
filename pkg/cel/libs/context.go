@@ -51,6 +51,7 @@ type Context interface {
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
 	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
+	Clone() Context
 }
 
 type generateContext struct {
@@ -218,7 +219,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(targetNamespace)
 			item.SetResourceVersion("")
 			// check if the resource is already generated
-			_, err := cp.client.GetResource(
+			existingRes, err := cp.client.GetResource(
 				context.TODO(),
 				item.GetAPIVersion(),
 				item.GetKind(),
@@ -241,6 +242,32 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 						return err
 					}
 					cp.generatedResources = append(cp.generatedResources, generatedRes)
+				}
+			} else if err == nil {
+				// Append existing resources to ensure cacheRestore URs report them to SyncWatchers
+				// on controller restarts, provided they are managed by this specific policy trigger.
+				if existingRes != nil {
+					labels := existingRes.GetLabels()
+					expectedLabels := item.GetLabels()
+
+					if labels != nil && expectedLabels != nil {
+						policyLabel, hasPolicyLabel := labels[common.GeneratePolicyLabel]
+						triggerNameLabel, hasTriggerNameLabel := labels[common.GenerateTriggerNameLabel]
+						triggerNSLabel, hasTriggerNSLabel := labels[common.GenerateTriggerNSLabel]
+						triggerUIDLabel, hasTriggerUIDLabel := labels[common.GenerateTriggerUIDLabel]
+
+						if hasPolicyLabel &&
+							hasTriggerNameLabel &&
+							hasTriggerNSLabel &&
+							hasTriggerUIDLabel &&
+							policyLabel == expectedLabels[common.GeneratePolicyLabel] &&
+							triggerNameLabel == expectedLabels[common.GenerateTriggerNameLabel] &&
+							triggerNSLabel == expectedLabels[common.GenerateTriggerNSLabel] &&
+							triggerUIDLabel == expectedLabels[common.GenerateTriggerUIDLabel] {
+
+							cp.generatedResources = append(cp.generatedResources, existingRes)
+						}
+					}
 				}
 			} else if err != nil {
 				return err
@@ -346,4 +373,15 @@ func isLikelyKubernetesObject(data any) bool {
 		return true
 	}
 	return false
+}
+
+func (cp *contextProvider) Clone() Context {
+	// Returns a shallow copy. Maps, clients, and other referenced mutable state remain shared.
+	// Only the copied top-level struct fields and the per-worker generatedResources list are isolated here.
+	clone := *cp
+
+	// generatedResources is per-evaluation state. Ensure each worker starts with a clean slate.
+	clone.generatedResources = make([]*unstructured.Unstructured, 0)
+
+	return &clone
 }
