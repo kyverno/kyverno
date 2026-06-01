@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/sdk/cel/utils"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -22,7 +21,7 @@ type ivfuncs struct {
 	types.Adapter
 
 	logger          logr.Logger
-	imgCtx          imagedataloader.ImageContext
+	imgCtxHolder    *ImageContextHolder
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
@@ -32,7 +31,7 @@ type ivfuncs struct {
 
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
-	imgCtx imagedataloader.ImageContext,
+	imgCtxHolder *ImageContextHolder,
 	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister k8scorev1.SecretInterface,
 	adapter types.Adapter,
@@ -51,7 +50,7 @@ func ImageVerifyCELFuncs(
 	}
 	return &ivfuncs{
 		Adapter:         adapter,
-		imgCtx:          imgCtx,
+		imgCtxHolder:    imgCtxHolder,
 		creds:           spec.Credentials,
 		imgRules:        imgRules,
 		attestationList: attestationMap(ivpol),
@@ -75,7 +74,11 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		}
 		for _, attestor := range attestors {
 			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
+			imgCtx := f.imgCtxHolder.Load()
+			if imgCtx == nil {
+				return types.NewErr("image context is not initialized")
+			}
+			img, err := imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
@@ -129,7 +132,11 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				return types.NewErr("attestation not found in policy: %s", attestation)
 			}
 			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
+			imgCtx := f.imgCtxHolder.Load()
+			if imgCtx == nil {
+				return types.NewErr("image context is not initialized")
+			}
+			img, err := imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
@@ -173,7 +180,11 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
 		opts := GetRemoteOptsFromPolicy(f.creds)
-		img, err := f.imgCtx.Get(ctx, image, opts...)
+		imgCtx := f.imgCtxHolder.Load()
+		if imgCtx == nil {
+			return types.NewErr("image context is not initialized")
+		}
+		img, err := imgCtx.Get(ctx, image, opts...)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -191,7 +202,11 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 		return types.WrapErr(err)
 	} else {
 		opts := GetRemoteOptsFromPolicy(f.creds)
-		img, err := f.imgCtx.Get(ctx, image, opts...)
+		imgCtx := f.imgCtxHolder.Load()
+		if imgCtx == nil {
+			return types.NewErr("image context is not initialized")
+		}
+		img, err := imgCtx.Get(ctx, image, opts...)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
