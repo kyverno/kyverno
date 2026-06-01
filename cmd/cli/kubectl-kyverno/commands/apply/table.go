@@ -9,7 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engineapi.EngineResponse) {
+func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engineapi.EngineResponse) error {
 	var resultsTable table.Table
 	id := 1
 	for _, engineResponse := range engineResponses {
@@ -51,6 +51,5 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			resultsTable.Add(row)
 		}
 	}
-	printer := table.NewTablePrinter(out)
-	printer.Print(resultsTable.Rows(compact))
+	return table.Print(out, resultsTable, compact)
 }

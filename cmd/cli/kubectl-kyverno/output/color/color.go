@@ -3,21 +3,11 @@ package color
 import (
 	"strings"
 
-	"github.com/kataras/tablewriter"
 	"github.com/kyverno/kyverno/ext/output/color"
-)
-
-var (
-	HeaderBgColor int
-	HeaderFgColor int
 )
 
 func Init(noColor bool) {
 	color.Init(noColor, false)
-	if !noColor {
-		HeaderBgColor = tablewriter.BgBlackColor
-		HeaderFgColor = tablewriter.FgGreenColor
-	}
 }
 
 func Policy(namespace, name string) string {
@@ -50,6 +40,10 @@ func Resource(kind, namespace, name string) string {
 		return color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
 	}
 	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
+}
+
+func Header(val interface{}) string {
+	return color.BoldGreen.Sprint(val)
 }
 
 func Excluded() string {

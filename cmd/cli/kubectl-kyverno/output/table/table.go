@@ -15,14 +15,3 @@ func (t *Table) AddFailed(rows ...Row) {
 func (t *Table) Add(rows ...Row) {
 	t.RawRows = append(t.RawRows, rows...)
 }
-
-func (t *Table) Rows(detailed bool) interface{} {
-	if detailed {
-		return t.RawRows
-	}
-	rows := make([]RowCompact, 0, len(t.RawRows))
-	for _, row := range t.RawRows {
-		rows = append(rows, row.RowCompact)
-	}
-	return rows
-}

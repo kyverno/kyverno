@@ -170,9 +170,10 @@ func testCommandExecute(
 				if len(outputFormat) > 0 {
 					printOutputFormats(out, outputFormat, resultsTable, detailedResults)
 				} else {
-					printer := table.NewTablePrinter(out)
 					fmt.Fprintln(out)
-					printer.Print(resultsTable.Rows(detailedResults))
+					if err := table.Print(out, resultsTable, detailedResults); err != nil {
+						return fmt.Errorf("failed to print test result (%w)", err)
+					}
 					fmt.Fprintln(out)
 				}
 			}
@@ -189,7 +190,9 @@ func testCommandExecute(
 			if len(outputFormat) > 0 {
 				printOutputFormats(out, outputFormat, fullTable, detailedResults)
 			} else {
-				printFailedTestResult(out, fullTable, detailedResults)
+				if err := printFailedTestResult(out, fullTable, detailedResults); err != nil {
+					return fmt.Errorf("failed to print failed test result (%w)", err)
+				}
 			}
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)

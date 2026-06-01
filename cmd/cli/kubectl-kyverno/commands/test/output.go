@@ -105,14 +105,12 @@ func printCheckResult(
 						return err
 					}
 					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
+						ID:        testCount,
+						Policy:    color.Policy("", response.Policy().GetName()),
+						Rule:      color.Rule(rule.Name()),
+						Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+						IsFailure: len(errs) != 0,
+						Message:   rule.Message(),
 					}
 					if len(errs) == 0 {
 						row.Result = color.ResultPass()
@@ -136,14 +134,12 @@ func printCheckResult(
 						return err
 					}
 					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
+						ID:        testCount,
+						Policy:    color.Policy("", response.Policy().GetName()),
+						Rule:      color.Rule(rule.Name()),
+						Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+						IsFailure: len(errs) != 0,
+						Message:   rule.Message(),
 					}
 					if len(errs) != 0 {
 						row.Result = color.ResultPass()
@@ -286,16 +282,14 @@ func printTestResult(
 						resourceParts := strings.Split(resourceGVKAndName, "/")
 
 						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Result:    color.ResultPass(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+							Message:   color.Excluded(),
 						}
 						rc.Skip++
 						testCount++
@@ -328,30 +322,26 @@ func printTestResult(
 				var row table.Row
 				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
 					row = table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-							Result:    color.ResultSkip(),
-							Reason:    color.InvalidPolicy(),
-							IsFailure: false,
-						},
-						Message: responses.SkippedPolicies[policyName],
+						ID:        testCount,
+						Policy:    color.Policy("", test.Policy),
+						Rule:      color.Rule(test.Rule),
+						Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+						Result:    color.ResultSkip(),
+						Reason:    color.InvalidPolicy(),
+						IsFailure: false,
+						Message:   responses.SkippedPolicies[policyName],
 					}
 					rc.Skip++
 				} else {
 					row = table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-							IsFailure: true,
-							Result:    color.ResultFail(),
-							Reason:    color.NotFound(),
-						},
-						Message: color.NotFound(),
+						ID:        testCount,
+						Policy:    color.Policy("", test.Policy),
+						Rule:      color.Rule(test.Rule),
+						Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+						IsFailure: true,
+						Result:    color.ResultFail(),
+						Reason:    color.NotFound(),
+						Message:   color.NotFound(),
 					}
 					rc.Fail++
 				}
@@ -369,15 +359,13 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
-		RowCompact: table.RowCompact{
-			ID:        *globalTestCounter,
-			Policy:    color.Policy("", test.Policy),
-			Rule:      color.Rule(ruleName),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-			Reason:    reason,
-			IsFailure: !success,
-		},
-		Message: message,
+		ID:        *globalTestCounter,
+		Policy:    color.Policy("", test.Policy),
+		Rule:      color.Rule(ruleName),
+		Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+		Reason:    reason,
+		IsFailure: !success,
+		Message:   message,
 	}
 	if success {
 		row.Result = color.ResultPass()
@@ -396,16 +384,14 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	// if there are no RuleResponse, the resource has been excluded. This is a pass.
 	if len(rows) == 0 {
 		row := table.Row{
-			RowCompact: table.RowCompact{
-				ID:        *globalTestCounter,
-				Policy:    color.Policy("", test.Policy),
-				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
-				Result:    color.ResultPass(),
-				Reason:    color.Excluded(),
-				IsFailure: false,
-			},
-			Message: color.Excluded(),
+			ID:        *globalTestCounter,
+			Policy:    color.Policy("", test.Policy),
+			Rule:      color.Rule(test.Rule),
+			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
+			Result:    color.ResultPass(),
+			Reason:    color.Excluded(),
+			IsFailure: false,
+			Message:   color.Excluded(),
 		}
 		rc.Skip++
 		*globalTestCounter++
@@ -429,14 +415,13 @@ func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, reso
 	return nil, nil
 }
 
-func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
-	printer := table.NewTablePrinter(out)
+func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) error {
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
 	}
 	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
 	fmt.Fprintln(out)
-	printer.Print(resultsTable.Rows(detailedResults))
+	return table.Print(out, resultsTable, detailedResults)
 }
 
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
