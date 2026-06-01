@@ -507,7 +507,6 @@ func (iv *imageVerifier) buildCosignVerifier(
 	}
 
 	iv.logger.V(4).Info("cosign verifier built", "ignoreTlog", opts.IgnoreTlog, "ignoreSCT", opts.IgnoreSCT, "image", image)
-	// logs.Debug.SetOutput(os.Stderr)
 	return cosign.NewVerifier(), opts, path
 }
 
