@@ -367,6 +367,7 @@ func main() {
 		reportsServiceAccountName       string
 		maxAPICallResponseLength        int64
 		apiCallTimeout                  time.Duration
+		enableSATokenInjection          bool
 		renewBefore                     time.Duration
 		maxAuditWorkers                 int
 		maxAuditCapacity                int
@@ -400,6 +401,7 @@ func main() {
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
+	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", true, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Enabled by default; set to false to opt out.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
@@ -526,6 +528,7 @@ func main() {
 				apiCallTimeout,
 				true,
 				setup.Jp,
+				enableSATokenInjection,
 			),
 			globalcontextcontroller.Workers,
 		)
@@ -575,7 +578,7 @@ func main() {
 			setup.KubeClient,
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout, enableSATokenInjection),
 			polexCache,
 			gcstore,
 		)
