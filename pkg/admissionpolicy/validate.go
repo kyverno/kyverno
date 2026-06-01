@@ -162,6 +162,9 @@ func Validate(
 	var user UserInfo
 	if userInfo != nil {
 		user = NewUser(*userInfo)
+	} else {
+		// Background evaluations still need a user identity for admission attributes
+		user = NewBackgroundUser()
 	}
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
