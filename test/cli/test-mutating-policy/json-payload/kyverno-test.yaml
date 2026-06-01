@@ -1,0 +1,13 @@
+apiVersion: cli.kyverno.io/v1alpha1
+jsonPayload: ./resource.json
+kind: Test
+metadata:
+  name: json-payload-mutation-test
+policies:
+- policy.yaml
+results:
+- isMutatingPolicy: true
+  kind: ""
+  patchedResources: patched-resource.yaml
+  policy: test-json-payload-mutation
+  result: pass
