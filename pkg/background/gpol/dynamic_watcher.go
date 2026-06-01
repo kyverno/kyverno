@@ -398,6 +398,9 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			source.SetCreationTimestamp(metav1.Time{})
 			source.SetManagedFields(nil)
 			source.SetResourceVersion("")
+			if source.GetOwnerReferences() != nil {
+				source.SetOwnerReferences(nil)
+			}
 			// fetch downstreams that have the source UID label.
 			sourceLabel := map[string]string{
 				common.GenerateSourceUIDLabel: string(uid),
