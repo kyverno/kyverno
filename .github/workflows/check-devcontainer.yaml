@@ -45,7 +45,7 @@ jobs:
           tool-cache: false
       - name: Build devcontainer image
         if: steps.changed-files.outputs.any_changed == 'true'
-        uses: devcontainers/ci@b63b30de439b47a52267f241112c5b453b673db5 # v0.3
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca # v0.3
         with:
           push: never
 
