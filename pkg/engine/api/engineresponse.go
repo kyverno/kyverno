@@ -218,6 +218,22 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 	if pol.AsKyvernoPolicy() == nil {
 		return ""
 	}
+
+	// it will check if any rule response has exceptions with failureAction overrides
+	// policy exceptions take precedence over all other failureAction settings
+	for _, ruleResp := range er.PolicyResponse.Rules {
+		if exceptions := ruleResp.Exceptions(); len(exceptions) > 0 {
+			// it will check if any exception has a failureAction override
+			for _, exception := range exceptions {
+				if polex := exception.AsException(); polex != nil {
+					if polex.Spec.FailureAction != nil && polex.Spec.FailureAction.IsValid() {
+						return *polex.Spec.FailureAction
+					}
+				}
+			}
+		}
+	}
+
 	spec := pol.AsKyvernoPolicy().GetSpec()
 	for _, r := range spec.Rules {
 		if r.HasValidate() {
