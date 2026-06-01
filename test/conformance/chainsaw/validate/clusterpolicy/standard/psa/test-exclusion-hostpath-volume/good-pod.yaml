@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: nginx
-    image: public.ecr.aws/docker/library/nginx
+    image: nginx
     args:
     - sleep
     - 1d
