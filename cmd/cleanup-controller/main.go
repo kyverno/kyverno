@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	certmanager "github.com/kyverno/pkg/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
@@ -274,12 +274,11 @@ func main() {
 				certController := internal.NewController(
 					certmanager.ControllerName,
 					certmanager.NewController(
+						logging.WithName("certmanager"),
 						caSecret,
 						tlsSecret,
 						renewer,
-						caSecretName,
-						tlsSecretName,
-						config.KyvernoNamespace(),
+						internal.NewSharedTLSConfig(config.KyvernoServiceName()),
 					),
 					certmanager.Workers,
 				)
