@@ -66,6 +66,10 @@ type Rule struct {
 	// +optional
 	VerifyImages []ImageVerification `json:"verifyImages,omitempty"`
 
+	// ReportProperties are the additional properties from the rule that will be added to the policy report result
+	// +optional
+	ReportProperties map[string]string `json:"reportProperties,omitempty"`
+
 	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
 	// The default value is set to "true", it must be set to "false" to apply
 	// generate and mutateExisting rules to those requests.

@@ -12971,6 +12971,12 @@ spec:
                             type: object
                           type: array
                       type: object
+                    reportProperties:
+                      additionalProperties:
+                        type: string
+                      description: ReportProperties are the additional properties
+                        from the rule that will be added to the policy report result
+                      type: object
                     skipBackgroundRequests:
                       default: true
                       description: |-
