@@ -1,0 +1,8 @@
+apiVersion: test.kyverno.io/v1
+kind: TestResource
+metadata:
+  name: test-custom-resource
+  labels:
+    kyverno.io/critical: "true"
+spec:
+  replicas: 0
