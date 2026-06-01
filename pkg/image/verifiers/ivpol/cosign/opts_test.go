@@ -94,7 +94,7 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
-	assert.NotNil(t, opts.RekorClient)
+	assert.Nil(t, opts.RekorClient)
 	assert.True(t, opts.IgnoreTlog)
 	assert.True(t, opts.IgnoreSCT)
 }
@@ -216,14 +216,32 @@ func TestCheckOptions_MissingRekorURL(t *testing.T) {
 		Key: &v1beta1.Key{
 			Data: testPublicKey,
 		},
-		CTLog: &v1beta1.CTLog{
-			InsecureIgnoreTlog: true,
-		},
+		CTLog: &v1beta1.CTLog{},
 	}
 
 	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "rekor URL must be provided")
+}
+
+func TestCheckOptions_NoRekorURLNeededWhenIgnoreTlog(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	// InsecureIgnoreSCT is set so the test stays offline — CTLog pub key
+	// fetch is gated independently and would otherwise hit the network.
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+	}
+
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	assert.NoError(t, err)
 }
 
 func TestCheckOptions_InvalidPublicKey(t *testing.T) {
