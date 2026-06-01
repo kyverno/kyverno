@@ -1,6 +1,6 @@
 ## Description
 
-This test creates a policy that only allows a maximum of 3 containers inside a pod. It then creates an exception with a namespace selector that allows the exception to be applied to pods and deployments deployed in  namespaces with the label `env: production`.
+This test creates a policy that only allows a maximum of 3 containers inside a pod. It then creates an exception with a namespace selector that allows the exception to be applied to pods and deployments deployed in namespaces with the label `env: production`.
 
 
 ## Expected Behavior
