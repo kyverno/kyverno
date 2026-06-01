@@ -1,0 +1,14 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-no-rule-specified
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: disallow-namespaces-with-reserved-names
+    resources:
+      - test-namespace
+    kind: Namespace
+    result: pass

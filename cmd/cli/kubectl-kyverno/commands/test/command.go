@@ -288,6 +288,25 @@ func isRulelessPolicyKind(kind string) bool {
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+	var matches []engineapi.RuleResponse
+	// If test.Rule is empty, return all responses (backward compatibility)
+	if test.Rule == "" {
+		return responses
+	}
+
+	// For certain policy types, don't filter by rule name if specified
+	// Maintaining backward compatibility for policies that may not have traditional rule structures
+	if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy ||
+		test.IsImageValidatingPolicy || test.IsMutatingAdmissionPolicy ||
+		test.IsDeletingPolicy || test.IsGeneratingPolicy || test.IsMutatingPolicy {
+		return responses
+	}
+
+	// Filter responses by rule name for Kyverno policies
+	for _, response := range responses {
+		rule := response.Name()
+		if rule == test.Rule || rule == "autogen-"+test.Rule || rule == "autogen-cronjob-"+test.Rule {
+			matches = append(matches, response)
 	matches := make([]engineapi.RuleResponse, 0, len(responses))
 	for _, response := range responses {
 		rule := response.Name()
