@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -68,17 +69,96 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 							},
 						},
 					},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"environment": "staging",
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+		{
+			name: "Multiple Basic Policies with Different Selectors",
+			vpols: []*policiesv1beta1.ValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "policy-a",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "prod"},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"app": "a"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
 						},
 					},
-					ObjectSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app": "test",
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "policy-b",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "staging"},
+							},
+							ObjectSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"app": "b"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+										},
+									},
+								},
+							},
 						},
 					},
-					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.ValidatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
 				},
 			},
 		},
@@ -130,17 +210,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 							},
 						},
 					},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"environment": "staging",
-						},
-					},
-					ObjectSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app": "test",
-						},
-					},
-					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Fail),
 				},
 			},
 		},
@@ -338,15 +410,94 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
 				}
-				if expect.NamespaceSelector != nil {
-					assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
-				}
-				if expect.ObjectSelector != nil {
-					assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
-				}
+				assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
 			}
 		})
 	}
+}
+
+func TestBuildWebhookRules_BasicWithGlobalSelectors(t *testing.T) {
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"webhooks": `{
+				"namespaceSelector": {
+					"matchExpressions": [
+						{"key": "kubernetes.io/metadata.name", "operator": "NotIn", "values": ["kyverno"]}
+					]
+				},
+				"objectSelector": {
+					"matchLabels": {"global": "true"}
+				}
+			}`,
+		},
+	})
+
+	vpols := []engineapi.GenericPolicy{
+		engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "policy-a"},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "prod"},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "a"},
+					},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups: []string{""}, APIVersions: []string{"v1"},
+									Resources: []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}),
+		engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "policy-b"},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "staging"},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "b"},
+					},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups: []string{"apps"}, APIVersions: []string{"v1"},
+									Resources: []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}),
+	}
+
+	webhooks := buildWebhookRules(cfg, "", config.ValidatingPolicyWebhookName, "/vpol", 0, nil, vpols, NewExpressionCache())
+	assert.Equal(t, 1, len(webhooks))
+	assert.Equal(t, config.ValidatingPolicyWebhookName+"-ignore", webhooks[0].Name)
+	assert.Equal(t, &metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"kyverno"}},
+		},
+	}, webhooks[0].NamespaceSelector)
+	assert.Equal(t, &metav1.LabelSelector{
+		MatchLabels: map[string]string{"global": "true"},
+	}, webhooks[0].ObjectSelector)
 }
 
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
@@ -558,6 +709,346 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
 				}
+			}
+		})
+	}
+}
+
+func TestBuildWebhookRules_MutatingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		mpols            []*policiesv1beta1.MutatingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Single Basic Mutating Policy with namespaceSelector should not propagate to shared webhook",
+			mpols: []*policiesv1beta1.MutatingPolicy{
+				{
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "a"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.MutatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+		{
+			name: "Multiple Basic Mutating Policies with Different namespaceSelectors",
+			mpols: []*policiesv1beta1.MutatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mpol-a",
+					},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "a"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mpol-b",
+					},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "b"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.MutatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var mpols []engineapi.GenericPolicy
+			for _, mpol := range tt.mpols {
+				mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
+				expressionCache.AddPolicyExpressions(mpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.MutatingPolicyWebhookName,
+				"/mpol",
+				0,
+				nil,
+				mpols,
+				expressionCache,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
+				assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
+			}
+		})
+	}
+}
+
+func TestBuildWebhookRules_GeneratingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		gpols            []*policiesv1beta1.GeneratingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Single Basic Generating Policy with namespaceSelector should not propagate to shared webhook",
+			gpols: []*policiesv1beta1.GeneratingPolicy{
+				{
+					Spec: policiesv1beta1.GeneratingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "a"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.GeneratingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Connect,
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Delete,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+		{
+			name: "Multiple Basic Generating Policies with Different namespaceSelectors",
+			gpols: []*policiesv1beta1.GeneratingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gpol-a",
+					},
+					Spec: policiesv1beta1.GeneratingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "a"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gpol-b",
+					},
+					Spec: policiesv1beta1.GeneratingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"team": "b"},
+							},
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.GeneratingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Connect,
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Delete,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Connect,
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Delete,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+					NamespaceSelector: nil,
+					ObjectSelector:    nil,
+					FailurePolicy:     ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var gpols []engineapi.GenericPolicy
+			for _, gpol := range tt.gpols {
+				gpols = append(gpols, engineapi.NewGeneratingPolicy(gpol))
+				expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.GeneratingPolicyWebhookName,
+				"/gpol",
+				0,
+				nil,
+				gpols,
+				expressionCache,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
+				assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
 			}
 		})
 	}

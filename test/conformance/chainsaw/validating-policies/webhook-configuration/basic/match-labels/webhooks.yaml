@@ -26,11 +26,7 @@ webhooks:
       operator: NotIn
       values:
       - kyverno
-    matchLabels:
-       environment: staging
-  objectSelector: 
-     matchLabels:
-        app: test 
+  objectSelector: {}
   rules:
   - apiGroups:
     - ""
