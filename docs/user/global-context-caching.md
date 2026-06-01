@@ -23,20 +23,20 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 - **kubectl** access with sufficient permissions to create cluster-scoped resources
 - **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
 
-````yaml
+```yaml
 # Example ClusterRole patch for a custom CRD
 rules:
   - apiGroups: ["your.crd.group"]
     resources: ["yourresources"]
     verbs: ["get", "list", "watch"]
-````
+```
 
 ---
 
 
 ## Concept & Architecture: The "Why"
 
-````mermaid
+```mermaid
 graph TD
     subgraph "Standard Policy Evaluation"
         A[Incoming Request] --> B{Inline API Call}
@@ -49,7 +49,7 @@ graph TD
         G[Incoming Request] -->|Read| F
         F -->|near 0 ms Latency| H[Evaluation Result]
     end
-````
+```
 
 Kyverno operates natively as a Kubernetes Admission Controller webhook. When a resource lifecycle event occurs (e.g., `kubectl apply`), Kyverno intercepts the request and must determine whether to allow or deny it with minimal latency.
 
@@ -75,7 +75,7 @@ The fastest way to use `GlobalContextEntry` is a two-step process: define a cach
 
 ### Step 1: Create a GlobalContextEntry
 
-````yaml
+```yaml
 apiVersion: kyverno.io/v2
 kind: GlobalContextEntry
 metadata:
@@ -86,17 +86,17 @@ spec:
     version: v1
     resource: configmaps
     namespace: default
-````
+```
 
 ### Step 2: Reference it in a Policy
 
-````yaml
+```yaml
 context:
   - name: cached_configmaps
     globalReference:
       name: my-first-cache
       jmesPath: "[].metadata.name"
-````
+```
 
 `{{ cached_configmaps }}` is now available inside your policy rules with zero inline API call overhead. See [Configuration Modes](#configuration-modes) for the full schema reference.
 
@@ -504,21 +504,23 @@ without needing to dig through logs.
 
 ### 3. Check Kyverno Controller Logs
 
-Use the selector that matches your Kyverno installation. Standard installs commonly use
-`app.kubernetes.io/component=admission-controller`, though some environments may use
-`app.kubernetes.io/component=admissions-controller`.
+First, discover the exact label your installation uses:
+
+```bash
+kubectl get pods -n kyverno --show-labels
+```
+
+Then use the correct component label from the output to stream logs:
 
 ```bash
 kubectl logs -n kyverno \
   -l app.kubernetes.io/component=admission-controller \
-  | grep globalcontext
-
-# If the command above returns no Pods, try:
-kubectl logs -n kyverno \
-  -l app.kubernetes.io/component=admissions-controller \
   --since=10m \
   | grep -i globalcontext
 ```
+
+> **Note:** Some Kyverno installations use `admissions-controller` (plural).
+> Check your pod labels with the command above if this returns no results.
 
 ### 4. Inspect the Cached Payload
 
