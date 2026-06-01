@@ -235,7 +235,7 @@ func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, cryp
 	} else if len(certs) == 1 {
 		return secret, key, certs[0], nil
 	} else {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("expected exactly 1 cert in TLS secret %q, got %d", c.pairSecret, len(certs))
 	}
 }
 
