@@ -79,18 +79,24 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 			if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
-				policies, err := vpolautogen.Autogen(vpol)
-				if err != nil {
-					continue
-				}
-				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					policy := policies[config]
-					webhook.MatchConditions = append(
-						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
-					)
-					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
-						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+				// Skip autogen webhook registration for pod-controller kinds when the policy
+				// has native VAP generation enabled — those kinds are governed by VAPs instead.
+				if vpolTyped, ok := p.(*policiesv1beta1.ValidatingPolicy); ok && vpolTyped.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+					// autogen kinds are covered by VAPs; no webhook rules needed for them
+				} else {
+					policies, err := vpolautogen.Autogen(vpol)
+					if err != nil {
+						continue
+					}
+					for _, config := range slices.Sorted(maps.Keys(policies)) {
+						policy := policies[config]
+						webhook.MatchConditions = append(
+							webhook.MatchConditions,
+							autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						)
+						for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+							webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+						}
 					}
 				}
 			}
@@ -214,13 +220,17 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
-				rules, err := vpolautogen.Autogen(vpol)
-				if err != nil {
-					continue
-				}
-				for _, rule := range rules {
-					for _, match := range rule.Spec.MatchConstraints.ResourceRules {
-						webhookRules = append(webhookRules, match.RuleWithOperations)
+				// Skip autogen webhook registration for pod-controller kinds when the policy
+				// has native VAP generation enabled — those kinds are governed by VAPs instead.
+				if !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+					rules, err := vpolautogen.Autogen(vpol)
+					if err != nil {
+						continue
+					}
+					for _, rule := range rules {
+						for _, match := range rule.Spec.MatchConstraints.ResourceRules {
+							webhookRules = append(webhookRules, match.RuleWithOperations)
+						}
 					}
 				}
 			}
