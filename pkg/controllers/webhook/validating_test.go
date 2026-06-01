@@ -319,6 +319,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				nil,
 				vpols,
 				expressionCache,
+				true,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
@@ -539,6 +540,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				nil,
 				ivpols,
 				expressionCache,
+				true,
 			)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
@@ -560,5 +562,321 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNamespaceMatchCondition(t *testing.T) {
+	mc := namespaceMatchCondition("team-a")
+	assert.Equal(t, "kyverno.io/namespace-policy-filter-team-a", mc.Name)
+	assert.Equal(t, "request.namespace == 'team-a'", mc.Expression)
+}
+
+func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		nvpols           []*policiesv1beta1.NamespacedValidatingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Namespaced policy gets namespace matchCondition",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "require-labels",
+						Namespace: "team-a",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name:         config.NamespacedValidatingPolicyWebhookName + "-fail-finegrained-team-a-require-labels",
+					ClientConfig: newClientConfig("", 0, nil, "/nvpol/require-labels"),
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "kyverno.io/namespace-policy-filter-team-a",
+							Expression: "request.namespace == 'team-a'",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Namespaced policy with existing matchConditions preserves them",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "require-labels",
+						Namespace: "team-b",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "exclude-leases",
+								Expression: "!(request.resource.group == 'coordination.k8s.io' && request.resource.resource == 'leases')",
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name:         config.NamespacedValidatingPolicyWebhookName + "-ignore-finegrained-team-b-require-labels",
+					ClientConfig: newClientConfig("", 0, nil, "/nvpol/require-labels"),
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "exclude-leases",
+							Expression: "!(request.resource.group == 'coordination.k8s.io' && request.resource.resource == 'leases')",
+						},
+						{
+							Name:       "kyverno.io/namespace-policy-filter-team-b",
+							Expression: "request.namespace == 'team-b'",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Multiple namespaced policies in different namespaces get distinct conditions",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "policy-a",
+						Namespace: "ns-one",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "policy-b",
+						Namespace: "ns-two",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"configmaps"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name:         config.NamespacedValidatingPolicyWebhookName + "-fail-finegrained-ns-one-policy-a",
+					ClientConfig: newClientConfig("", 0, nil, "/nvpol/policy-a"),
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "kyverno.io/namespace-policy-filter-ns-one",
+							Expression: "request.namespace == 'ns-one'",
+						},
+					},
+				},
+				{
+					Name:         config.NamespacedValidatingPolicyWebhookName + "-fail-finegrained-ns-two-policy-b",
+					ClientConfig: newClientConfig("", 0, nil, "/nvpol/policy-b"),
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "kyverno.io/namespace-policy-filter-ns-two",
+							Expression: "request.namespace == 'ns-two'",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var nvpols []engineapi.GenericPolicy
+			for _, nvpol := range tt.nvpols {
+				nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+				expressionCache.AddPolicyExpressions(nvpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.NamespacedValidatingPolicyWebhookName,
+				"/nvpol",
+				0,
+				nil,
+				nvpols,
+				expressionCache,
+				true,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
+				assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
+				if expect.ClientConfig.Service != nil {
+					assert.Equal(t, *expect.ClientConfig.Service.Path, *webhooks[i].ClientConfig.Service.Path)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildWebhookRules_ClusterPolicyNoNamespaceCondition(t *testing.T) {
+	vpols := []*policiesv1beta1.ValidatingPolicy{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-wide-policy",
+			},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	var policies []engineapi.GenericPolicy
+	for _, vpol := range vpols {
+		policies = append(policies, engineapi.NewValidatingPolicy(vpol))
+		expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
+	}
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		policies,
+		expressionCache,
+		true,
+	)
+
+	assert.Equal(t, 1, len(webhooks))
+	// ClusterPolicy (ValidatingPolicy) should go to the basic path with no namespace matchCondition
+	assert.Equal(t, config.ValidatingPolicyWebhookName+"-fail", webhooks[0].Name)
+	for _, mc := range webhooks[0].MatchConditions {
+		assert.NotEqual(t, "kyverno.io/namespace-policy-filter", mc.Name,
+			"ClusterPolicy webhook must not have namespace-policy-filter matchCondition")
 	}
 }

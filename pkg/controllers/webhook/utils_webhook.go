@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"fmt"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -241,6 +243,13 @@ func (wh *webhook) set(
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
+}
+
+func namespaceMatchCondition(namespace string) admissionregistrationv1.MatchCondition {
+	return admissionregistrationv1.MatchCondition{
+		Name:       fmt.Sprintf("kyverno.io/namespace-policy-filter-%s", namespace),
+		Expression: fmt.Sprintf("request.namespace == '%s'", namespace),
+	}
 }
 
 func (wh *webhook) key(separator string) string {
