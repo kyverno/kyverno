@@ -285,7 +285,7 @@ spec:
   apiCall:
     urlPath: "/api/v1/..."
   projections:
-    - name: my-projected-field
+    - name: config-names
       jmesPath: "data.someField"
 ```
 
