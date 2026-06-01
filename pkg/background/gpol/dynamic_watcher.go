@@ -354,8 +354,15 @@ func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr sc
 			watcher:       watchInterface,
 			metadataCache: metadataCache,
 		}
-		go func(gvr schema.GroupVersionResource) {
-			defer logger.V(2).Info("watcher stopped")
+		go func(gvr schema.GroupVersionResource, thisWatcher *watcher) {
+			defer func() {
+				logger.V(2).Info("watcher stopped")
+				wm.lock.Lock()
+				defer wm.lock.Unlock()
+				if wm.dynamicWatchers[gvr] == thisWatcher {
+					delete(wm.dynamicWatchers, gvr)
+				}
+			}()
 			for event := range watchInterface.ResultChan() {
 				switch event.Type {
 				case watch.Added:
@@ -368,7 +375,7 @@ func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr sc
 					logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
 				}
 			}
-		}(gvr)
+		}(gvr, w)
 		return w, nil
 	}
 }
