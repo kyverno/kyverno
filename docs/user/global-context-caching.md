@@ -127,9 +127,14 @@ context:
 
 ## Configuration Modes
 
-A `GlobalContextEntry` must express exactly one of two mutually exclusive spec blocks:
+A `GlobalContextEntry` must set exactly one of the following mutually exclusive
+source fields:
+
 * `kubernetesResource`: Monitors and maps native objects living within the cluster.
 * `apiCall`: Polls external endpoints or performs structured internal HTTP interactions.
+
+Optionally, either mode can also include a `projections` block to pre-filter
+the cached data using JMESPath before policies consume it.
 
 ### 1. Kubernetes Resource Caching
 
@@ -281,7 +286,7 @@ spec:
 context:
   - name: myData
     globalReference:
-      name: my-cached-data.my-projected-field  # <entryName>.<projectionName> references the named projection
+      name: my-k8s-cached-data.config-names  # <entryName>.<projectionName>
 ```
 
 Use this when multiple policies need the **same filtered slice** — define the
