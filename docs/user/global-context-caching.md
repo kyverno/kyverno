@@ -19,7 +19,7 @@ By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
 
 Before configuring a `GlobalContextEntry`, ensure the following:
 
-- - **Kyverno v2+** is installed in your cluster
+- **Kyverno v2+** is installed in your cluster
 
 > **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
 > while `ClusterPolicy` and `Policy` resources continue to use
@@ -29,7 +29,7 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 - **kubectl** access with sufficient permissions to create cluster-scoped resources
 - **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
 
-```yaml
+
 # Example ClusterRole patch for a custom CRD
 If you are caching a Custom Resource Definition (CRD), patch Kyverno's
 existing ClusterRole to grant the required permissions:
@@ -379,10 +379,10 @@ spec:
           kinds:
           - Deployment
     context:
-    - name: cached_configmaps
-      globalReference:
-        name: shared-config-cache
-        jmesPath: "[].metadata.name"
+      - name: cached_configmaps
+        globalReference:
+          name: shared-config-cache
+          jmesPath: "[].metadata.name"
     validate:
       message: "Deployment initialization rejected. Required 'app-config' asset missing from GlobalContext cache."
       deny:
@@ -430,10 +430,10 @@ spec:
           kinds:
           - Pod
     context:
-    - name: allowed_registries
-      globalReference:
-        name: approved-registries-cache
-        jmesPath: "allowed"
+      - name: allowed_registries
+        globalReference:
+          name: approved-registries-cache
+          jmesPath: "allowed"
     validate:
       message: "The container image registry is not approved by enterprise security policy."
       foreach:
@@ -488,10 +488,10 @@ spec:
           kinds:
           - Namespace
     context:
-    - name: cluster_bindings
-      globalReference:
-        name: rbac-team-cache
-        jmesPath: "[].subjects[?kind=='User'].name[]"
+      - name: cluster_bindings
+        globalReference:
+          name: rbac-team-cache
+          jmesPath: "[].subjects[?kind=='User'].name[]"
     validate:
       message: "User initiating namespace creation is not registered in cluster role metadata."
       deny:
