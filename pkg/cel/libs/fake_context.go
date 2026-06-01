@@ -117,8 +117,16 @@ func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace str
 		return nil, kerrors.NewBadRequest(fmt.Sprintf("%s resource not found", gvr.GroupResource()))
 	}
 	var out unstructured.UnstructuredList
-	for _, obj := range resources[namespace] {
-		out.Items = append(out.Items, *obj)
+	if namespace == "" {
+		for _, nsResources := range resources {
+			for _, obj := range nsResources {
+				out.Items = append(out.Items, *obj)
+			}
+		}
+	} else {
+		for _, obj := range resources[namespace] {
+			out.Items = append(out.Items, *obj)
+		}
 	}
 	return &out, nil
 }
