@@ -30,7 +30,7 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 - **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
 
 
-# Example ClusterRole patch for a custom CRD
+### Example ClusterRole patch for a custom CRD
 If you are caching a Custom Resource Definition (CRD), patch Kyverno's
 existing ClusterRole to grant the required permissions:
 
@@ -522,7 +522,7 @@ status:
       status: "True"
       reason: Synced
       message: "GlobalContextEntry synced successfully"
-  lastRefreshTime: "2024-01-15T10:30:00Z"
+  lastRefreshTime: "YYYY-MM-DDThh:mm:ssZ"  # e.g. "2024-01-15T10:30:00Z"
 ```
 
 Key fields to inspect:
