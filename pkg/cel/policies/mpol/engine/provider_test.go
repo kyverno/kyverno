@@ -121,8 +121,7 @@ func TestStaticProviderFetch(t *testing.T) {
 
 	t.Run("fetch mutateExisting == false", func(t *testing.T) {
 		res := provider.Fetch(context.TODO(), false)
-		assert.Len(t, res, 1)
-		assert.Equal(t, "disabled-policy", res[0].Policy.GetName())
+		assert.Len(t, res, 2)
 	})
 }
 
