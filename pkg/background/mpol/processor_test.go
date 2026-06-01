@@ -47,7 +47,7 @@ func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data 
 	return &unstructured.Unstructured{}, nil
 }
 func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool, useServerSideApply bool) {
 	panic("not implemented")
 }
 

@@ -17,4 +17,5 @@ const (
 	GenerateSourceVersionLabel   = "generate.kyverno.io/source-version"
 	GenerateSourceGroupLabel     = "generate.kyverno.io/source-group"
 	GenerateTypeCloneSourceLabel = "generate.kyverno.io/clone-source"
+	GenerateUseServerSideApplyLabel = "generate.kyverno.io/use-server-side-apply"
 )
