@@ -90,8 +90,9 @@ const (
 )
 
 var (
-	caSecretName  string
-	tlsSecretName string
+	caSecretName       string
+	tlsSecretName      string
+	certRenewalTimeout time.Duration
 )
 
 func showWarnings(ctx context.Context, logger logr.Logger) {
@@ -158,6 +159,7 @@ func createrLeaderControllers(
 		caSecretName,
 		tlsSecretName,
 		config.KyvernoNamespace(),
+		certRenewalTimeout,
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
@@ -398,6 +400,7 @@ func main() {
 	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.DurationVar(&certRenewalTimeout, "certRenewalTimeout", certmanager.DefaultCertRenewalTimeout, "Time budget per CA or TLS certificate renewal retry sequence.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
@@ -437,10 +440,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
 		os.Exit(1)
 	}
+	if certRenewalTimeout <= time.Second {
+		fmt.Fprintf(os.Stderr, "error: --certRenewalTimeout must be greater than 1s (the retry interval), got %v\n", certRenewalTimeout)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup
-		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
+		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false, certRenewalTimeout)
 		defer sdown()
 		if caSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
