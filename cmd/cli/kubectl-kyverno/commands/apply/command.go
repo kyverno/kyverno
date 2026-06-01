@@ -43,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -891,7 +892,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 		// The condition evaluation will update the target resource and namespace for each candidate.
 		engineCtx := enginecontext.NewContext(jp)
 		ctxLoader := ctxFactory(nil, kyvernov1.Rule{})
-		if err := ctxLoader.Load(context.TODO(), jp, dclient, nil, spec.Context, engineCtx); err != nil {
+		if err := ctxLoader.Load(context.TODO(), jp, adapters.Client(dclient), nil, spec.Context, engineCtx); err != nil {
 			for _, resource := range resources {
 				response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{

@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
@@ -175,7 +176,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	if err := loader.Load(
 		ctx,
 		c.jp,
-		c.client,
+		adapters.Client(c.client),
 		nil,
 		spec.Context,
 		enginectx,
