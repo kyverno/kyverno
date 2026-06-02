@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -29,6 +29,10 @@ import (
 const (
 	testGoodDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
 	testEvilDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000002"
+	testAttestorPublicKey = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKLYTatU9CUsrA5Td6jXiZTolwsx
+HZKwYP5XkHhU436FGDD5Zi2nVFem6AbzXWHssIQRkAI3yJgKkB4J6Qe4OQ==
+-----END PUBLIC KEY-----`
 )
 
 type digestRegistryClient struct {
@@ -228,8 +232,3 @@ func TestVerifyImagesCacheControl_MovedTagDoesNotPinEvilDigest(t *testing.T) {
 		}
 	}
 }
-
-const testAttestorPublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKLYTatU9CUsrA5Td6jXiZTolwsx
-HZKwYP5XkHhU436FGDD5Zi2nVFem6AbzXWHssIQRkAI3yJgKkB4J6Qe4OQ==
------END PUBLIC KEY-----`

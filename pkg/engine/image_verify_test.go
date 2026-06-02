@@ -1072,6 +1072,17 @@ func errorAssertionUtil(t *testing.T, image string, ivm engineapi.ImageVerificat
 	assert.Equal(t, ivm.IsVerified(image), true)
 }
 
+func assertVerifiedFromCache(t *testing.T, er engineapi.EngineResponse) {
+	t.Helper()
+	assert.Equal(t, "verified from cache", er.PolicyResponse.Rules[0].Message())
+}
+
+func assertNotVerifiedFromCache(t *testing.T, er engineapi.EngineResponse) {
+	t.Helper()
+	assert.Assert(t, er.PolicyResponse.Rules[0].Message() != "verified from cache",
+		"expected full image verification, got cache hit: %q", er.PolicyResponse.Rules[0].Message())
+}
+
 func Test_ImageVerifyCacheCosign(t *testing.T) {
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
@@ -1084,18 +1095,12 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "verified from cache")
-	// cache hits still resolve the tag digest for binding, so the speedup is less than skipping all registry calls
-	assert.Check(t, secondOperationTime < firstOperationTime/2, "cache entry is valid, so image verification should be faster on cache hit.", firstOperationTime, secondOperationTime)
+	assertVerifiedFromCache(t, er)
 }
 
 func Test_ImageVerifyCacheDisabled(t *testing.T) {
@@ -1110,16 +1115,12 @@ func Test_ImageVerifyCacheDisabled(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+	assertNotVerifiedFromCache(t, er)
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1134,18 +1135,14 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+	assertNotVerifiedFromCache(t, er)
 }
 
 func Test_changePolicyCacheVerificationCosign(t *testing.T) {
@@ -1160,17 +1157,13 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, cosignTestPolicyUpdated, cosignTestResource, "")
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+	assertNotVerifiedFromCache(t, er)
 }
 
 var verifyImageNotaryPolicy = `{
@@ -1314,7 +1307,7 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "verified from cache")
+	assertVerifiedFromCache(t, er)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1329,18 +1322,14 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
-	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+	assertNotVerifiedFromCache(t, er)
 }
 
 func Test_changePolicyCacheVerificationNotary(t *testing.T) {
@@ -1354,17 +1343,14 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
-	start := time.Now()
+
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
 
-	start = time.Now()
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+	assertNotVerifiedFromCache(t, er)
 }
 
 var excludeVerifyImageNotaryPolicy = `{
