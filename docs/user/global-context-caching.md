@@ -517,13 +517,18 @@ spec:
 
 ## Verification
 
+> **Note:** The commands below use `globalcontextentries` as the full
+> resource name. If your cluster has the `gctxentry` short name registered,
+> you may use that instead. Verify available short names with:
+> `kubectl api-resources | findstr kyverno`
+
 Use the following steps to confirm your `GlobalContextEntry` is actively syncing
 and your policies can consume its data correctly.
 
 ### 1. Check Resource Status & Conditions
 
 ```bash
-kubectl get gctxentry <entry-name> -o yaml
+kubectl get globalcontextentries <entry-name> -o yaml
 ```
 
 Look for the `status` block in the output. A healthy entry looks like this:
@@ -579,7 +584,7 @@ kubectl logs -n kyverno \
 ### 4. Inspect the Cached Payload
 
 ```bash
-kubectl get gctxentry <entry-name> -o yaml
+kubectl get globalcontextentries <entry-name> -o yaml
 ```
 
 Run this before writing policy rules to confirm the exact data structure
@@ -590,7 +595,7 @@ Kyverno has cached — particularly useful for building accurate JMESPath expres
 To remove a `GlobalContextEntry`:
 
 ```bash
-kubectl delete gctxentry <entry-name>
+kubectl delete globalcontextentries <entry-name>
 ```
 
 > **Note:** Deleting a `GlobalContextEntry` that is actively referenced by running
