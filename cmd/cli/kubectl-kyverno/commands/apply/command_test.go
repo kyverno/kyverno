@@ -1291,7 +1291,8 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 			_ = input.Close()
 		}()
 	}
-	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]",
+	desc := fmt.Sprintf(
+		"Policies: [%s], / Resources: [%s], JSON payload: [%s]",
 		strings.Join(tc.config.PolicyPaths, ","),
 		strings.Join(tc.config.ResourcePaths, ","),
 		strings.Join(tc.config.JSONPaths, ","),
@@ -1491,6 +1492,34 @@ func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
 	}
 }
 
+func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
+				CrdPath:       "../../_testdata/apply/test-4/crd/crds.yml",
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
 func TestCommandCRDKubeEnable(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -1591,7 +1620,6 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
-
 }
 
 func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
