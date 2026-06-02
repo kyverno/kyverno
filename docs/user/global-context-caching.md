@@ -24,9 +24,9 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
-```bash
-  kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
-```
+  ```bash
+    kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
+  ```
 
 > **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
 > while `ClusterPolicy` and `Policy` resources continue to use
@@ -372,7 +372,7 @@ spec:
 >
 > Using the wrong shape will silently return an empty result, causing
 > policies to behave unexpectedly. Check your cached payload structure
-> first using `kubectl get gctxentry <name> -o jsonpath='{.status}'`.
+> first using `kubectl get globalcontextentries <name> -o jsonpath='{.status}'`.
 
 #### Step 2: Bind a Policy to the Entry
 
