@@ -9,12 +9,16 @@ weight: 10
 
 # GlobalContextEntry
 
-A `GlobalContextEntry` is a cluster-scoped custom resource that enables Kyverno to cache Kubernetes API resources or external HTTP responses directly within its local memory pool.
-
-By centralizing and pre-fetching heavy datasets, multiple policies can evaluate 
-incoming mutation, validation, or generation requests instantly by adding a 
-`context` entry using `globalReference`. The cached data is then accessible 
+By centralizing and pre-fetching heavy datasets, multiple policies can evaluate
+incoming mutation, validation, or generation requests instantly by adding a
+`context` entry using `globalReference`. The cached data is then accessible
 via the variable name assigned in that context entry (e.g., `cached_configmaps`).
+
+> **HA Note:** In high-availability deployments, each Kyverno replica maintains
+> its own independent in-memory cache. Admission requests may be served by
+> different replicas whose cache freshness can differ slightly between refresh
+> cycles. This is expected behavior — design your policies to tolerate this
+> per-replica eventual consistency.
 
 ---
 
@@ -24,17 +28,18 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
-  ```bash
-    kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
-  ```
+```bash
+  kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
+```
+- **kubectl** access with sufficient permissions to create cluster-scoped resources.
+- **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno
+  ServiceAccount must have `get`, `list`, and `watch` permissions on the target
+  resource. This is especially important for custom resources (CRs).
 
 > **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
-> while `ClusterPolicy` and `Policy` resources continue to use
-> `apiVersion: kyverno.io/v1`. This is expected — they are separate resource
-> kinds with independent API version tracks. Using `v1` for policies alongside
-> `v2` for `GlobalContextEntry` is correct and not a typo.
-- **kubectl** access with sufficient permissions to create cluster-scoped resources
-- **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno ServiceAccount must have `get`, `list`, and `watch` permissions on the target resource. This is especially important for Custom Resource Definitions (CRDs).
+> while `ClusterPolicy` and `Policy` resources use `apiVersion: kyverno.io/v1`.
+> This is expected — they are separate resource kinds with independent API
+> version tracks.
 
 
 ### Granting RBAC Permissions for Custom Resources (CRs)
@@ -100,6 +105,7 @@ Instead of executing real-time fetches during admission evaluation, Kyverno dele
 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organizational scales.
 
 ---
+
 ## Getting Started
 
 The fastest way to use `GlobalContextEntry` is a two-step process: define a cache entry, then reference it in a policy.
@@ -155,7 +161,9 @@ Use this mode to capture internal topology data, structural metadata, or shared 
 | `resource` | string | **Yes** | **Must be lowercased and pluralized** (e.g., use `configmaps` or `secrets`, not `ConfigMap`). |
 | `namespace` | string | No | The target namespace boundaries. If omitted, Kyverno tracks across **all namespaces** globally. |
 
-Important: Ensure the Kyverno ServiceAccount has the necessary RBAC permissions (get, list, watch) for the resources you are caching, especially when tracking Custom Resource Definitions (CRDs).
+> **Important:** Ensure the Kyverno ServiceAccount has the necessary RBAC
+> permissions (`get`, `list`, `watch`) for the resources you are caching,
+> especially when tracking custom resources (CRs).
 
 #### Syntax Example: Local ConfigMap Tracking
 ```yaml
@@ -182,7 +190,7 @@ Use this mode to extract and synchronize authorization lists, identity definitio
 | `retryLimit` | `3` | Max retry attempts before the sync loop errors. Minimum value is `1`. |
 | `method` | `GET` | HTTP method. **Must be explicitly set to `POST`** if a `data` payload array is provided. |
 
->  **Method Enforcement:** If your `apiCall` profile passes a custom request payload under the `data` array parameter, the underlying HTTP schema engine enforces that the `method` parameter **must be explicitly configured as POST**.
+> **Method Enforcement:** If your `apiCall` profile passes a custom request payload under the `data` array parameter, the underlying HTTP schema engine enforces that the `method` parameter **must be explicitly configured as POST**.
 
 #### Syntax Example: External Metadata Ingestion
 
@@ -205,6 +213,7 @@ Caching large-scale external API payloads or extensive multi-namespace collectio
 > **Note on API Sources:**
 > - Use `urlPath` when querying the **local Kubernetes API server** (e.g., fetching internal cluster resources).
 > - Use `service.url` when targeting **external endpoints** (e.g., external inventory or security services).
+
 > These two fields are **mutually exclusive** — only one may be defined per `apiCall` entry.
 
  Projections act as a high-performance filtering layer, transforming raw complex structures into exact key-value primitives or explicit string arrays for policy consumption. This helps simplify policy evaluation and reduce the amount of data rules need to traverse, but it does not necessarily remove the underlying cached payload.
@@ -358,21 +367,11 @@ spec:
 ```
 > **JMESPath Structure Note:** The shape of cached data differs by mode:
 >
-> - **`kubernetesResource` mode** returns a raw array of objects.
->   Use `[].metadata.name` to extract names:
->   ```yaml
->   jmesPath: "[].metadata.name"
->   ```
+> - **`kubernetesResource` mode** returns a raw array. Use `[].metadata.name`
+> - **`apiCall.urlPath` mode** returns a Kubernetes API envelope with `items[]`. Use `items[].metadata.name`
 >
-> - **`apiCall.urlPath` mode** returns a standard Kubernetes API envelope
->   with an `items` array. Use `items[].metadata.name` instead:
->   ```yaml
->   jmesPath: "items[].metadata.name"
->   ```
->
-> Using the wrong shape will silently return an empty result, causing
-> policies to behave unexpectedly. Check your cached payload structure
-> first using `kubectl get globalcontextentries <name> -o jsonpath='{.status}'`.
+> Using the wrong shape silently returns an empty result. Check your cached
+> payload first with `kubectl get globalcontextentries <name> -o yaml`.
 
 #### Step 2: Bind a Policy to the Entry
 
@@ -520,7 +519,13 @@ spec:
 > **Note:** The commands below use `globalcontextentries` as the full
 > resource name. If your cluster has the `gctxentry` short name registered,
 > you may use that instead. Verify available short names with:
-> `kubectl api-resources | findstr kyverno`
+```bash
+# Linux/macOS
+kubectl api-resources | grep kyverno
+
+# Windows
+kubectl api-resources | findstr kyverno
+```
 
 Use the following steps to confirm your `GlobalContextEntry` is actively syncing
 and your policies can consume its data correctly.
@@ -579,16 +584,20 @@ kubectl logs -n kyverno \
 ```
 
 > **Note:** Replace `<your-component-label>` with the value found above.
-> The correct label value is `admission-controller`.
+> The most common value is `admission-controller` for standard Kyverno
+> installations, but this may differ in custom deployments.
 
 ### 4. Inspect the Cached Payload
 
 ```bash
-kubectl get globalcontextentries <entry-name> -o yaml
+kubectl get globalcontextentries <entry-name> -o json | jq '.status.data'
 ```
 
 Run this before writing policy rules to confirm the exact data structure
 Kyverno has cached — particularly useful for building accurate JMESPath expressions.
+
+# If jq is not available:
+kubectl get globalcontextentries <entry-name> -o yaml
 
 ## Cleanup
 
@@ -601,6 +610,7 @@ kubectl delete globalcontextentries <entry-name>
 > **Note:** Deleting a `GlobalContextEntry` that is actively referenced by running
 > policies will cause those policies to return a `variable evaluation error` on
 > the next admission request. Always update or remove dependent policies first.
+
 ---
 
 
