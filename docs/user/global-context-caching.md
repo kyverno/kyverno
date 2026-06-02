@@ -525,7 +525,7 @@ spec:
 
 ## Verification
 
-> **Note:** > **Note:** `gctxentry` is the registered short name for `globalcontextentries`.
+> **Note:** `gctxentry` is the registered short name for `globalcontextentries`.
 > Both forms work — use whichever you prefer.
 ```bash
 # Linux/macOS
