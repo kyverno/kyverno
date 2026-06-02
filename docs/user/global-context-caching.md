@@ -285,8 +285,16 @@ policies that each need different slices.
 
 #### Option B: Named Projection (projection defined in spec)
 
-If you defined a `projections` block in your `GlobalContextEntry` spec, reference
-the pre-filtered slice using the `<entryName>.<projectionName>` dot convention:
+If you defined a `projections` block in your `GlobalContextEntry` spec,
+reference the entry by name and use the projection's name as the `jmesPath`:
+
+```yaml
+context:
+  - name: myData
+    globalReference:
+      name: my-k8s-cached-data
+      jmesPath: "config-names"  # projection name defined in spec
+```
 
 ```yaml
 # GlobalContextEntry spec (defined once)
@@ -303,7 +311,8 @@ spec:
 context:
   - name: myData
     globalReference:
-      name: my-k8s-cached-data.config-names  # <entryName>.<projectionName>
+      name: my-k8s-cached-data
+      jmesPath: "config-names"
 ```
 
 Use this when multiple policies need the **same filtered slice** — define the
@@ -516,9 +525,8 @@ spec:
 
 ## Verification
 
-> **Note:** The commands below use `globalcontextentries` as the full
-> resource name. If your cluster has the `gctxentry` short name registered,
-> you may use that instead. Verify available short names with:
+> **Note:** > **Note:** `gctxentry` is the registered short name for `globalcontextentries`.
+> Both forms work — use whichever you prefer.
 ```bash
 # Linux/macOS
 kubectl api-resources | grep kyverno
@@ -563,7 +571,7 @@ kubectl get events --field-selector \
   involvedObject.kind=GlobalContextEntry,involvedObject.name=<entry-name>
 ```
 
-This surfaces sync failures, retry exhaustions, or RBAC denial events directly
+This surfaces sync failures, retry-limit exhaustion, or RBAC denial events directly
 without needing to dig through logs.
 
 ### 3. Check Kyverno Controller Logs
