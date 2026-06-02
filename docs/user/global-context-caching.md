@@ -595,9 +595,11 @@ kubectl get globalcontextentries <entry-name> -o json | jq '.status.data'
 
 Run this before writing policy rules to confirm the exact data structure
 Kyverno has cached — particularly useful for building accurate JMESPath expressions.
+> **Note:** If jq is not available:
 
-# If jq is not available:
+```bash
 kubectl get globalcontextentries <entry-name> -o yaml
+```
 
 ## Cleanup
 
