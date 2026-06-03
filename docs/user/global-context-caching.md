@@ -270,16 +270,12 @@ context:
 > - `kubernetesResource` mode → use `[].metadata.name`
 > - `apiCall.urlPath` mode → use `items[].metadata.name`
 
-If you defined `projections` in your `GlobalContextEntry` spec, the projection
-name can be used directly as the `jmesPath` value:
+If you defined `projections` in your `GlobalContextEntry` spec, reference a projection by appending `.<projection-name>` to `globalReference.name`:
 
-```yaml
-context:
-  - name: myData
-    globalReference:
-      name: my-k8s-cached-data
-      jmesPath: "config-names"   # matches projections[].name in the spec
-```
+    context:
+      - name: myData
+        globalReference:
+          name: my-k8s-cached-data.config-names  # <GlobalContextEntry>.<projections[].name>
 
 
 ## Eventual Consistency & Operational Notes
@@ -301,15 +297,9 @@ context:
 
 ### Behavior on Cache Failure
 
-If a `GlobalContextEntry` fails to sync (e.g., external endpoint is unreachable
-and `retryLimit` is exhausted):
+If a `GlobalContextEntry` cannot be loaded or refreshed (for example, the external endpoint is unreachable and `retryLimit` is exhausted), policies referencing it via `globalReference` may hit a context/variable evaluation error until a successful sync occurs.
 
-- The cache retains its **last known good state** until a successful refresh occurs.
-- If no data has ever been cached (e.g., on first startup), policies referencing
-  that entry will receive an **empty result**, which may cause unexpected denials
-  depending on your rule logic.
-- Monitor `status.conditions` on the resource and set up alerts on Kyverno
-  controller logs for `globalcontext` errors in production clusters.
+Monitor `status.conditions` and `status.lastRefreshTime` on the resource, and check Kyverno controller logs for `globalcontext` errors in production clusters.
 
 ## Practical Use Cases & Blueprints
 
@@ -508,9 +498,8 @@ status:
   conditions:
     - type: Ready
       status: "True"
-      reason: Synced
+      reason: Succeeded
       message: "GlobalContextEntry synced successfully"
-  lastRefreshTime: "YYYY-MM-DDThh:mm:ssZ"  # e.g. "2024-01-15T10:30:00Z"
 ```
 
 Key fields to inspect:
@@ -518,7 +507,7 @@ Key fields to inspect:
 | Field | What to Check |
 | :--- | :--- |
 | `status.conditions[].type: Ready` | Must be `"True"`. Any other value means the cache is not serving data. |
-| `status.conditions[].reason` | `Synced` = healthy. `SyncFailed` = check the message field for the error. |
+| `status.conditions[].reason` | `Succeeded` = healthy. `Failed` = check the message field for the error. |
 | `status.lastRefreshTime` | Confirms the last successful sync. If this is stale, the background worker may be stuck. |
 
 ### 2. Watch Live Sync Events
@@ -552,19 +541,15 @@ kubectl logs -n kyverno \
 > The most common value is `admission-controller` for standard Kyverno
 > installations, but this may differ in custom deployments.
 
-### 4. Inspect the Cached Payload
+### 4. Inspect the Source Payload Shape (for building JMESPath)
 
-```bash
-kubectl get globalcontextentries <entry-name> -o json | jq '.status.data'
-```
+`GlobalContextEntry` status does not expose the cached payload. To validate the data shape and build correct JMESPath expressions, fetch the source directly:
 
-Run this before writing policy rules to confirm the exact data structure
-Kyverno has cached — particularly useful for building accurate JMESPath expressions.
-> **Note:** If jq is not available:
+    # kubernetesResource mode (example)
+    kubectl get <resource> -n <namespace> -o json | jq .
 
-```bash
-kubectl get globalcontextentries <entry-name> -o yaml
-```
+    # apiCall.urlPath mode (example)
+    kubectl get --raw "<urlPath>" | jq .
 
 ## Cleanup
 
