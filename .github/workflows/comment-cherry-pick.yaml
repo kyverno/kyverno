@@ -38,7 +38,7 @@ jobs:
 
       # NOTE: can be removed if slash-command-action is uncommented
       - name: React to comment
-        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        uses: dkershner6/reaction-action@7aa897865eb9a5a1b9d6f1ab16bfcae1ce1b0334 # v3.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           reaction: "+1"
