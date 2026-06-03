@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/cel/libs/versions"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -29,6 +30,7 @@ func Latest() *version.Version {
 func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
+		logger:  logging.WithName("imageverify"),
 		version: v,
 		imgCtx:  imgCtx,
 		ivpol:   ivpol,
