@@ -29,7 +29,7 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
   ```bash
-    kubectl get deployment -n kyverno -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
+    kubectl get deployment -n kyverno -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.template.spec.containers[0].image}{"\n"}{end}'
   ```
 
 - **kubectl** access with sufficient permissions to create cluster-scoped resources.
@@ -357,7 +357,7 @@ spec:
         conditions:
           any:
           - key: "app-config"
-            operator: AnyNotIn
+            operator: NotIn
             value: "{{ cached_configmaps }}"
 ```
 ### 2. Caching Approved Container Registries (External API)
@@ -410,7 +410,7 @@ spec:
           conditions:
             any:
             - key: "{{ split(element.image, '/')[0] }}"
-              operator: AnyNotIn
+              operator: NotIn
               value: "{{ allowed_registries }}"
 ```
 > **How the registry is extracted:** `split(element.image, '/')[0]` splits the
@@ -513,7 +513,7 @@ Key fields to inspect:
 ### 2. Watch Live Sync Events
 
 ```bash
-kubectl get events --field-selector \
+kubectl get events -n kyverno --field-selector \
   involvedObject.kind=GlobalContextEntry,involvedObject.name=<entry-name>
 ```
 
