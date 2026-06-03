@@ -47,7 +47,8 @@ func NewCompiler() Compiler {
 type compilerImpl struct{}
 
 func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
+	// Use DynamicResourceEnvOptions to allow heterogeneous object literals for creating arbitrary Kubernetes resources
+	baseOpts := compiler.DynamicResourceEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),

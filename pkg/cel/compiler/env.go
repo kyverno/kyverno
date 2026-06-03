@@ -14,8 +14,13 @@ import (
 var KyvernoVersion = version.MajorMinor(1, 18)
 
 func DefaultEnvOptions() []cel.EnvOption {
-	return []cel.EnvOption{
-		cel.HomogeneousAggregateLiterals(),
+	return defaultEnvOptionsWithHeterogeneousAggregates(true)
+}
+
+// defaultEnvOptionsWithHeterogeneousAggregates returns CEL environment options with optional homogeneous aggregate enforcement.
+// Heterogeneous aggregates are necessary for dynamic resource generation (e.g., GeneratingPolicy) where objects have mixed-type fields.
+func defaultEnvOptionsWithHeterogeneousAggregates(enforceHomogeneous bool) []cel.EnvOption {
+	opts := []cel.EnvOption{
 		cel.EagerlyValidateDeclarations(true),
 		cel.DefaultUTCTimeZone(true),
 		cel.CrossTypeNumericComparisons(true),
@@ -40,6 +45,21 @@ func DefaultEnvOptions() []cel.EnvOption {
 		library.Quantity(),
 		library.SemverLib(library.SemverVersion(1)),
 	}
+
+	// Only enforce homogeneous aggregates for policies that don't need heterogeneous objects.
+	// GeneratingPolicy and similar dynamic resource generators need heterogeneous aggregates
+	// to support creating objects with mixed-type fields (e.g., string names and integer replicas).
+	if enforceHomogeneous {
+		opts = append([]cel.EnvOption{cel.HomogeneousAggregateLiterals()}, opts...)
+	}
+
+	return opts
+}
+
+// DynamicResourceEnvOptions returns CEL environment options suitable for dynamic resource generation.
+// This disables homogeneous aggregate enforcement to allow creating objects with mixed-type fields.
+func DynamicResourceEnvOptions() []cel.EnvOption {
+	return defaultEnvOptionsWithHeterogeneousAggregates(false)
 }
 
 func NewBaseEnv() (*cel.Env, error) {
