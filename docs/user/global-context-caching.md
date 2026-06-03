@@ -40,7 +40,10 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 > **API Version Note:** `GlobalContextEntry` uses `apiVersion: kyverno.io/v2`
 > while `ClusterPolicy` and `Policy` resources use `apiVersion: kyverno.io/v1`.
 > This is expected — they are separate resource kinds with independent API
-> version tracks.
+> version tracks. To confirm the served API versions on your cluster, run:
+> ```bash
+> kubectl api-resources | grep kyverno
+> ```
 
 
 ### Granting RBAC Permissions for Custom Resources (CRs)
@@ -48,25 +51,29 @@ If you are caching a **custom resource (CR)** served by a CRD — for example,
 a resource from a custom API group — patch Kyverno's existing ClusterRole
 to grant the required permissions:
 
-```bash
-kubectl patch clusterrole kyverno:admission-controller \
-  --type='json' \
-  -p='[{
-    "op": "add",
-    "path": "/rules/-",
-    "value": {
-      "apiGroups": ["your.crd.group"],
-      "resources": ["yourresources"],
-      "verbs": ["get", "list", "watch"]
-    }
-  }]'
+Create a file named `kyverno-rbac-patch.yaml`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller
+rules:
+  - apiGroups: ["your.crd.group"]
+    resources: ["yourresources"]
+    verbs: ["get", "list", "watch"]
 ```
 
-> **Note:** This patches Kyverno's existing ClusterRole rather than
-> creating a new one. Replace `your.crd.group` and `yourresources`
-> with your actual CRD API group and resource name (lowercased,
-> pluralized). Standard Kubernetes resources like `configmaps` and
-> `secrets` already have permissions granted by default — no patch needed.
+Then apply it:
+
+```bash
+kubectl apply -f kyverno-rbac-patch.yaml
+```
+
+> **Note:** Replace `your.crd.group` and `yourresources` with your actual
+> CRD API group and resource name (lowercased, pluralized). Standard
+> resources like `configmaps` and `secrets` already have permissions
+> by default — no patch needed.
 
 ---
 
@@ -100,9 +107,10 @@ Under high cluster density, if a continuous integration or continuous deployment
 ### The Solution: Global Memory Caching
 `GlobalContextEntry` decouples the policy execution pathway from external network dependencies entirely.
 
-Instead of executing real-time fetches during admission evaluation, Kyverno delegates resource tracking to an asynchronous background worker loop:
+Instead of executing real-time fetches during admission evaluation, Kyverno delegates resource
+tracking to an asynchronous background worker loop:
 1. **Background Collection:** Kyverno queries the designated cluster resource or external target once, building a localized memory structure.
-2. **Deterministic Refreshing:** Kyverno automatically triggers targeted polling cycles guided by user-configured intervals to keep the cache aligned with the cluster state.
+2. **Deterministic Refreshing:** For `apiCall` mode, Kyverno polls the target at user-configured `refreshInterval` intervals. For `kubernetesResource` mode, Kyverno uses Kubernetes watch/informer mechanisms to automatically track resource changes without polling.
 3. **Instant Lookup Execution:** When the same batch of 200 microservices triggers policy evaluations, Kyverno serves the evaluation data directly out of local RAM cache. Network overhead drops to near 0 ms, ensuring horizontal stability at massive organizational scales.
 
 ---
