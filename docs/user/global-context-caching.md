@@ -28,7 +28,7 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
-  ``` bash
+  ```bash
     kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
   ```
 
@@ -261,70 +261,32 @@ spec:
 
 ### Referencing Cached Data in a Policy
 
-There are two ways to reference a `GlobalContextEntry` in your policy context,
-depending on whether you used named projections or prefer inline filtering.
-
----
-
-#### Option A: Inline JMESPath (no projection defined)
-
-Apply a JMESPath filter directly at reference time using the `jmesPath` field.
-This works on the full cached payload without requiring a named projection in the spec.
+Reference a `GlobalContextEntry` in your policy context using `globalReference`.
+Use the `jmesPath` field to filter the cached payload at reference time:
 
 ```yaml
 context:
   - name: cached_configmaps
     globalReference:
-      name: shared-config-cache          # GlobalContextEntry name
-      jmesPath: "[].metadata.name"       # Filter applied at reference time
+      name: shared-config-cache        # GlobalContextEntry name
+      jmesPath: "[].metadata.name"     # filter applied at reference time
 ```
 
-Use this when you need a quick one-off filter or the entry is shared across
-policies that each need different slices.
+> **JMESPath shape reminder:**
+> - `kubernetesResource` mode → use `[].metadata.name`
+> - `apiCall.urlPath` mode → use `items[].metadata.name`
 
----
-
-#### Option B: Named Projection (projection defined in spec)
-
-If you defined a `projections` block in your `GlobalContextEntry` spec,
-reference the entry by name and use the projection's name as the `jmesPath`:
+If you defined `projections` in your `GlobalContextEntry` spec, the projection
+name can be used directly as the `jmesPath` value:
 
 ```yaml
 context:
   - name: myData
     globalReference:
       name: my-k8s-cached-data
-      jmesPath: "items[].metadata.name"  # Kubernetes API responses use items[]
+      jmesPath: "config-names"   # matches projections[].name in the spec
 ```
 
-```yaml
-# GlobalContextEntry spec (defined once)
-spec:
-  apiCall:
-    urlPath: "/api/v1/..."
-  projections:
-    - name: config-names
-      jmesPath: "data.someField"
-```
-
-```yaml
-# Policy reference
-context:
-  - name: myData
-    globalReference:
-      name: my-k8s-cached-data
-      jmesPath: "config-names"
-```
-
-Use this when multiple policies need the **same filtered slice** — define the
-filter once in the spec instead of repeating `jmesPath` in every policy.
-
----
-
-> **Summary:** Use `jmesPath` in the policy reference for one-off filters.
-> Use named projections in the spec when the same filtered view is reused across policies.
-
----
 
 ## Eventual Consistency & Operational Notes
 
