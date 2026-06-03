@@ -29,7 +29,7 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
   ```bash
-    kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
+    kubectl get deployment -n kyverno -o jsonpath='{.items[0].spec.template.spec.containers[0].image}'
   ```
 
 - **kubectl** access with sufficient permissions to create cluster-scoped resources.
