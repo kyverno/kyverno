@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"golang.org/x/exp/maps"
@@ -237,11 +238,13 @@ func (e *engineImpl) handleMutation(
 			}
 		}
 	}
+	logger := logging.GlobalLogger().WithName("ivpol-engine")
 	ictx, err := imagedataloader.NewImageContext(e.lister, e.registryOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
+	logger.V(4).Info("evaluating ImageValidatingPolicies (mutating phase)", "policies", len(filteredPolicies), "resource", attr.GetName(), "namespace", attr.GetNamespace())
 	for _, ivpol := range filteredPolicies {
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,
@@ -249,11 +252,15 @@ func (e *engineImpl) handleMutation(
 			Exceptions: ivpol.Exceptions,
 		}
 		startTime := time.Now()
+		logger.V(4).Info("compiling ImageValidatingPolicy", "policy", ivpol.Policy.GetName())
 		if p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions); errList != nil {
+			logger.V(4).Info("failed to compile ImageValidatingPolicy", "policy", ivpol.Policy.GetName(), "error", errList.ToAggregate())
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 		} else {
+			logger.V(4).Info("evaluating ImageValidatingPolicy", "policy", ivpol.Policy.GetName())
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
 			if err != nil {
+				logger.V(4).Info("ImageValidatingPolicy evaluation error", "policy", ivpol.Policy.GetName(), "error", err)
 				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
 				results[ivpol.Policy.GetName()] = response
 			} else if result != nil {
@@ -268,14 +275,18 @@ func (e *engineImpl) handleMutation(
 						keys = append(keys, key)
 						exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 					}
+					logger.V(4).Info("ImageValidatingPolicy skipped due to exception", "policy", ivpol.Policy.GetName(), "exceptions", keys)
 					response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 				} else {
 					ruleName := ivpol.Policy.GetName()
 					if result.Error != nil {
+						logger.V(4).Info("ImageValidatingPolicy evaluation error", "policy", ruleName, "error", result.Error)
 						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
 					} else if result.Result {
+						logger.V(4).Info("ImageValidatingPolicy evaluation passed", "policy", ruleName)
 						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 					} else {
+						logger.V(4).Info("ImageValidatingPolicy evaluation failed", "policy", ruleName, "message", result.Message)
 						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 					}
 				}
@@ -314,6 +325,7 @@ func (e *engineImpl) handleValidation(
 	attr admission.Attributes,
 	namespace runtime.Object,
 ) ([]eval.ImageVerifyPolicyResponse, error) {
+	logger := logging.GlobalLogger().WithName("ivpol-engine")
 	responses := make(map[string]eval.ImageVerifyPolicyResponse)
 	annotations, err := objectAnnotations(attr)
 	if err != nil {
@@ -335,7 +347,10 @@ func (e *engineImpl) handleValidation(
 				response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
 				responses[pol.Policy.GetName()] = response
 			} else if matches {
+				logger.V(4).Info("ImageValidatingPolicy matched resource (validating phase)", "policy", pol.Policy.GetName(), "resource", attr.GetName(), "namespace", attr.GetNamespace())
 				filteredPolicies = append(filteredPolicies, pol)
+			} else {
+				logger.V(6).Info("ImageValidatingPolicy did not match resource", "policy", pol.Policy.GetName(), "resource", attr.GetName(), "namespace", attr.GetNamespace())
 			}
 		}
 	}
@@ -353,8 +368,10 @@ func (e *engineImpl) handleValidation(
 			}
 			startTime := time.Now()
 			if o, found := outcomes[pol.Policy.GetName()]; !found {
+				logger.V(4).Info("ImageValidatingPolicy outcome not found in annotation", "policy", pol.Policy.GetName())
 				resp.Result = *engineapi.RuleFail(pol.Policy.GetName(), engineapi.ImageVerify, "policy not evaluated", nil)
 			} else {
+				logger.V(4).Info("ImageValidatingPolicy outcome", "policy", pol.Policy.GetName(), "status", o.Status, "message", o.Message)
 				resp.Result = *engineapi.NewRuleResponse(o.Name, engineapi.ImageVerify, o.Message, o.Status, o.Properties)
 			}
 			resp.Result = resp.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
