@@ -48,32 +48,18 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 ### Granting RBAC Permissions for Custom Resources (CRs)
 If you are caching a **custom resource (CR)** served by a CRD — for example,
-a resource from a custom API group — patch Kyverno's existing ClusterRole
-to grant the required permissions:
-
-Create a file named `kyverno-rbac-patch.yaml`:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:admission-controller
-rules:
-  - apiGroups: ["your.crd.group"]
-    resources: ["yourresources"]
-    verbs: ["get", "list", "watch"]
-```
-
-Then apply it:
+a resource from a custom API group — append a rule to Kyverno's existing
+ClusterRole using a JSON patch:
 
 ```bash
-kubectl apply -f kyverno-rbac-patch.yaml
+kubectl patch clusterrole kyverno:admission-controller --type=json --patch '[{"op":"add","path":"/rules/-","value":{"apiGroups":["your.crd.group"],"resources":["yourresources"],"verbs":["get","list","watch"]}}]'
 ```
 
 > **Note:** Replace `your.crd.group` and `yourresources` with your actual
-> CRD API group and resource name (lowercased, pluralized). Standard
-> resources like `configmaps` and `secrets` already have permissions
-> by default — no patch needed.
+> CRD API group and resource name (lowercased, pluralized). This appends
+> to the existing rules without overwriting them. Standard resources like
+> `configmaps` and `secrets` already have permissions by default — no
+> patch needed.
 
 ---
 
