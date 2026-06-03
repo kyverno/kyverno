@@ -28,9 +28,10 @@ Before configuring a `GlobalContextEntry`, ensure the following:
 
 - **Kyverno >= 1.12.0** is installed in your cluster (`GlobalContextEntry`
   was introduced in this release). Verify your version with:
-```bash
-  kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
-```
+  ``` bash
+    kubectl get pod -n kyverno -l app=kyverno -o jsonpath='{.items[0].spec.containers[0].image}'
+  ```
+
 - **kubectl** access with sufficient permissions to create cluster-scoped resources.
 - **Kyverno ServiceAccount RBAC:** For `kubernetesResource` mode, the Kyverno
   ServiceAccount must have `get`, `list`, and `watch` permissions on the target
@@ -293,7 +294,7 @@ context:
   - name: myData
     globalReference:
       name: my-k8s-cached-data
-      jmesPath: "config-names"  # projection name defined in spec
+      jmesPath: "items[].metadata.name"  # Kubernetes API responses use items[]
 ```
 
 ```yaml
