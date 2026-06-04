@@ -1,0 +1,18 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-mutation
+spec:
+  rules:
+  - name: add-annotation
+    match:
+      all:
+      - resources:
+          kinds:
+          - ConfigMap
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            test-annotation: "foo"
