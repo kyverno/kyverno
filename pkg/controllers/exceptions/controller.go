@@ -109,30 +109,41 @@ func (c *controller) deletePolex(polex *kyvernov2.PolicyException) {
 // other reason.
 func (c *controller) enqueuePoliciesForExceptions(exceptions []kyvernov2.Exception) {
 	names := sets.New[string]()
+	// Lazy-loaded policy lists: fetched at most once per invocation to avoid
+	// repeated O(N) lister scans when multiple wildcard exceptions exist.
+	var cpols []*kyvernov1.ClusterPolicy
+	var pols []*kyvernov1.Policy
+	var cpolsLoaded, polsLoaded bool
 	for _, ex := range exceptions {
 		if !wildcard.ContainsWildcard(ex.PolicyName) {
 			names.Insert(ex.PolicyName)
 			continue
 		}
-		cpols, err := c.cpolLister.List(labels.Everything())
-		if err != nil {
-			logger.Error(err, "failed to list cluster policies for wildcard exception", "policyName", ex.PolicyName)
-		} else {
-			for _, cpol := range cpols {
-				if wildcard.Match(ex.PolicyName, cpol.GetName()) {
-					names.Insert(cpol.GetName())
-				}
+		if !cpolsLoaded {
+			var err error
+			cpols, err = c.cpolLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list cluster policies for wildcard exception")
+			}
+			cpolsLoaded = true
+		}
+		for _, cpol := range cpols {
+			if wildcard.Match(ex.PolicyName, cpol.GetName()) {
+				names.Insert(cpol.GetName())
 			}
 		}
-		pols, err := c.polLister.List(labels.Everything())
-		if err != nil {
-			logger.Error(err, "failed to list policies for wildcard exception", "policyName", ex.PolicyName)
-		} else {
-			for _, pol := range pols {
-				key := pol.GetNamespace() + "/" + pol.GetName()
-				if wildcard.Match(ex.PolicyName, key) {
-					names.Insert(key)
-				}
+		if !polsLoaded {
+			var err error
+			pols, err = c.polLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list policies for wildcard exception")
+			}
+			polsLoaded = true
+		}
+		for _, pol := range pols {
+			key := pol.GetNamespace() + "/" + pol.GetName()
+			if wildcard.Match(ex.PolicyName, key) {
+				names.Insert(key)
 			}
 		}
 	}
