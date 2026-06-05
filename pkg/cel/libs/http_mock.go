@@ -1,7 +1,7 @@
 package libs
 
 import (
-	sdklibhttp "github.com/kyverno/sdk/cel/libs/http"
+	sdklibhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 )
 
 // NewMockAwareHTTPContext wraps a real HTTP CEL context with a per-instance mock map.
