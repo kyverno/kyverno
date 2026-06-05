@@ -48,7 +48,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	celutils "github.com/kyverno/sdk/cel/utils"
+	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
