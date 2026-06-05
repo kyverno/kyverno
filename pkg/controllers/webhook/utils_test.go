@@ -886,3 +886,24 @@ func TestSortedRules(t *testing.T) {
 		})
 	}
 }
+
+func TestWebhookNameAndPath(t *testing.T) {
+	t.Run("default fail policy", func(t *testing.T) {
+		wh := newWebhook(DefaultWebhookTimeout, fail, nil)
+
+		name, path := webhookNameAndPath(*wh, "kyverno-resource", "/validate")
+
+		assert.Equal(t, "kyverno-resource-fail", name)
+		assert.Equal(t, "/validate/fail", path)
+	})
+
+	t.Run("ignore policy with fine-grained key", func(t *testing.T) {
+		wh := newWebhook(DefaultWebhookTimeout, ignore, nil)
+		wh.policyMeta.Name = "restrict-image"
+
+		name, path := webhookNameAndPath(*wh, "kyverno-resource", "/validate")
+
+		assert.Contains(t, name, "kyverno-resource-ignore-finegrained-restrict-image")
+		assert.Equal(t, "/validate/ignore/finegrained/restrict-image", path)
+	})
+}
