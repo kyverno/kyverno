@@ -700,7 +700,7 @@ generator.apply(
 			assert.NoError(t, err)
 			env, err := base.Extend(
 				cel.Variable(GeneratorKey, generator.ContextType),
-				generator.Lib(nil, versions.KyvernoLatest),
+				generator.Lib(nil, "", versions.KyvernoLatest),
 			)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)

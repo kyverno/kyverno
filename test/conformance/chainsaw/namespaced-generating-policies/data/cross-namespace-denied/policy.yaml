@@ -1,0 +1,34 @@
+# A NamespacedGeneratingPolicy in test-namespace that attempts to generate a
+# ConfigMap into the "default" namespace (a namespace other than its own). The
+# generator lib enforces the namespace boundary at evaluation time, so the
+# cross-namespace ConfigMap must never be created.
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedGeneratingPolicy
+metadata:
+  name: cross-ns-escalate
+  namespace: test-namespace
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "should-not-exist",
+              "namespace": "default",
+            }),
+            "data": dyn({
+              "managed-by": "kyverno"
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply("default", variables.configmap)

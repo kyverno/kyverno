@@ -78,6 +78,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		generator.Lib(
 			generator.Context{ContextInterface: libsctx},
+			namespace,
 			generator.Latest(),
 		),
 		globalcontext.Lib(
