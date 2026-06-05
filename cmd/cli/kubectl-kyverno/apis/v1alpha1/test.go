@@ -79,6 +79,24 @@ type Test struct {
 
 	// GlobalContextEntries mocks GlobalContextEntry data for offline tests (v1 and CEL).
 	GlobalContextEntries []GlobalContextEntryValue `json:"globalContextEntries,omitempty"`
+
+	// Attestations provides local attestation predicate files for verifyImages.attestations tests,
+	// allowing those rules to be tested without fetching attestations from an OCI registry.
+	Attestations []TestAttestation `json:"attestations,omitempty"`
+}
+
+// TestAttestation provides a local attestation predicate file for verifyImages.attestations tests.
+type TestAttestation struct {
+	// Image is the container image reference the attestation applies to (e.g. ghcr.io/example/app:1.0).
+	Image string `json:"image,omitempty"`
+
+	// PredicateType is the attestation predicate type (e.g. https://cyclonedx.org/schema/bom).
+	// It must match the type specified in the policy's verifyImages.attestations rule.
+	PredicateType string `json:"predicateType,omitempty"`
+
+	// PredicateFile is the path to the local JSON file containing the attestation predicate.
+	// The path is resolved relative to the test directory.
+	PredicateFile string `json:"predicateFile,omitempty"`
 }
 
 // APICallResponseEntry maps a URL or URL path (optional method) to a static response body.
@@ -298,6 +316,28 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// ValidateAttestations validates local attestation entries before a test run.
+func ValidateAttestations(entries []TestAttestation) error {
+	seen := make(map[string]struct{}, len(entries))
+	for i, e := range entries {
+		if strings.TrimSpace(e.Image) == "" {
+			return fmt.Errorf("attestations[%d]: image is required", i)
+		}
+		if strings.TrimSpace(e.PredicateType) == "" {
+			return fmt.Errorf("attestations[%d]: predicateType is required", i)
+		}
+		if strings.TrimSpace(e.PredicateFile) == "" {
+			return fmt.Errorf("attestations[%d]: predicateFile is required", i)
+		}
+		key := strings.TrimSpace(e.Image) + "|" + strings.TrimSpace(e.PredicateType)
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("attestations[%d]: duplicate attestation for image %q with predicateType %q", i, e.Image, e.PredicateType)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }

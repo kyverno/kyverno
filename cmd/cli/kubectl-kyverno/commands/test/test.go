@@ -17,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/attestations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -44,6 +45,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/local"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -67,7 +69,6 @@ type TestResponse struct {
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
-
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -236,7 +237,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 
 	var cmResolver engineapi.ConfigmapResolver
 	var restMapper meta.RESTMapper
-	var crdPaths []string
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
@@ -249,10 +249,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
 			}
 			if len(src.Spec.CRDs) > 0 {
-				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
-				crdPaths = append(crdPaths, crdFullPaths...)
-
-				for _, crdFullPath := range crdFullPaths {
+				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
 					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
 						return &apiextensionsv1.CustomResourceDefinition{}
 					})
@@ -309,6 +306,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			return nil, fmt.Errorf("error: failed to load globalContextEntries resource files: %w", err)
 		}
 		testCase.Test.GlobalContextEntries = resolved
+	}
+
+	if err := v1alpha1.ValidateAttestations(testCase.Test.Attestations); err != nil {
+		return nil, err
+	}
+	// Load local attestations so verifyImages.attestations rules can be tested without a registry.
+	var attestationProvider *local.Provider
+	if len(testCase.Test.Attestations) > 0 {
+		fmt.Fprintln(out, "  Loading attestations", "...")
+		attestationProvider, err = attestations.Load(testCase.Fs, testDir, isGit, testCase.Test.Attestations)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load attestations: %w", err)
+		}
 	}
 	resolveGlobalContextMock := store.ResolveGlobalContextMockData
 	var store store.Store
@@ -450,7 +460,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
-			CrdPaths:                          crdPaths,
+			LocalAttestations:                 attestationProvider,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -535,8 +545,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
-			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
+			LocalAttestations:                 attestationProvider,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
