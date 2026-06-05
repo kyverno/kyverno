@@ -158,6 +158,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		environment.UnversionedLib(library.JSONPatch), // the kubernetes jsonpatch library to enable escapeKey
 		generator.Lib(
 			generator.Context{ContextInterface: libCtx},
+			namespace,
 			generator.Latest(),
 		),
 		globalcontext.Lib(
