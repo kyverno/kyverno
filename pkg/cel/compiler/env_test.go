@@ -18,8 +18,9 @@ func TestEnvOptions_HomogeneousAggregateBehavior(t *testing.T) {
 	expr := `[1, "two"]`
 
 	_, issues := defaultEnv.Compile(expr)
+	require.NotNil(t, issues)
 	require.Error(t, issues.Err())
 
 	_, issues = dynamicEnv.Compile(expr)
-	require.NoError(t, issues.Err())
+	require.Nil(t, issues)
 }
