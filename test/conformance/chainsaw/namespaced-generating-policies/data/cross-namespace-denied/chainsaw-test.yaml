@@ -24,7 +24,7 @@ spec:
         - name: name
           value: cross-ns-escalate
         - name: namespace
-          value: test-namespace
+          value: tenant-ns
   - name: create trigger namespace
     try:
     - apply:
