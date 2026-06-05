@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -8,8 +9,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/library"
-
-	"github.com/google/cel-go/cel"
 )
 
 // breaking change history is stored inside the library structure. each policy compiler can pass a kyverno
