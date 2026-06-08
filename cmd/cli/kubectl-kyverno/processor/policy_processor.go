@@ -48,7 +48,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	celutils "github.com/kyverno/sdk/cel/utils"
+	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -130,7 +130,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	isCluster := false
 	if p.CrdPath != "" {
-		if err := p.loadCrd(); err != nil {
+		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
 	}
@@ -773,7 +773,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(p.Store, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
-			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
+			return nil, fmt.Errorf(
+				"policy `%s` has variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
 				policy.GetName(),
 				resource.GetName(),
 				err,
@@ -1248,8 +1249,8 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	return true
 }
 
-func (p *PolicyProcessor) loadCrd() error {
-	return common.LoadCrdFromPath(p.CrdPath)
+func (p *PolicyProcessor) loadCrds() error {
+	return common.LoadCrdsFromPath(p.CrdPath)
 }
 
 func getAbsPath(path string) string {
