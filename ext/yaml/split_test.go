@@ -65,7 +65,7 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n---\n"),
 			},
-			wantDocuments: nil,
+			wantDocuments: []string{},
 			wantErr:       false,
 		},
 		{
@@ -73,7 +73,7 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n\n\n---\n"),
 			},
-			wantDocuments: nil,
+			wantDocuments: []string{},
 			wantErr:       false,
 		},
 		{
@@ -81,7 +81,7 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n# Source: helm-chart/my-template.yaml\n---\n"),
 			},
-			wantDocuments: nil,
+			wantDocuments: []string{},
 			wantErr:       false,
 		},
 		{
