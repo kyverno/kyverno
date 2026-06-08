@@ -8,7 +8,7 @@ import (
 func IsEmptyDocument(document document) bool {
 	for _, line := range strings.Split(string(document), "\n") {
 		line := strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "#") {
+		if line != "" && !strings.HasPrefix(line, "#") && line != "---" {
 			return false
 		}
 	}

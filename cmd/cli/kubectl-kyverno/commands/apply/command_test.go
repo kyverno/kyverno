@@ -571,6 +571,30 @@ type TestCase struct {
 	stdinFile       string
 }
 
+func Test_Apply_EmptyResourceFile(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+		ResourcePaths: []string{"../../../../../test/resources/empty.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+	assert.Empty(t, responses, "no engine responses expected when resource file is empty")
+}
+
+func Test_Apply_CommentOnlyResourceFile(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+		ResourcePaths: []string{"../../../../../test/resources/comments_only.yaml"},
+		PolicyReport:  true,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	assert.NoError(t, err)
+	assert.Empty(t, responses, "no engine responses expected when resource file contains only separators and comments")
+}
+
 func Test_Apply_ValidatingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
