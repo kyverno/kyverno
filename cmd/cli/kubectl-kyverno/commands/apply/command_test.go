@@ -578,7 +578,7 @@ func Test_Apply_EmptyResourceFile(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
 	assert.NoError(t, err)
 	assert.Empty(t, responses, "no engine responses expected when resource file is empty")
 }
