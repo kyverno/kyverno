@@ -47,6 +47,10 @@ spec:
                 items:
                   type: string
                 type: array
+              evaluationMode:
+                description: Evaluation mode denotes which controller is in charge
+                  of compiling and handling this exception.
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
@@ -161,6 +165,10 @@ spec:
                 items:
                   type: string
                 type: array
+              evaluationMode:
+                description: Evaluation mode denotes which controller is in charge
+                  of compiling and handling this exception.
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
@@ -274,6 +282,10 @@ spec:
                 items:
                   type: string
                 type: array
+              evaluationMode:
+                description: Evaluation mode denotes which controller is in charge
+                  of compiling and handling this exception.
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
