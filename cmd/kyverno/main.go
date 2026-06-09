@@ -715,8 +715,9 @@ func main() {
 				os.Exit(1)
 			}
 			celExceptionLister := celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace())
-			// create compiler
-			compiler := vpolcompiler.NewCompiler()
+			// create compiler; pass the secret lister so the attestation CEL functions
+			// can authenticate to private OCI registries using pull secrets.
+			compiler := vpolcompiler.NewCompiler(nil, setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()))
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
