@@ -135,7 +135,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	if policy.GetSpec().CustomWebhookMatchConditions() {
+	if spec.CustomWebhookMatchConditions() {
 		// `kyverno test` runs in mock mode and has no cluster connection
 		// to check the API-server version against, so the dclient is nil.
 		// Calling client.GetKubeClient().Discovery() here without a guard
