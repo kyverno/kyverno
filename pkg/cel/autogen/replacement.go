@@ -33,13 +33,15 @@ func replace(data, from, to []byte) []byte {
 	if len(from) == 0 || bytes.Equal(from, to) {
 		return data
 	}
+	// Fast path: if from never occurs, return data unchanged without
+	// allocating or copying for the common no-op case.
+	idx := bytes.Index(data, from)
+	if idx < 0 {
+		return data
+	}
 	var buf bytes.Buffer
-	for {
-		idx := bytes.Index(data, from)
-		if idx < 0 {
-			buf.Write(data)
-			break
-		}
+	buf.Grow(len(data))
+	for idx >= 0 {
 		buf.Write(data[:idx])
 		rest := data[idx+len(from):]
 		if isProtected(rest) {
@@ -49,7 +51,9 @@ func replace(data, from, to []byte) []byte {
 			buf.Write(to)
 		}
 		data = rest
+		idx = bytes.Index(data, from)
 	}
+	buf.Write(data)
 	return buf.Bytes()
 }
 
