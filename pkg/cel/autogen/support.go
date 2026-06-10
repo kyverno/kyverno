@@ -14,12 +14,7 @@ import (
 func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
 	if match == nil {
 		return false
-	}
-	if match.NamespaceSelector != nil {
-		if len(match.NamespaceSelector.MatchLabels) > 0 || len(match.NamespaceSelector.MatchExpressions) > 0 {
-			return false
-		}
-	}
+	}	
 	if match.ObjectSelector != nil {
 		if len(match.ObjectSelector.MatchLabels) > 0 || len(match.ObjectSelector.MatchExpressions) > 0 {
 			return false

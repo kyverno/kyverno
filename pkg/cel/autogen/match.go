@@ -9,11 +9,12 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admissionregistrationv1.OperationType, namespaceSelector *metav1.LabelSelector) *admissionregistrationv1.MatchResources {
 	if len(targets) == 0 {
 		return nil
 	}
@@ -55,6 +56,7 @@ func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admis
 	}
 	return &admissionregistrationv1.MatchResources{
 		ResourceRules: rules,
+		NamespaceSelector: namespaceSelector,
 	}
 }
 

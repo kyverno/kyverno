@@ -6,14 +6,16 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCreateMatchConstraints(t *testing.T) {
 	tests := []struct {
-		name       string
-		targets    []policiesv1beta1.Target
-		operations []admissionregistrationv1.OperationType
-		want       *admissionregistrationv1.MatchResources
+		name       			string
+		targets    			[]policiesv1beta1.Target
+		operations 			[]admissionregistrationv1.OperationType
+		namespaceSelector 	*metav1.LabelSelector
+		want       			*admissionregistrationv1.MatchResources
 	}{{
 		name:       "nil targets",
 		operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
@@ -117,10 +119,38 @@ func TestCreateMatchConstraints(t *testing.T) {
 				},
 			}},
 		},
+	}, {
+		name: "with namespace selector",
+		targets: []policiesv1beta1.Target{{
+			Group:    "foo",
+			Version:  "v1",
+			Resource: "bars",
+			Kind:     "Bar",
+		}},
+		operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+		namespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"kubernetes.io/namespace-type": "product"},
+		},
+		want: &admissionregistrationv1.MatchResources{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"kubernetes.io/namespace-type": "product"},
+			},
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"foo"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"bars"},
+					},
+				},
+			}},
+		},
 	}}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateMatchConstraints(tt.targets, tt.operations)
+			got := CreateMatchConstraints(tt.targets, tt.operations, tt.namespaceSelector)
 			assert.Equal(t, tt.want, got)
 		})
 	}
