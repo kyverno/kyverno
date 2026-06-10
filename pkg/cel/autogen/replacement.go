@@ -4,9 +4,13 @@ import (
 	"bytes"
 )
 
-var protectedMetadataFields = [][2][]byte{
-	{[]byte("object.metadata.namespace"), []byte("__KYVERNO_PROTECTED_OBJECT_METADATA_NAMESPACE__")},
-	{[]byte("oldObject.metadata.namespace"), []byte("__KYVERNO_PROTECTED_OLD_OBJECT_METADATA_NAMESPACE__")},
+// protectedSuffixes lists field paths that must remain anchored to the
+// workload object's own metadata and must never be rewritten into a pod
+// template path. For example, `object.metadata.namespace` must stay as-is
+// because pod templates (e.g. on Deployments) usually do not carry a
+// `metadata.namespace` field, which would otherwise break match conditions.
+var protectedSuffixes = [][]byte{
+	[]byte(".namespace"),
 }
 
 type Replacement struct {
@@ -15,20 +19,69 @@ type Replacement struct {
 }
 
 func (r *Replacement) Apply(data []byte) []byte {
-	data = bytes.ReplaceAll(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = bytes.ReplaceAll(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
+	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
+	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
 	return data
 }
 
-func Apply(data []byte, replacements ...Replacement) []byte {
-	for _, replacement := range protectedMetadataFields {
-		data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+// replace rewrites every occurrence of from with to, except occurrences that
+// are immediately followed by a protected suffix (e.g. `.namespace`). Unlike a
+// sentinel/placeholder swap, this never injects synthetic markers into the
+// data, so it cannot collide with or corrupt user-provided content such as CEL
+// expressions.
+func replace(data, from, to []byte) []byte {
+	if len(from) == 0 || bytes.Equal(from, to) {
+		return data
 	}
+	var buf bytes.Buffer
+	for {
+		idx := bytes.Index(data, from)
+		if idx < 0 {
+			buf.Write(data)
+			break
+		}
+		buf.Write(data[:idx])
+		rest := data[idx+len(from):]
+		if isProtected(rest) {
+			// Leave this occurrence untouched and continue scanning after it.
+			buf.Write(from)
+		} else {
+			buf.Write(to)
+		}
+		data = rest
+	}
+	return buf.Bytes()
+}
+
+// isProtected reports whether rest (the bytes immediately following a match)
+// begins with any of the protected suffixes as a complete path segment. The
+// suffix must either end the expression or be followed by a non-identifier
+// character so that fields like `metadata.namespace` are protected while
+// hypothetical fields like `metadata.namespaceFoo` are not.
+func isProtected(rest []byte) bool {
+	for _, suffix := range protectedSuffixes {
+		if !bytes.HasPrefix(rest, suffix) {
+			continue
+		}
+		next := rest[len(suffix):]
+		if len(next) == 0 || !isIdentifierByte(next[0]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isIdentifierByte reports whether b can be part of a CEL identifier segment.
+func isIdentifierByte(b byte) bool {
+	return b == '_' ||
+		(b >= 'a' && b <= 'z') ||
+		(b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9')
+}
+
+func Apply(data []byte, replacements ...Replacement) []byte {
 	for _, replacement := range replacements {
 		data = replacement.Apply(data)
-	}
-	for _, replacement := range protectedMetadataFields {
-		data = bytes.ReplaceAll(data, replacement[1], replacement[0])
 	}
 	return data
 }
