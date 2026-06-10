@@ -67,6 +67,7 @@ type policyController struct {
 	pInformer    kyvernov1informers.ClusterPolicyInformer
 	npInformer   kyvernov1informers.PolicyInformer
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -82,6 +83,9 @@ type policyController struct {
 
 	// gpolLister can list/get generating policy from the shared informer's store
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister
+
+	// mpolLister can list/get mutating policy from the shared informer's store
+	mpolLister policiesv1beta1listers.MutatingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -118,6 +122,7 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -147,6 +152,7 @@ func NewPolicyController(
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		gpolInformer:  gpolInformer,
+		mpolInformer:  mpolInformer,
 		eventGen:      eventGen,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -169,8 +175,9 @@ func NewPolicyController(
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
 	pc.gpolLister = gpolInformer.Lister()
+	pc.mpolLister = mpolInformer.Lister()
 
-	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, mpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 
 	return &pc, nil
 }
@@ -306,6 +313,8 @@ func (pc *policyController) enqueuePolicy(policy engineapi.GenericPolicy) {
 		pc.queue.Add("kpol/" + key)
 	} else if policy.AsGeneratingPolicy() != nil {
 		pc.queue.Add("gpol/" + key)
+	} else if policy.AsMutatingPolicy() != nil {
+		pc.queue.Add("mpol/" + key)
 	}
 }
 
@@ -345,6 +354,14 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
+
+	if _, err := pc.mpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
 	}); err != nil {
 		logger.Error(err, "failed to register event handler")
 		return
@@ -451,6 +468,21 @@ func (pc *policyController) syncPolicy(key string) error {
 				errs = append(errs, err)
 			}
 		}
+	case "mpol":
+		mpol, err := pc.mpolLister.Get(polName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		if mpol.Spec.MutateExistingEnabled() {
+			logger.V(4).Info("creating UR for mutating policy background scan", "name", mpol.GetName())
+			if err := pc.createURForMutatingPolicy(mpol); err != nil {
+				logger.Error(err, "failed to create UR for mutating policy", "name", mpol.GetName())
+				errs = append(errs, err)
+			}
+		}
 	}
 	return multierr.Combine(errs...)
 }
@@ -513,6 +545,15 @@ func (pc *policyController) requeuePolicies() {
 		}
 	} else {
 		logger.Error(err, "unable to list GeneratingPolicies")
+	}
+	if mpols, err := pc.mpolLister.List(labels.Everything()); err == nil {
+		for _, mpol := range mpols {
+			if mpol.Spec.MutateExistingEnabled() {
+				pc.enqueuePolicy(engineapi.NewMutatingPolicy(mpol))
+			}
+		}
+	} else {
+		logger.Error(err, "unable to list MutatingPolicies")
 	}
 }
 
