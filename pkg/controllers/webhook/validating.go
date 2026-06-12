@@ -220,8 +220,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
-				// Skip autogen webhook registration for pod-controller kinds when the policy
-				// has native VAP generation enabled — those kinds are governed by VAPs instead.
+				// When VAP generation is enabled, pod-controller kinds are governed by native
+				// VAPs rather than Kyverno webhooks, so skip adding their autogen rules here.
+				// NOTE: VAP reconciliation is asynchronous. A brief enforcement gap may exist
+				// between this flag being set and the autogen VAPs becoming active. The gap is
+				// bounded by controller reconcile latency and is inherent to this opt-in feature.
 				if !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
 					rules, err := vpolautogen.Autogen(vpol)
 					if err != nil {
