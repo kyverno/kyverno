@@ -39,8 +39,17 @@ func replace(data, from, to []byte) []byte {
 	if idx < 0 {
 		return data
 	}
+	// Pre-size the buffer. When the replacement expands the input (the common
+	// case, e.g. `object.spec` -> `object.spec.template.spec`), grow by an
+	// upper bound on the final size so the buffer never has to reallocate
+	// mid-loop. Protected occurrences are left unchanged, so the real size is
+	// at most this estimate.
+	size := len(data)
+	if len(to) > len(from) {
+		size += bytes.Count(data, from) * (len(to) - len(from))
+	}
 	var buf bytes.Buffer
-	buf.Grow(len(data))
+	buf.Grow(size)
 	for idx >= 0 {
 		buf.Write(data[:idx])
 		rest := data[idx+len(from):]

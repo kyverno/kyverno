@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUpdateGenRuleByte(t *testing.T) {
+func TestApplyRewritesExpressions(t *testing.T) {
 	tests := []struct {
 		name   string
 		expr   string
