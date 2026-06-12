@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -381,181 +382,14 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	clusterPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
+	kinds, err := c.collectPolicyKinds()
 	if err != nil {
 		return err
 	}
-	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
-	if err != nil {
-		return err
-	}
-	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
 		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-	}
-	restMapper, err := restmapper.GetRESTMapper(c.client)
-	if err != nil {
-		return err
-	}
-	if c.vapLister != nil {
-		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
-		if err != nil {
-			return err
-		}
-		// fetch kinds from validating admission policies
-		for _, policy := range vapPolicies {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.mapLister != nil {
-		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
-		if err != nil {
-			return err
-		}
-		for _, policy := range mapPolicies {
-			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
-			kinds := admissionpolicy.GetKinds(converted, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.mapAlphaLister != nil {
-		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
-		if err != nil {
-			return err
-		}
-		for _, policy := range mapAlphaPolicies {
-			var matchConstraints *admissionregistrationv1beta1.MatchResources
-			if policy.Spec.MatchConstraints != nil {
-				matchConstraints = &admissionregistrationv1beta1.MatchResources{
-					ResourceRules:        convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ResourceRules),
-					ExcludeResourceRules: convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ExcludeResourceRules),
-					MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(policy.Spec.MatchConstraints.MatchPolicy),
-				}
-			}
-			converted := admissionpolicy.ConvertMatchResources(matchConstraints)
-			kinds := admissionpolicy.GetKinds(converted, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.vpolLister != nil {
-		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
-		if err != nil {
-			return err
-		}
-		// fetch kinds from validating admission policies
-		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.nvpolLister != nil {
-		vpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, "")
-		if err != nil {
-			return err
-		}
-		// fetch kinds from validating admission policies
-		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.mpolLister != nil {
-		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
-		if err != nil {
-			return err
-		}
-		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.nmpolLister != nil {
-		mpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, "")
-		if err != nil {
-			return err
-		}
-		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.ivpolLister != nil {
-		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
-		if err != nil {
-			return err
-		}
-		// fetch kinds from image verification admission policies
-		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
-	}
-	if c.nivpolLister != nil {
-		ivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, "")
-		if err != nil {
-			return err
-		}
-		// fetch kinds from image verification admission policies
-		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
-		}
 	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for gvk, gvr := range gvkToGvr {
@@ -583,6 +417,139 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// collectPolicyKinds returns the set of resource kinds that the report
+// controllers need to watch, gathered from every policy source. It is split out
+// of updateDynamicWatchers so the policy-to-kinds mapping can be unit-tested
+// without starting any dynamic watchers.
+func (c *controller) collectPolicyKinds() (sets.Set[string], error) {
+	kinds := sets.New[string]()
+	clusterPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
+	if err != nil {
+		return nil, err
+	}
+	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
+	if err != nil {
+		return nil, err
+	}
+	// only watch kinds for policies that participate in background scanning; this
+	// mirrors the background scan controller, which filters the same way before
+	// evaluating. watching kinds for background-disabled policies is wasted work.
+	kinds.Insert(utils.BuildKindSet(logger, utils.RemoveNonBackgroundPolicies(append(clusterPolicies, policies...)...)...).UnsortedList()...)
+	restMapper, err := restmapper.GetRESTMapper(c.client)
+	if err != nil {
+		return nil, err
+	}
+	if c.vapLister != nil {
+		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
+		if err != nil {
+			return nil, err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range vapPolicies {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+		}
+	}
+	if c.mapLister != nil {
+		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, policy := range mapPolicies {
+			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
+			kinds.Insert(admissionpolicy.GetKinds(converted, restMapper)...)
+		}
+	}
+	if c.mapAlphaLister != nil {
+		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, policy := range mapAlphaPolicies {
+			var matchConstraints *admissionregistrationv1beta1.MatchResources
+			if policy.Spec.MatchConstraints != nil {
+				matchConstraints = &admissionregistrationv1beta1.MatchResources{
+					ResourceRules:        convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ResourceRules),
+					ExcludeResourceRules: convertResourceRulesForResourceController(policy.Spec.MatchConstraints.ExcludeResourceRules),
+					MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(policy.Spec.MatchConstraints.MatchPolicy),
+				}
+			}
+			converted := admissionpolicy.ConvertMatchResources(matchConstraints)
+			kinds.Insert(admissionpolicy.GetKinds(converted, restMapper)...)
+		}
+	}
+	if c.vpolLister != nil {
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
+		if err != nil {
+			return nil, err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				kinds.Insert(admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)...)
+			}
+		}
+	}
+	if c.nvpolLister != nil {
+		nvpols, err := utils.FetchNamespacedValidatingPolicies(c.nvpolLister, "")
+		if err != nil {
+			return nil, err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(nvpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				kinds.Insert(admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)...)
+			}
+		}
+	}
+	if c.mpolLister != nil {
+		mpols, err := utils.FetchMutatingPolicies(c.mpolLister)
+		if err != nil {
+			return nil, err
+		}
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				kinds.Insert(admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)...)
+			}
+		}
+	}
+	if c.nmpolLister != nil {
+		nmpols, err := utils.FetchNamespacedMutatingPolicies(c.nmpolLister, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(nmpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				kinds.Insert(admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)...)
+			}
+		}
+	}
+	if c.ivpolLister != nil {
+		ivpols, err := utils.FetchImageVerificationPolicies(c.ivpolLister)
+		if err != nil {
+			return nil, err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+		}
+	}
+	if c.nivpolLister != nil {
+		nivpols, err := utils.FetchNamespacedImageVerificationPolicies(c.nivpolLister, "")
+		if err != nil {
+			return nil, err
+		}
+		// fetch kinds from image verification admission policies
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(nivpols) {
+			kinds.Insert(admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)...)
+		}
+	}
+	return kinds, nil
 }
 
 func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
