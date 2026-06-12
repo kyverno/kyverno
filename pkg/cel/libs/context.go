@@ -3,6 +3,7 @@ package libs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -12,11 +13,11 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/sdk/cel/libs/generator"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/libs/generator"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -199,6 +200,14 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		for _, item := range items {
 			targetNamespace := namespace
 			if !cp.isNamespacedResource(item.GetAPIVersion(), item.GetKind()) {
+				// A non-empty namespace means the call is scoped to a single
+				// namespace, which for a namespaced policy is its own namespace
+				// (enforced in the generator lib). Cluster-scoped resources have
+				// no namespace, so generating one would escape that scope. Reject
+				// it instead of silently creating the resource cluster-wide.
+				if namespace != "" {
+					return fmt.Errorf("cross-scope generation denied: a policy scoped to namespace %q cannot generate cluster-scoped resource %s/%s", namespace, item.GetAPIVersion(), item.GetKind())
+				}
 				targetNamespace = ""
 			}
 
