@@ -2014,6 +2014,35 @@ as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>evaluationMode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Evaluation mode denotes which controller is in charge of compiling and handling this exception.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -4001,7 +4030,7 @@ Required.</p>
           
 
           <p>Mode is the mode of policy evaluation.
-Allowed values are &quot;Kubernetes&quot; or &quot;JSON&quot;.
+Allowed values are &quot;Kubernetes&quot;, &quot;HTTP&quot; or &quot;Envoy&quot;.
 Optional. Default value is &quot;Kubernetes&quot;.</p>
 
 
@@ -4083,7 +4112,8 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-EvaluationConfiguration">EvaluationConfiguration</a>, 
-        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>)
+        <a href="#policies-kyverno-io-v1alpha1-MutatingPolicyEvaluationConfiguration">MutatingPolicyEvaluationConfiguration</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-PolicyExceptionSpec">PolicyExceptionSpec</a>)
     </p>
   
 
@@ -7567,6 +7597,35 @@ These values can be referenced in CEL expressions via <code>exceptions.allowedVa
 
           <p>ReportResult indicates whether the policy exception should be reported in the policy report
 as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>evaluationMode</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-EvaluationMode">
+                <span style="font-family: monospace">EvaluationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Evaluation mode denotes which controller is in charge of compiling and handling this exception.</p>
 
 
           

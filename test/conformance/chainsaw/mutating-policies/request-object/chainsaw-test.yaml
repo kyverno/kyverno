@@ -7,6 +7,10 @@ metadata:
 spec:
   concurrent: false
   steps:
+  - name: create-permissions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: step-01
     try:
     - apply:
@@ -17,7 +21,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: uses-requestobj
+          value: uses-requestobject
   - name: step-02
     try:
     - apply:

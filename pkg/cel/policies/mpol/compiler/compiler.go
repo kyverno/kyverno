@@ -10,23 +10,21 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/engine/apicall"
-	"github.com/kyverno/sdk/cel/libs/generator"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/gzip"
-	"github.com/kyverno/sdk/cel/libs/hash"
-	"github.com/kyverno/sdk/cel/libs/http"
-	"github.com/kyverno/sdk/cel/libs/image"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/json"
-	"github.com/kyverno/sdk/cel/libs/math"
-	"github.com/kyverno/sdk/cel/libs/random"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/libs/time"
-	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/user"
-	"github.com/kyverno/sdk/cel/libs/x509"
-	"github.com/kyverno/sdk/cel/libs/yaml"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
+	"github.com/kyverno/sdk/extensions/cel/libs/hash"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/image"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/json"
+	"github.com/kyverno/sdk/extensions/cel/libs/math"
+	"github.com/kyverno/sdk/extensions/cel/libs/random"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/libs/time"
+	"github.com/kyverno/sdk/extensions/cel/libs/transform"
+	"github.com/kyverno/sdk/extensions/cel/libs/user"
+	"github.com/kyverno/sdk/extensions/cel/libs/x509"
+	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -56,7 +54,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()
 
-	extendedCompiler, variablesProvider, err := newExtendedEnv(libCtx, policy.GetNamespace())
+	extendedCompiler, variablesProvider, err := c.newExtendedEnv(libCtx, policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileExtendedError, err)))
 	}
@@ -123,8 +121,8 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}, allErrs
 }
 
-func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
+func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
@@ -153,6 +151,64 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 	baseOpts = append(baseOpts, declOptions...)
 	baseOpts = append(baseOpts, common.ResolverEnvOption(&mutation.DynamicTypeResolver{}))
 
+	libEnvOpts := []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		environment.UnversionedLib(library.JSONPatch), // the kubernetes jsonpatch library to enable escapeKey
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libCtx},
+			globalcontext.Latest(),
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libCtx},
+			namespace,
+			resource.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libCtx},
+			imagedata.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		x509.Lib(
+			x509.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+		user.Lib(
+			user.Latest(),
+		),
+		http.Lib(
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libCtx.GetHTTPMocks())},
+			http.Latest(),
+		),
+	}
+
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
 	extendedBase, err := base.Extend(
@@ -163,67 +219,7 @@ func newExtendedEnv(libCtx libs.Context, namespace string) (*cel.Env, *compiler.
 		// libraries
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-				environment.UnversionedLib(library.JSONPatch), // the kubernetes jsonpatch library to enable escapeKey
-				generator.Lib(
-					generator.Context{ContextInterface: libCtx},
-					generator.Latest(),
-				),
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libCtx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(apicall.NewScopedTokenClient())},
-					http.Latest(),
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libCtx},
-					namespace,
-					resource.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libCtx},
-					imagedata.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				x509.Lib(
-					x509.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {

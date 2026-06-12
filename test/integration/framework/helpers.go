@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -13,18 +14,35 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 // MockEventGen captures events for test assertions.
+// Thread-safe because the mpol/vpol handlers spawn an async audit goroutine
+// that calls Add() after the handler returns; back-to-back handler calls in
+// the same test can otherwise overlap and race on the underlying slice.
 type MockEventGen struct {
-	Events []event.Info
+	mu     sync.Mutex
+	events []event.Info
 }
 
 func (m *MockEventGen) Add(infoList ...event.Info) {
-	m.Events = append(m.Events, infoList...)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.events = append(m.events, infoList...)
+}
+
+// GetEvents returns a snapshot of captured events (thread-safe).
+func (m *MockEventGen) GetEvents() []event.Info {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]event.Info, len(m.events))
+	copy(out, m.events)
+	return out
 }
 
 // PodAdmissionRequest builds a handlers.AdmissionRequest for a Pod CREATE operation.
@@ -145,6 +163,45 @@ func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissi
 	}
 }
 
+// CreateNamespace creates a namespace in the envtest cluster and registers cleanup.
+// Explicitly sets the well-known "kubernetes.io/metadata.name" label because envtest
+// does not always inject it (kube-controller-manager is not running), which breaks
+// any policy that relies on NamespaceSelector matching by namespace name.
+func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string) {
+	t.Helper()
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"kubernetes.io/metadata.name": name,
+			},
+		},
+	}
+	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create namespace %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = kubeClient.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
+	})
+}
+
+// PodAdmissionRequestDryRun builds a handlers.AdmissionRequest for a Pod CREATE with DryRun set to true.
+func PodAdmissionRequestDryRun(name, namespace string, raw []byte) handlers.AdmissionRequest {
+	req := PodAdmissionRequest(name, namespace, raw)
+	dryRun := true
+	req.DryRun = &dryRun
+	return req
+}
+
+// PodAdmissionRequestWithUsername builds a handlers.AdmissionRequest for a Pod CREATE
+// with a custom UserInfo.Username (e.g. for backgroundServiceAccountName tests).
+func PodAdmissionRequestWithUsername(name, namespace, username string, raw []byte) handlers.AdmissionRequest {
+	req := PodAdmissionRequest(name, namespace, raw)
+	req.UserInfo = authenticationv1.UserInfo{Username: username}
+	return req
+}
+
 // PodAdmissionRequestWithOp builds a handlers.AdmissionRequest for a Pod with the given operation.
 // For DELETE, the resource is placed in OldObject (matching real K8s behavior).
 func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation, raw []byte) handlers.AdmissionRequest {
@@ -165,4 +222,20 @@ func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation,
 		req.Object = runtime.RawExtension{Raw: raw}
 	}
 	return req
+}
+
+// NamespaceAdmissionRequest builds a CREATE admission request for a cluster-scoped Namespace.
+// Mirrors the shape of PodAdmissionRequest for use as a trigger in gpol sync-clone tests.
+func NamespaceAdmissionRequest(name string, raw []byte) handlers.AdmissionRequest {
+	return handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID(uuid.New().String()),
+			Operation: admissionv1.Create,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			Name:      name,
+			Object:    runtime.RawExtension{Raw: raw},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
 }

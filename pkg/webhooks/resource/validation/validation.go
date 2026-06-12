@@ -154,7 +154,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	// create the admission report if any of the policies involved doesn't have the report exclusion label
 	if NeedsReports(request, policyContext.NewResource(), v.admissionReports) && hasReportablePolicy(policies) {
-		go func() {
+		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				if reportutils.IsNamespaceTerminationError(err) {
 					// Log namespace termination errors at debug level as they are expected

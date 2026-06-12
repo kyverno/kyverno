@@ -21,7 +21,7 @@ type MatchResources struct {
 
 // GetResourceFilters returns all resource filters
 func (m *MatchResources) GetResourceFilters() kyvernov1.ResourceFilters {
-	var filters kyvernov1.ResourceFilters
+	filters := make(kyvernov1.ResourceFilters, 0, len(m.All)+len(m.Any))
 	filters = append(filters, m.All...)
 	filters = append(filters, m.Any...)
 	return filters
