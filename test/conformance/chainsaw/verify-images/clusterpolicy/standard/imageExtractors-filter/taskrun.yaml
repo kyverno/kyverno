@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: test-taskrun
+spec:
+  taskRef:
+    resolver: bundles
+    params:
+    - name: kind
+      value: Task
+    - name: bundle
+      value: quay.io/arewm/tekton-tasks@sha256:cd8bdc23b5d0ce8def63bc2db79494f112d70f631e778a24f498967fc7c99cda
+    - name: name
+      value: hello

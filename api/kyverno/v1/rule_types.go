@@ -37,6 +37,14 @@ type ImageExtractorConfig struct {
 	// Note - Image digest mutation may not be used when applying a JMESPAth to an image.
 	// +optional
 	JMESPath string `json:"jmesPath,omitempty"`
+	// Filter is an optional value to match against 'key' during wildcard array expansion.
+	// When set, only array elements where the field named by 'key' equals this value
+	// are extracted as image references. Requires 'key' to be set.
+	// This is useful when a wildcard path expands an array containing both image and
+	// non-image elements, and only specific elements should be treated as images.
+	// Filter only applies to wildcard expansion over arrays, not maps.
+	// +optional
+	Filter string `json:"filter,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.

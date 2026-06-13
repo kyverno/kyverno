@@ -2475,6 +2475,23 @@ The &lsquo;trim_prefix&rsquo; function may be used to trim the prefix: trim_pref
 Note - Image digest mutation may not be used when applying a JMESPAth to an image.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>filter</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Filter is an optional value to match against &lsquo;key&rsquo; during wildcard array expansion.
+When set, only array elements where the field named by &lsquo;key&rsquo; equals this value
+are extracted as image references. Requires &lsquo;key&rsquo; to be set.
+This is useful when a wildcard path expands an array containing both image and
+non-image elements, and only specific elements should be treated as images.
+Filter only applies to wildcard expansion over arrays, not maps.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
