@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,12 +19,16 @@ import (
 )
 
 const (
+	mutatingPoliciesV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicies"
 	mutatingPoliciesBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicies"
 	mutatingPoliciesAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicies"
+
+	mutatingBindingsV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicybindings"
 	mutatingBindingsBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicybindings"
 	mutatingBindingsAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicybindings"
-	validatingPoliciesV1  = "admissionregistration.k8s.io/v1/validatingadmissionpolicies"
-	validatingBindingsV1  = "admissionregistration.k8s.io/v1/validatingadmissionpolicybindings"
+
+	validatingPoliciesV1 = "admissionregistration.k8s.io/v1/validatingadmissionpolicies"
+	validatingBindingsV1 = "admissionregistration.k8s.io/v1/validatingadmissionpolicybindings"
 )
 
 type mockAuthChecker struct {
@@ -37,10 +40,13 @@ func (m *mockAuthChecker) Check(ctx context.Context, group, version, resource, s
 	if m.err != nil {
 		return nil, m.err
 	}
+
 	key := fmt.Sprintf("%s/%s/%s", group, version, resource)
+
 	if allowed, ok := m.results[key]; ok {
 		return &checker.AuthResult{Allowed: allowed}, nil
 	}
+
 	return &checker.AuthResult{Allowed: false}, nil
 }
 
@@ -139,6 +145,15 @@ func TestHasMutatingAdmissionPolicyPermission(t *testing.T) {
 		expected bool
 	}{
 		{
+			name: "v1 allowed",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingPoliciesV1: true,
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "v1beta1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
@@ -182,6 +197,15 @@ func TestHasMutatingAdmissionPolicyBindingPermission(t *testing.T) {
 		auth     *mockAuthChecker
 		expected bool
 	}{
+		{
+			name: "v1 allowed",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingBindingsV1: true,
+				},
+			},
+			expected: true,
+		},
 		{
 			name: "v1beta1 allowed",
 			auth: &mockAuthChecker{
@@ -228,11 +252,27 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 		expectErr bool
 	}{
 		{
+			name: "v1 present",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
+				},
+			},
+			expect: true,
+		},
+		{
 			name: "v1beta1 present",
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
 				},
 			},
 			expect: true,
@@ -242,7 +282,10 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
 				},
 			},
 			expect: true,
@@ -259,12 +302,15 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewClientset()
 			client.Fake.Resources = tt.resources
+
 			res, err := IsMutatingAdmissionPolicyRegistered(client)
+
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
+
 			assert.Equal(t, tt.expect, res)
 		})
 	}
@@ -278,11 +324,47 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 		expectErr bool
 	}{
 		{
+			name: "v1 preferred when present",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1,
+		},
+		{
+			name: "v1 preferred over v1beta1",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
+				},
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1,
+		},
+		{
 			name: "v1beta1 preferred when both resources are present",
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
 				},
 			},
 			expect: MutatingAdmissionPolicyVersionV1beta1,
@@ -292,7 +374,10 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
 				},
 			},
 			expect: MutatingAdmissionPolicyVersionV1alpha1,
@@ -302,7 +387,9 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+					},
 				},
 			},
 			expectErr: true,
@@ -312,11 +399,16 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+					},
 				},
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1alpha1",
-					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+					APIResources: []metav1.APIResource{
+						{Name: "mutatingadmissionpolicies"},
+						{Name: "mutatingadmissionpolicybindings"},
+					},
 				},
 			},
 			expect: MutatingAdmissionPolicyVersionV1alpha1,
@@ -332,12 +424,15 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewClientset()
 			client.Fake.Resources = tt.resources
+
 			version, err := PreferredMutatingAdmissionPolicyVersion(client)
+
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
+
 			assert.Equal(t, tt.expect, version)
 		})
 	}
@@ -345,248 +440,23 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 
 func TestPreferredMutatingAdmissionPolicyVersion_FailFastOnDiscoveryError(t *testing.T) {
 	client := fake.NewClientset()
-	errForbidden := apierrors.NewForbidden(schema.GroupResource{Group: "admissionregistration.k8s.io", Resource: "mutatingadmissionpolicies"}, "", errors.New("forbidden"))
+
+	errForbidden := apierrors.NewForbidden(
+		schema.GroupResource{
+			Group:    "admissionregistration.k8s.io",
+			Resource: "mutatingadmissionpolicies",
+		},
+		"",
+		errors.New("forbidden"),
+	)
+
 	client.Fake.PrependReactor("get", "*", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, nil, errForbidden
 	})
 
 	version, err := PreferredMutatingAdmissionPolicyVersion(client)
+
 	assert.Empty(t, version)
 	assert.Error(t, err)
 	assert.True(t, apierrors.IsForbidden(err))
-}
-
-func TestIsValidatingAdmissionPolicyRegistered(t *testing.T) {
-	tests := []struct {
-		name      string
-		resources []*metav1.APIResourceList
-		expect    bool
-		expectErr bool
-	}{
-		{
-			name: "v1 present",
-			resources: []*metav1.APIResourceList{
-				{
-					GroupVersion: "admissionregistration.k8s.io/v1",
-					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}, {Name: "validatingadmissionpolicybindings"}},
-				},
-			},
-			expect: true,
-		},
-		{
-			name: "v1 missing, v1beta1 present",
-			resources: []*metav1.APIResourceList{
-				{
-					GroupVersion: "admissionregistration.k8s.io/v1beta1",
-					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}, {Name: "validatingadmissionpolicybindings"}},
-				},
-			},
-			expect: false,
-		},
-		{
-			name: "binding resource is required",
-			resources: []*metav1.APIResourceList{
-				{
-					GroupVersion: "admissionregistration.k8s.io/v1",
-					APIResources: []metav1.APIResource{{Name: "validatingadmissionpolicies"}},
-				},
-			},
-			expect: false,
-		},
-		{
-			name:      "neither present",
-			resources: []*metav1.APIResourceList{},
-			expect:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := fake.NewClientset()
-			client.Fake.Resources = tt.resources
-			res, err := IsValidatingAdmissionPolicyRegistered(client)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-			assert.Equal(t, tt.expect, res)
-		})
-	}
-}
-
-func TestCollectParams(t *testing.T) {
-	denyAction := admissionregistrationv1.DenyAction
-
-	tests := []struct {
-		name           string
-		paramKind      *admissionregistrationv1.ParamKind
-		paramRef       *admissionregistrationv1.ParamRef
-		namespace      string
-		mockClient     *mockEngineClient
-		expectedLen    int
-		expectedErrMsg string
-	}{
-		{
-			name: "invalid api version",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "invalid/version/extra",
-				Kind:       "ConfigMap",
-			},
-			paramRef:       &admissionregistrationv1.ParamRef{},
-			mockClient:     &mockEngineClient{},
-			expectedErrMsg: "can't parse the parameter resource group version",
-		},
-		{
-			name: "isNamespaced error",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{},
-			mockClient: &mockEngineClient{
-				isNamespacedErr: errors.New("discovery failed"),
-			},
-			expectedErrMsg: "failed to check if resource is namespaced or not (discovery failed)",
-		},
-		{
-			name: "cluster scoped resource with namespace in paramRef",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "Node",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Namespace: "default",
-			},
-			mockClient: &mockEngineClient{
-				isNamespacedResp: false,
-			},
-			expectedErrMsg: "paramRef.namespace must not be provided for a cluster-scoped `paramKind`",
-		},
-		{
-			name: "namespaced resource, no namespace provided anywhere",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef:  &admissionregistrationv1.ParamRef{},
-			namespace: "",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-			},
-			expectedErrMsg: "can't use namespaced paramRef to match cluster-scoped resources",
-		},
-		{
-			name: "get by name success",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Name:      "my-config",
-				Namespace: "default",
-			},
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				getResourceResp:  &unstructured.Unstructured{},
-			},
-			expectedLen: 1,
-		},
-		{
-			name: "get by name error",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Name: "my-config",
-			},
-			namespace: "default",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				getResourceErr:   errors.New("not found"),
-			},
-			expectedErrMsg: "not found",
-		},
-		{
-			name: "list by selector success",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}},
-			},
-			namespace: "default",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				listResourceResp: &unstructured.UnstructuredList{
-					Items: []unstructured.Unstructured{{}, {}},
-				},
-			},
-			expectedLen: 2,
-		},
-		{
-			name: "list by selector error",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Selector: &metav1.LabelSelector{},
-			},
-			namespace: "default",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				listResourceErr:  errors.New("list failed"),
-			},
-			expectedErrMsg: "list failed",
-		},
-		{
-			name: "not found action deny",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Selector:                &metav1.LabelSelector{},
-				ParameterNotFoundAction: &denyAction,
-			},
-			namespace: "default",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				listResourceResp: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}},
-			},
-			expectedErrMsg: "no params found",
-		},
-		{
-			name: "not found action allow (default)",
-			paramKind: &admissionregistrationv1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
-			paramRef: &admissionregistrationv1.ParamRef{
-				Selector: &metav1.LabelSelector{},
-			},
-			namespace: "default",
-			mockClient: &mockEngineClient{
-				isNamespacedResp: true,
-				listResourceResp: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}},
-			},
-			expectedLen: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			res, err := CollectParams(context.TODO(), tt.mockClient, tt.paramKind, tt.paramRef, tt.namespace)
-			if tt.expectedErrMsg != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedErrMsg)
-			} else {
-				assert.NoError(t, err)
-				assert.Len(t, res, tt.expectedLen)
-			}
-		})
-	}
 }
