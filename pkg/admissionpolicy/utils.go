@@ -18,14 +18,34 @@ type MutatingAdmissionPolicyVersion string
 
 const (
 	MutatingAdmissionPolicyVersionV1       MutatingAdmissionPolicyVersion = "v1"
-	MutatingAdmissionPolicyVersionV1alpha1 MutatingAdmissionPolicyVersion = "v1alpha1"
 	MutatingAdmissionPolicyVersionV1beta1  MutatingAdmissionPolicyVersion = "v1beta1"
+	MutatingAdmissionPolicyVersionV1alpha1 MutatingAdmissionPolicyVersion = "v1alpha1"
 )
 
-var errMutatingAdmissionPolicyNotRegistered = fmt.Errorf("mutating admission policy API is not registered")
+var (
+	errMutatingAdmissionPolicyNotRegistered = fmt.Errorf("mutating admission policy API is not registered")
+
+	supportedMutatingAdmissionPolicyVersions = []MutatingAdmissionPolicyVersion{
+		MutatingAdmissionPolicyVersionV1,
+		MutatingAdmissionPolicyVersionV1beta1,
+		MutatingAdmissionPolicyVersionV1alpha1,
+	}
+)
 
 func hasPermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
-	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "create", "update", "list", "delete")
+	can, err := checker.Check(
+		context.TODO(),
+		s,
+		resource.Group,
+		resource.Version,
+		resource.Resource,
+		"",
+		"",
+		"create",
+		"update",
+		"list",
+		"delete",
+	)
 	if err != nil {
 		return false
 	}
@@ -33,62 +53,71 @@ func hasPermissions(resource schema.GroupVersionResource, s checker.AuthChecker)
 }
 
 func HasValidatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingadmissionpolicies"}
-	return hasPermissions(gvr, s)
+	return hasPermissions(schema.GroupVersionResource{
+		Group:    "admissionregistration.k8s.io",
+		Version:  "v1",
+		Resource: "validatingadmissionpolicies",
+	}, s)
 }
 
 func HasValidatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingadmissionpolicybindings"}
-	return hasPermissions(gvr, s)
+	return hasPermissions(schema.GroupVersionResource{
+		Group:    "admissionregistration.k8s.io",
+		Version:  "v1",
+		Resource: "validatingadmissionpolicybindings",
+	}, s)
 }
 
 func HasMutatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
-	versions := []string{"v1", "v1beta1", "v1alpha1"}
-
-	for _, version := range versions {
-		gvr := schema.GroupVersionResource{
+	for _, version := range supportedMutatingAdmissionPolicyVersions {
+		if hasPermissions(schema.GroupVersionResource{
 			Group:    "admissionregistration.k8s.io",
-			Version:  version,
+			Version:  string(version),
 			Resource: "mutatingadmissionpolicies",
-		}
-		if hasPermissions(gvr, s) {
+		}, s) {
 			return true
 		}
 	}
-
 	return false
 }
 
 func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
-	versions := []string{"v1", "v1beta1", "v1alpha1"}
-
-	for _, version := range versions {
-		gvr := schema.GroupVersionResource{
+	for _, version := range supportedMutatingAdmissionPolicyVersions {
+		if hasPermissions(schema.GroupVersionResource{
 			Group:    "admissionregistration.k8s.io",
-			Version:  version,
+			Version:  string(version),
 			Resource: "mutatingadmissionpolicybindings",
-		}
-		if hasPermissions(gvr, s) {
+		}, s) {
 			return true
 		}
 	}
-
 	return false
 }
 
-func isRegistered(kubeClient kubernetes.Interface, group, version string, resources ...string) (bool, error) {
-	resourceList, err := kubeClient.Discovery().ServerResourcesForGroupVersion(schema.GroupVersion{Group: group, Version: version}.String())
+func isRegistered(
+	kubeClient kubernetes.Interface,
+	group,
+	version string,
+	resources ...string,
+) (bool, error) {
+
+	resourceList, err := kubeClient.Discovery().
+		ServerResourcesForGroupVersion(schema.GroupVersion{
+			Group:   group,
+			Version: version,
+		}.String())
+
 	if err != nil {
 		return false, err
 	}
 
 	available := make([]string, 0, len(resourceList.APIResources))
-	for _, resource := range resourceList.APIResources {
-		available = append(available, resource.Name)
+	for _, r := range resourceList.APIResources {
+		available = append(available, r.Name)
 	}
 
-	for _, resource := range resources {
-		if !slices.Contains(available, resource) {
+	for _, r := range resources {
+		if !slices.Contains(available, r) {
 			return false, nil
 		}
 	}
@@ -97,13 +126,7 @@ func isRegistered(kubeClient kubernetes.Interface, group, version string, resour
 }
 
 func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (MutatingAdmissionPolicyVersion, error) {
-	versions := []MutatingAdmissionPolicyVersion{
-		MutatingAdmissionPolicyVersionV1,
-		MutatingAdmissionPolicyVersionV1beta1,
-		MutatingAdmissionPolicyVersionV1alpha1,
-	}
-
-	for _, version := range versions {
+	for _, version := range supportedMutatingAdmissionPolicyVersions {
 		registered, err := isRegistered(
 			kubeClient,
 			"admissionregistration.k8s.io",
@@ -111,11 +134,12 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 			"mutatingadmissionpolicies",
 			"mutatingadmissionpolicybindings",
 		)
+
 		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return "", err
+			if apierrors.IsNotFound(err) {
+				continue
 			}
-			continue
+			return "", err
 		}
 
 		if registered {
@@ -129,13 +153,23 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
 	_, err := PreferredMutatingAdmissionPolicyVersion(kubeClient)
 	if err != nil {
+		if err == errMutatingAdmissionPolicyNotRegistered {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
 }
 
 func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
-	registered, err := isRegistered(kubeClient, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "validatingadmissionpolicybindings")
+	registered, err := isRegistered(
+		kubeClient,
+		"admissionregistration.k8s.io",
+		"v1",
+		"validatingadmissionpolicies",
+		"validatingadmissionpolicybindings",
+	)
+
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
@@ -143,64 +177,68 @@ func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (boo
 		return false, err
 	}
 
-	if registered {
-		return true, nil
-	}
-
-	return false, nil
+	return registered, nil
 }
 
-func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
+func CollectParams(
+	ctx context.Context,
+	client engineapi.Client,
+	paramKind *admissionregistrationv1.ParamKind,
+	paramRef *admissionregistrationv1.ParamRef,
+	namespace string,
+) ([]runtime.Object, error) {
+
 	var params []runtime.Object
 
-	apiVersion := paramKind.APIVersion
-	kind := paramKind.Kind
-
-	gv, err := schema.ParseGroupVersion(apiVersion)
+	gv, err := schema.ParseGroupVersion(paramKind.APIVersion)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse the parameter resource group version")
+		return nil, fmt.Errorf("invalid paramKind apiVersion: %w", err)
 	}
 
-	var paramsNamespace string
-
-	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
+	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, paramKind.Kind)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check if resource is namespaced or not (%w)", err)
+		return nil, fmt.Errorf("failed to check namespaced resource: %w", err)
 	}
 
+	paramsNamespace := ""
 	if isNamespaced {
-		paramsNamespace = namespace
-
 		if paramRef.Namespace != "" {
 			paramsNamespace = paramRef.Namespace
-		} else if paramsNamespace == "" {
-			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+		} else {
+			paramsNamespace = namespace
+		}
+
+		if paramsNamespace == "" {
+			return nil, fmt.Errorf("cannot resolve namespace for namespaced paramKind")
 		}
 	} else {
 		if paramRef.Namespace != "" {
-			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")
+			return nil, fmt.Errorf("paramRef.namespace not allowed for cluster-scoped paramKind")
 		}
 	}
 
 	if paramRef.Name != "" {
-		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+		obj, err := client.GetResource(ctx, paramKind.APIVersion, paramKind.Kind, paramsNamespace, paramRef.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		return []runtime.Object{obj}, nil
+	}
+
+	if paramRef.Selector != nil {
+		list, err := client.ListResource(ctx, paramKind.APIVersion, paramKind.Kind, paramsNamespace, paramRef.Selector)
 		if err != nil {
 			return nil, err
 		}
 
-		return []runtime.Object{param}, nil
-	} else if paramRef.Selector != nil {
-		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
-		if err != nil {
-			return nil, err
-		}
-
-		for i := range paramList.Items {
-			params = append(params, &paramList.Items[i])
+		for i := range list.Items {
+			params = append(params, &list.Items[i])
 		}
 	}
 
-	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
+	if len(params) == 0 &&
+		paramRef.ParameterNotFoundAction != nil &&
+		*paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
 		return nil, fmt.Errorf("no params found")
 	}
 
