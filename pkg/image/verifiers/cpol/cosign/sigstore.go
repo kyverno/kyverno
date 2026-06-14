@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -15,9 +16,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -56,9 +60,9 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 		return nil, errors.Wrapf(err, "failed to build policy: %v", opts.ImageRef)
 	}
 	verifyOpts := buildVerifyOptions(opts)
-	trustedMaterial, err := getTrustedRoot(ctx)
+	trustedMaterial, err := getTrustedMaterial(ctx, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get trusted root: %v", opts.ImageRef)
+		return nil, errors.Wrapf(err, "failed to get trusted material: %v", opts.ImageRef)
 	}
 	results, err := verifyBundles(bundles, desc, trustedMaterial, policy, verifyOpts)
 	if err != nil {
@@ -67,8 +71,8 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	return results, nil
 }
 
-func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedRoot *root.TrustedRoot, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*verificationResult, error) {
-	verifier, err := verify.NewSignedEntityVerifier(trustedRoot, verifierOpts...)
+func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedMaterial root.TrustedMaterial, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*verificationResult, error) {
+	verifier, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +185,9 @@ func buildPolicy(desc *v1.Descriptor, opts verifiers.Options) (verify.PolicyBuil
 		}
 		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
 	}
+	if opts.Key != "" {
+		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithKey()), nil
+	}
 	return verify.NewPolicy(artifactDigestVerificationOption), nil
 }
 
@@ -192,7 +199,25 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	if !opts.IgnoreSCT {
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
+	if len(verifierOptions) == 0 {
+		if opts.Key != "" {
+			verifierOptions = append(verifierOptions, verify.WithNoObserverTimestamps())
+		} else {
+			verifierOptions = append(verifierOptions, verify.WithCurrentTime())
+		}
+	}
 	return verifierOptions
+}
+
+func getTrustedMaterial(ctx context.Context, opts verifiers.Options) (root.TrustedMaterial, error) {
+	if opts.Key != "" {
+		keyMaterial, err := buildKeyTrustedMaterial(ctx, opts.Key, opts.SignatureAlgorithm)
+		if err != nil {
+			return nil, fmt.Errorf("building key trusted material: %w", err)
+		}
+		return keyMaterial, nil
+	}
+	return getTrustedRoot(ctx)
 }
 
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
@@ -209,6 +234,34 @@ func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
 		return nil, fmt.Errorf("error creating trusted root: %w", err)
 	}
 	return trustedRoot, nil
+}
+
+func buildKeyTrustedMaterial(ctx context.Context, key string, signatureAlgorithm string) (root.TrustedMaterial, error) {
+	hashAlgo, ok := signatureAlgorithmMap[signatureAlgorithm]
+	if !ok {
+		return nil, fmt.Errorf("invalid signature algorithm provided %s", signatureAlgorithm)
+	}
+	var verifier signature.Verifier
+	var err error
+	if strings.HasPrefix(strings.TrimSpace(key), "-----BEGIN PUBLIC KEY-----") {
+		pubKey, err := cryptoutils.UnmarshalPEMToPublicKey([]byte(key))
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal PEM public key: %w", err)
+		}
+		verifier, err = signature.LoadVerifier(pubKey, hashAlgo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load verifier from public key: %w", err)
+		}
+	} else {
+		verifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load public key from %s: %w", key, err)
+		}
+	}
+	expiringKey := root.NewExpiringKey(verifier, time.Time{}, time.Time{})
+	return root.NewTrustedPublicKeyMaterial(func(_ string) (root.TimeConstrainedVerifier, error) {
+		return expiringKey, nil
+	}), nil
 }
 
 func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]any, error) {
