@@ -2,6 +2,12 @@ package cosign
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -201,4 +207,91 @@ func TestIssue_AllVerificationTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func generateTestPEMKey(t *testing.T) string {
+	t.Helper()
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.NilError(t, err)
+	pubDER, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+	assert.NilError(t, err)
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
+}
+
+func TestBuildKeyTrustedMaterial(t *testing.T) {
+	pemKey := generateTestPEMKey(t)
+	material, err := buildKeyTrustedMaterial(context.TODO(), pemKey, "")
+	assert.NilError(t, err)
+
+	verifier, err := material.PublicKeyVerifier("")
+	assert.NilError(t, err)
+	assert.Assert(t, verifier != nil)
+}
+
+func TestBuildKeyTrustedMaterial_InvalidPEM(t *testing.T) {
+	_, err := buildKeyTrustedMaterial(context.TODO(), "-----BEGIN PUBLIC KEY-----\ninvalid\n-----END PUBLIC KEY-----", "")
+	assert.ErrorContains(t, err, "failed to unmarshal PEM public key")
+}
+
+func TestGetTrustedMaterial_KeyAndIdentityMutuallyExclusive(t *testing.T) {
+	pemKey := generateTestPEMKey(t)
+	opts := verifiers.Options{
+		Key:    pemKey,
+		Issuer: "https://token.actions.githubusercontent.com",
+	}
+	_, err := getTrustedMaterial(context.TODO(), opts)
+	assert.ErrorContains(t, err, "mutually exclusive")
+}
+
+func TestBuildKeyTrustedMaterial_InvalidAlgorithm(t *testing.T) {
+	pemKey := generateTestPEMKey(t)
+	_, err := buildKeyTrustedMaterial(context.TODO(), pemKey, "sha999")
+	assert.ErrorContains(t, err, "invalid signature algorithm")
+}
+
+func TestBuildKeyTrustedMaterial_NonPEMKey(t *testing.T) {
+	// k8s secret references require cluster access, so they'll error in unit tests
+	// but the error should be about loading the key, not about requiring PEM
+	_, err := buildKeyTrustedMaterial(context.TODO(), "k8s://namespace/secret", "")
+	assert.Assert(t, err != nil)
+	assert.Assert(t, !strings.Contains(err.Error(), "PEM-encoded"))
+}
+
+func TestGetTrustedMaterial_StaticKey(t *testing.T) {
+	pemKey := generateTestPEMKey(t)
+	opts := verifiers.Options{Key: pemKey}
+	material, err := getTrustedMaterial(context.TODO(), opts)
+	assert.NilError(t, err)
+
+	verifier, err := material.PublicKeyVerifier("")
+	assert.NilError(t, err)
+	assert.Assert(t, verifier != nil)
+}
+
+func TestBuildPolicy_WithKey(t *testing.T) {
+	desc := &v1.Descriptor{
+		Digest: v1.Hash{Algorithm: "sha256", Hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+	}
+	pemKey := generateTestPEMKey(t)
+	opts := verifiers.Options{Key: pemKey}
+	pb, err := buildPolicy(desc, opts)
+	assert.NilError(t, err)
+	pc, err := pb.BuildConfig()
+	assert.NilError(t, err)
+	assert.Assert(t, pc.RequireSigningKey())
+}
+
+func TestBuildPolicy_KeylessPreservesExistingBehavior(t *testing.T) {
+	desc := &v1.Descriptor{
+		Digest: v1.Hash{Algorithm: "sha256", Hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+	}
+	opts := verifiers.Options{
+		Issuer:  "https://token.actions.githubusercontent.com",
+		Subject: "user@example.com",
+	}
+	pb, err := buildPolicy(desc, opts)
+	assert.NilError(t, err)
+	pc, err := pb.BuildConfig()
+	assert.NilError(t, err)
+	assert.Assert(t, !pc.RequireSigningKey())
 }
