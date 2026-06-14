@@ -414,9 +414,13 @@ func TestBuildVerifyOptions(t *testing.T) {
 		opts:       verifiers.Options{IgnoreTlog: false, IgnoreSCT: true},
 		wantLength: 1,
 	}, {
-		name:       "both ignored",
+		name:       "both ignored with key",
+		opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: true, Key: "some-key"},
+		wantLength: 1,
+	}, {
+		name:       "both ignored without key",
 		opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: true},
-		wantLength: 0,
+		wantLength: 1,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
