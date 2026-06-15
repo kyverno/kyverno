@@ -8,6 +8,7 @@ import (
 	gojmespath "github.com/kyverno/go-jmespath"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
+
 // Query the JSON context with JMESPATH search path
 func (ctx *context) Query(query string) (interface{}, error) {
 	if err := ctx.loadDeferred(query); err != nil {
@@ -28,8 +29,8 @@ func (ctx *context) Query(query string) (interface{}, error) {
 	result, err := queryPath.Search(ctx.jsonRaw)
 	if err != nil {
 		var notFoundErr gojmespath.NotFoundError
-		if errors.As(err, &notFoundErr){
-			// If the path just doesn't exist, return nil safely instead of crashing
+		if errors.As(err, &notFoundErr) {
+			// Treat missing paths as nil to allow fallback evaluation to proceed
 			return nil, nil
 		}
 		return nil, fmt.Errorf("JMESPath query failed: %w", err)
