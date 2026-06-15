@@ -5,6 +5,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
+// ConvertMatchResources converts a v1beta1 MatchResources to the v1 equivalent.
 func ConvertMatchResources(in *admissionregistrationv1beta1.MatchResources) *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
 		NamespaceSelector:    in.NamespaceSelector,
@@ -13,6 +14,11 @@ func ConvertMatchResources(in *admissionregistrationv1beta1.MatchResources) *adm
 		ResourceRules:        convertRules(in.ResourceRules),
 		ExcludeResourceRules: convertRules(in.ExcludeResourceRules),
 	}
+}
+
+// ConvertMatchResourcesV1 is a no-op passthrough for native v1 MatchResources.
+func ConvertMatchResourcesV1(in *admissionregistrationv1.MatchResources) *admissionregistrationv1.MatchResources {
+	return in
 }
 
 func convertRules(rules []admissionregistrationv1beta1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
