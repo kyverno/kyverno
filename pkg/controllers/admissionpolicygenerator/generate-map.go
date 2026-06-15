@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,8 +17,11 @@ import (
 
 // preferredMAPVersion returns the API version to use based on which listers are initialised.
 // Both the policy and binding listers must be set for a version to be considered available.
-// v1beta1 takes precedence over v1alpha1 when both are fully available.
+// v1 takes precedence over v1beta1 and v1alpha1 when fully available.
 func (c *controller) preferredMAPVersion() (admissionpolicy.MutatingAdmissionPolicyVersion, bool) {
+	if c.mapV1Lister != nil && c.mapbindingV1Lister != nil {
+		return admissionpolicy.MutatingAdmissionPolicyVersionV1, true
+	}
 	if c.mapBetaLister != nil && c.mapbindingBetaLister != nil {
 		return admissionpolicy.MutatingAdmissionPolicyVersionV1beta1, true
 	}
@@ -70,6 +74,8 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 
 	switch version {
+	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 		return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
@@ -77,6 +83,81 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	default:
 		return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
 	}
+}
+
+func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
+	observedMAP, mapErr := c.getMutatingAdmissionPolicyV1(mapName)
+	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingV1(mapBindingName)
+
+	if shouldDelete {
+		if mapErr == nil {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+		if mapBindingErr == nil {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
+		return nil
+	}
+
+	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	if err != nil {
+		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+	}
+
+	if mapErr != nil {
+		if !apierrors.IsNotFound(mapErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %v", mapName, mapErr)
+		}
+		observedMAP = &admissionregistrationv1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: mapName},
+		}
+	}
+	if mapBindingErr != nil {
+		if !apierrors.IsNotFound(mapBindingErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %v", mapBindingName, mapBindingErr)
+		}
+		observedMAPbinding = &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: mapBindingName},
+		}
+	}
+
+	if observedMAP.ResourceVersion == "" {
+		admissionpolicy.BuildMutatingAdmissionPolicyV1(observedMAP, mpol, celexceptions)
+		if _, err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+		}
+	} else {
+		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1().MutatingAdmissionPolicies(),
+			func(observed *admissionregistrationv1.MutatingAdmissionPolicy) error {
+				admissionpolicy.BuildMutatingAdmissionPolicyV1(observed, mpol, celexceptions)
+				return nil
+			}); err != nil {
+			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+		}
+	}
+
+	if observedMAPbinding.ResourceVersion == "" {
+		admissionpolicy.BuildMutatingAdmissionPolicyBindingV1(observedMAPbinding, mpol)
+		if _, err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Create(ctx, observedMAPbinding, metav1.CreateOptions{}); err != nil {
+			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+		}
+	} else {
+		if _, err := controllerutils.Update(ctx, observedMAPbinding, c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings(),
+			func(observed *admissionregistrationv1.MutatingAdmissionPolicyBinding) error {
+				admissionpolicy.BuildMutatingAdmissionPolicyBindingV1(observed, mpol)
+				return nil
+			}); err != nil {
+			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+		}
+	}
+
+	c.updatePolicyStatus(ctx, genericPolicy, true, "")
+	return nil
 }
 
 func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
