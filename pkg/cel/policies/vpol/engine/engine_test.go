@@ -179,7 +179,7 @@ func TestVPOL_AttestationPipelineGatePattern(t *testing.T) {
 	eng := NewEngine(provider, nil, nil)
 	gate := &unstructured.Unstructured{Object: map[string]any{
 		"spec": map[string]any{
-			"ociRef": "ghcr.io/example/app:v1.2.3",
+			"ociRef": "oci://example.invalid/custom/artifact:v1.2.3",
 		},
 	}}
 

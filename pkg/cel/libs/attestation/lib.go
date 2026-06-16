@@ -24,9 +24,8 @@ func Latest() *version.Version {
 }
 
 // Lib returns a CEL environment option that registers attestation verification
-// functions independent of any ImageValidatingPolicy. imgCtx and lister may be
-// nil; a minimal (unauthenticated) image context is created internally when both
-// are absent.
+// functions independent of any ImageValidatingPolicy. If imgCtx is nil, an image
+// context is created internally (using lister if provided).
 func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, lister k8scorev1.SecretInterface) cel.EnvOption {
 	return cel.Lib(&lib{
 		ver:    v,

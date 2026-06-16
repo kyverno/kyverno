@@ -96,7 +96,7 @@ func TestLib_NoImageMatchGuard(t *testing.T) {
 	env := newEnv(t)
 	// An arbitrary OCI reference that would never match typical image patterns
 	// must still compile and evaluate without an "image not matched" early-exit.
-	ast, issues := env.Compile(`verifyImageSignatures("oci://example.com/custom/artifact:latest", [attestors.notary])`)
+	ast, issues := env.Compile(`verifyImageSignatures("oci://example.invalid/custom/artifact:latest", [attestors.notary])`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
@@ -149,9 +149,9 @@ func TestLib_NilImgCtx_CreatesInternalContext(t *testing.T) {
 	assert.NotNil(t, ast)
 }
 
-// TestLib_SameLibraryName checks that the library name does not clash with the
+// TestLib_LibraryNameUnique checks that the library name does not clash with the
 // imageverify lib (kyverno.imageverify vs kyverno.attestation).
-func TestLib_SameLibraryName(t *testing.T) {
+func TestLib_LibraryNameUnique(t *testing.T) {
 	l := &lib{}
 	assert.Equal(t, "kyverno.attestation", l.LibraryName())
 }
