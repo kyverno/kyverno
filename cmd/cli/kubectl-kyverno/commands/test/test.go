@@ -17,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -64,6 +65,9 @@ type TestResponse struct {
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
+
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -442,7 +446,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
-			IsFakeClient:                      true,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,

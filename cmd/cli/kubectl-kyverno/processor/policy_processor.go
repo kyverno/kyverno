@@ -100,7 +100,6 @@ type PolicyProcessor struct {
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
-	IsFakeClient              bool
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
@@ -1029,9 +1028,6 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
-// tryClusterOpenAPI attempts to get the OpenAPI client from the cluster's
-// discovery endpoint. Returns nil if the call panics (e.g., fake discovery
-// client in CLI test mode) or if the client is nil.
 func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 	defer func() {
 		if r := recover(); r != nil {

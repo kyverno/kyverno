@@ -1515,7 +1515,7 @@ func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
-				CrdPath:       "../../_testdata/apply/test-4/crd/crds.yml",
+				CrdPaths:      []string{"../../_testdata/apply/test-4/crd/crds.yml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{

@@ -329,7 +329,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 	}
 
-	dClient, isFakeClient, err := c.initStoreAndClusterClient(&store, append(targetResources, parameterResources...)...)
+	dClient, err := c.initStoreAndClusterClient(&store, append(targetResources, parameterResources...)...)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -444,7 +444,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		celExceptions,
 		&skippedInvalidPolicies,
 		dClient,
-		isFakeClient,
 		userInfo,
 		mutateLogPathIsDir,
 	)
@@ -521,7 +520,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
-	isFakeClient bool,
 	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
@@ -580,7 +578,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Rc:                                &rc,
 			PrintPatchResource:                true,
 			Cluster:                           c.Cluster,
-			IsFakeClient:                      isFakeClient,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
@@ -622,7 +619,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Rc:                                &rc,
 			PrintPatchResource:                true,
 			Cluster:                           c.Cluster,
-			IsFakeClient:                      isFakeClient,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
@@ -1163,7 +1159,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, bool, error) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -1171,28 +1167,27 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 	}
 	var err error
 	var dClient dclient.Interface
-	var isFakeClient bool
 
 	if c.Cluster {
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		dynamicClient, err := dynamic.NewForConfig(restConfig)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		metadataClient, err := metadata.NewForConfig(restConfig)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute, false, metadataClient)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 	}
 	if len(targetResources) > 0 && !c.Cluster {
@@ -1202,12 +1197,11 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 		}
 		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-		isFakeClient = true
 	}
-	return dClient, isFakeClient, err
+	return dClient, err
 }
 
 func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error {
