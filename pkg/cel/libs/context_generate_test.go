@@ -100,8 +100,9 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel: "test-gpol",
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
 				},
 			},
 		},
@@ -126,6 +127,46 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 	require.Len(t, cp.GetGeneratedResources(), 1)
 	assert.Equal(t, "data", cp.GetGeneratedResources()[0].GetName())
 	assert.Equal(t, "tenant-ns", cp.GetGeneratedResources()[0].GetNamespace())
+}
+
+// Two different triggers of the same policy must not "adopt" each other's
+// downstream resource just because they happen to render the same target
+// name/namespace: the existing resource's trigger-UID label has to match the
+// trigger currently being processed, not merely the policy name.
+func TestGenerateResources_DifferentTriggerExistingResourceNotAdopted(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "data",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "other-trigger-uid",
+				},
+			},
+		},
+	}
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.Empty(t, cp.GetGeneratedResources(), "a resource generated for a different trigger of the same policy must not be adopted")
 }
 
 // An existing resource that merely shares the same GVK/namespace/name but is
@@ -179,8 +220,9 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel: "test-gpol",
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
 				},
 			},
 		},
