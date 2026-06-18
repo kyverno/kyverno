@@ -3,6 +3,8 @@ package libs
 import (
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -97,6 +99,10 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 			"metadata": map[string]any{
 				"name":      "data",
 				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel: "test-gpol",
+				},
 			},
 		},
 	}
@@ -108,6 +114,7 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
+	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -119,6 +126,44 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 	require.Len(t, cp.GetGeneratedResources(), 1)
 	assert.Equal(t, "data", cp.GetGeneratedResources()[0].GetName())
 	assert.Equal(t, "tenant-ns", cp.GetGeneratedResources()[0].GetNamespace())
+}
+
+// An existing resource that merely shares the same GVK/namespace/name but is
+// NOT labeled as managed by this policy (e.g. an unrelated, user-created
+// resource) must never be reported as generated -- otherwise it would be
+// silently adopted by the policy and become subject to synchronize/delete
+// behavior it was never meant to have.
+func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
+	unrelated := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "data",
+				"namespace": "tenant-ns",
+				// no Kyverno management labels: this is a pre-existing,
+				// user-owned resource that just happens to match.
+			},
+		},
+	}
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, unrelated)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.Empty(t, cp.GetGeneratedResources(), "an unmanaged pre-existing resource must not be adopted")
 }
 
 // Companion case: restoreCache mode must not create the resource, but if it
@@ -133,6 +178,10 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 			"metadata": map[string]any{
 				"name":      "data",
 				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel: "test-gpol",
+				},
 			},
 		},
 	}
@@ -144,7 +193,7 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.genCtx.restoreCache = true
+	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
