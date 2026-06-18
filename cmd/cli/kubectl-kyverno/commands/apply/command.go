@@ -362,9 +362,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1beta1.PolicyException
+	var celExceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
+		results := exception.SelectFrom(resources)
+		exceptions = results.Exceptions
+		celExceptions = results.CELExceptions
 	} else {
 		results, err := exception.Load(c.Exception...)
 		if err != nil {
@@ -372,13 +374,13 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 		if results != nil {
 			exceptions = results.Exceptions
-			celexceptions = results.CELExceptions
+			celExceptions = results.CELExceptions
 		}
 	}
 
 	if c.exceptionsWithinPolicies {
 		exceptions = append(exceptions, polexs...)
-		celexceptions = append(celexceptions, celpolexs...)
+		celExceptions = append(celExceptions, celpolexs...)
 	}
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
@@ -397,7 +399,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(envoyPols)
 		policyRulesCount += len(httpPols)
 		exceptionsCount := len(exceptions)
-		exceptionsCount += len(celexceptions)
+		exceptionsCount += len(celExceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, resourceCount, exceptionsCount)
@@ -438,7 +440,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		parameterResources,
 		jsonPayloads,
 		exceptions,
-		celexceptions,
+		celExceptions,
 		&skippedInvalidPolicies,
 		dClient,
 		userInfo,
@@ -447,17 +449,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
