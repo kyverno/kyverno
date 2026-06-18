@@ -248,6 +248,8 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
 	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-path", nil, "Deprecated: use --crd-paths instead")
+	_ = cmd.Flags().MarkDeprecated("crd-path", "use --crd-paths instead")
 	return cmd
 }
 

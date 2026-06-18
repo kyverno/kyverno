@@ -1010,6 +1010,9 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	if len(p.CrdPaths) > 0 {
 		visitedDirs := make(map[string]bool)
 		for _, crdPath := range p.CrdPaths {
+			if strings.TrimSpace(crdPath) == "" {
+				continue
+			}
 			absPath := getAbsPath(crdPath)
 			if !visitedDirs[absPath] {
 				diskCrds := os.DirFS(absPath)
@@ -1251,6 +1254,9 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 
 func (p *PolicyProcessor) loadCrds() error {
 	for _, crdPath := range p.CrdPaths {
+		if strings.TrimSpace(crdPath) == "" {
+			continue
+		}
 		if err := common.LoadCrdsFromPath(crdPath); err != nil {
 			return err
 		}

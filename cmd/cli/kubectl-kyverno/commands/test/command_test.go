@@ -784,8 +784,20 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
-	_, err := runTest(out, testCase, false)
+	testResponse, err := runTest(out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
-
 	t.Logf("Test output: %s", out.String())
+
+	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for custom CRD mutation test")
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "set-annotations-for-widget" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules evaluated for set-annotations-for-widget")
+				break
+			}
+		}
+	}
+	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
