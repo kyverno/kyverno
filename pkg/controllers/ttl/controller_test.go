@@ -96,7 +96,9 @@ func (c *captureQueue) AddAfter(item any, delay time.Duration) {
 	c.TypedRateLimitingInterface.AddAfter(item, delay)
 }
 
-func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
+func newDeleteErrorTestController(t *testing.T) (*controller, *captureQueue, string) {
+	t.Helper()
+
 	obj := &metav1.PartialObjectMetadata{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -141,7 +143,47 @@ func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
 		gvr:    gvr,
 	}
 
-	itemKey := "default/test-cm"
+	return ctrl, cq, "default/test-cm"
+}
+
+func exhaustRetryBudget(t *testing.T, ctrl *controller, q workqueue.TypedRateLimitingInterface[any], itemKey string) {
+	t.Helper()
+
+	q.Add(itemKey)
+	for q.NumRequeues(itemKey) < maxRetries {
+		item, quit := q.Get()
+		if quit {
+			t.Fatal("queue shut down unexpectedly")
+		}
+		if err := ctrl.reconcile(context.Background(), logr.Discard(), itemKey, "", ""); err == nil {
+			t.Fatal("expected reconcile to return error while exhausting retries")
+		}
+		if q.NumRequeues(item) < maxRetries {
+			q.AddRateLimited(item)
+		}
+		q.Done(item)
+	}
+}
+
+func TestReconcile_DeleteError_NoRearmBeforeRetryExhausted(t *testing.T) {
+	ctrl, cq, itemKey := newDeleteErrorTestController(t)
+
+	err := ctrl.reconcile(context.Background(), logr.Discard(), itemKey, "", "")
+	if err == nil {
+		t.Fatal("expected reconcile to return error")
+	}
+	if cq.lastKey != nil {
+		t.Fatalf("expected no re-arm before retry budget exhausted, got key=%v delay=%v", cq.lastKey, cq.lastDelay)
+	}
+}
+
+func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
+	ctrl, cq, itemKey := newDeleteErrorTestController(t)
+	exhaustRetryBudget(t, ctrl, cq.TypedRateLimitingInterface, itemKey)
+
+	cq.lastDelay = 0
+	cq.lastKey = nil
+
 	err := ctrl.reconcile(context.Background(), logr.Discard(), itemKey, "", "")
 	if err == nil {
 		t.Fatal("expected reconcile to return error")
