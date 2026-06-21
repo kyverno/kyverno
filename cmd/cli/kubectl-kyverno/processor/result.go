@@ -97,6 +97,8 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 				rc.Skip++
 			case engineapi.RuleStatusError:
 				rc.Error++
+			default:
+				rc.Fail++
 			}
 		}
 	}

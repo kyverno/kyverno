@@ -54,6 +54,20 @@ func TestAddGenerateResponse_GeneratingPolicy(t *testing.T) {
 				Pass: 1,
 			},
 		},
+		{
+			name: "fail",
+			rule: *engineapi.RuleFail("example", engineapi.Generation, "generation failed", nil),
+			expected: ResultCounts{
+				Fail: 1,
+			},
+		},
+		{
+			name: "warn",
+			rule: *engineapi.RuleWarn("example", engineapi.Generation, "warning", nil),
+			expected: ResultCounts{
+				Warn: 1,
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -273,6 +273,14 @@ func checkResult(
 	return true, result.Description, "Ok"
 }
 
+func checkRuleResultOnly(test v1alpha1.TestResult, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+	result := report.ComputePolicyReportResult(false, response, rule)
+	if result.Result != test.Result {
+		return false, result.Description, fmt.Sprintf("Want %s, got %s", test.Result, result.Result)
+	}
+	return true, result.Description, "Ok"
+}
+
 func isRulelessPolicyKind(kind string) bool {
 	switch kind {
 	case "ValidatingPolicy", "NamespacedValidatingPolicy",
