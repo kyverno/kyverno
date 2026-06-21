@@ -21,7 +21,8 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	maxRetries = 10
+	maxRetries      = 10
+	minRequeueDelay = 1 * time.Second
 )
 
 type controller struct {
@@ -126,11 +127,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 			return nil
 		}
 		// there was an error, return it to requeue the key
+		c.queue.AddAfter(itemKey, minRequeueDelay)
 		return err
 	}
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
 		logger.V(2).Info("object is not of type metav1.Object")
+		c.queue.AddAfter(itemKey, minRequeueDelay)
 		return err
 	}
 	// if the object is being deleted, return early
@@ -150,16 +153,22 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
+		var execErr error
+		defer func() {
+			if execErr != nil {
+				c.queue.AddAfter(itemKey, minRequeueDelay)
+			}
+		}()
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
 		}
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
-		if err != nil {
-			logger.Error(err, "failed to delete resource")
+		execErr = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
+		if execErr != nil {
+			logger.Error(execErr, "failed to delete resource")
 			if c.metrics != nil {
 				c.metrics.RecordTTLFailure(context.Background(), c.gvr, metaObj.GetNamespace())
 			}
-			return err
+			return execErr
 		}
 		logger.V(2).Info("resource has been deleted")
 	} else {

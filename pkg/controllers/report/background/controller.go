@@ -775,6 +775,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			}
 		}
 	}
+	// Always re-arm periodic scanning for this resource, even on error.
+	// Transient errors are already rate-limited by handleErr (up to maxRetries).
+	// This defer ensures recovery at the next forceDelay window if retries are exhausted.
+	defer func() {
+		c.queue.AddAfter(key, c.forceDelay)
+	}()
 	// load all kyverno policies
 	kyvernoPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
@@ -906,19 +912,16 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
+	observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...)
+	if err != nil {
 		return err
-	} else {
-		defer func() {
-			c.queue.AddAfter(key, c.forceDelay)
-		}()
-		if needsReconcile {
-			// update the hash if we got a new one
-			if observedHash != r.Hash {
-				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
-			}
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
+	}
+	if needsReconcile {
+		// update the hash if we got a new one
+		if observedHash != r.Hash {
+			c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
 		}
+		return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
 	}
 	return nil
 }
