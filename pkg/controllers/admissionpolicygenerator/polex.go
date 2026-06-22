@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -34,6 +35,10 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 }
 
 func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
+	// Lazy-loaded: fetch ClusterPolicies at most once per invocation to avoid
+	// repeated O(N) lister scans when multiple wildcard exceptions exist.
+	var cpols []*kyvernov1.ClusterPolicy
+	var cpolsLoaded bool
 	for _, exception := range obj.Spec.Exceptions {
 		// skip adding namespaced policies in the queue.
 		// skip adding policies with multiple rules in the queue.
@@ -42,11 +47,13 @@ func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
 		}
 
 		if wildcard.ContainsWildcard(exception.PolicyName) {
-			// Expand the wildcard pattern against all known ClusterPolicies.
-			cpols, err := c.cpolLister.List(labels.Everything())
-			if err != nil {
-				logger.Error(err, "unable to list cluster policies for wildcard exception", "policyName", exception.PolicyName)
-				continue
+			if !cpolsLoaded {
+				var err error
+				cpols, err = c.cpolLister.List(labels.Everything())
+				if err != nil {
+					logger.Error(err, "unable to list cluster policies for wildcard exception", "policyName", exception.PolicyName)
+				}
+				cpolsLoaded = true
 			}
 			for _, cpol := range cpols {
 				if wildcard.Match(exception.PolicyName, cpol.GetName()) {

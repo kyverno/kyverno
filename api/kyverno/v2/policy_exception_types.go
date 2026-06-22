@@ -123,8 +123,8 @@ func (p *PolicyExceptionSpec) Contains(policy string, rule string) bool {
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
 	// The policy name uses the format <namespace>/<name> unless it
-	// references a ClusterPolicy. Wildcard patterns are supported and
-	// matched via wildcard.Match (e.g., "*", "default/*", "disallow-*").
+	// references a ClusterPolicy. Shell-style glob patterns are supported
+	// (e.g., "*", "default/*", "disallow-*", "require-?-labels").
 	PolicyName string `json:"policyName"`
 
 	// RuleNames identifies the rules to which the exception is applied.
