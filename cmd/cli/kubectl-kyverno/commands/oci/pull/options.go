@@ -95,7 +95,10 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 				if err != nil {
 					return fmt.Errorf("converting policy to yaml: %v", err)
 				}
-				pp := filepath.Join(dir, policy.GetName()+".yaml")
+				pp, err := securejoin.SecureJoin(dir, policy.GetName()+".yaml")
+				if err != nil {
+					return fmt.Errorf("resolving output path for policy %s: %v", policy.GetName(), err)
+				}
 				fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
 				if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
 					return fmt.Errorf("creating file: %v", err)
