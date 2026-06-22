@@ -86,3 +86,46 @@ func TestQueryOperation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, ctx.QueryOperation(), "")
 }
+
+// TestQueryLogicalFallbacks proves the new JMESPath || evaluation works correctly
+func TestQueryLogicalFallbacks(t *testing.T) {
+	// Mock JSON where 'name' is falsey ("") and 'items' contains an object
+	mockJSON := `{"name": "", "items": [{"name": "other"}]}`
+	ctx := createTestContext(mockJSON, `{}`)
+
+	testCases := []struct {
+		name     string
+		query    string
+		expected interface{}
+	}{
+		{
+			name:     "fallback missing left, constant right",
+			query:    "request.object.doesnotexist || 'x'",
+			expected: "x",
+		},
+		{
+			name:     "fallback falsey left, missing right yields null",
+			query:    "request.object.name || request.object.doesnotexist",
+			expected: nil,
+		},
+		{
+			name:     "fallback truthy middle",
+			query:    "request.object.doesnotexist || 'truthy' || 'ignored'",
+			expected: "truthy",
+		},
+		{
+			name:     "fallback respects nesting and strings",
+			// Explicitly using 'missing_items' to guarantee a NotFoundError is thrown for the left side
+			query:    "request.object.missing_items[?name == 'a||b'] || 'fallback'",
+			expected: "fallback", 
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := ctx.Query(tc.query)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
