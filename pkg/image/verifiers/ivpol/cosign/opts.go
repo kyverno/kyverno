@@ -43,11 +43,18 @@ func countPEMCertBlocks(pem []byte) int {
 }
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
-	tufMu.Lock()
-	defer tufMu.Unlock()
+	// Key/certificate verification with the transparency log ignored needs no
+	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
+	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
+	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
+	skipSigstoreInfra := keyOrCert && ignoreTlog
 
-	if err := initializeTuf(ctx, att.TUF); err != nil {
-		return nil, err
+	if !skipSigstoreInfra {
+		tufMu.Lock()
+		defer tufMu.Unlock()
+		if err := initializeTuf(ctx, att.TUF); err != nil {
+			return nil, err
+		}
 	}
 	cosignRemoteOpts := []ociremote.Option{}
 
@@ -71,21 +78,24 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	}
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
+	var err error
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
 	}
 
-	rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
-	if err != nil {
-		return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
-	}
-	opts.RekorClient = rekorClient
-	opts.RekorPubKeys = rekorPubKeys
-	opts.CTLogPubKeys = ctlogPubKey
+	if !skipSigstoreInfra {
+		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
+		if err != nil {
+			return nil, fmt.Errorf("getting Rekor public keys: %w", err)
+		}
+		opts.RekorClient = rekorClient
+		opts.RekorPubKeys = rekorPubKeys
+		opts.CTLogPubKeys = ctlogPubKey
 
-	if opts.RekorClient == nil {
-		if opts.RekorPubKeys != nil {
-			opts.Offline = true
+		if opts.RekorClient == nil {
+			if opts.RekorPubKeys != nil {
+				opts.Offline = true
+			}
 		}
 	}
 
@@ -127,7 +137,8 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					SubjectRegExp: id.SubjectRegExp,
 				})
 		}
-		fulcioRoots, fulcioIntermediates, err := getFulcio(ctx)
+		var fulcioRoots, fulcioIntermediates *x509.CertPool
+		fulcioRoots, fulcioIntermediates, err = getFulcio(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("getting Fulcio certs: %w", err)
 		}
