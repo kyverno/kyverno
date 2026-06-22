@@ -1009,16 +1009,16 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 
 	addedCrdClient := false
 	if len(p.CrdPaths) > 0 {
-		visitedDirs := make(map[string]bool)
+		visitedDirs := make(map[string]struct{})
 		for _, crdPath := range p.CrdPaths {
 			if strings.TrimSpace(crdPath) == "" {
 				continue
 			}
 			absPath := getAbsPath(crdPath)
-			if !visitedDirs[absPath] {
+			if _, seen := visitedDirs[absPath]; !seen {
 				diskCrds := os.DirFS(absPath)
 				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
-				visitedDirs[absPath] = true
+				visitedDirs[absPath] = struct{}{}
 				addedCrdClient = true
 			}
 		}
