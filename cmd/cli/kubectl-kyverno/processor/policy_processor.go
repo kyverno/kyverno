@@ -1007,6 +1007,7 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 		}
 	}
 
+	addedCrdClient := false
 	if len(p.CrdPaths) > 0 {
 		visitedDirs := make(map[string]bool)
 		for _, crdPath := range p.CrdPaths {
@@ -1018,9 +1019,11 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 				diskCrds := os.DirFS(absPath)
 				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
 				visitedDirs[absPath] = true
+				addedCrdClient = true
 			}
 		}
-	} else {
+	}
+	if !addedCrdClient {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
 		}
@@ -1031,6 +1034,9 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
+// tryClusterOpenAPI attempts to get the OpenAPI client from the cluster's
+// discovery endpoint. Returns nil if the call panics (e.g., fake discovery
+// client in CLI test mode) or if the client is nil.
 func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 	defer func() {
 		if r := recover(); r != nil {

@@ -1237,6 +1237,13 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
+	normalized := make([]string, 0, len(c.CrdPaths))
+	for _, p := range c.CrdPaths {
+		if strings.TrimSpace(p) != "" {
+			normalized = append(normalized, p)
+		}
+	}
+	c.CrdPaths = normalized
 	if len(c.CrdPaths) != 0 && strings.TrimSpace(c.KubeConfig) != "" {
 		return fmt.Errorf("crd-paths and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
