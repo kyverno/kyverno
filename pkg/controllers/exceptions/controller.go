@@ -123,7 +123,7 @@ func (c *controller) enqueuePoliciesForExceptions(exceptions []kyvernov2.Excepti
 			var err error
 			cpols, err = c.cpolLister.List(labels.Everything())
 			if err != nil {
-				logger.Error(err, "failed to list cluster policies for wildcard exception")
+				logger.Error(err, "failed to list cluster policies for wildcard exception", "policyName", ex.PolicyName)
 			}
 			cpolsLoaded = true
 		}
@@ -136,7 +136,7 @@ func (c *controller) enqueuePoliciesForExceptions(exceptions []kyvernov2.Excepti
 			var err error
 			pols, err = c.polLister.List(labels.Everything())
 			if err != nil {
-				logger.Error(err, "failed to list policies for wildcard exception")
+				logger.Error(err, "failed to list policies for wildcard exception", "policyName", ex.PolicyName)
 			}
 			polsLoaded = true
 		}
