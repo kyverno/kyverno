@@ -208,6 +208,7 @@ func TestGenerateSync_SourceModification_PropagatesToDownstream(t *testing.T) {
 	source := &corev1.Secret{}
 	framework.LoadResource(t, "testdata/sync-modify-source/source.yaml", source)
 	policy := framework.LoadGeneratingPolicy(t, "testdata/sync-modify-source/policy.yaml")
+	require.Equal(t, policyName, policy.GetName(), "policy fixture name mismatch")
 
 	setupSyncTestWith(t, source, policy, targetNs)
 	waitForSecretPresent(t, sourceName, targetNs)
