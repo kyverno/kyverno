@@ -215,6 +215,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return responses, err
 		}
+
 		imageVerifyCtx := context.TODO()
 		if p.LocalAttestations != nil {
 			imageVerifyCtx = local.WithProvider(imageVerifyCtx, p.LocalAttestations)

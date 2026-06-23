@@ -87,6 +87,10 @@ func (v *verifier) VerifySignature(_ context.Context, opts verifiers.Options) (*
 
 // FetchAttestations returns the local statements matching the requested image and predicate type.
 func (v *verifier) FetchAttestations(_ context.Context, opts verifiers.Options) (*verifiers.Response, error) {
+	if v.provider == nil {
+		return nil, fmt.Errorf("local attestation provider is nil")
+	}
+
 	statements, ok := v.provider.Get(opts.ImageRef, opts.Type)
 	if !ok {
 		return nil, fmt.Errorf("no local attestations found for image %q with predicate type %q", opts.ImageRef, opts.Type)
