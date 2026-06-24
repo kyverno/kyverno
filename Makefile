@@ -1013,6 +1013,7 @@ docker-save-image-all: image-build-all ## Save docker images in archive
 		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
