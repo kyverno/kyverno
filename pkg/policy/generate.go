@@ -50,13 +50,13 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			continue
 		}
 		if generate.GetData() != nil {
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
 				errs = append(errs, err)
 			}
 		}
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -162,20 +162,19 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		}
 
 		sync, orphanDownstreamOnPolicyDelete := r.GetSyncAndOrphanDownstream()
-		if generate.GetData() != nil {
-			if sync && (generate.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
-					errs = append(errs, err)
-				}
+		if !sync || orphanDownstreamOnPolicyDelete {
+			continue
+		}
+		if generate.GetAPIVersion() != "" && generate.GetKind() != "" {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
+				errs = append(errs, err)
 			}
 		}
 
 		for _, foreach := range generate.ForEachGeneration {
-			if foreach.GetData() != nil {
-				if sync && (foreach.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
-						errs = append(errs, err)
-					}
+			if foreach.GetAPIVersion() != "" && foreach.GetKind() != "" {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -202,7 +201,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -219,7 +218,7 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 		return ur, nil
 	}
 
-	pc.log.V(4).Info("sync data rule changes to downstream targets")
+	pc.log.V(4).Info("sync generate rule changes to downstream targets")
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)

@@ -790,7 +790,7 @@ type Generation struct {
 	Synchronize bool `json:"synchronize,omitempty"`
 
 	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+	// them is deleted with synchronization enabled.
 	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
 	// Defaults to "false" if not specified.
 	// +optional
