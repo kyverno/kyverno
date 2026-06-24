@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -243,6 +244,10 @@ func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePatt
 	for _, gvk := range pattern.CloneList.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(gvk)
 		if apiVersion == "" || kind == "" {
+			continue
+		}
+		// Wildcard GVKs are allowed in CloneList but can't be resolved by downstream lookup.
+		if strings.Contains(apiVersion, "*") || strings.Contains(kind, "*") {
 			continue
 		}
 		p := pattern

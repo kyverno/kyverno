@@ -189,3 +189,34 @@ func TestCreateURForDownstreamDeletion_CloneListRule_OrphanFalseCreatesCleanupUR
 	assert.Equal(t, "ConfigMap", generator.captured[0].Status.GeneratedResources[0].Kind)
 	assert.Equal(t, "target-from-clonelist", generator.captured[0].Status.GeneratedResources[0].Name)
 }
+
+func TestCreateURForDownstreamDeletion_CloneListRule_OrphanTrueSkipsCleanup(t *testing.T) {
+	policy := buildCloneListPolicy(true)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, buildDownstreamForCloneListRule())
+	require.NoError(t, err)
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	generator := &captureURGenerator{}
+	controller := &policyController{
+		client:      client,
+		urGenerator: generator,
+		log:         logging.WithName("policy-test"),
+	}
+
+	err = controller.createURForDownstreamDeletion(policy)
+	require.NoError(t, err)
+	assert.Empty(t, generator.captured, "cleanup UR should not be created for cloneList rules when orphanDownstreamOnPolicyDelete=true")
+}
+
+func TestCleanupPatterns_CloneListSkipsWildcardKinds(t *testing.T) {
+	pattern := kyvernov1.GeneratePattern{
+		CloneList: kyvernov1.CloneList{
+			Namespace: "default",
+			Kinds:     []string{"v1/ConfigMap", "*/Secret", "batch/*/CronJob"},
+		},
+	}
+
+	patterns := cleanupPatterns(pattern)
+	require.Len(t, patterns, 1)
+	assert.Equal(t, "v1", patterns[0].GetAPIVersion())
+	assert.Equal(t, "ConfigMap", patterns[0].GetKind())
+}

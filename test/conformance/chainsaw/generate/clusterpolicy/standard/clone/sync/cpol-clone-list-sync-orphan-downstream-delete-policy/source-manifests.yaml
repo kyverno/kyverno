@@ -8,7 +8,7 @@ metadata:
 type: kubernetes.io/basic-auth
 stringData:
   username: admin
-  password: t0p-Secret-super
+  password: not-a-real-secret
 ---
 apiVersion: v1
 kind: ConfigMap
