@@ -119,7 +119,12 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	} else {
 		relevant = policies
 	}
-	responses, err := e.handleValidation(relevant, attr, namespace)
+	var responses []eval.ImageVerifyPolicyResponse
+	if request.Request.SubResource != "" {
+		responses, _, err = e.handleMutation(ctx, relevant, attr, &request.Request, namespace, request.Context)
+	} else {
+		responses, err = e.handleValidation(relevant, attr, namespace)
+	}
 	if err != nil {
 		return response, err
 	}
@@ -255,7 +260,6 @@ func (e *engineImpl) handleMutation(
 			result, err := p.Evaluate(ctx, ictx, attr, request, namespace, true, context)
 			if err != nil {
 				response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
-				results[ivpol.Policy.GetName()] = response
 			} else if result != nil {
 				if len(result.Exceptions) > 0 {
 					exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
@@ -279,11 +283,10 @@ func (e *engineImpl) handleMutation(
 						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 					}
 				}
-
-				results[ivpol.Policy.GetName()] = response
 			}
 		}
 		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+		results[ivpol.Policy.GetName()] = response
 	}
 	ann, err := objectAnnotations(attr)
 	if err != nil {
