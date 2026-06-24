@@ -329,3 +329,9 @@ func TestManageLabels_PreservesExistingLabels(t *testing.T) {
 	assert.Equal(t, "my-app", resultLabels["app"], "existing labels should be preserved")
 	assert.Equal(t, kyverno.ValueKyvernoApp, resultLabels[kyverno.LabelAppManagedBy])
 }
+
+func TestGenerateLabelsSet_IsStableAndOnlyContainsPolicyLabel(t *testing.T) {
+	result := GenerateLabelsSet("default/my-policy")
+	assert.Equal(t, "my-policy", result[kyvernov2.URGeneratePolicyLabel])
+	assert.Len(t, result, 1)
+}

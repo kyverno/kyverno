@@ -128,23 +128,57 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
-	logger.V(4).Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
-	if err != nil {
-		errors = append(errors, err)
+	// PR1 (#16152): Deduplicate generateExisting URs per policy to avoid UR sprawl.
+	// Generate UR labels currently only include policy name, so we can only dedupe at policy granularity.
+	if existing := pc.listGenerateURs(policyKey(policy)); len(existing) > 0 {
+		logger.V(4).Info("skipping UR creation as a generate UR already exists for policy", "policy", policy.GetName(), "count", len(existing))
 		return multierr.Combine(errors...)
 	}
-	if created != nil {
-		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+
+	batchSize := pc.configuration.GetUpdateRequestMaxBatchSize()
+	if batchSize <= 0 {
+		batchSize = config.UpdateRequestMaxBatchSize
+	}
+
+	for _, chunk := range chunkRuleContexts(ur.Spec.RuleContext, batchSize) {
+		urCopy := ur.DeepCopy()
+		urCopy.Spec.RuleContext = chunk
+
+		logger.V(4).Info("creating new UR for generate", "batchSize", batchSize, "chunkSize", len(chunk))
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, urCopy, pc.log)
 		if err != nil {
 			errors = append(errors, err)
-			return multierr.Combine(errors...)
+			continue
 		}
-		pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName())
+		if created != nil {
+			updated := created.DeepCopy()
+			updated.Status.State = kyvernov2.Pending
+			_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+			if err != nil {
+				errors = append(errors, err)
+			}
+		}
 	}
+
 	return multierr.Combine(errors...)
+}
+
+func chunkRuleContexts(in []kyvernov2.RuleContext, size int) [][]kyvernov2.RuleContext {
+	if size <= 0 {
+		size = 1 // Fallback to 1 if invalid size
+	}
+	if len(in) == 0 {
+		return nil // OK to return nil if no input
+	}
+	out := make([][]kyvernov2.RuleContext, 0, (len(in)+size-1)/size)
+	for i := 0; i < len(in); i += size {
+		end := i + size
+		if end > len(in) {
+			end = len(in)
+		}
+		out = append(out, in[i:end])
+	}
+	return out
 }
 
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {

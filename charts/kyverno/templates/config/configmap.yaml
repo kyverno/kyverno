@@ -41,6 +41,9 @@ data:
   {{- with .Values.config.updateRequestThreshold }}
   updateRequestThreshold: {{ . | quote }}
   {{- end -}}
+  {{- with .Values.config.updateRequestMaxBatchSize }}
+  updateRequestMaxBatchSize: {{ . | quote }}
+  {{- end -}}
   {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}
   {{- else if .Values.config.webhooks }}
