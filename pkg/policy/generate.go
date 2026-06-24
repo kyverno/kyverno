@@ -20,6 +20,26 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
+// generateBatchSize is the maximum number of RuleContext entries per UpdateRequest.
+// Large clusters with generateExisting/synchronize can produce thousands of triggers,
+// causing a single UR to exceed the etcd request size limit.
+const generateBatchSize = 100
+
+// submitUR creates an UpdateRequest and sets its status to Pending.
+func (pc *policyController) submitUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
+	created, err := pc.urGenerator.Generate(ctx, pc.kyvernoClient, ur, pc.log)
+	if err != nil {
+		return err
+	}
+	if created != nil {
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, updated, metav1.UpdateOptions{})
+		return err
+	}
+	return nil
+}
+
 func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
 	logger.V(4).Info("update URs on policy event")
@@ -65,16 +85,9 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 	if len(ur.Spec.RuleContext) == 0 {
 		return multierr.Combine(errs...)
 	}
-	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if created != nil {
-		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
+	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating URs for generate", "total", len(ur.Spec.RuleContext))
+	for _, batch := range splitUR(ur, generateBatchSize) {
+		if err := pc.submitUR(context.TODO(), batch); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -128,21 +141,11 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
-	logger.V(4).Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
-	if err != nil {
-		errors = append(errors, err)
-		return multierr.Combine(errors...)
-	}
-	if created != nil {
-		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
+	logger.V(4).Info("creating URs for generateExisting", "total", len(ur.Spec.RuleContext))
+	for _, batch := range splitUR(ur, generateBatchSize) {
+		if err := pc.submitUR(context.TODO(), batch); err != nil {
 			errors = append(errors, err)
-			return multierr.Combine(errors...)
 		}
-		pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName())
 	}
 	return multierr.Combine(errors...)
 }
