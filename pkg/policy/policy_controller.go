@@ -13,6 +13,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -106,6 +107,9 @@ type policyController struct {
 
 	watchManager *gpol.WatchManager
 
+	gpolEngine   gpolengine.Engine
+	gpolProvider gpolengine.Provider
+
 	// mapper
 	restMapper meta.RESTMapper
 }
@@ -128,6 +132,8 @@ func NewPolicyController(
 	jp jmespath.Interface,
 	urGenerator generator.UpdateRequestGenerator,
 	watchManager *gpol.WatchManager,
+	gpolEngine gpolengine.Engine,
+	gpolProvider gpolengine.Provider,
 ) (*policyController, error) {
 	// Event broad caster
 	eventInterface := client.GetEventsInterface()
@@ -160,6 +166,8 @@ func NewPolicyController(
 		jp:              jp,
 		urGenerator:     urGenerator,
 		watchManager:    watchManager,
+		gpolEngine:      gpolEngine,
+		gpolProvider:    gpolProvider,
 	}
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	pc.restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
