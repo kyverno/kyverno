@@ -23,6 +23,7 @@ type FakeContextProvider struct {
 	triggerKind        string
 	triggerUID         string
 	restoreCache       bool
+	useServerSideApply bool
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -177,7 +178,7 @@ func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
-func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool, useServerSideApply bool) {
 	cp.policyName = polName
 	cp.triggerName = triggerName
 	cp.triggerNamespace = triggerNamespace
@@ -186,4 +187,5 @@ func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerN
 	cp.triggerKind = triggerKind
 	cp.triggerUID = triggerUID
 	cp.restoreCache = restoreCache
+	cp.useServerSideApply = useServerSideApply
 }
