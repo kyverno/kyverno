@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func makeUR(n int) *kyvernov2.UpdateRequest {
@@ -60,4 +61,26 @@ func TestSplitUR(t *testing.T) {
 			assert.Equal(t, tc.total, total)
 		})
 	}
+}
+
+func TestSplitURNoAlias(t *testing.T) {
+	ur := makeUR(2)
+	ur.ObjectMeta = metav1.ObjectMeta{
+		Labels: map[string]string{"a": "b"},
+	}
+	ur.Spec.Context.UserRequestInfo.Roles = []string{"role"}
+	ur.Status.GeneratedResources = []kyvernov1.ResourceSpec{
+		{Name: "original"},
+	}
+
+	batches := splitUR(ur, 1)
+	assert.Len(t, batches, 2)
+
+	batches[0].ObjectMeta.Labels["a"] = "changed"
+	batches[0].Spec.Context.UserRequestInfo.Roles[0] = "changed"
+	batches[0].Status.GeneratedResources[0].Name = "changed"
+
+	assert.Equal(t, "b", ur.ObjectMeta.Labels["a"])
+	assert.Equal(t, "role", ur.Spec.Context.UserRequestInfo.Roles[0])
+	assert.Equal(t, "original", ur.Status.GeneratedResources[0].Name)
 }

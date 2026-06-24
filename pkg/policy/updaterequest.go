@@ -103,10 +103,22 @@ func splitUR(ur *kyvernov2.UpdateRequest, batchSize int) []*kyvernov2.UpdateRequ
 		if end > len(ruleCtxs) {
 			end = len(ruleCtxs)
 		}
-		batch := ur.DeepCopy()
+		batch := cloneURWithoutRuleContext(ur)
 		batch.Spec.RuleContext = make([]kyvernov2.RuleContext, end-i)
 		copy(batch.Spec.RuleContext, ruleCtxs[i:end])
 		batches = append(batches, batch)
 	}
 	return batches
+}
+
+func cloneURWithoutRuleContext(ur *kyvernov2.UpdateRequest) *kyvernov2.UpdateRequest {
+	batch := &kyvernov2.UpdateRequest{
+		TypeMeta: ur.TypeMeta,
+		Spec:     ur.Spec,
+	}
+	ur.ObjectMeta.DeepCopyInto(&batch.ObjectMeta)
+	ur.Spec.Context.DeepCopyInto(&batch.Spec.Context)
+	ur.Status.DeepCopyInto(&batch.Status)
+	batch.Spec.RuleContext = nil
+	return batch
 }
