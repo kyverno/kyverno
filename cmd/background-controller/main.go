@@ -96,6 +96,8 @@ func createrLeaderControllers(
 		jp,
 		urGenerator,
 		watchManager,
+		gpolEngine,
+		gpolProvider,
 	)
 	if err != nil {
 		return nil, err
