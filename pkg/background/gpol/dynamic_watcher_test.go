@@ -334,6 +334,22 @@ func TestSyncWatchers(t *testing.T) {
 	}
 }
 
+func TestSyncWatchers_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
+	oldGVR := schema.GroupVersionResource{Group: "old", Version: "v1", Resource: "res"}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          &MockClient{},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{"pol1": {oldGVR}},
+		refCount:        map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+
+	err := wm.SyncWatchers("pol1", nil)
+	require.NoError(t, err)
+	_, exists := wm.refCount[oldGVR]
+	assert.False(t, exists)
+}
+
 func TestWatchManager_GetDownstreams(t *testing.T) {
 	type mockWatcher struct {
 		metadataCache map[types.UID]Resource
@@ -753,6 +769,24 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoveWatchersForPolicy_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          &MockClient{},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+		refCount:        map[schema.GroupVersionResource]int{gvr: 1},
+	}
+
+	wm.RemoveWatchersForPolicy("pol1", true)
+
+	_, refExists := wm.refCount[gvr]
+	assert.False(t, refExists)
+	_, policyRefExists := wm.policyRefs["pol1"]
+	assert.False(t, policyRefExists)
 }
 
 type mockStopper struct {
