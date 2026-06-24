@@ -1585,7 +1585,7 @@ spec:
                         orphanDownstreamOnPolicyDelete:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                            them is deleted with synchronization enabled
+                            them is deleted with synchronization enabled.
                             See https://kyverno.io/docs/writing-policies/generate/.
                             Defaults to "false" if not specified.
                           type: boolean
@@ -6690,7 +6690,7 @@ spec:
                             orphanDownstreamOnPolicyDelete:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                                them is deleted with synchronization enabled
+                                them is deleted with synchronization enabled.
                                 See https://kyverno.io/docs/writing-policies/generate/.
                                 Defaults to "false" if not specified.
                               type: boolean
@@ -11681,7 +11681,7 @@ spec:
                         orphanDownstreamOnPolicyDelete:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                            them is deleted with synchronization enabled
+                            them is deleted with synchronization enabled.
                             See https://kyverno.io/docs/writing-policies/generate/.
                             Defaults to "false" if not specified.
                           type: boolean
@@ -16714,7 +16714,7 @@ spec:
                             orphanDownstreamOnPolicyDelete:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                                them is deleted with synchronization enabled
+                                them is deleted with synchronization enabled.
                                 See https://kyverno.io/docs/writing-policies/generate/.
                                 Defaults to "false" if not specified.
                               type: boolean

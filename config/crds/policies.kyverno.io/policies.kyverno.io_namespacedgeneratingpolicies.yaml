@@ -83,7 +83,7 @@ spec:
                         default: false
                         description: |-
                           Enabled controls whether generated resources should be deleted when the policy that generated
-                          them is deleted with synchronization enabled.
+                          them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
                           Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
@@ -700,7 +700,7 @@ spec:
                         default: false
                         description: |-
                           Enabled controls whether generated resources should be deleted when the policy that generated
-                          them is deleted with synchronization enabled.
+                          them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
                           Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
