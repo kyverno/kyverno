@@ -1,0 +1,39 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: sync-generate-existing-restart-background-controller
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["namespaces"]
+  matchConditions:
+  - name: match-only-test-namespace
+    expression: "object.metadata.name == 'sync-generate-existing-restart-background-controller'"
+  variables:
+  - name: nsName
+    expression: "object.metadata.name"
+  - name: cm
+    expression: >-
+      [
+        {
+          "kind": dyn("ConfigMap"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": dyn("sync-generate-existing-restart-background-controller"),
+            "namespace": dyn(string(variables.nsName))
+          }),
+          "data": dyn({
+            "key": "value"
+          })
+        }
+      ]
+  generate:
+  - expression: generator.apply(variables.nsName, variables.cm)
