@@ -14,6 +14,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -165,15 +166,15 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		if !sync || orphanDownstreamOnPolicyDelete {
 			continue
 		}
-		if generate.GetAPIVersion() != "" && generate.GetKind() != "" {
-			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
+		for _, pattern := range cleanupPatterns(generate.GeneratePattern) {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
 				errs = append(errs, err)
 			}
 		}
 
 		for _, foreach := range generate.ForEachGeneration {
-			if foreach.GetAPIVersion() != "" && foreach.GetKind() != "" {
-				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
+			for _, pattern := range cleanupPatterns(foreach.GeneratePattern) {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -229,6 +230,27 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 	}
 
 	return ur, nil
+}
+
+func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePattern {
+	if pattern.GetAPIVersion() != "" && pattern.GetKind() != "" {
+		return []kyvernov1.GeneratePattern{pattern}
+	}
+	if len(pattern.CloneList.Kinds) == 0 {
+		return nil
+	}
+	out := make([]kyvernov1.GeneratePattern, 0, len(pattern.CloneList.Kinds))
+	for _, gvk := range pattern.CloneList.Kinds {
+		apiVersion, kind := kubeutils.GetKindFromGVK(gvk)
+		if apiVersion == "" || kind == "" {
+			continue
+		}
+		p := pattern
+		p.ResourceSpec.APIVersion = apiVersion
+		p.ResourceSpec.Kind = kind
+		out = append(out, p)
+	}
+	return out
 }
 
 func (pc *policyController) unlabelDownstream(selector updatedResource) {

@@ -60,6 +60,31 @@ func buildClonePolicy(orphanDownstreamOnPolicyDelete bool) *kyvernov1.ClusterPol
 	}
 }
 
+func buildCloneListPolicy(orphanDownstreamOnPolicyDelete bool) *kyvernov1.ClusterPolicy {
+	return &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "clone-list-policy",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "clone-list-rule",
+					Generation: &kyvernov1.Generation{
+						Synchronize:                    true,
+						OrphanDownstreamOnPolicyDelete: orphanDownstreamOnPolicyDelete,
+						GeneratePattern: kyvernov1.GeneratePattern{
+							CloneList: kyvernov1.CloneList{
+								Namespace: "default",
+								Kinds:     []string{"v1/ConfigMap"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildDownstreamForRule() *unstructured.Unstructured {
 	u := &unstructured.Unstructured{}
 	u.SetAPIVersion("v1")
@@ -71,6 +96,28 @@ func buildDownstreamForRule() *unstructured.Unstructured {
 		common.GeneratePolicyLabel:          "clone-policy",
 		common.GeneratePolicyNamespaceLabel: "",
 		common.GenerateRuleLabel:            "clone-rule",
+		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GenerateTriggerKindLabel:     "Namespace",
+		common.GenerateTriggerNSLabel:       "",
+		common.GenerateTriggerNameLabel:     "default",
+		common.GenerateTriggerUIDLabel:      "trigger-uid",
+		common.GenerateTriggerGroupLabel:    "",
+		common.GenerateTriggerVersionLabel:  "v1",
+	})
+	return u
+}
+
+func buildDownstreamForCloneListRule() *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetAPIVersion("v1")
+	u.SetKind("ConfigMap")
+	u.SetNamespace("default")
+	u.SetName("target-from-clonelist")
+	u.SetUID(types.UID("downstream-clonelist-uid"))
+	u.SetLabels(map[string]string{
+		common.GeneratePolicyLabel:          "clone-list-policy",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateRuleLabel:            "clone-list-rule",
 		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 		common.GenerateTriggerKindLabel:     "Namespace",
 		common.GenerateTriggerNSLabel:       "",
@@ -119,4 +166,26 @@ func TestCreateURForDownstreamDeletion_CloneRule_OrphanFalseCreatesCleanupUR(t *
 	require.Len(t, generator.captured[0].Status.GeneratedResources, 1)
 	assert.Equal(t, "ConfigMap", generator.captured[0].Status.GeneratedResources[0].Kind)
 	assert.Equal(t, "target-cm", generator.captured[0].Status.GeneratedResources[0].Name)
+}
+
+func TestCreateURForDownstreamDeletion_CloneListRule_OrphanFalseCreatesCleanupUR(t *testing.T) {
+	policy := buildCloneListPolicy(false)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, buildDownstreamForCloneListRule())
+	require.NoError(t, err)
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	generator := &captureURGenerator{}
+	controller := &policyController{
+		client:      client,
+		urGenerator: generator,
+		log:         logging.WithName("policy-test"),
+	}
+
+	err = controller.createURForDownstreamDeletion(policy)
+	require.NoError(t, err)
+	require.Len(t, generator.captured, 1, "cleanup UR should be created for cloneList rules when orphanDownstreamOnPolicyDelete=false")
+	require.Len(t, generator.captured[0].Spec.RuleContext, 1)
+	assert.True(t, generator.captured[0].Spec.RuleContext[0].DeleteDownstream)
+	require.Len(t, generator.captured[0].Status.GeneratedResources, 1)
+	assert.Equal(t, "ConfigMap", generator.captured[0].Status.GeneratedResources[0].Kind)
+	assert.Equal(t, "target-from-clonelist", generator.captured[0].Status.GeneratedResources[0].Name)
 }
