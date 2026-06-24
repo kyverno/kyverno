@@ -14,6 +14,8 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/policy"
 )
 
+// THIS PLACE STORES THE VERIFIER TYPES THAT WRAP COSIGN OR NOTARY AND CONFORM THEM TO THE VERIFIER INTERFACE KYVERNO EXPECTS
+// maybe this is why the image verifier library can't be moved outside of kyverno kyverno ? because it relies on types directly from this package ?
 type Verifier struct {
 	secretInterface imagedataloader.SecretInterface
 	log             logr.Logger
@@ -70,8 +72,10 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var sigs []oci.Signature
 	var verified bool
 
+	// if this is the new format for the bundle call VerifyImageAttestations
 	if cOpts.NewBundleFormat {
 		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+		// otherwise.. this is the old
 	} else {
 		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
 	}
@@ -91,6 +95,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		return err
 	}
 
+	// if the single cosign annotations have a non zero length
 	if len(attestor.Cosign.Annotations) != 0 {
 		var annotationErrors []error
 		for _, sig := range sigs {

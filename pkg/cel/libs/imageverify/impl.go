@@ -18,18 +18,20 @@ import (
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// when does this type get instantiated
 type ivfuncs struct {
 	types.Adapter
 
 	logger          logr.Logger
-	imgCtx          imagedataloader.ImageContext
-	creds           *v1beta1.Credentials
+	imgCtx          imagedataloader.ImageContext // the image data getter
+	creds           *v1beta1.Credentials         // registry credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
 
+// where does the result of this call get stored ?
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
@@ -80,6 +82,8 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
 
+			// the only two attestor types are cosign and notary
+			// obviously
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
 					f.logger.Info("failed to verify image cosign", "error", err)

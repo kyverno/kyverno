@@ -64,6 +64,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -680,11 +681,11 @@ func main() {
 			reportsServiceAccountName,
 		)
 
+		// do we even have a way to turn the credentials into image data options ?
 		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			restMapper,
 			false,
 		)

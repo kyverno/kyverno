@@ -27,6 +27,8 @@ type ImageVerifier interface {
 	Verify(context.Context, kyvernov1.ImageVerification, []apiutils.ImageInfo, config.Configuration) ([]jsonpatch.JsonPatchOperation, []*engineapi.RuleResponse)
 }
 
+// is this cosign specific ? i am currently trying to see where do the old policies access annotations
+// and verify them
 type imageVerifier struct {
 	logger        logr.Logger
 	rclient       engineapi.RegistryClient
@@ -136,6 +138,7 @@ func (iv *imageVerifier) Verify(
 	return patches, responses
 }
 
+// the entry point to verifying an image in the old policy type (supposedly)
 func (iv *imageVerifier) verifyImage(
 	ctx context.Context,
 	imageVerify kyvernov1.ImageVerification,
@@ -352,6 +355,7 @@ func (iv *imageVerifier) verifyAttestorSet(
 				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
+			// extract the opts from what ?
 			v, opts, subPath := iv.buildVerifier(a, imageVerify, image, nil)
 			cosignResp, entryError = v.VerifySignature(ctx, *opts)
 			if entryError != nil {

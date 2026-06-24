@@ -242,6 +242,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			return rule
 		}
 	}
+	// if the rule has verify images rules
 	if rule.VerifyImages != nil {
 		newVerifyImages := make([]kyvernov1.ImageVerification, len(rule.VerifyImages))
 		for i, vi := range rule.VerifyImages {

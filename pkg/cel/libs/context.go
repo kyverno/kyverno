@@ -85,6 +85,9 @@ func NewContextProvider(
 	restMapper meta.RESTMapper,
 	cliEvaluation bool,
 ) (Context, error) {
+	// this is where we initate the loader for the vpol
+	// the opts for validation would be in the default opts of that thing
+	// takes a secret lister and image opts
 	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
 	if err != nil {
 		return nil, err
@@ -133,7 +136,7 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 
 func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
 	// TODO: get image credentials from image verification policies?
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image) // make a request to the oci image resgitry to get the image metadata from there
 	if err != nil {
 		return nil, err
 	}

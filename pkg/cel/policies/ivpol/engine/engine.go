@@ -127,6 +127,7 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	return response, nil
 }
 
+// wait wtf ? json patches ? patches that apply to what ?
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
@@ -207,6 +208,8 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 	return false, nil
 }
 
+// is this the true kubernetes image policy verification entry point ?
+// why is it called handle mutation though ? are we actually mutating anything ?
 func (e *engineImpl) handleMutation(
 	ctx context.Context,
 	policies []Policy,
