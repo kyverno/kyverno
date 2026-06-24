@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cpol-clone-list-sync-orphan-downstream-delete-policy
+spec:
+  concurrent: false
+  steps:
+  - name: setup
+    try:
+    - apply:
+        file: permissions.yaml
+    - apply:
+        file: source-manifests.yaml
+  - name: create policy without orphan
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-clone-list-sync-orphan-downstream-delete-policy
+  - name: create trigger namespace
+    try:
+    - apply:
+        file: namespace.yaml
+    - assert:
+        file: resource-assert.yaml
+  - name: delete policy without orphan
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-clone-list-sync-orphan-downstream-delete-policy
+    - sleep:
+        duration: 3s
+    - error:
+        file: resource-configmap-assert.yaml
+    - error:
+        file: resource-secret-assert.yaml
+  - name: delete first namespace
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Namespace
+          name: cpol-clone-list-sync-orphan-delete-policy-ns
+  - name: create policy with orphan
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-orphan.yaml
+  - name: wait policy ready with orphan
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-clone-list-sync-orphan-downstream-delete-policy
+  - name: create second trigger namespace
+    try:
+    - apply:
+        file: namespace-orphan.yaml
+    - assert:
+        file: resource-orphan-assert.yaml
+  - name: delete policy with orphan
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-clone-list-sync-orphan-downstream-delete-policy
+    - sleep:
+        duration: 3s
+    - assert:
+        file: resource-orphan-assert.yaml
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Namespace
+          name: cpol-clone-list-sync-orphan-delete-policy-orphan-ns
+    - command:
+        entrypoint: kubectl
+        args:
+        - delete
+        - ur
+        - -A
+        - --all
