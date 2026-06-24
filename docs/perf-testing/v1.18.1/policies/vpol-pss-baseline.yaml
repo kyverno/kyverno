@@ -1,0 +1,349 @@
+# 16 ValidatingPolicies that mirror the PSS Restricted profile used in the
+# published benchmarks (kyverno.io/docs/installation/scaling/).
+# Apply all at once:  kubectl apply -f docs/perf-testing/v1.18.1/policies/vpol-pss-baseline.yaml
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-privilege-escalation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.securityContext) ||
+        !has(c.securityContext.allowPrivilegeEscalation) ||
+        c.securityContext.allowPrivilegeEscalation == false
+      )
+    message: "Privilege escalation is disallowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-run-as-non-root
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  variables:
+  - name: podRunAsNonRoot
+    expression: "has(object.spec.securityContext) && has(object.spec.securityContext.runAsNonRoot) && object.spec.securityContext.runAsNonRoot == true"
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      variables.podRunAsNonRoot ||
+      object.spec.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.runAsNonRoot) &&
+        c.securityContext.runAsNonRoot == true
+      )
+    message: "Pods or containers must set runAsNonRoot=true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-run-as-user
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      !has(object.spec.securityContext) ||
+      !has(object.spec.securityContext.runAsUser) ||
+      object.spec.securityContext.runAsUser > 0
+    message: "runAsUser must not be 0 (root)"
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.securityContext) ||
+        !has(c.securityContext.runAsUser) ||
+        c.securityContext.runAsUser > 0
+      )
+    message: "Container runAsUser must not be 0 (root)"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-drop-all-capabilities
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.capabilities) &&
+        has(c.securityContext.capabilities.drop) &&
+        'ALL' in c.securityContext.capabilities.drop
+      )
+    message: "All containers must drop ALL capabilities"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-added-capabilities
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.securityContext) ||
+        !has(c.securityContext.capabilities) ||
+        !has(c.securityContext.capabilities.add) ||
+        c.securityContext.capabilities.add.size() == 0
+      )
+    message: "No capabilities may be added"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-seccomp
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  variables:
+  - name: allowedProfiles
+    expression: "['RuntimeDefault', 'Localhost']"
+  - name: podSeccomp
+    expression: >
+      has(object.spec.securityContext) &&
+      has(object.spec.securityContext.seccompProfile) &&
+      object.spec.securityContext.seccompProfile.type in variables.allowedProfiles
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      variables.podSeccomp ||
+      object.spec.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.seccompProfile) &&
+        c.securityContext.seccompProfile.type in variables.allowedProfiles
+      )
+    message: "Seccomp profile must be RuntimeDefault or Localhost"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-host-namespaces
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: "!has(object.spec.hostPID) || object.spec.hostPID == false"
+    message: "hostPID is not allowed"
+  - expression: "!has(object.spec.hostIPC) || object.spec.hostIPC == false"
+    message: "hostIPC is not allowed"
+  - expression: "!has(object.spec.hostNetwork) || object.spec.hostNetwork == false"
+    message: "hostNetwork is not allowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-privileged-containers
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.securityContext) ||
+        !has(c.securityContext.privileged) ||
+        c.securityContext.privileged == false
+      )
+    message: "Privileged containers are not allowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-host-path-volumes
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      !has(object.spec.volumes) ||
+      object.spec.volumes.all(v, !has(v.hostPath))
+    message: "HostPath volumes are not allowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-host-ports
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.ports) ||
+        c.ports.all(p, !has(p.hostPort) || p.hostPort == 0)
+      )
+    message: "Host ports are not allowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-allowed-volume-types
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      !has(object.spec.volumes) ||
+      object.spec.volumes.all(v,
+        has(v.configMap) || has(v.csi) || has(v.downwardAPI) || has(v.emptyDir) ||
+        has(v.ephemeral) || has(v.persistentVolumeClaim) || has(v.projected) || has(v.secret)
+      )
+    message: "Only allowed volume types are permitted"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-readonly-root-fs
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.readOnlyRootFilesystem) &&
+        c.securityContext.readOnlyRootFilesystem == true
+      )
+    message: "Container root filesystem must be read-only"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-sysctls
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      !has(object.spec.securityContext) ||
+      !has(object.spec.securityContext.sysctls) ||
+      object.spec.securityContext.sysctls.size() == 0
+    message: "Sysctls are not allowed"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-proc-mount
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        !has(c.securityContext) ||
+        !has(c.securityContext.procMount) ||
+        c.securityContext.procMount == 'Default'
+      )
+    message: "procMount must be Default"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-no-apparmor-custom
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      !has(object.metadata.annotations) ||
+      !object.metadata.annotations.exists(k, k.startsWith('container.apparmor.security.beta.kubernetes.io/') && object.metadata.annotations[k] != 'runtime/default' && object.metadata.annotations[k] != 'localhost/')
+    message: "AppArmor profile must be runtime/default or localhost/"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-pss-require-resource-limits
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  validations:
+  - expression: >
+      object.spec.containers.all(c,
+        has(c.resources) &&
+        has(c.resources.limits) &&
+        has(c.resources.limits.memory)
+      )
+    message: "All containers must set memory limits"

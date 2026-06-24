@@ -86,7 +86,7 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 			resourceValue, err := resource.ParseQuantity(typedValue)
 			if err != nil {
 				neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
-				return false
+				return true
 			}
 			return !resourceKey.Equal(resourceValue)
 		}
@@ -152,7 +152,7 @@ func (neh NotEqualHandler) validateValueWithIntPattern(key int64, value interfac
 			return int64(typedValue) != key
 		}
 		neh.log.V(2).Info("Expected type int, found float", "value", typedValue, "type", fmt.Sprintf("%T", typedValue))
-		return false
+		return true
 	case string:
 		// extract in64 from string
 		int64Num, err := strconv.ParseInt(typedValue, 10, 64)
