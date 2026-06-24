@@ -773,3 +773,39 @@ spec:
 		})
 	}
 }
+
+func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-custom-crd")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+	t.Logf("Test output: %s", out.String())
+
+	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for custom CRD mutation test")
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "set-annotations-for-widget" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules evaluated for set-annotations-for-widget")
+				break
+			}
+		}
+	}
+	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
+}
