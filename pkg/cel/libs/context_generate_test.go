@@ -259,3 +259,30 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 	_, err = fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "not-yet-created")
 	assert.Error(t, err, "restoreCache must not create resources that don't exist yet")
 }
+
+func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
+	original := &contextProvider{
+		generatedResources: []*unstructured.Unstructured{
+			{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "orig"}}},
+		},
+	}
+	original.SetGenerateContext("policy-a", "trigger-a", "default", "v1", "", "Pod", "uid-a", true)
+
+	cloned := original.Clone()
+	clone, ok := cloned.(*contextProvider)
+	require.True(t, ok)
+
+	// Clone is for per-worker execution; it must start with isolated mutable state.
+	assert.Empty(t, clone.generatedResources)
+	assert.Equal(t, original.genCtx, clone.genCtx)
+
+	clone.SetGenerateContext("policy-b", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false)
+	clone.generatedResources = append(clone.generatedResources, &unstructured.Unstructured{
+		Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "clone"}},
+	})
+
+	assert.Equal(t, "policy-a", original.genCtx.policyName)
+	assert.True(t, original.genCtx.restoreCache)
+	require.Len(t, original.generatedResources, 1)
+	assert.Equal(t, "orig", original.generatedResources[0].GetName())
+}
