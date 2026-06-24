@@ -122,6 +122,13 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	var responses []eval.ImageVerifyPolicyResponse
 	if request.Request.SubResource != "" {
 		responses, _, err = e.handleMutation(ctx, relevant, attr, &request.Request, namespace, request.Context)
+		filtered := make([]eval.ImageVerifyPolicyResponse, 0, len(responses))
+		for _, r := range responses {
+			if r.Result.Status() != "" {
+				filtered = append(filtered, r)
+			}
+		}
+		responses = filtered
 	} else {
 		responses, err = e.handleValidation(relevant, attr, namespace)
 	}
