@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	gpolbg "github.com/kyverno/kyverno/pkg/background/gpol"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -13,6 +15,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -72,20 +75,57 @@ func NewGpolEngineWithExceptions(
 	return engine, provider
 }
 
-// NewURProcessor returns a function that processes URSpecs through the gpol engine,
-// creating downstream resources in the envtest cluster. This simulates what the
-// background controller's CELGenerateController.ProcessUR does in production:
-// fetch policy → build engine request from admission request → engine.Handle()
-// → generator.Apply() CEL function → ContextProvider.CreateResource() via dclient.
+// NewURProcessor returns a closure that processes URSpecs through the gpol engine,
+// creating downstream resources in envtest. Mirrors CELGenerateController.ProcessUR
+// minus the sync watchers; use NewURProcessorWithSyncWatchers for sync scenarios.
 func NewURProcessor(
 	engine gpolengine.Engine,
 	provider gpolengine.Provider,
 	contextProvider libs.Context,
 ) func(kyvernov2.UpdateRequestSpec) error {
+	return urProcessorClosure(engine, provider, contextProvider, nil)
+}
+
+// NewGpolWatchManager builds the production WatchManager against the framework's
+// dclient and returns its StopWatchers for t.Cleanup. Must be called after
+// TestEnv.Start because the WatchManager constructor reads dclient discovery.
+func NewGpolWatchManager(client dclient.Interface, log logr.Logger) (*gpolbg.WatchManager, func()) {
+	wm := gpolbg.NewWatchManager(log, client)
+	return wm, wm.StopWatchers
+}
+
+// NewURProcessorWithSyncWatchers extends NewURProcessor to call DeleteDownstreams
+// and SyncWatchers around engine.Handle, matching production at
+// pkg/background/gpol/generate_controller.go:87-170.
+func NewURProcessorWithSyncWatchers(
+	engine gpolengine.Engine,
+	provider gpolengine.Provider,
+	contextProvider libs.Context,
+	wm *gpolbg.WatchManager,
+) func(kyvernov2.UpdateRequestSpec) error {
+	return urProcessorClosure(engine, provider, contextProvider, wm)
+}
+
+// urProcessorClosure runs the gpol engine over a URSpec. When wm is non-nil it
+// also performs the DeleteDownstreams + SyncWatchers wiring that the production
+// CELGenerateController applies.
+func urProcessorClosure(
+	engine gpolengine.Engine,
+	provider gpolengine.Provider,
+	contextProvider libs.Context,
+	wm *gpolbg.WatchManager,
+) func(kyvernov2.UpdateRequestSpec) error {
 	return func(spec kyvernov2.UpdateRequestSpec) error {
-		for _, rc := range spec.RuleContext {
+		for i := range spec.RuleContext {
+			rc := &spec.RuleContext[i]
 			if rc.DeleteDownstream {
+				if wm != nil {
+					wm.DeleteDownstreams(spec.GetPolicyKey(), &rc.Trigger)
+				}
 				continue
+			}
+			if rc.Synchronize && wm != nil {
+				wm.DeleteDownstreams(spec.GetPolicyKey(), &rc.Trigger)
 			}
 			admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 			if admissionRequest == nil {
@@ -97,9 +137,28 @@ func NewURProcessor(
 			if err != nil {
 				return fmt.Errorf("failed to fetch policy %s: %w", spec.GetPolicyKey(), err)
 			}
-			_, err = engine.Handle(request, policy, rc.CacheRestore)
+			resp, err := engine.Handle(request, policy, rc.CacheRestore)
 			if err != nil {
 				return fmt.Errorf("failed to process UR for policy %s: %w", spec.GetPolicyKey(), err)
+			}
+			if wm == nil {
+				continue
+			}
+			isSync := policy.Policy.GetSpec().SynchronizationEnabled()
+			if !isSync {
+				continue
+			}
+			for _, res := range resp.Policies {
+				if res.Result == nil {
+					continue
+				}
+				generated := res.Result.GeneratedResources()
+				if len(generated) == 0 {
+					continue
+				}
+				if err := wm.SyncWatchers(spec.GetPolicyKey(), generated); err != nil {
+					return fmt.Errorf("failed to sync watchers for policy %s: %w", spec.GetPolicyKey(), err)
+				}
 			}
 		}
 		return nil
