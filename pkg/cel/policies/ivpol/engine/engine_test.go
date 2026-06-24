@@ -201,6 +201,11 @@ func Test_ImageVerifyEngine_Subresource(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
+	origResources := ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources
+	ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources = []string{"pods", "pods/ephemeralcontainers"}
+	t.Cleanup(func() {
+		ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources = origResources
+	})
 	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
 
 	resp, err := engine.HandleValidating(context.Background(), engineRequest, nil)
