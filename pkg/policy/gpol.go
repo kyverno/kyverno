@@ -92,6 +92,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, "", objectSelector)
 					if err != nil {
 						pc.log.Error(err, "failed to list resources", "groupVersion", groupVersion, "kind", gvk.Kind)
+						continue
 					}
 					for i, res := range resources.Items {
 						if !pc.triggerMatches(res, gvr, rule.ResourceNames, match.ExcludeResourceRules, nsSelector) {
