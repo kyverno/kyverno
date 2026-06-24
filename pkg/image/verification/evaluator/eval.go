@@ -22,7 +22,9 @@ type CompiledImageValidatingPolicy struct {
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
+// wait.. this thing only gets called in the cli ? where do we call the kubernetes evaluator ?
 func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
+	// create a context
 	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
 	if err != nil {
 		return nil, err

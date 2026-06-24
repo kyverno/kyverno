@@ -55,6 +55,9 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
+	// create a type that gets embedded in envs that implements the cel calls.
+	// the cel impls are for the first time type receiver methods. ok thats actually kinda smart maybe they aren't super
+	// big donkeys as i thought
 	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
@@ -66,6 +69,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"verify_image_signature_string_stringarray",
 				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
+				// what is verfiying a signature versus verifying an attestation ?
 				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
 			),
 		},

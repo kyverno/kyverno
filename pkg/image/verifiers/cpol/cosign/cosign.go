@@ -380,6 +380,8 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
+// the type of the argument is an oci signature. where is this obtained from ?
+// where do we originally fetch the signatures from ?
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
 	sigPayloads := make([]payload.SimpleContainerImage, 0, len(verified))
 	for _, sig := range verified {
@@ -388,6 +390,7 @@ func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, e
 			return nil, fmt.Errorf("failed to get payload: %w", err)
 		}
 
+		// this is a legacy format apparenty. there has been a switch to the dsse stuff
 		sci := payload.SimpleContainerImage{}
 		if err := json.Unmarshal(pld, &sci); err != nil {
 			return nil, fmt.Errorf("error decoding the payload: %w", err)
