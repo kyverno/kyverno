@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Workflow failure issue
+description: Create or close a tracking issue based on workflow run conclusion.
+
+inputs:
+  conclusion:
+    description: 'Workflow conclusion (failure, cancelled, success, etc.)'
+    required: true
+  needs:
+    description: 'needs context serialized as JSON (toJSON(needs))'
+    required: false
+    default: '{}'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+
+          const workflowName = context.workflow;
+          const runId = context.runId;
+          const conclusion = '${{ inputs.conclusion }}';
+          const needs = ${{ inputs.needs }};
+
+          /**
+           * @param {Record<string, { result?: string } | undefined>} needsObj
+           */
+          function formatNeedsResultsTable(needsObj) {
+            if (!needsObj || typeof needsObj !== 'object') {
+              return [];
+            }
+            const entries = Object.entries(needsObj);
+            if (entries.length === 0) {
+              return [];
+            }
+            const lines = [
+              '### Job results',
+              '',
+              '| Job | Result |',
+              '| --- | --- |',
+            ];
+            for (const [jobName, info] of entries) {
+              const result =
+                info != null && typeof info === 'object' && info.result != null
+                  ? String(info.result)
+                  : '—';
+              lines.push(`| \`${jobName}\` | \`${result}\` |`);
+            }
+            return ['', ...lines, ''];
+          }
+
+          const branch = context.ref;
+          const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
+          const headSha = context.sha;
+          const actor = context.actor;
+          const label = 'workflow-failure';
+          const issueId = `workflow-failure:${workflowName}:${branch}`;
+          const listOptions = { owner, repo, state: 'open', per_page: 100 };
+          const issues = await github.paginate(github.rest.issues.listForRepo, { ...listOptions, labels: label })
+
+          const existing = issues.find(i => i.body && i.body.includes(`<!-- ${issueId} -->`));
+
+          if (conclusion === 'failure' || conclusion === 'cancelled') {
+            const title = `Workflow failed: ${workflowName} (${branch})`;
+            const body = [
+              '## Workflow failure',
+              '',
+              `The [**${workflowName}**](${runUrl}) workflow did not succeed.`,
+              '',
+              '| | |',
+              '|---|------|',
+              `| **Run** | [\`${runId}\`](${runUrl}) |`,
+              `| **Branch** | \`${branch}\` |`,
+              `| **Commit** | \`${headSha}\` |`,
+              `| **Triggered by** | @${actor} |`,
+              `| **Conclusion** | \`${conclusion}\` |`,
+              ...formatNeedsResultsTable(needs),
+              '---',
+              '*This issue is maintained by the Workflow failure issue workflow. It will be closed when the workflow succeeds.*',
+              '',
+              `<!-- ${issueId} -->`
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, title, body
+              });
+              core.info(`Updated issue #${existing.number} for ${workflowName} (${branch}).`);
+            } else {
+              try {
+                const { data: issue } = await github.rest.issues.create({
+                  owner, repo, title, body, labels: label ? [label] : undefined
+                });
+                core.info(`Created issue #${issue.number}: ${issue.html_url}`);
+              } catch (err) {
+                if (err.status === 422 && /Label/.test(err.message)) {
+                  const { data: issue } = await github.rest.issues.create({
+                    owner, repo, title, body
+                  });
+                  core.warning(`Created issue #${issue.number} without label (create label "${label}" in repo to use it).`);
+                } else {
+                  throw err;
+                }
+              }
+            }
+          } else {
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: `Workflow [succeeded](${runUrl}) (commit \`${headSha}\`). Closing this tracking issue.`
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, state: 'closed'
+              });
+              core.info(`Closed issue #${existing.number} (${workflowName} succeeded on ${branch}).`);
+            }
+          }

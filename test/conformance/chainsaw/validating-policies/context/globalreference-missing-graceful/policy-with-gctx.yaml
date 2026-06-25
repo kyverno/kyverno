@@ -14,8 +14,8 @@ spec:
   variables:
     - name: deploymentCount
       expression: >-
-        globalContext.Get("gctxentry-test-deployments", "count")
+        globalContext.get("gctxentry-test-deployments", "count")
   validations:
     - expression: >-
         variables.deploymentCount >= 0
-      messageExpression: "'Deployment count from existing gctx: ' + string(variables.deploymentCount)" 
+      messageExpression: "'Deployment count from existing gctx: ' + string(variables.deploymentCount)"

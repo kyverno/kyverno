@@ -16,6 +16,6 @@ spec:
     - name: nsName
       expression: "object.metadata.name"
     - name: source
-      expression: resource.Get("v1", "secrets", "default", "sync-modify-downstream")
+      expression: resource.get("v1", "secrets", "default", "sync-modify-downstream")
   generate:
-    - expression: generator.Apply(variables.nsName, [variables.source])
+    - expression: generator.apply(variables.nsName, [variables.source])

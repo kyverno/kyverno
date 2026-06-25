@@ -11,8 +11,6 @@ spec:
       operations:  ["CREATE", "UPDATE"]
       resources:   ["namespaces"]
   variables:
-    - name: nsName
-      expression: "object.metadata.name"
     - name: configmap
       expression: >-
         [
@@ -21,7 +19,6 @@ spec:
             "apiVersion": dyn("v1"),
             "metadata": dyn({
               "name": "generated-config",
-              "namespace": string(variables.nsName),
             }),
             "data": dyn({
               "environment": "namespaced-policy",
@@ -30,4 +27,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.configmap)
+    - expression: generator.apply(variables.configmap)

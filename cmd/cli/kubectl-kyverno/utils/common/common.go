@@ -11,18 +11,23 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/restmapper"
 )
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
@@ -238,4 +243,185 @@ func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) 
 		return zero, err
 	}
 	return vals, nil
+}
+
+func LoadCrdsFromPath(path string) error {
+	absPath, err := getCrdFilePath(path)
+	if err != nil {
+		return err
+	}
+	crds, err := readCRDsFromFile(absPath)
+	if err != nil {
+		return err
+	}
+
+	if len(crds) > 0 {
+		apiGroupResources := []*restmapper.APIGroupResources{}
+		for _, crd := range crds {
+			apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+		}
+
+		if err = addResourceGroups(apiGroupResources); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getCrdFilePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+
+	if path[len(path)-1] == '/' {
+		path = path[:len(path)-1]
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	ext := filepath.Ext(absPath)
+	if ext != ".yaml" && ext != ".yml" {
+		return "", fmt.Errorf("CRD file must have .yaml or .yml extension: %s", absPath)
+	}
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("CRD file does not exist at path: %s", absPath)
+	}
+	return absPath, nil
+}
+
+func readCRDsFromFile(path string) ([]*apiv1.CustomResourceDefinition, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	decoder := yaml.NewYAMLReader(bufio.NewReader(file))
+	crdscheme.Setup()
+	var crds []*apiv1.CustomResourceDefinition
+
+	for {
+		data, err := decoder.Read()
+		if err != nil {
+			if err == io.EOF {
+				// io.EOF means nothing else to read, return immediately
+				return crds, nil
+			} else {
+				return nil, err
+			}
+		}
+
+		jsonData, err := yaml.ToJSON(data)
+		if err != nil {
+			log.Log.V(3).Info(fmt.Sprintf("could not convert object from --crd-path file to json: %q, skipping", err.Error()))
+			continue
+		}
+
+		obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
+		if err != nil {
+			log.Log.V(3).Info(fmt.Sprintf("could not decode object from --crd-path file: %q, skipping", err.Error()))
+			continue
+		}
+
+		crd, ok := obj.(*apiv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.V(3).Info(fmt.Sprintf("decoded object is not a CRD: %s, skipping", data))
+			continue
+		}
+
+		crds = append(crds, crd)
+	}
+}
+
+func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.APIGroupResources {
+	versionedResources := make(map[string][]metav1.APIResource)
+	var preferredVersion string
+
+	// Find preferred version (storage: true)
+	for _, v := range crd.Spec.Versions {
+		if v.Storage {
+			preferredVersion = v.Name
+			break
+		}
+	}
+
+	// For each served version, build resource list (including subresources)
+	for _, v := range crd.Spec.Versions {
+		if !v.Served {
+			continue
+		}
+		var resources []metav1.APIResource
+
+		// Main resource
+		resources = append(resources, metav1.APIResource{
+			Name:         crd.Spec.Names.Plural,
+			SingularName: crd.Spec.Names.Singular,
+			Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+			Kind:         crd.Spec.Names.Kind,
+			Verbs:        metav1.Verbs{"get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"},
+			Group:        crd.Spec.Group,
+			Version:      v.Name,
+		})
+
+		// Subresources
+		if v.Subresources != nil && v.Subresources.Status != nil {
+			resources = append(resources, metav1.APIResource{
+				Name:         crd.Spec.Names.Plural + "/status",
+				SingularName: crd.Spec.Names.Singular,
+				Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+				Kind:         crd.Spec.Names.Kind,
+				Verbs:        metav1.Verbs{"get", "update", "patch"},
+				Group:        crd.Spec.Group,
+				Version:      v.Name,
+			})
+		}
+		if v.Subresources != nil && v.Subresources.Scale != nil {
+			resources = append(resources, metav1.APIResource{
+				Name:         crd.Spec.Names.Plural + "/scale",
+				SingularName: crd.Spec.Names.Singular,
+				Namespaced:   crd.Spec.Scope == apiv1.NamespaceScoped,
+				Kind:         "Scale",
+				Verbs:        metav1.Verbs{"get", "update", "patch"},
+				Group:        crd.Spec.Group,
+				Version:      v.Name,
+			})
+		}
+
+		versionedResources[v.Name] = resources
+	}
+
+	// Build APIGroup
+	group := metav1.APIGroup{
+		Name:     crd.Spec.Group,
+		Versions: []metav1.GroupVersionForDiscovery{},
+		PreferredVersion: metav1.GroupVersionForDiscovery{
+			GroupVersion: crd.Spec.Group + "/" + preferredVersion,
+			Version:      preferredVersion,
+		},
+	}
+	for _, v := range crd.Spec.Versions {
+		if v.Served {
+			group.Versions = append(group.Versions, metav1.GroupVersionForDiscovery{
+				GroupVersion: crd.Spec.Group + "/" + v.Name,
+				Version:      v.Name,
+			})
+		}
+	}
+
+	return &restmapper.APIGroupResources{
+		Group:              group,
+		VersionedResources: versionedResources,
+	}
+}
+
+func addResourceGroups(resources []*restmapper.APIGroupResources) error {
+	processor := data.GetProcessor()
+	if processor == nil {
+		panic("adding resource groups to a nil crd processor. exiting")
+	}
+	processor.UpdateResourceGroups(resources)
+	return nil
 }

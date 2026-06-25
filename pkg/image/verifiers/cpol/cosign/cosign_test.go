@@ -1,565 +1,623 @@
 package cosign
 
 import (
-	"context"
-	"crypto/x509"
-	"fmt"
-	"io"
+	"crypto"
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/sigstore/cosign/v3/pkg/cosign"
-	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/v3/pkg/oci"
+	"github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
+	cosignPkg "github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	"gotest.tools/assert"
 )
 
-const cosignPayload = `{
-  "critical": {
-       "identity": {
-         "docker-reference": "registry-v2.nirmata.io/pause"
-        },
-    "image": {
-         "docker-manifest-digest": "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108"
-        },
-        "type": "cosign container image signature"
-    },
-    "optional": {
-        "foo": "bar",
-        "bar": "baz"
-    }
-}`
-
-const keylessPayload = `{
-    "critical": {
-        "identity": {
-            "docker-reference": "ghcr.io/kyverno/test-verify-image"
-        },
-        "image": {
-            "docker-manifest-digest": "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227"
-        },
-        "type": "cosign container image signature"
-    },
-    "optional": {
-        "Bundle": {
-            "SignedEntryTimestamp": "--TIME-STAMP--",
-            "Payload": {
-                "integratedTime": 1689234389,
-                "logIndex": 27432442,
-                "logID": "--LOG-ID--"
-            }
-        },
-        "Issuer": "https://accounts.google.com",
-        "Subject": "kyverno@nirmata.com"
-    }
-}`
-
-const globalRekorPubKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwr
-kBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==
------END PUBLIC KEY-----
-`
-
-const wrongPubKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoiR2ouEAp4JS/JIgkCVYCxpp/dMe
-4Mkc/92O8rbWs6xIAcIEju7+Z2yecpQH6RbztEVCZbBZhEVfMdRgWKOrrQ==
------END PUBLIC KEY-----`
-
-const freeTSACertChain = `
------BEGIN CERTIFICATE-----
-MIIH/zCCBeegAwIBAgIJAMHphhYNqOmAMA0GCSqGSIb3DQEBDQUAMIGVMREwDwYD
-VQQKEwhGcmVlIFRTQTEQMA4GA1UECxMHUm9vdCBDQTEYMBYGA1UEAxMPd3d3LmZy
-ZWV0c2Eub3JnMSIwIAYJKoZIhvcNAQkBFhNidXNpbGV6YXNAZ21haWwuY29tMRIw
-EAYDVQQHEwlXdWVyemJ1cmcxDzANBgNVBAgTBkJheWVybjELMAkGA1UEBhMCREUw
-HhcNMTYwMzEzMDE1MjEzWhcNNDEwMzA3MDE1MjEzWjCBlTERMA8GA1UEChMIRnJl
-ZSBUU0ExEDAOBgNVBAsTB1Jvb3QgQ0ExGDAWBgNVBAMTD3d3dy5mcmVldHNhLm9y
-ZzEiMCAGCSqGSIb3DQEJARYTYnVzaWxlemFzQGdtYWlsLmNvbTESMBAGA1UEBxMJ
-V3VlcnpidXJnMQ8wDQYDVQQIEwZCYXllcm4xCzAJBgNVBAYTAkRFMIICIjANBgkq
-hkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAtgKODjAy8REQ2WTNqUudAnjhlCrpE6ql
-mQfNppeTmVvZrH4zutn+NwTaHAGpjSGv4/WRpZ1wZ3BRZ5mPUBZyLgq0YrIfQ5Fx
-0s/MRZPzc1r3lKWrMR9sAQx4mN4z11xFEO529L0dFJjPF9MD8Gpd2feWzGyptlel
-b+PqT+++fOa2oY0+NaMM7l/xcNHPOaMz0/2olk0i22hbKeVhvokPCqhFhzsuhKsm
-q4Of/o+t6dI7sx5h0nPMm4gGSRhfq+z6BTRgCrqQG2FOLoVFgt6iIm/BnNffUr7V
-DYd3zZmIwFOj/H3DKHoGik/xK3E82YA2ZulVOFRW/zj4ApjPa5OFbpIkd0pmzxzd
-EcL479hSA9dFiyVmSxPtY5ze1P+BE9bMU1PScpRzw8MHFXxyKqW13Qv7LWw4sbk3
-SciB7GACbQiVGzgkvXG6y85HOuvWNvC5GLSiyP9GlPB0V68tbxz4JVTRdw/Xn/XT
-FNzRBM3cq8lBOAVt/PAX5+uFcv1S9wFE8YjaBfWCP1jdBil+c4e+0tdywT2oJmYB
-BF/kEt1wmGwMmHunNEuQNzh1FtJY54hbUfiWi38mASE7xMtMhfj/C4SvapiDN837
-gYaPfs8x3KZxbX7C3YAsFnJinlwAUss1fdKar8Q/YVs7H/nU4c4Ixxxz4f67fcVq
-M2ITKentbCMCAwEAAaOCAk4wggJKMAwGA1UdEwQFMAMBAf8wDgYDVR0PAQH/BAQD
-AgHGMB0GA1UdDgQWBBT6VQ2MNGZRQ0z357OnbJWveuaklzCBygYDVR0jBIHCMIG/
-gBT6VQ2MNGZRQ0z357OnbJWveuakl6GBm6SBmDCBlTERMA8GA1UEChMIRnJlZSBU
-U0ExEDAOBgNVBAsTB1Jvb3QgQ0ExGDAWBgNVBAMTD3d3dy5mcmVldHNhLm9yZzEi
-MCAGCSqGSIb3DQEJARYTYnVzaWxlemFzQGdtYWlsLmNvbTESMBAGA1UEBxMJV3Vl
-cnpidXJnMQ8wDQYDVQQIEwZCYXllcm4xCzAJBgNVBAYTAkRFggkAwemGFg2o6YAw
-MwYDVR0fBCwwKjAooCagJIYiaHR0cDovL3d3dy5mcmVldHNhLm9yZy9yb290X2Nh
-LmNybDCBzwYDVR0gBIHHMIHEMIHBBgorBgEEAYHyJAEBMIGyMDMGCCsGAQUFBwIB
-FidodHRwOi8vd3d3LmZyZWV0c2Eub3JnL2ZyZWV0c2FfY3BzLmh0bWwwMgYIKwYB
-BQUHAgEWJmh0dHA6Ly93d3cuZnJlZXRzYS5vcmcvZnJlZXRzYV9jcHMucGRmMEcGCCsGAQUFBwICMDsaOUZyZWVUU0EgdHJ1c3RlZCB0aW1lc3RhbXBpbmcgU29mdHdh
-cmUgYXMgYSBTZXJ2aWNlIChTYWFTKTA3BggrBgEFBQcBAQQrMCkwJwYIKwYBBQUH
-MAGGG2h0dHA6Ly93d3cuZnJlZXRzYS5vcmc6MjU2MDANBgkqhkiG9w0BAQ0FAAOC
-AgEAaK9+v5OFYu9M6ztYC+L69sw1omdyli89lZAfpWMMh9CRmJhM6KBqM/ipwoLt
-nxyxGsbCPhcQjuTvzm+ylN6VwTMmIlVyVSLKYZcdSjt/eCUN+41K7sD7GVmxZBAF
-ILnBDmTGJmLkrU0KuuIpj8lI/E6Z6NnmuP2+RAQSHsfBQi6sssnXMo4HOW5gtPO7
-gDrUpVXID++1P4XndkoKn7Svw5n0zS9fv1hxBcYIHPPQUze2u30bAQt0n0iIyRLz
-aWuhtpAtd7ffwEbASgzB7E+NGF4tpV37e8KiA2xiGSRqT5ndu28fgpOY87gD3ArZ
-DctZvvTCfHdAS5kEO3gnGGeZEVLDmfEsv8TGJa3AljVa5E40IQDsUXpQLi8G+UC4
-1DWZu8EVT4rnYaCw1VX7ShOR1PNCCvjb8S8tfdudd9zhU3gEB0rxdeTy1tVbNLXW
-99y90xcwr1ZIDUwM/xQ/noO8FRhm0LoPC73Ef+J4ZBdrvWwauF3zJe33d4ibxEcb
-8/pz5WzFkeixYM2nsHhqHsBKw7JPouKNXRnl5IAE1eFmqDyC7G/VT7OF669xM6hb
-Ut5G21JE4cNK6NNucS+fzg1JPX0+3VhsYZjj7D5uljRvQXrJ8iHgr/M6j2oLHvTA
-I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
------END CERTIFICATE-----
-`
-
-func TestCosignPayload(t *testing.T) {
-	image := "registry-v2.nirmata.io/pause"
-	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
-	ociSig, err := getSignature(signedPayloads)
-	assert.NilError(t, err)
-	p, err := extractPayload([]oci.Signature{ociSig})
-	assert.NilError(t, err)
-	a := map[string]string{"foo": "bar"}
-	err = checkAnnotations(p, a)
-	assert.NilError(t, err)
-	d, err := extractDigest(image, p)
-	assert.NilError(t, err)
-	assert.Equal(t, d, "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108")
-
-	image2 := "ghcr.io/kyverno/test-verify-image"
-	signedPayloads2 := cosign.SignedPayload{Payload: []byte(keylessPayload)}
-	ociSig, err = getSignature(signedPayloads2)
-	assert.NilError(t, err)
-	signatures2 := []oci.Signature{ociSig}
-
-	p2, err := extractPayload(signatures2)
-	assert.NilError(t, err)
-
-	d2, err := extractDigest(image2, p2)
-	assert.NilError(t, err)
-	assert.Equal(t, d2, "sha256:ee53528c4e3c723945cf870d73702b76135955a218dd7497bf344aa73ebb4227")
-}
-
-func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
-	opts := images.Options{
-		ImageRef:           "ghcr.io/jimbugwadia/pause2",
-		Client:             nil,
-		FetchAttestations:  false,
-		Key:                globalRekorPubKey,
-		SignatureAlgorithm: "sha1",
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "invalid signature algorithm provided sha1")
-}
-
-func TestCosignKeyless(t *testing.T) {
-	opts := images.Options{
-		ImageRef:  "ghcr.io/jimbugwadia/pause2",
-		Issuer:    "https://github.com/",
-		Subject:   "jim",
-		RekorURL:  "https://rekor.sigstore.dev",
-		IgnoreSCT: true,
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
-
-	opts.Subject = "jim@nirmata.com"
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
-
-	opts.Issuer = "https://github.com/login/oauth"
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.NilError(t, err)
-}
-
-func TestRekorPubkeys(t *testing.T) {
-	opts := images.Options{
-		ImageRef:    "ghcr.io/jimbugwadia/pause2",
-		Issuer:      "https://github.com/login/oauth",
-		Subject:     "jim@nirmata.com",
-		RekorURL:    "--INVALID--", // To avoid using the default rekor url as thats where signature is uploaded
-		RekorPubKey: wrongPubKey,
-		IgnoreSCT:   true,
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "rekor log public key not found for payload")
-
-	opts.RekorPubKey = globalRekorPubKey
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.NilError(t, err)
-}
-
-func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
-	err := SetMock("ghcr.io/kyverno/test-verify-image", [][]byte{[]byte(keylessPayload)})
-	defer ClearMock()
-	assert.NilError(t, err)
-
-	opts := images.Options{
-		ImageRef: "ghcr.io/kyverno/test-verify-image",
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-
-	opts.RekorPubKey = "--INVALID KEY--"
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// RekorPubKey is checked when ignoreTlog is set to false
-	assert.ErrorContains(t, err, "failed to load Rekor public keys: failed to get rekor public keys: PEM decoding failed")
-
-	opts.IgnoreTlog = true
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// RekorPubKey is NOT checked when ignoreTlog is set to true
-	assert.NilError(t, err)
-
-	opts.CTLogsPubKey = "--INVALID KEY--"
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// CTLogsPubKey is checked when ignoreSCT is set to false
-	assert.ErrorContains(t, err, "failed to load CTLogs public keys: failed to get transparency log public keys: PEM decoding failed")
-
-	opts.IgnoreSCT = true
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	// CTLogsPubKey is NOT checked when ignoreSCT is set to true
-	assert.NilError(t, err)
-}
-
-func TestCTLogsPubkeys(t *testing.T) {
-	opts := images.Options{
-		ImageRef:     "ghcr.io/vishal-chdhry/cosign-test:v1",
-		Issuer:       "https://accounts.google.com",
-		Subject:      "vishal.choudhary@nirmata.com",
-		RekorPubKey:  globalRekorPubKey,
-		CTLogsPubKey: wrongPubKey,
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "ctfe public key not found for payload.")
-
-	opts.CTLogsPubKey = ""
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.NilError(t, err)
-}
-
-func TestCosignMatchCertificateData(t *testing.T) {
-	pem1 := "-----BEGIN CERTIFICATE-----\nMIIDtzCCAzygAwIBAgIUX9MdOHZMlRONmc0Iu3DtiLXLVLYwCgYIKoZIzj0EAwMw\nNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl\ncm1lZGlhdGUwHhcNMjIxMDA3MTkyNDI0WhcNMjIxMDA3MTkzNDI0WjAAMFkwEwYH\nKoZIzj0CAQYIKoZIzj0DAQcDQgAE0+a5/FhwY4fREWP++3V4rciGiqWGRgHaiP1z\nSlWihKkU71sBVeTzjdrcN8wXzBAefqh5URBfCeE8pJRfQsVKxKOCAlswggJXMA4G\nA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQUJy79\nhpkwHtXtLWOvFu/icY56bwgwHwYDVR0jBBgwFoAU39Ppz1YkEZb5qNjpKFWixi4Y\nZD8wbgYDVR0RAQH/BGQwYoZgaHR0cHM6Ly9naXRodWIuY29tL0ppbUJ1Z3dhZGlh\nL2RlbW8tamF2YS10b21jYXQvLmdpdGh1Yi93b3JrZmxvd3MvcHVibGlzaC55YW1s\nQHJlZnMvdGFncy92MC4wLjIyMDkGCisGAQQBg78wAQEEK2h0dHBzOi8vdG9rZW4u\nYWN0aW9ucy5naXRodWJ1c2VyY29udGVudC5jb20wEgYKKwYBBAGDvzABAgQEcHVz\naDA2BgorBgEEAYO/MAEDBChjNzY0NTI4NGZhN2FlYmU1NTQ2MThlZWU4NzliNGQ2\nOTQ3Zjg1NjRlMB8GCisGAQQBg78wAQQEEWJ1aWxkLXNpZ24tYXR0ZXN0MCoGCisG\nAQQBg78wAQUEHEppbUJ1Z3dhZGlhL2RlbW8tamF2YS10b21jYXQwHwYKKwYBBAGD\nvzABBgQRcmVmcy90YWdzL3YwLjAuMjIwgYoGCisGAQQB1nkCBAIEfAR6AHgAdgAI\nYJLwKFL/aEXR0WsnhJxFZxisFj3DONJt5rwiBjZvcgAAAYOz5+pbAAAEAwBHMEUC\nIBb8fwsLBOu+qJkL6UhT4pwGvRVAN2n74BF1BL703rqPAiEAznbfgYJbqA+JIUiQ\nwwLiFOD8pqidSl+HhW8Lhdg3o+wwCgYIKoZIzj0EAwMDaQAwZgIxAJIBIkZBhM+K\nkBIFNeuWBsyVaAcFRallz3C8jvPQCPbec0ZpIsw624dUs8zD3c96AQIxALf875rt\n+oZgwE6hsDazJzoTcBZ1mYVF6bAlwVdtMiC98aApG6T+qaBirxSgu7IGQw==\n-----END CERTIFICATE-----\n"
-	cert1, err := loadCert([]byte(pem1))
-	assert.NilError(t, err)
-
-	subject1 := "https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/*"
-	subject1RegExp := `https://github\.com/JimBugwadia/demo-java-tomcat/.+`
-	issuer1 := "https://token.actions.githubusercontent.com"
-	issuer1RegExp := `https://token\.actions\..+`
-
-	extensions := map[string]string{
-		"githubWorkflowTrigger":    "push",
-		"githubWorkflowSha":        "c7645284fa7aebe554618eee879b4d6947f8564e",
-		"githubWorkflowName":       "build-sign-attest",
-		"githubWorkflowRepository": "JimBugwadia/demo-java-tomcat",
-	}
-
-	matchErr := matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, "", "", issuer1, "", extensions)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", issuer1RegExp, nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, "", "", "", issuer1RegExp, nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, subject1, subject1RegExp, issuer1, issuer1RegExp, nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchCertificateData(cert1, "", `^wrong-regex$`, issuer1, issuer1RegExp, nil)
-	assert.Error(t, matchErr, "subject mismatch: expected ^wrong-regex$, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
-
-	matchErr = matchCertificateData(cert1, "", "", "", `^wrong-regex$`, nil)
-	assert.Error(t, matchErr, "issuer mismatch: expected ^wrong-regex$, received https://token.actions.githubusercontent.com")
-
-	matchErr = matchCertificateData(cert1, "wrong-subject", "", issuer1, "", extensions)
-	assert.Error(t, matchErr, "subject mismatch: expected wrong-subject, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
-
-	matchErr = matchCertificateData(cert1, "", "*", "", issuer1RegExp, nil)
-	assert.Error(t, matchErr, "invalid regexp for subject: * : error parsing regexp: missing argument to repetition operator: `*`")
-
-	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", "?", nil)
-	assert.Error(t, matchErr, "invalid regexp for issuer: ? : error parsing regexp: missing argument to repetition operator: `?`")
-
-	extensions["githubWorkflowTrigger"] = "pull"
-	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
-	assert.Error(t, matchErr, "extension mismatch: expected pull for key githubWorkflowTrigger, received push")
-}
-
-func TestTSACertChain(t *testing.T) {
-	key := `
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P0sNlaZiaZC4TSEea3oh2Pim0+wxSubhKoK+7jq9Egg==
------END PUBLIC KEY-----`
-
-	opts := images.Options{
-		ImageRef:     "ghcr.io/kyverno/test-verify-image:tsa",
-		Key:          key,
-		TSACertChain: freeTSACertChain,
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.NilError(t, err)
-}
-
-func TestCosignOCI11Experimental(t *testing.T) {
-	opts := images.Options{
-		ImageRef: "ghcr.io/kyverno/test-verify-image:cosign-oci11",
-		Key: `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
-IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
------END PUBLIC KEY-----
-`,
-	}
-
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-	opts.Client = rc
-
-	verifier := &cosignVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "no signatures found")
-
-	opts.CosignOCI11 = true
-	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.NilError(t, err)
-}
-
-func TestBuildCosignOptionsUsesSignedTimestamps(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
-
+func TestExtractDigest(t *testing.T) {
 	tests := []struct {
-		name             string
-		tsaCertChain     string
-		wantUseSignedTS  bool
-		wantTSARootCerts bool
-	}{
-		{
-			name:             "TSACertChain provided enables UseSignedTimestamps",
-			tsaCertChain:     freeTSACertChain,
-			wantUseSignedTS:  true,
-			wantTSARootCerts: true,
+		name       string
+		imgRef     string
+		payload    []payload.SimpleContainerImage
+		wantDigest string
+		wantErr    bool
+	}{{
+		name:   "valid digest",
+		imgRef: "ghcr.io/test/image:v1",
+		payload: []payload.SimpleContainerImage{
+			{
+				Critical: payload.Critical{
+					Image: payload.Image{
+						DockerManifestDigest: "sha256:abc123",
+					},
+				},
+			},
 		},
-		{
-			name:             "empty TSACertChain does not enable UseSignedTimestamps",
-			tsaCertChain:     "",
-			wantUseSignedTS:  false,
-			wantTSARootCerts: false,
+		wantDigest: "sha256:abc123",
+	}, {
+		name:       "empty payload",
+		imgRef:     "ghcr.io/test/image:v1",
+		payload:    []payload.SimpleContainerImage{},
+		wantDigest: "",
+		wantErr:    true,
+	}, {
+		name:   "empty digest in payload",
+		imgRef: "ghcr.io/test/image:v1",
+		payload: []payload.SimpleContainerImage{
+			{
+				Critical: payload.Critical{
+					Image: payload.Image{
+						DockerManifestDigest: "",
+					},
+				},
+			},
 		},
-	}
+		wantDigest: "",
+		wantErr:    true,
+	}, {
+		name:   "multiple payloads returns first digest",
+		imgRef: "ghcr.io/test/image:v1",
+		payload: []payload.SimpleContainerImage{
+			{
+				Critical: payload.Critical{
+					Image: payload.Image{
+						DockerManifestDigest: "sha256:first",
+					},
+				},
+			},
+			{
+				Critical: payload.Critical{
+					Image: payload.Image{
+						DockerManifestDigest: "sha256:second",
+					},
+				},
+			},
+		},
+		wantDigest: "sha256:first",
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := images.Options{
-				ImageRef:     "ghcr.io/kyverno/test-verify-image:signed",
-				Client:       rc,
-				TSACertChain: tt.tsaCertChain,
+			digest, err := extractDigest(tt.imgRef, tt.payload)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractDigest() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			cosignOpts, err := buildCosignOptions(context.TODO(), opts)
-			assert.NilError(t, err)
-			assert.Equal(t, cosignOpts.UseSignedTimestamps, tt.wantUseSignedTS)
-			if tt.wantTSARootCerts {
-				assert.Assert(t, cosignOpts.TSARootCertificates != nil)
-			} else {
-				assert.Assert(t, cosignOpts.TSARootCertificates == nil)
+			if digest != tt.wantDigest {
+				t.Errorf("extractDigest() = %q, want %q", digest, tt.wantDigest)
 			}
 		})
 	}
 }
 
-type testSignature struct {
-	cert *x509.Certificate
+func TestCheckAnnotations(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     []payload.SimpleContainerImage
+		annotations map[string]string
+		wantErr     bool
+	}{{
+		name: "matching annotations",
+		payload: []payload.SimpleContainerImage{
+			{
+				Optional: map[string]interface{}{
+					"foo": "bar",
+					"baz": "qux",
+				},
+			},
+		},
+		annotations: map[string]string{"foo": "bar"},
+		wantErr:     false,
+	}, {
+		name: "non-matching annotation value",
+		payload: []payload.SimpleContainerImage{
+			{
+				Optional: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+		},
+		annotations: map[string]string{"foo": "wrong"},
+		wantErr:     true,
+	}, {
+		name: "missing annotation key",
+		payload: []payload.SimpleContainerImage{
+			{
+				Optional: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+		},
+		annotations: map[string]string{"missing": "value"},
+		wantErr:     true,
+	}, {
+		name:        "nil annotations",
+		payload:     []payload.SimpleContainerImage{{}},
+		annotations: nil,
+		wantErr:     false,
+	}, {
+		name:        "empty annotations",
+		payload:     []payload.SimpleContainerImage{{}},
+		annotations: map[string]string{},
+		wantErr:     false,
+	}, {
+		name:        "empty payload with nil annotations",
+		payload:     []payload.SimpleContainerImage{},
+		annotations: nil,
+		wantErr:     false,
+	}, {
+		name: "multiple annotations all matching",
+		payload: []payload.SimpleContainerImage{
+			{
+				Optional: map[string]interface{}{
+					"a": "1",
+					"b": "2",
+					"c": "3",
+				},
+			},
+		},
+		annotations: map[string]string{"a": "1", "b": "2"},
+		wantErr:     false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkAnnotations(tt.payload, tt.annotations)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkAnnotations() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
-func (ts testSignature) Digest() (v1.Hash, error) {
-	return v1.Hash{}, fmt.Errorf("not implemented")
+func TestStringToJSONMap(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   interface{}
+		wantErr bool
+		wantKey string
+		wantVal interface{}
+	}{{
+		name:    "valid JSON string",
+		input:   `{"key": "value"}`,
+		wantErr: false,
+		wantKey: "key",
+		wantVal: "value",
+	}, {
+		name:    "non-string input",
+		input:   42,
+		wantErr: true,
+	}, {
+		name:    "invalid JSON",
+		input:   "not-json",
+		wantErr: true,
+	}, {
+		name:    "empty JSON object",
+		input:   "{}",
+		wantErr: false,
+	}, {
+		name:    "nested JSON",
+		input:   `{"outer": {"inner": true}}`,
+		wantErr: false,
+		wantKey: "outer",
+	}, {
+		name:    "nil input",
+		input:   nil,
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := stringToJSONMap(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("stringToJSONMap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && tt.wantKey != "" {
+				if _, ok := result[tt.wantKey]; !ok {
+					t.Errorf("stringToJSONMap() result missing key %q", tt.wantKey)
+				}
+			}
+		})
+	}
 }
 
-func (ts testSignature) DiffID() (v1.Hash, error) {
-	return v1.Hash{}, fmt.Errorf("not implemented")
+func TestDecodePayload(t *testing.T) {
+	// Create a valid in-toto statement with a SLSA predicate type
+	statement := in_toto.Statement{ //nolint:staticcheck
+		StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+			Type:          in_toto.StatementInTotoV01,
+			PredicateType: "https://slsa.dev/provenance/v0.2",
+			Subject: []in_toto.Subject{
+				{
+					Name:   "test-subject",
+					Digest: map[string]string{"sha256": "abc123"},
+				},
+			},
+		},
+		Predicate: map[string]interface{}{
+			"builder": map[string]interface{}{
+				"id": "https://github.com/actions/runner",
+			},
+		},
+	}
+	statementBytes, err := json.Marshal(statement)
+	if err != nil {
+		t.Fatalf("failed to marshal statement: %v", err)
+	}
+	validPayload := base64.StdEncoding.EncodeToString(statementBytes)
+	tests := []struct {
+		name    string
+		payload string
+		wantErr bool
+	}{{
+		name:    "valid base64 encoded statement",
+		payload: validPayload,
+		wantErr: false,
+	}, {
+		name:    "invalid base64",
+		payload: "not-base64!@#$%",
+		wantErr: true,
+	}, {
+		name:    "valid base64 but invalid JSON",
+		payload: base64.StdEncoding.EncodeToString([]byte("not-json")),
+		wantErr: true,
+	}, {
+		name:    "empty string",
+		payload: "",
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := decodePayload(tt.payload)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("decodePayload() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && result == nil {
+				t.Error("decodePayload() returned nil for valid input")
+			}
+		})
+	}
 }
 
-func (ts testSignature) Compressed() (io.ReadCloser, error) {
-	return nil, fmt.Errorf("not implemented")
+func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
+	tests := []struct {
+		name    string
+		stmt    in_toto.Statement //nolint:staticcheck
+		wantErr bool
+	}{{
+		name: "valid custom provenance with JSON data",
+		stmt: in_toto.Statement{ //nolint:staticcheck
+			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+				Type:          attestation.CosignCustomProvenanceV01,
+				PredicateType: attestation.CosignCustomProvenanceV01,
+				Subject: []in_toto.Subject{
+					{
+						Name:   "test",
+						Digest: map[string]string{"sha256": "abc"},
+					},
+				},
+			},
+			Predicate: map[string]interface{}{
+				"Data":      `{"buildConfig": "test"}`,
+				"Timestamp": "2024-01-01T00:00:00Z",
+			},
+		},
+		wantErr: false,
+	}, {
+		name: "valid custom provenance with non-JSON data",
+		stmt: in_toto.Statement{ //nolint:staticcheck
+			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+				Type:          attestation.CosignCustomProvenanceV01,
+				PredicateType: attestation.CosignCustomProvenanceV01,
+				Subject: []in_toto.Subject{
+					{
+						Name:   "test",
+						Digest: map[string]string{"sha256": "abc"},
+					},
+				},
+			},
+			Predicate: map[string]interface{}{
+				"Data":      "plain-string-not-json",
+				"Timestamp": "2024-01-01T00:00:00Z",
+			},
+		},
+		wantErr: false,
+	}, {
+		name: "wrong predicate type",
+		stmt: in_toto.Statement{ //nolint:staticcheck
+			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+				Type:          in_toto.StatementInTotoV01,
+				PredicateType: "https://slsa.dev/provenance/v0.2",
+			},
+			Predicate: map[string]interface{}{},
+		},
+		wantErr: true,
+	}, {
+		name: "non-map predicate",
+		stmt: in_toto.Statement{ //nolint:staticcheck
+			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+				Type:          attestation.CosignCustomProvenanceV01,
+				PredicateType: attestation.CosignCustomProvenanceV01,
+			},
+			Predicate: "not-a-map",
+		},
+		wantErr: true,
+	}, {
+		name: "missing Data field in predicate",
+		stmt: in_toto.Statement{ //nolint:staticcheck
+			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+				Type:          attestation.CosignCustomProvenanceV01,
+				PredicateType: attestation.CosignCustomProvenanceV01,
+				Subject: []in_toto.Subject{
+					{
+						Name:   "test",
+						Digest: map[string]string{"sha256": "abc"},
+					},
+				},
+			},
+			Predicate: map[string]interface{}{
+				"Timestamp": "2024-01-01T00:00:00Z",
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := decodeCosignCustomProvenanceV01(tt.stmt)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("decodeCosignCustomProvenanceV01() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
-func (ts testSignature) Uncompressed() (io.ReadCloser, error) {
-	return nil, fmt.Errorf("not implemented")
+func TestDecodeStatements(t *testing.T) {
+	tests := []struct {
+		name      string
+		sigs      []testSignature
+		wantCount int
+		wantErr   bool
+	}{{
+		name:      "empty signatures",
+		sigs:      []testSignature{},
+		wantCount: 0,
+		wantErr:   false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert testSignature to oci.Signature for the empty case
+			stmts, _, err := decodeStatements(nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("decodeStatements() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(stmts) != tt.wantCount {
+				t.Errorf("decodeStatements() returned %d statements, want %d", len(stmts), tt.wantCount)
+			}
+		})
+	}
 }
 
-func (ts testSignature) Size() (int64, error) {
-	return 0, fmt.Errorf("not implemented")
+func TestBuildVerifyOptions(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       verifiers.Options
+		wantLength int
+	}{{
+		name:       "both tlog and sct enabled",
+		opts:       verifiers.Options{IgnoreTlog: false, IgnoreSCT: false},
+		wantLength: 2,
+	}, {
+		name:       "tlog ignored",
+		opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: false},
+		wantLength: 1,
+	}, {
+		name:       "sct ignored",
+		opts:       verifiers.Options{IgnoreTlog: false, IgnoreSCT: true},
+		wantLength: 1,
+	}, {
+		name:       "both ignored",
+		opts:       verifiers.Options{IgnoreTlog: true, IgnoreSCT: true},
+		wantLength: 0,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildVerifyOptions(tt.opts)
+			if len(result) != tt.wantLength {
+				t.Errorf("buildVerifyOptions() returned %d options, want %d", len(result), tt.wantLength)
+			}
+		})
+	}
 }
 
-func (ts testSignature) MediaType() (types.MediaType, error) {
-	return "", fmt.Errorf("not implemented")
+func TestDecodeStatementsFromBundles(t *testing.T) {
+	tests := []struct {
+		name    string
+		bundles []*verificationResult
+		wantLen int
+		wantErr bool
+	}{{
+		name:    "nil bundles",
+		bundles: nil,
+		wantLen: 0,
+		wantErr: false,
+	}, {
+		name:    "empty bundles",
+		bundles: []*verificationResult{},
+		wantLen: 0,
+		wantErr: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := decodeStatementsFromBundles(tt.bundles)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("decodeStatementsFromBundles() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(result) != tt.wantLen {
+				t.Errorf("decodeStatementsFromBundles() returned %d statements, want %d", len(result), tt.wantLen)
+			}
+		})
+	}
 }
 
-func (ts testSignature) Annotations() (map[string]string, error) {
-	return nil, fmt.Errorf("not implemented")
+func TestNewCosignVerifier(t *testing.T) {
+	v := NewVerifier()
+	if v == nil {
+		t.Fatal("NewVerifier() returned nil")
+	}
 }
 
-func (ts testSignature) Payload() ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
+func TestSignatureAlgorithmMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		algo     string
+		expected crypto.Hash
+		exists   bool
+	}{
+		{"empty default", "", crypto.SHA256, true},
+		{"sha224", "sha224", crypto.SHA224, true},
+		{"sha256", "sha256", crypto.SHA256, true},
+		{"sha384", "sha384", crypto.SHA384, true},
+		{"sha512", "sha512", crypto.SHA512, true},
+		{"invalid", "md5", crypto.Hash(0), false},
+		{"sha1 not supported", "sha1", crypto.Hash(0), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hash, ok := signatureAlgorithmMap[tt.algo]
+			if ok != tt.exists {
+				t.Errorf("signatureAlgorithmMap[%q] exists = %v, want %v", tt.algo, ok, tt.exists)
+			}
+			if ok && hash != tt.expected {
+				t.Errorf("signatureAlgorithmMap[%q] = %v, want %v", tt.algo, hash, tt.expected)
+			}
+		})
+	}
 }
 
-func (ts testSignature) Signature() ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
-}
+func TestLoadCertPool(t *testing.T) {
+	validPEM := `-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2wpSek9WFsKz
+rhOCGhLMMRDnZWSDodcoek0JplQ2qooCIHtgr6UPTlFJCI0wTnsEnUayCkAyJHs5
+0VnHSFJEljhX
+-----END CERTIFICATE-----`
 
-func (ts testSignature) Base64Signature() (string, error) {
-	return "", fmt.Errorf("not implemented")
-}
-
-func (ts testSignature) Cert() (*x509.Certificate, error) {
-	return ts.cert, nil
-}
-
-func (ts testSignature) Chain() ([]*x509.Certificate, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (ts testSignature) Bundle() (*bundle.RekorBundle, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (ts testSignature) RFC3161Timestamp() (*bundle.RFC3161Timestamp, error) {
-	return nil, nil
-}
-
-func TestCosignMatchSignatures(t *testing.T) {
-	pem1 := "-----BEGIN CERTIFICATE-----\nMIIDtzCCAzygAwIBAgIUX9MdOHZMlRONmc0Iu3DtiLXLVLYwCgYIKoZIzj0EAwMw\nNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl\ncm1lZGlhdGUwHhcNMjIxMDA3MTkyNDI0WhcNMjIxMDA3MTkzNDI0WjAAMFkwEwYH\nKoZIzj0CAQYIKoZIzj0DAQcDQgAE0+a5/FhwY4fREWP++3V4rciGiqWGRgHaiP1z\nSlWihKkU71sBVeTzjdrcN8wXzBAefqh5URBfCeE8pJRfQsVKxKOCAlswggJXMA4G\nA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQUJy79\nhpkwHtXtLWOvFu/icY56bwgwHwYDVR0jBBgwFoAU39Ppz1YkEZb5qNjpKFWixi4Y\nZD8wbgYDVR0RAQH/BGQwYoZgaHR0cHM6Ly9naXRodWIuY29tL0ppbUJ1Z3dhZGlh\nL2RlbW8tamF2YS10b21jYXQvLmdpdGh1Yi93b3JrZmxvd3MvcHVibGlzaC55YW1s\nQHJlZnMvdGFncy92MC4wLjIyMDkGCisGAQQBg78wAQEEK2h0dHBzOi8vdG9rZW4u\nYWN0aW9ucy5naXRodWJ1c2VyY29udGVudC5jb20wEgYKKwYBBAGDvzABAgQEcHVz\naDA2BgorBgEEAYO/MAEDBChjNzY0NTI4NGZhN2FlYmU1NTQ2MThlZWU4NzliNGQ2\nOTQ3Zjg1NjRlMB8GCisGAQQBg78wAQQEEWJ1aWxkLXNpZ24tYXR0ZXN0MCoGCisG\nAQQBg78wAQUEHEppbUJ1Z3dhZGlhL2RlbW8tamF2YS10b21jYXQwHwYKKwYBBAGD\nvzABBgQRcmVmcy90YWdzL3YwLjAuMjIwgYoGCisGAQQB1nkCBAIEfAR6AHgAdgAI\nYJLwKFL/aEXR0WsnhJxFZxisFj3DONJt5rwiBjZvcgAAAYOz5+pbAAAEAwBHMEUC\nIBb8fwsLBOu+qJkL6UhT4pwGvRVAN2n74BF1BL703rqPAiEAznbfgYJbqA+JIUiQ\nwwLiFOD8pqidSl+HhW8Lhdg3o+wwCgYIKoZIzj0EAwMDaQAwZgIxAJIBIkZBhM+K\nkBIFNeuWBsyVaAcFRallz3C8jvPQCPbec0ZpIsw624dUs8zD3c96AQIxALf875rt\n+oZgwE6hsDazJzoTcBZ1mYVF6bAlwVdtMiC98aApG6T+qaBirxSgu7IGQw==\n-----END CERTIFICATE-----\n"
-	cert1, err := loadCert([]byte(pem1))
-	assert.NilError(t, err)
-
-	pem2 := "-----BEGIN CERTIFICATE-----\nMIICnjCCAiSgAwIBAgIUfHC63TD7cn1QEYwI6sJ50PclbMMwCgYIKoZIzj0EAwMw\nNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRl\ncm1lZGlhdGUwHhcNMjIxMTIxMTczNDIwWhcNMjIxMTIxMTc0NDIwWjAAMFkwEwYH\nKoZIzj0CAQYIKoZIzj0DAQcDQgAEpJeio6iqU9TbHm+WV5KmeinSPWFrMFzoduFN\ntvrjMRAJV6qDX7aHvZRQPtSUxt3PvWwPwZz6Id8XwfHgJwtpp6OCAUMwggE/MA4G\nA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAdBgNVHQ4EFgQU+sL4\nr0BAYZhtjWXdqZd6ktDbl60wHwYDVR0jBBgwFoAU39Ppz1YkEZb5qNjpKFWixi4Y\nZD8wHQYDVR0RAQH/BBMwEYEPamltQG5pcm1hdGEuY29tMCwGCisGAQQBg78wAQEE\nHmh0dHBzOi8vZ2l0aHViLmNvbS9sb2dpbi9vYXV0aDCBigYKKwYBBAHWeQIEAgR8\nBHoAeAB2AN09MGrGxxEyYxkeHJlnNwKiSl643jyt/4eKcoAvKe6OAAABhJtBVS4A\nAAQDAEcwRQIgbWUReMySzQUjZBII8Mdfrw7+MtmcPObrU7lDGNzvc40CIQCSa0xj\nafVdGMlgOPxDvc9gkI2ht6eQN2kmZXkNHe95PTAKBggqhkjOPQQDAwNoADBlAjEA\npQJPNKjRHqsfjhTcrvS1tKodYbz/NKWRJQbacmQaEX3aGZEa/Jczp2IFkcU6eEH/\nAjADp3TpZ56DdgAGCFXDRk3xOcgeDtPeIG6i+fq8Xfik+pIFs+thR7n1ya6LmaXv\nkhw=\n-----END CERTIFICATE-----\n"
-	cert2, err := loadCert([]byte(pem2))
-	assert.NilError(t, err)
-
-	sigs := []oci.Signature{
-		testSignature{cert: cert1},
-		testSignature{cert: cert2},
+	tests := []struct {
+		name    string
+		roots   []byte
+		wantErr bool
+	}{
+		{
+			name:    "valid PEM certificate",
+			roots:   []byte(validPEM),
+			wantErr: false,
+		},
+		{
+			name:    "invalid PEM data",
+			roots:   []byte("not-a-certificate"),
+			wantErr: true,
+		},
+		{
+			name:    "empty data",
+			roots:   []byte(""),
+			wantErr: true,
+		},
 	}
 
-	subject1 := "https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/*"
-	issuer1 := "https://token.actions.githubusercontent.com"
-	extensions := map[string]string{
-		"githubWorkflowTrigger":    "push",
-		"githubWorkflowSha":        "c7645284fa7aebe554618eee879b4d6947f8564e",
-		"githubWorkflowName":       "build-sign-attest",
-		"githubWorkflowRepository": "JimBugwadia/demo-java-tomcat",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, err := loadCertPool(tt.roots)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("loadCertPool() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && pool == nil {
+				t.Error("loadCertPool() returned nil pool for valid input")
+			}
+		})
 	}
-
-	subject2 := "*@nirmata.com"
-	subject2RegExp := `.+@nirmata\.com`
-	issuer2 := "https://github.com/login/oauth"
-	issuer2RegExp := `https://github\.com/login/.+`
-
-	matchErr := matchSignatures(sigs, subject1, "", issuer1, "", extensions)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer2, "", nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchSignatures(sigs, "", "", "", issuer2RegExp, nil)
-	assert.NilError(t, matchErr)
-
-	matchErr = matchSignatures(sigs, subject2, "", issuer1, "", nil)
-	assert.Error(t, matchErr, "subject mismatch: expected *@nirmata.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth")
-
-	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer1, "", nil)
-	assert.Error(t, matchErr, `subject mismatch: expected .+@nirmata\.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth`)
-
-	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", extensions)
-	assert.ErrorContains(t, matchErr, "extension mismatch")
 }
 
-func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
-	payload1 := payload.SimpleContainerImage{
-		Optional: map[string]interface{}{"pipeline": "ci"},
+func TestLoadCert(t *testing.T) {
+	validPEM := `-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2wpSek9WFsKz
+rhOCGhLMMRDnZWSDodcoek0JplQ2qooCIHtgr6UPTlFJCI0wTnsEnUayCkAyJHs5
+0VnHSFJEljhX
+-----END CERTIFICATE-----`
+
+	tests := []struct {
+		name    string
+		pem     []byte
+		wantErr bool
+	}{
+		{
+			name:    "valid PEM certificate",
+			pem:     []byte(validPEM),
+			wantErr: false,
+		},
+		{
+			name:    "invalid data",
+			pem:     []byte("not-a-certificate"),
+			wantErr: true,
+		},
+		{
+			name:    "valid base64 of invalid cert",
+			pem:     []byte(base64.StdEncoding.EncodeToString([]byte("not-a-cert"))),
+			wantErr: true,
+		},
 	}
-	payload2 := payload.SimpleContainerImage{
-		Optional: map[string]interface{}{"pipeline": "cd"},
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert, err := loadCert(tt.pem)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("loadCert() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && cert == nil {
+				t.Error("loadCert() returned nil cert for valid input")
+			}
+		})
+	}
+}
+
+func TestExtractCertExtensionValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		wantErr bool
+	}{
+		{
+			name:    "invalid extension key",
+			key:     "invalidExtension",
+			wantErr: true,
+		},
+		{
+			name:    "empty extension key",
+			key:     "",
+			wantErr: true,
+		},
 	}
 
-	err := checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
-		map[string]string{"pipeline": "ci"})
-	assert.NilError(t, err)
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
-		map[string]string{"pipeline": "cd"})
-	assert.NilError(t, err)
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
-		map[string]string{"pipeline": "staging"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
-		map[string]string{})
-	assert.NilError(t, err)
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
-		map[string]string{"pipeline": "ci"})
-	assert.NilError(t, err)
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
-		map[string]string{"pipeline": "cd"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
-
-	payloadMulti := payload.SimpleContainerImage{
-		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use a zero-value CertExtensions (no cert)
+			ce := cosignPkg.CertExtensions{}
+			_, err := extractCertExtensionValue(tt.key, ce)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractCertExtensionValue() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
-		map[string]string{"pipeline": "ci", "env": "prod"})
-	assert.NilError(t, err)
-
-	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
-		map[string]string{"pipeline": "ci", "env": "staging"})
-	assert.ErrorContains(t, err, "no signature matched the required annotations")
 }

@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
@@ -35,23 +36,24 @@ func SetManager(manager MetricsConfigManager) {
 
 type MetricsConfig struct {
 	// instruments
-	policyChangesMetric metric.Int64Counter
-	clientQueriesMetric metric.Int64Counter
-	kyvernoInfoMetric   metric.Int64Gauge
-	breakerMetrics      *breakerMetrics
-	controllerMetrics   *controllerMetrics
-	cleanupMetrics      *cleanupMetrics
-	deletingMetrics     *deletingMetrics
-	policyRuleMetrics   *policyRuleMetrics
-	ttlInfoMetrics      *ttlInfoMetrics
-	policyEngineMetrics *policyEngineMetrics
-	eventMetrics        *eventMetrics
-	admissionMetrics    *admissionMetrics
-	httpMetrics         *httpMetrics
-	vpolMetrics         *validatingMetrics
-	ivpolMetrics        *imageValidatingMetrics
-	mpolMetrics         *mutatingMetrics
-	gpolMetrics         *generatingMetrics
+	policyChangesMetric  metric.Int64Counter
+	clientQueriesMetric  metric.Int64Counter
+	kyvernoInfoMetric    metric.Int64Gauge
+	breakerMetrics       *breakerMetrics
+	controllerMetrics    *controllerMetrics
+	cleanupMetrics       *cleanupMetrics
+	deletingMetrics      *deletingMetrics
+	updateRequestMetrics *updateRequestMetrics
+	policyRuleMetrics    *policyRuleMetrics
+	ttlInfoMetrics       *ttlInfoMetrics
+	policyEngineMetrics  *policyEngineMetrics
+	eventMetrics         *eventMetrics
+	admissionMetrics     *admissionMetrics
+	httpMetrics          *httpMetrics
+	vpolMetrics          *validatingMetrics
+	ivpolMetrics         *imageValidatingMetrics
+	mpolMetrics          *mutatingMetrics
+	gpolMetrics          *generatingMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -66,6 +68,7 @@ type MetricsConfigManager interface {
 	ControllerMetrics() ControllerMetrics
 	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
+	UpdateRequestMetrics() UpdateRequestMetrics
 	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
 	PolicyEngineMetrics() PolicyEngineMetrics
@@ -96,6 +99,10 @@ func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
 
 func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
 	return m.deletingMetrics
+}
+
+func (m *MetricsConfig) UpdateRequestMetrics() UpdateRequestMetrics {
+	return m.updateRequestMetrics
 }
 
 func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
@@ -167,6 +174,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.controllerMetrics.init(meter)
 	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
+	m.updateRequestMetrics.init(meter)
 	m.policyRuleMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
 	m.policyEngineMetrics.init(meter)
@@ -205,7 +213,18 @@ func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func
 	}
 }
 
-func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
+func resolveExemplarFilter(value string) exemplar.Filter {
+	switch value {
+	case "always-off":
+		return exemplar.AlwaysOffFilter
+	case "always-on":
+		return exemplar.AlwaysOnFilter
+	default:
+		return exemplar.TraceBasedFilter
+	}
+}
+
+func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector(configuration))}
 	if certs != "" {
 		// here the certificates are stored as configmaps
@@ -244,11 +263,12 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(res),
 		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
+		sdkmetric.WithExemplarFilter(resolveExemplarFilter(exemplarFilterValue)),
 	)
 	return provider, nil
 }
 
-func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
+func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration, exemplarFilterValue string) (metric.MeterProvider, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewSchemaless(
@@ -274,6 +294,7 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
 		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
+		sdkmetric.WithExemplarFilter(resolveExemplarFilter(exemplarFilterValue)),
 	)
 	return provider, nil
 }
@@ -310,22 +331,23 @@ func initKyvernoInfoMetric(m *MetricsConfig) {
 
 func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.MetricsConfiguration) *MetricsConfig {
 	config := &MetricsConfig{
-		Log:                 logger,
-		config:              metricsConfiguration,
-		breakerMetrics:      &breakerMetrics{logger: logger.WithName("circuit-breaker")},
-		controllerMetrics:   &controllerMetrics{logger: logger.WithName("controller")},
-		cleanupMetrics:      &cleanupMetrics{logger: logger.WithName("cleanup")},
-		deletingMetrics:     &deletingMetrics{logger: logger.WithName("deleting")},
-		policyRuleMetrics:   &policyRuleMetrics{logger: logger.WithName("policy-rule")},
-		ttlInfoMetrics:      &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
-		policyEngineMetrics: &policyEngineMetrics{logger: logger.WithName("policy-engine")},
-		eventMetrics:        &eventMetrics{logger: logger.WithName("event")},
-		admissionMetrics:    &admissionMetrics{logger: logger.WithName("admission")},
-		httpMetrics:         &httpMetrics{logger: logger.WithName("http")},
-		vpolMetrics:         &validatingMetrics{logger: logger.WithName("validating-policy")},
-		ivpolMetrics:        &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
-		mpolMetrics:         &mutatingMetrics{logger: logger.WithName("mutating-policy")},
-		gpolMetrics:         &generatingMetrics{logger: logger.WithName("generating-policy")},
+		Log:                  logger,
+		config:               metricsConfiguration,
+		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
+		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
+		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
+		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
+		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
+		policyRuleMetrics:    &policyRuleMetrics{logger: logger.WithName("policy-rule")},
+		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
+		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
+		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
+		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
+		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
+		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
+		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
+		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
+		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
 	}
 
 	return config

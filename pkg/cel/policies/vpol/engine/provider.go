@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
@@ -82,54 +83,65 @@ func NewKubeProvider(
 ) (Provider, error) {
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
 
-	vpolBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1beta1.ValidatingPolicy{})
+	vpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.ValidatingPolicy{})
+	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.NamespacedValidatingPolicy{})
 
-	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&policiesv1beta1.NamespacedValidatingPolicy{})
+	type object = client.Object
+	type eventCreate = event.TypedCreateEvent[object]
+	type eventUpdate = event.TypedUpdateEvent[object]
+	type eventDelete = event.TypedDeleteEvent[object]
+	type queue = workqueue.TypedRateLimitingInterface[reconcile.Request]
 
 	if polexEnabled {
 		exceptionHandlerFuncs := &handler.Funcs{
-			CreateFunc: func(
-				ctx context.Context,
-				tce event.TypedCreateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
+			CreateFunc: func(ctx context.Context, tce eventCreate, trli queue) {
 				polex := tce.Object.(*policiesv1beta1.PolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
+					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
+					if applies {
+						trli.Add(reconcile.Request{
+							NamespacedName: client.ObjectKey{
+								Name: ref.Name,
+							},
+						})
+					}
 				}
 			},
-			UpdateFunc: func(
-				ctx context.Context,
-				tue event.TypedUpdateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tue.ObjectNew.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
+			UpdateFunc: func(ctx context.Context, tue eventUpdate, trli queue) {
+				newPolex := tue.ObjectNew.(*policiesv1beta1.PolicyException)
+				for _, ref := range newPolex.Spec.PolicyRefs {
+					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
+					if applies {
+						trli.Add(reconcile.Request{
+							NamespacedName: client.ObjectKey{
+								Name: ref.Name,
+							},
+						})
+					}
+				}
+				oldPolex := tue.ObjectOld.(*policiesv1beta1.PolicyException)
+				for _, ref := range oldPolex.Spec.PolicyRefs {
+					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
+					if applies {
+						trli.Add(reconcile.Request{
+							NamespacedName: client.ObjectKey{
+								Name: ref.Name,
+							},
+						})
+					}
 				}
 			},
-			DeleteFunc: func(
-				ctx context.Context,
-				tde event.TypedDeleteEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
+			DeleteFunc: func(ctx context.Context, tde eventDelete, trli queue) {
 				polex := tde.Object.(*policiesv1beta1.PolicyException)
 				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
+					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
+					if applies {
+						trli.Add(reconcile.Request{
+							NamespacedName: client.ObjectKey{
+								Name: ref.Name,
+							},
+						})
+					}
 				}
 			},
 		}

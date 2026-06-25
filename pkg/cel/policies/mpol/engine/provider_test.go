@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
-	admissionv1 "k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/admission"
 
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -16,12 +18,11 @@ import (
 
 type fakeCompiledPolicy struct{}
 
-func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admissionv1.Attributes, _ *corev1.Namespace) bool {
+func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admission.Attributes, _ *admissionv1.AdmissionRequest, _ *corev1.Namespace) bool {
 	return true
 }
 
 func TestNewProvider(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		pols          []policiesv1beta1.MutatingPolicyLike
@@ -65,7 +66,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions)
+			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions, libs.NewFakeContextProvider())
 			if tt.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, prov)
@@ -149,7 +150,7 @@ func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	}
 
 	t.Run("match all", func(t *testing.T) {
-		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, &corev1.Namespace{})
+		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, nil, &corev1.Namespace{})
 		assert.Equal(t, []string{"match"}, names)
 	})
 }

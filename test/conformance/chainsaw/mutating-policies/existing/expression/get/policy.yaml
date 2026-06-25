@@ -15,7 +15,7 @@ spec:
       resources: [ "secrets" ]
       resourceNames: ["trigger-secret"]
   targetMatchConstraints:
-    expression: resource.Get("v1", "configmaps", object.metadata.namespace, "test-cm-1")
+    expression: resource.get("v1", "configmaps", object.metadata.namespace, "test-cm-1")
   mutations:
   - patchType: ApplyConfiguration
     applyConfiguration:

@@ -1,0 +1,10 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-deny
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: >
+      envoy.Denied(403).WithBody("Unauthorized Request").Response()

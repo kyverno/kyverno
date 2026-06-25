@@ -7,8 +7,10 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	corev1 "k8s.io/api/core/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -24,9 +26,20 @@ type TestEnv struct {
 	Mgr             ctrl.Manager
 	Client          client.Client
 	KubeClient      kubernetes.Interface
+	KyvernoClient   kyvernoclient.Interface
+	DClient         dclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
-	cancel          context.CancelFunc
+
+	// Per-policy-type setups, populated when the corresponding type is requested
+	// via NewTestEnvWithOptions. Nil for types that were not requested.
+	Vpol *VpolSetup
+	Mpol *MpolSetup
+	Gpol *GpolSetup
+	Dpol *DpolSetup
+
+	cancel    context.CancelFunc
+	optCancel context.CancelFunc
 }
 
 // NewTestEnv creates an envtest environment with Kyverno CEL policy CRDs installed.
@@ -35,6 +48,9 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 	scheme := kruntime.NewScheme()
 	if err := policiesv1beta1.Install(scheme); err != nil {
 		return nil, fmt.Errorf("failed to install policiesv1beta1 scheme: %w", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to install corev1 scheme: %w", err)
 	}
 
 	// Initialize the global reporting config to prevent nil dereference
@@ -70,6 +86,12 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
+	kyvernoClient, err := kyvernoclient.NewForConfig(cfg)
+	if err != nil {
+		_ = env.Stop()
+		return nil, fmt.Errorf("failed to create kyverno client: %w", err)
+	}
+
 	dynClient, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		_ = env.Stop()
@@ -96,6 +118,8 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Mgr:             mgr,
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
+		KyvernoClient:   kyvernoClient,
+		DClient:         dc,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil
@@ -123,6 +147,9 @@ func (te *TestEnv) Start() error {
 func (te *TestEnv) Stop() {
 	if te.cancel != nil {
 		te.cancel()
+	}
+	if te.optCancel != nil {
+		te.optCancel()
 	}
 	_ = te.Env.Stop()
 }

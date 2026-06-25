@@ -1,0 +1,146 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sync-new-label-secrets
+spec:
+  template: false
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: ../sync-new-label-secrets.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: GeneratingPolicy
+          metadata:
+            name: sync-new-label-secrets
+        timeout: 30s
+    - sleep:
+        duration: 10s
+
+  - name: step-02
+    try:
+    - apply:
+        file: origin-namespace.yaml
+    - apply:
+        file: target-namespace-1.yaml
+    - apply:
+        file: target-namespace-2.yaml
+    - apply:
+        file: other-namespace.yaml
+    - sleep:
+        duration: 10s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: origin-namespace
+          status:
+            phase: Active
+        timeout: 30s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: target-namespace-1
+          status:
+            phase: Active
+        timeout: 30s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: target-namespace-2
+          status:
+            phase: Active
+        timeout: 30s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: other-namespace
+          status:
+            phase: Active
+        timeout: 30s
+
+  - name: step-03-pass-labeled-secret-in-origin
+    try:
+    - apply:
+        file: secret-with-label-in-origin.yaml
+    - sleep:
+        duration: 60s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret
+            namespace: target-namespace-1
+        timeout: 180s
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret
+            namespace: target-namespace-2
+        timeout: 180s
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret
+            namespace: other-namespace
+        timeout: 45s
+
+  - name: step-04-fail-secret-without-label
+    try:
+    - apply:
+        file: secret-no-label-in-origin.yaml
+    - sleep:
+        duration: 15s
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret-no-label
+            namespace: target-namespace-1
+        timeout: 45s
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret-no-label
+            namespace: target-namespace-2
+        timeout: 45s
+
+  - name: step-05-fail-labeled-secret-in-wrong-namespace
+    try:
+    - apply:
+        file: secret-with-label-in-other-ns.yaml
+    - sleep:
+        duration: 15s
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret-wrong-ns
+            namespace: target-namespace-1
+        timeout: 45s
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: my-secret-wrong-ns
+            namespace: target-namespace-2
+        timeout: 45s

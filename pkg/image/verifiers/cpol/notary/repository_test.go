@@ -25,7 +25,7 @@ func TestResolve(t *testing.T) {
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, ref)
+	repositoryClient := newRepository(nil, ref)
 
 	desc, err := repositoryClient.Resolve(ctx, repoDesc.Digest.String())
 	assert.NilError(t, err)
@@ -45,7 +45,7 @@ func TestListSignatures(t *testing.T) {
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, ref)
+	repositoryClient := newRepository(nil, ref)
 	fn := func(_ []ocispec.Descriptor) error {
 		return nil
 	}
@@ -66,7 +66,7 @@ func TestFetchSignatureBlob(t *testing.T) {
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 
-	repositoryClient := NewRepository(nil, ref)
+	repositoryClient := newRepository(nil, ref)
 
 	referrers, err := remote.Referrers(ref.Context().Digest(ociDesc.Digest.String()))
 	assert.NilError(t, err)

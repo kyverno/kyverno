@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: test-gzip-decompression
+spec:
+  concurrent: false
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+  - name: wait-mutating-policy-ready
+    use:
+      template: ../../_step-templates/mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: inject-coco-initdata
+  - name: step-02
+    try:
+    - apply:
+        file: configmap.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: pod.yaml
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: verify-pod-mutated
+    try:
+    - assert:
+        file: pod-mutated.yaml

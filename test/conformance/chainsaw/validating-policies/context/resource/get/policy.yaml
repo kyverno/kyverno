@@ -15,7 +15,7 @@ spec:
         resource.ToGVR("v1", "Pod")
     - name: pod
       expression: >-
-        resource.Get(variables.gvr, object.metadata.namespace, "policy-pod")
+        resource.get(variables.gvr, object.metadata.namespace, "policy-pod")
     - name: environment
       expression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == variables.pod.metadata.labels.env

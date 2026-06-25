@@ -14,8 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/images"
-	"github.com/kyverno/kyverno/pkg/tracing"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
@@ -28,88 +27,26 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/sigstore/sigstore/pkg/tuf"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 )
 
-var signatureAlgorithmMap = map[string]crypto.Hash{
-	"":       crypto.SHA256,
-	"sha224": crypto.SHA224,
-	"sha256": crypto.SHA256,
-	"sha384": crypto.SHA384,
-	"sha512": crypto.SHA512,
+// maxIntermediateCerts limits the number of intermediate certificates accepted
+// from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
+// unbounded work in crypto/x509 certificate chain building).
+const maxIntermediateCerts = 10
+
+// pemCertBlockHeader is the PEM block header used to count certificate blocks
+// cheaply before full ASN.1 parsing.
+var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
+
+// countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
+// using a cheap byte scan, so we can reject oversized chains before doing the
+// expensive PEM/ASN.1 parsing work.
+func countPEMCertBlocks(pem []byte) int {
+	return bytes.Count(pem, pemCertBlockHeader)
 }
 
-func NewVerifier() images.ImageVerifier {
-	return &cosignVerifier{}
-}
-
-type cosignVerifier struct{}
-
-func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
-	if opts.SigstoreBundle {
-		results, err := verifyBundleAndFetchAttestations(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(results) == 0 {
-			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
-		}
-
-		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
-	}
-
-	nameOpts := opts.Client.NameOptions()
-	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
-	}
-
-	signatures, bundleVerified, err := tracing.ChildSpan3(
-		ctx,
-		"",
-		"VERIFY IMG SIGS",
-		func(ctx context.Context, span trace.Span) ([]oci.Signature, bool, error) {
-			cosignOpts, err := buildCosignOptions(ctx, opts)
-			if err != nil {
-				return nil, false, err
-			}
-			return client.VerifyImageSignatures(ctx, ref, cosignOpts)
-		},
-	)
-	if err != nil {
-		logger.Info("image verification failed", "error", err.Error())
-		return nil, err
-	}
-
-	logger.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
-	payload, err := extractPayload(signatures)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := matchSignatures(signatures, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
-		return nil, err
-	}
-
-	err = checkAnnotations(payload, opts.Annotations)
-	if err != nil {
-		return nil, err
-	}
-
-	var digest string
-	if opts.Type == "" {
-		digest, err = extractDigest(opts.ImageRef, payload)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &images.Response{Digest: digest}, nil
-}
-
-func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
+func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
 	options, err := opts.Client.Options(ctx)
@@ -118,7 +55,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		Annotations:        map[string]interface{}{},
+		Annotations:        map[string]any{},
 		RegistryClientOpts: []remote.Option{remote.WithRemoteOptions(options...)},
 	}
 
@@ -168,10 +105,18 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
 			} else {
-				// Verify certificate with chain
+				// Verify certificate with chain.
+				// Cheap pre-check on the raw PEM to reject oversized chains
+				// before doing expensive ASN.1 parsing (CVE-2026-32280).
+				if n := countPEMCertBlocks([]byte(opts.CertChain)); n > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", n, maxIntermediateCerts+1)
+				}
 				chain, err := loadCertChain([]byte(opts.CertChain))
 				if err != nil {
-					return nil, fmt.Errorf("failed to load load certificate chain: %w", err)
+					return nil, fmt.Errorf("failed to load certificate chain: %w", err)
+				}
+				if len(chain) > maxIntermediateCerts+1 {
+					return nil, fmt.Errorf("certificate chain too long (%d), maximum allowed is %d", len(chain), maxIntermediateCerts+1)
 				}
 				cosignOpts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, cosignOpts)
 				if err != nil {
@@ -231,12 +176,22 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	if opts.TSACertChain != "" {
+		// Cheap pre-check on the raw PEM to reject oversized chains before
+		// doing expensive ASN.1 parsing (CVE-2026-32280). A valid TSA chain
+		// has at most one leaf, maxIntermediateCerts intermediates, plus any
+		// number of roots; capping on blocks here is a conservative guard.
+		if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxIntermediateCerts+2 {
+			return nil, fmt.Errorf("TSA certificate chain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
+		}
 		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
 		if err != nil {
 			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
 		}
 		if len(leaves) > 1 {
 			return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+		}
+		if len(intermediates) > maxIntermediateCerts {
+			return nil, fmt.Errorf("TSA certificate chain contains too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
 		}
 		if len(leaves) == 1 {
 			cosignOpts.TSACertificate = leaves[0]
@@ -281,86 +236,6 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
 }
 
-func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	if opts.SigstoreBundle {
-		results, err := verifyBundleAndFetchAttestations(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(results) == 0 {
-			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
-		}
-
-		statements, err := decodeStatementsFromBundles(results)
-		if err != nil {
-			return nil, err
-		}
-		return &images.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
-	}
-	cosignOpts, err := buildCosignOptions(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	nameOpts := opts.Client.NameOptions()
-	signatures, bundleVerified, err := tracing.ChildSpan3(
-		ctx,
-		"",
-		"VERIFY IMG ATTESTATIONS",
-		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-			ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
-			if err != nil {
-				return nil, false, fmt.Errorf("failed to parse image: %w", err)
-			}
-			return client.VerifyImageAttestations(ctx, ref, cosignOpts)
-		},
-	)
-	if err != nil {
-		msg := err.Error()
-		logger.Info("failed to fetch attestations", "error", msg)
-		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
-			return nil, fmt.Errorf("not found")
-		}
-
-		return nil, err
-	}
-
-	payload, err := extractPayload(signatures)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, signature := range signatures {
-		match, predicateType, err := matchType(signature, opts.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		if !match {
-			logger.V(4).Info("type doesn't match, continue", "expected", opts.Type, "received", predicateType)
-			continue
-		}
-
-		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
-			return nil, err
-		}
-	}
-
-	err = checkAnnotations(payload, opts.Annotations)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.V(3).Info("verified images", "signatures", len(signatures), "bundleVerified", bundleVerified)
-	inTotoStatements, digest, err := decodeStatements(signatures)
-	if err != nil {
-		return nil, err
-	}
-
-	return &images.Response{Digest: digest, Statements: inTotoStatements}, nil
-}
-
 func matchType(sig oci.Signature, expectedType string) (bool, string, error) {
 	if expectedType != "" {
 		statement, _, err := decodeStatement(sig)
@@ -377,14 +252,14 @@ func matchType(sig oci.Signature, expectedType string) (bool, string, error) {
 	return false, "", nil
 }
 
-func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, string, error) {
+func decodeStatements(sigs []oci.Signature) ([]map[string]any, string, error) {
 	if len(sigs) == 0 {
-		return []map[string]interface{}{}, "", nil
+		return []map[string]any{}, "", nil
 	}
 
 	var digest string
-	var statement map[string]interface{}
-	decodedStatements := make([]map[string]interface{}, len(sigs))
+	var statement map[string]any
+	decodedStatements := make([]map[string]any, len(sigs))
 	for i, sig := range sigs {
 		var err error
 		statement, digest, err = decodeStatement(sig)
@@ -398,7 +273,7 @@ func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, string, e
 	return decodedStatements, digest, nil
 }
 
-func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) {
+func decodeStatement(sig oci.Signature) (map[string]any, string, error) {
 	var digest string
 
 	pld, err := sig.Payload()
@@ -415,7 +290,7 @@ func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) 
 		digest = d
 	}
 
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	if err := json.Unmarshal(pld, &data); err != nil {
 		return nil, "", fmt.Errorf("failed to unmarshal JSON payload: %v: %w", sig, err)
 	}
@@ -433,7 +308,7 @@ func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) 
 	}
 }
 
-func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
+func decodePayload(payloadBase64 string) (map[string]any, error) {
 	statementRaw, err := base64.StdEncoding.DecodeString(payloadBase64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to base64 decode payload for %v: %w", statementRaw, err)
@@ -456,12 +331,12 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	return decodeCosignCustomProvenanceV01(statement)
 }
 
-func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) { //nolint:staticcheck
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]any, error) { //nolint:staticcheck
 	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}
 
-	predicate, ok := statement.Predicate.(map[string]interface{})
+	predicate, ok := statement.Predicate.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("failed to decode CosignCustomProvenanceV01")
 	}
@@ -481,13 +356,13 @@ func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]in
 	return datautils.ToMap(statement)
 }
 
-func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
+func stringToJSONMap(i any) (map[string]any, error) {
 	s, ok := i.(string)
 	if !ok {
 		return nil, fmt.Errorf("expected string type")
 	}
 
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	if err := json.Unmarshal([]byte(s), &data); err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
