@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -70,13 +72,13 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			continue
 		}
 		if generate.GetData() != nil {
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
 				errs = append(errs, err)
 			}
 		}
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -165,20 +167,19 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		}
 
 		sync, orphanDownstreamOnPolicyDelete := r.GetSyncAndOrphanDownstream()
-		if generate.GetData() != nil {
-			if sync && (generate.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
-					errs = append(errs, err)
-				}
+		if !sync || orphanDownstreamOnPolicyDelete {
+			continue
+		}
+		for _, pattern := range cleanupPatterns(generate.GeneratePattern) {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
+				errs = append(errs, err)
 			}
 		}
 
 		for _, foreach := range generate.ForEachGeneration {
-			if foreach.GetData() != nil {
-				if sync && (foreach.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
-						errs = append(errs, err)
-					}
+			for _, pattern := range cleanupPatterns(foreach.GeneratePattern) {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -205,7 +206,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -222,7 +223,7 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 		return ur, nil
 	}
 
-	pc.log.V(4).Info("sync data rule changes to downstream targets")
+	pc.log.V(4).Info("sync generate rule changes to downstream targets")
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
@@ -233,6 +234,31 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 	}
 
 	return ur, nil
+}
+
+func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePattern {
+	if pattern.GetAPIVersion() != "" && pattern.GetKind() != "" {
+		return []kyvernov1.GeneratePattern{pattern}
+	}
+	if len(pattern.CloneList.Kinds) == 0 {
+		return nil
+	}
+	out := make([]kyvernov1.GeneratePattern, 0, len(pattern.CloneList.Kinds))
+	for _, gvk := range pattern.CloneList.Kinds {
+		apiVersion, kind := kubeutils.GetKindFromGVK(gvk)
+		if apiVersion == "" || kind == "" {
+			continue
+		}
+		// Wildcard GVKs are allowed in CloneList but can't be resolved by downstream lookup.
+		if strings.Contains(apiVersion, "*") || strings.Contains(kind, "*") {
+			continue
+		}
+		p := pattern
+		p.ResourceSpec.APIVersion = apiVersion
+		p.ResourceSpec.Kind = kind
+		out = append(out, p)
+	}
+	return out
 }
 
 func (pc *policyController) unlabelDownstream(selector updatedResource) {
