@@ -26,7 +26,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	utilsslices "github.com/kyverno/kyverno/pkg/utils/slices"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
