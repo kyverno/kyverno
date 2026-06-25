@@ -320,6 +320,12 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
+		ngpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
 		ivpolInformer.Informer(),
 		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
@@ -1248,6 +1254,24 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	result.Webhooks = append(result.Webhooks, gpolWebhooks...)
 
+	ngpols, err := c.getNamespacedGeneratingPolicies()
+	if err != nil {
+		return err
+	}
+	ngpolWebhooks := buildWebhookRules(cfg,
+		c.server,
+		config.GeneratingPolicyWebhookName,
+		"/ngpol",
+		c.servicePort,
+		caBundle,
+		ngpols,
+		c.celExpressionCache)
+
+	for i := range ngpolWebhooks {
+		ngpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ngpolWebhooks[i].Rules))
+	}
+	result.Webhooks = append(result.Webhooks, ngpolWebhooks...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1281,6 +1305,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 
 	policies := append(pols, nvpols...)
 	policies = append(policies, gpols...)
+	policies = append(policies, ngpols...)
 	policies = append(policies, ivpols...)
 	policies = append(policies, nivpols...)
 	c.recordPolicyState(policies...)
@@ -1442,6 +1467,20 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 		}
 	}
 	return gpols, nil
+}
+
+func (c *controller) getNamespacedGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
+	namespacedgeneratingpolicies, err := c.ngpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	ngpols := make([]engineapi.GenericPolicy, 0)
+	for _, ngpol := range namespacedgeneratingpolicies {
+		if ngpol.Spec.AdmissionEnabled() {
+			ngpols = append(ngpols, engineapi.NewNamespacedGeneratingPolicy(ngpol))
+		}
+	}
+	return ngpols, nil
 }
 
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {
