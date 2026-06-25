@@ -85,17 +85,25 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 		logger.V(2).Info("processing generated resource", "gvr", gvr, "name", resource.GetName())
 		newGVRs[gvr] = true
 
-		// if the watcher for this GVR already exists, skip it
-		if wm.dynamicWatchers[gvr] != nil {
-			logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
-			// add the resource to the metadata cache
-			wm.dynamicWatchers[gvr].metadataCache[resource.GetUID()] = Resource{
+		// if an entry for this GVR exists, update cache and ensure the watcher is running
+		if existing := wm.dynamicWatchers[gvr]; existing != nil {
+			existing.metadataCache[resource.GetUID()] = Resource{
 				Name:      resource.GetName(),
 				Namespace: resource.GetNamespace(),
 				Labels:    resource.GetLabels(),
 				Hash:      reportutils.CalculateResourceHash(*resource),
 				Data:      resource,
 			}
+			if existing.watcher != nil {
+				logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
+				continue
+			}
+			logger.V(2).Info("restarting watcher for GVR", "gvr", gvr)
+			w, err := wm.startWatcherWithCache(resource, gvr, existing.metadataCache)
+			if err != nil {
+				return err
+			}
+			wm.dynamicWatchers[gvr] = w
 			continue
 		}
 
@@ -161,7 +169,9 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 
 				// stop the watcher if no other policy is using it
 				if wm.refCount[oldGVR] <= 0 {
-					oldWatcher.watcher.Stop()
+					if oldWatcher.watcher != nil {
+						oldWatcher.watcher.Stop()
+					}
 					delete(wm.dynamicWatchers, oldGVR)
 				}
 			}
@@ -302,7 +312,9 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 			if wm.refCount[gvr] <= 0 {
 				if watcherExists {
 					logger.V(3).Info("stopping watcher as it has no more references")
-					watcher.watcher.Stop()
+					if watcher.watcher != nil {
+						watcher.watcher.Stop()
+					}
 					delete(wm.dynamicWatchers, gvr)
 				}
 				delete(wm.refCount, gvr)
@@ -320,7 +332,9 @@ func (wm *WatchManager) StopWatchers() {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 	for _, watcher := range wm.dynamicWatchers {
-		watcher.watcher.Stop()
+		if watcher.watcher != nil {
+			watcher.watcher.Stop()
+		}
 	}
 	wm.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 	wm.policyRefs = map[string][]schema.GroupVersionResource{}
@@ -332,7 +346,13 @@ func (wm *WatchManager) StopWatchers() {
 // The watcher will handle events for the resource and update the metadata cache accordingly.
 // It returns a pointer to the watcher or an error if the watcher could not be created.
 func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr schema.GroupVersionResource) (*watcher, error) {
-	metadataCache := map[types.UID]Resource{}
+	return wm.startWatcherWithCache(resource, gvr, nil)
+}
+
+func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {
+	if metadataCache == nil {
+		metadataCache = map[types.UID]Resource{}
+	}
 	metadataCache[resource.GetUID()] = Resource{
 		Name:      resource.GetName(),
 		Namespace: resource.GetNamespace(),
@@ -366,7 +386,7 @@ func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr sc
 				wm.lock.Lock()
 				defer wm.lock.Unlock()
 				if wm.dynamicWatchers[gvr] == thisWatcher {
-					delete(wm.dynamicWatchers, gvr)
+					thisWatcher.watcher = nil
 				}
 			}()
 			for event := range watchInterface.ResultChan() {
