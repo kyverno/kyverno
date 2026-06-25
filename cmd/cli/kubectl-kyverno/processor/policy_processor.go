@@ -103,7 +103,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
-	CrdPath                   string
+	CrdPaths                  []string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
@@ -129,7 +129,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.NewOrDie()
 	}
 	isCluster := false
-	if p.CrdPath != "" {
+	if len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
@@ -1000,21 +1000,30 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
-		// Try to get OpenAPI from the cluster's discovery client.
-		// Prepend it to the composite so --crd-path and built-in schemas
-		// remain reachable even when cluster discovery succeeds.
-		// In CLI test mode the discovery client is a fake that panics
-		// on OpenAPIV3(), so we recover and skip it gracefully.
+		// In CLI test mode the discovery client is a fake that panics on
+		// OpenAPIV3(), so we recover and skip it gracefully.
 		if client := p.tryClusterOpenAPI(); client != nil {
 			clients = append(clients, client)
 		}
 	}
 
-	if p.CrdPath != "" {
-		absPath := getAbsPath(p.CrdPath)
-		diskCrds := os.DirFS(absPath)
-		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
-	} else {
+	addedCrdClient := false
+	if len(p.CrdPaths) > 0 {
+		visitedDirs := make(map[string]struct{})
+		for _, crdPath := range p.CrdPaths {
+			if strings.TrimSpace(crdPath) == "" {
+				continue
+			}
+			absPath := getAbsPath(crdPath)
+			if _, seen := visitedDirs[absPath]; !seen {
+				diskCrds := os.DirFS(absPath)
+				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+				visitedDirs[absPath] = struct{}{}
+				addedCrdClient = true
+			}
+		}
+	}
+	if !addedCrdClient {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
 		}
@@ -1250,7 +1259,15 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 }
 
 func (p *PolicyProcessor) loadCrds() error {
-	return common.LoadCrdsFromPath(p.CrdPath)
+	for _, crdPath := range p.CrdPaths {
+		if strings.TrimSpace(crdPath) == "" {
+			continue
+		}
+		if err := common.LoadCrdsFromPath(crdPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getAbsPath(path string) string {
