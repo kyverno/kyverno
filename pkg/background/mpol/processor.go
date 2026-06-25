@@ -28,6 +28,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -131,6 +132,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 
 	ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	// For background-only scans there is no admission request; build a minimal synthetic one.
+	if ar == nil {
+		ar = &admissionv1.AdmissionRequest{}
+	}
 	for _, target := range targets.Items {
 		object := &target
 		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
