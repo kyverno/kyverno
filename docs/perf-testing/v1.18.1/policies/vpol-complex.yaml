@@ -1,0 +1,45 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-complex
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  variables:
+  - name: labels
+    expression: "object.metadata.labels"
+  - name: containers
+    expression: "object.spec.containers"
+  - name: hasSecurityContext
+    expression: "has(object.spec.securityContext)"
+  validations:
+  - expression: "has(object.metadata.labels)"
+    message: "Pod must have labels"
+  - expression: "'app' in variables.labels"
+    message: "Pod must have label 'app'"
+  - expression: "'env' in variables.labels && variables.labels['env'] in ['prod', 'staging', 'dev']"
+    message: "Pod label 'env' must be one of: prod, staging, dev"
+  - expression: "'team' in variables.labels"
+    message: "Pod must have label 'team'"
+  - expression: "variables.hasSecurityContext && has(object.spec.securityContext.runAsNonRoot) && object.spec.securityContext.runAsNonRoot == true"
+    message: "Pod must set securityContext.runAsNonRoot=true"
+  - expression: >
+      variables.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.allowPrivilegeEscalation) &&
+        c.securityContext.allowPrivilegeEscalation == false
+      )
+    message: "All containers must set allowPrivilegeEscalation=false"
+  - expression: >
+      variables.containers.all(c,
+        has(c.securityContext) &&
+        has(c.securityContext.capabilities) &&
+        has(c.securityContext.capabilities.drop) &&
+        'ALL' in c.securityContext.capabilities.drop
+      )
+    message: "All containers must drop ALL capabilities"
