@@ -1842,3 +1842,23 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 		})
 	}
 }
+
+func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+
+	cmd.SetArgs([]string{
+		"policy.yaml",
+		"-",
+		"--resource",
+		"resource.yaml,-",
+	})
+
+	err := cmd.Execute()
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
+}

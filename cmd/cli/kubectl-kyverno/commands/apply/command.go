@@ -1221,6 +1221,15 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error
 	return nil
 }
 
+func hasStdinPath(paths []string) bool {
+	for _, path := range paths {
+		if path == "-" {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1228,7 +1237,7 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.PolicyPaths) == 0 {
 		return fmt.Errorf("require policy")
 	}
-	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
+	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
