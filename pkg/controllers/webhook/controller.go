@@ -1260,7 +1260,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	ngpolWebhooks := buildWebhookRules(cfg,
 		c.server,
-		config.GeneratingPolicyWebhookName,
+		config.NamespacedGeneratingPolicyWebhookName,
 		"/ngpol",
 		c.servicePort,
 		caBundle,
