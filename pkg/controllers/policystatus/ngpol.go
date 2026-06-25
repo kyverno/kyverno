@@ -25,7 +25,7 @@ func (c controller) updateNGpolStatus(ctx context.Context, ngpol *v1beta1.Namesp
 		if conditionStatus.Ready == nil || conditionStatus.IsReady() != ready {
 			conditionStatus.Ready = &ready
 		}
-		// assign - convert v1beta1.ConditionStatus to v1alpha1.ConditionStatus
+		// assign reconciled condition status back to policy status
 		ngpol.Status = v1beta1.GeneratingPolicyStatus{
 			ConditionStatus: v1beta1.ConditionStatus{
 				Conditions: conditionStatus.Conditions,

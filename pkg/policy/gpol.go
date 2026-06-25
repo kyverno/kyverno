@@ -78,7 +78,7 @@ func (pc *policyController) createURForNamespacedGeneratingPolicy(ngpol *policie
 	if len(downstreams) == 0 {
 		// create a UR to restore the dynamic watcher cache in case background controller is restarted
 		pc.log.V(4).Info("no downstream resources found for namespaced generating policy, creating UR to restore dynamic watcher cache")
-		triggers := pc.getGpolTriggers(ngpol.Spec.MatchConstraints)
+		triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
 		for _, trigger := range triggers {
 			addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger), false, true)
 		}
@@ -110,7 +110,7 @@ func (pc *policyController) createURForNamespacedGeneratingPolicy(ngpol *policie
 func (pc *policyController) handleNamespacedGenerateExisting(ngpol *policiesv1beta1.NamespacedGeneratingPolicy) error {
 	ur := newGenerateUR(engineapi.NewNamespacedGeneratingPolicy(ngpol))
 	policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
-	triggers := pc.getGpolTriggers(ngpol.Spec.MatchConstraints)
+	triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
 	for _, trigger := range triggers {
 		addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger), false, false)
 	}
@@ -162,6 +162,19 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 		}
 	}
 	return triggers
+}
+
+func filterTriggersByNamespace(triggers []*unstructured.Unstructured, namespace string) []*unstructured.Unstructured {
+	if namespace == "" {
+		return triggers
+	}
+	filtered := make([]*unstructured.Unstructured, 0, len(triggers))
+	for _, trigger := range triggers {
+		if trigger.GetNamespace() == namespace || (trigger.GetKind() == "Namespace" && trigger.GetName() == namespace) {
+			filtered = append(filtered, trigger)
+		}
+	}
+	return filtered
 }
 
 func (pc *policyController) triggerMatches(
