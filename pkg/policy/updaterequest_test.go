@@ -3,10 +3,14 @@ package policy
 import (
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	common "github.com/kyverno/kyverno/pkg/background/common"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func makeUR(n int) *kyvernov2.UpdateRequest {
@@ -83,4 +87,41 @@ func TestSplitURNoAlias(t *testing.T) {
 	assert.Equal(t, "b", ur.ObjectMeta.Labels["a"])
 	assert.Equal(t, "role", ur.Spec.Context.UserRequestInfo.Roles[0])
 	assert.Equal(t, "original", ur.Status.GeneratedResources[0].Name)
+}
+
+func TestNewGenerateURNGpolPolicyKey(t *testing.T) {
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sample",
+			Namespace: "team-a",
+		},
+	}
+
+	ur := newGenerateUR(engineapi.NewNamespacedGeneratingPolicy(ngpol))
+
+	assert.Equal(t, kyvernov2.CELGenerate, ur.Spec.Type)
+	assert.Equal(t, "team-a/sample", ur.Spec.Policy)
+	assert.Equal(t, map[string]string(common.GenerateLabelsSet("team-a/sample")), ur.Labels)
+}
+
+func TestFilterTriggersByNamespace(t *testing.T) {
+	mk := func(kind, ns, name string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetKind(kind)
+		u.SetNamespace(ns)
+		u.SetName(name)
+		return u
+	}
+
+	triggers := []*unstructured.Unstructured{
+		mk("Deployment", "team-a", "dep-a"),
+		mk("Deployment", "team-b", "dep-b"),
+		mk("Namespace", "", "team-a"),
+		mk("Namespace", "", "team-b"),
+	}
+
+	filtered := filterTriggersByNamespace(triggers, "team-a")
+	assert.Len(t, filtered, 2)
+	assert.Equal(t, "dep-a", filtered[0].GetName())
+	assert.Equal(t, "team-a", filtered[1].GetName())
 }
