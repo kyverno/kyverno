@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -172,7 +174,10 @@ func TestSyncWatchers(t *testing.T) {
 		{
 			name: "Watcher already exist path",
 			setupWM: func() *WatchManager {
-				existing := &watcher{metadataCache: map[types.UID]Resource{}}
+				existing := &watcher{
+					watcher:       watch.MockWatcher{StopFunc: func() {}},
+					metadataCache: map[types.UID]Resource{},
+				}
 				return &WatchManager{
 					log:    logging.WithName("test"),
 					client: &MockClient{},
@@ -330,6 +335,22 @@ func TestSyncWatchers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSyncWatchers_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
+	oldGVR := schema.GroupVersionResource{Group: "old", Version: "v1", Resource: "res"}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          &MockClient{},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{"pol1": {oldGVR}},
+		refCount:        map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+
+	err := wm.SyncWatchers("pol1", nil)
+	require.NoError(t, err)
+	_, exists := wm.refCount[oldGVR]
+	assert.False(t, exists)
 }
 
 func TestWatchManager_GetDownstreams(t *testing.T) {
@@ -753,6 +774,24 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 	}
 }
 
+func TestRemoveWatchersForPolicy_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          &MockClient{},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+		refCount:        map[schema.GroupVersionResource]int{gvr: 1},
+	}
+
+	wm.RemoveWatchersForPolicy("pol1", true)
+
+	_, refExists := wm.refCount[gvr]
+	assert.False(t, refExists)
+	_, policyRefExists := wm.policyRefs["pol1"]
+	assert.False(t, policyRefExists)
+}
+
 type mockStopper struct {
 	stopped bool
 }
@@ -1115,4 +1154,85 @@ func TestWatchManager_CacheIntegrity(t *testing.T) {
 			assert.False(t, ts.IsZero(), "cached CreationTimestamp must not be zeroed")
 		})
 	}
+}
+
+func TestWatcherCleanup_DeadWatcherMarkedStoppedOnExit(t *testing.T) {
+	testGVR := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res"}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: dclient.NewEmptyFakeClient(),
+		restMapper: &mockRESTMapper{
+			fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: testGVR}, nil
+			},
+		},
+		dynamicWatchers: make(map[schema.GroupVersionResource]*watcher),
+		policyRefs:      make(map[string][]schema.GroupVersionResource),
+		refCount:        make(map[schema.GroupVersionResource]int),
+	}
+
+	resource := makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)
+	err := wm.SyncWatchers("test-policy", []*unstructured.Unstructured{resource})
+	require.NoError(t, err)
+
+	wm.lock.Lock()
+	w, exists := wm.dynamicWatchers[testGVR]
+	wm.lock.Unlock()
+	require.True(t, exists)
+
+	w.watcher.Stop()
+
+	require.Eventually(t, func() bool {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		existing, stillExists := wm.dynamicWatchers[testGVR]
+		return stillExists && existing.watcher == nil
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
+	testGVR := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res"}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: dclient.NewEmptyFakeClient(),
+		restMapper: &mockRESTMapper{
+			fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: testGVR}, nil
+			},
+		},
+		dynamicWatchers: make(map[schema.GroupVersionResource]*watcher),
+		policyRefs:      make(map[string][]schema.GroupVersionResource),
+		refCount:        make(map[schema.GroupVersionResource]int),
+	}
+
+	first := makeUnstructured("1", "g", "v1", "Kind", "n1", "ns", "uid1", nil)
+	err := wm.SyncWatchers("test-policy", []*unstructured.Unstructured{first})
+	require.NoError(t, err)
+
+	wm.lock.Lock()
+	w := wm.dynamicWatchers[testGVR]
+	wm.lock.Unlock()
+	require.NotNil(t, w)
+	w.watcher.Stop()
+
+	require.Eventually(t, func() bool {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		existing, ok := wm.dynamicWatchers[testGVR]
+		return ok && existing.watcher == nil
+	}, 2*time.Second, 10*time.Millisecond)
+
+	second := makeUnstructured("2", "g", "v1", "Kind", "n2", "ns", "uid2", nil)
+	err = wm.SyncWatchers("test-policy", []*unstructured.Unstructured{second})
+	require.NoError(t, err)
+
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+	restarted := wm.dynamicWatchers[testGVR]
+	require.NotNil(t, restarted)
+	require.NotNil(t, restarted.watcher)
+	_, hasFirst := restarted.metadataCache["uid1"]
+	_, hasSecond := restarted.metadataCache["uid2"]
+	assert.True(t, hasFirst)
+	assert.True(t, hasSecond)
 }
