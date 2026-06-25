@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: image-secret
+  namespace: cpol-clone-list-sync-orphan-delete-policy-orphan-ns
+type: kubernetes.io/basic-auth
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bootstrap-config
+  namespace: cpol-clone-list-sync-orphan-delete-policy-orphan-ns
