@@ -53,6 +53,7 @@ func NewController(
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
 ) Controller {
@@ -188,6 +189,22 @@ func NewController(
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for GeneratingPolicy")
 	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		ngpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			ngpol, ok := obj.(*policiesv1beta1.NamespacedGeneratingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, ngpol.Name, ngpol.Namespace))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for NamespacedGeneratingPolicy")
+	}
 	return c
 }
 
@@ -278,6 +295,14 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			}
 			return c.updateGpolStatus(ctx, gpol)
 		})
+	case webhook.NamespacedGeneratingPolicyType:
+		return retryStatusUpdate(l, func() error {
+			ngpol, err := c.client.PoliciesV1beta1().NamespacedGeneratingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return c.updateNGpolStatus(ctx, ngpol)
+		})
 	}
 	return nil
 }
@@ -307,6 +332,16 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
 		// GeneratingPolicy uses v1alpha1.ConditionStatus, convert to v1beta1
 		v1alpha1Status := policy.AsGeneratingPolicy().GetStatus().ConditionStatus
+		status = &policiesv1beta1.ConditionStatus{
+			Conditions: v1alpha1Status.Conditions,
+			Ready:      v1alpha1Status.Ready,
+			Message:    v1alpha1Status.Message,
+		}
+	case webhook.NamespacedGeneratingPolicyType:
+		key = webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, policy.GetName(), policy.GetNamespace())
+		matchConstraints = policy.AsNamespacedGeneratingPolicy().GetMatchConstraints()
+		// NamespacedGeneratingPolicy uses v1alpha1.ConditionStatus, convert to v1beta1
+		v1alpha1Status := policy.AsNamespacedGeneratingPolicy().GetStatus().ConditionStatus
 		status = &policiesv1beta1.ConditionStatus{
 			Conditions: v1alpha1Status.Conditions,
 			Ready:      v1alpha1Status.Ready,
