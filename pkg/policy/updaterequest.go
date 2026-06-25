@@ -42,6 +42,13 @@ func newGenerateUR(policy engineapi.GenericPolicy) *kyvernov2.UpdateRequest {
 			Type:   kyvernov2.CELGenerate,
 			Policy: gpol.GetName(),
 		}
+	} else if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+		policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
+		ur.Labels = common.GenerateLabelsSet(policyKey)
+		ur.Spec = kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: policyKey,
+		}
 	}
 	return ur
 }
