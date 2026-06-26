@@ -169,4 +169,7 @@ func TestQueryLogicalFallbacks(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+	// Queries without logical OR should remain strict and return an error on missing keys.
+	_, err := ctx.Query("request.object.doesnotexist")
+	assert.Error(t, err)
 }
