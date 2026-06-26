@@ -121,7 +121,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		}()
 	}
 
-	resp, err := h.admissionResponse(request, response)
+	resp, err := h.admissionResponse(ctx, request, response)
 	if err != nil {
 		logger.Error(err, "mutation failures")
 		return admissionutils.Response(admissionRequest.UID, err)
@@ -185,7 +185,7 @@ func (h *handler) needsReports(request celengine.EngineRequest) bool {
 	return true
 }
 
-func (h *handler) admissionResponse(request celengine.EngineRequest, response mpolengine.EngineResponse) (handlers.AdmissionResponse, error) {
+func (h *handler) admissionResponse(ctx context.Context, request celengine.EngineRequest, response mpolengine.EngineResponse) (handlers.AdmissionResponse, error) {
 	if len(response.Policies) == 0 {
 		return admissionutils.ResponseSuccess(request.Request.UID), nil
 	}
@@ -194,7 +194,7 @@ func (h *handler) admissionResponse(request celengine.EngineRequest, response mp
 	var mutationErrors []string
 
 	for _, policy := range response.Policies {
-		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore())
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
 		for _, rule := range policy.Rules {
 			switch rule.Status() {
 			case engineapi.RuleStatusError:
