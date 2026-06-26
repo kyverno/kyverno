@@ -3,12 +3,19 @@ package autogen
 import (
 	"cmp"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+var (
+	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
+	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
+	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
 )
 
 func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
@@ -99,13 +106,9 @@ func convertPodToTemplateExpression(expression string, config string) string {
 		metadataReplacement = "spec.template.metadata"
 	}
 
-	expression = strings.ReplaceAll(expression, "object.spec", "object."+specReplacement)
-	expression = strings.ReplaceAll(expression, "Object.spec", "Object."+specReplacement)
-
-	expression = strings.ReplaceAll(expression, "object.metadata.labels", "object."+metadataReplacement+".labels")
-	expression = strings.ReplaceAll(expression, "Object.metadata.labels", "Object."+metadataReplacement+".labels")
-	expression = strings.ReplaceAll(expression, "object.metadata.annotations", "object."+metadataReplacement+".annotations")
-	expression = strings.ReplaceAll(expression, "Object.metadata.annotations", "Object."+metadataReplacement+".annotations")
+	expression = specRe.ReplaceAllString(expression, "${1}."+specReplacement)
+	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".labels")
+	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".annotations")
 
 	if strings.HasPrefix(strings.TrimSpace(expression), "Object{") {
 		content := strings.TrimSpace(expression)
