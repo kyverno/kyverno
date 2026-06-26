@@ -884,7 +884,7 @@ features:
     # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
     apiCallTimeout: 30s
   logging:
-    # -- Logging format
+    # -- Logging format (text, text-nocolor, json)
     format: text
     # -- Logging verbosity
     verbosity: 2
