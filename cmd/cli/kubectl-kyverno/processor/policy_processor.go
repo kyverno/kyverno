@@ -311,6 +311,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return nil, err
 		}
+		inlinePolicies := make([]policiesv1beta1.MutatingPolicyLike, 0)
+		mutExistPolicies := make([]policiesv1beta1.MutatingPolicyLike, 0)
+
+		for _, pol := range p.MutatingPolicies {
+			if pol.GetSpec().MutateExistingEnabled() {
+				mutExistPolicies = append(mutExistPolicies, pol)
+			} else {
+				inlinePolicies = append(inlinePolicies, pol)
+			}
+		}
 
 		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
 		if err != nil {
