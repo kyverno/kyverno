@@ -162,7 +162,7 @@ If we omit the short lived admission reports, this usually means 2 additional re
 - one aggregated admission report
 - one background scan report
 
-Short lived admission reports are ephemeral in nature, as long as they cleaned up correctly they shouldn't impact storage too much.
+Short lived admission reports are ephemeral in nature, as long as they are cleaned up correctly they shouldn't impact storage too much.
 If for some reason Kyverno fails to cleanup those reports fast enough it can become a severe issue though.
 
 Of course not all resources will have background scan reports, some policies can have `background` disabled but you get the picture.
@@ -479,4 +479,4 @@ The number of policy reports is usually inferior to the number of other reports,
 
 In the end, to use PSS policies (with `restricted` profile) on a 1000 pods cluster, you should budget around 25MB of etcd storage, spread across ~2000 reports.
 
-In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant storage impact. Fortunately, ETCD stores data on disk and associated cost should be negligible.
+In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports have a significant storage impact. Fortunately, ETCD stores data on disk and associated cost should be negligible.
