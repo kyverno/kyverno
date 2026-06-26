@@ -29,7 +29,7 @@ require (
 	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-containerregistry v0.21.5
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260224031529-85f2bf5f7303
-	github.com/in-toto/in-toto-golang v0.10.0
+	github.com/in-toto/in-toto-golang v0.11.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
