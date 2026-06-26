@@ -22,6 +22,13 @@ import (
 
 var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*(?:;[a-zA-Z0-9]*)*)?\u0007|(?:\\d{1,4}(?:;\\d{0,4})*)?[0-mG-Z])")
 
+// reasonResourceDiff is the reason returned by checkResult when the actual
+// patched/generated resource does not match the resource declared in the test
+// result. It is distinct from a rule status mismatch ("Want X, got Y") so that
+// callers can treat an intentional resource diff (a negative mutation test with
+// result: fail) as a pass without masking genuine status mismatches.
+const reasonResourceDiff = "Resource diff"
+
 func Command() *cobra.Command {
 	var testCase, outputFormat string
 	var fileName, gitBranch string
@@ -220,7 +227,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), reasonResourceDiff
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
@@ -235,7 +242,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), reasonResourceDiff
 		}
 	} else if len(test.GeneratedResources) > 0 {
 		matched := false
@@ -263,7 +270,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				lastDiff = StripANSI(lastDiff)
 			}
-			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), reasonResourceDiff
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)

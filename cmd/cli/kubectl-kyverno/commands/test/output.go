@@ -267,14 +267,16 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							success := ok || isExpectedFailure(ok, reason, test)
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
+								success := ok || isExpectedFailure(ok, reason, test)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -314,7 +316,8 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+					success := ok || isExpectedFailure(ok, reason, test)
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -363,6 +366,17 @@ func printTestResult(
 		}
 	}
 	return nil
+}
+
+// isExpectedFailure reports whether a checkResult failure should be counted as a
+// passing test. A negative mutation/generation test declares result: fail to assert
+// that the patched (or generated) resource intentionally differs from the expected
+// resource. In that case checkResult returns ok=false with reason reasonResourceDiff,
+// and the mismatch is the expected outcome, so it counts as a pass. A rule status
+// mismatch (reason "Want X, got Y") is never rescued, so genuine status mismatches
+// still fail (see #15361 / #11519).
+func isExpectedFailure(ok bool, reason string, test v1alpha1.TestResult) bool {
+	return !ok && reason == reasonResourceDiff && test.Result == openreports.StatusFail
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
