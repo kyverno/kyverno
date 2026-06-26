@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -3597,4 +3599,157 @@ func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 	}
 	err := validateGlobalReference(entry)
 	assert.Nil(t, err)
+}
+
+func Test_HasWildcardSeverityTiers(t *testing.T) {
+	testCases := []struct {
+		name            string
+		rule            kyvernov1.Rule
+		expectWarning   bool
+		expectedContent string
+	}{
+		{
+			name: "Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "check-global",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"*"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Scoped Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "check-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds:      []string{"*"},
+						Namespaces: []string{"kube-system"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "No Wildcard Present",
+			rule: kyvernov1.Rule{
+				Name: "check-clean",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"Pod"},
+					},
+				},
+			},
+			expectWarning: false,
+		},
+		{
+			name: "Nested Match Any Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "nested-any-global",
+				MatchResources: kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds: []string{"*"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Nested Match All Scoped Local Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "nested-all-local-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					All: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds:      []string{"*"},
+								Namespaces: []string{"staging"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "Nested Match Any Inherited Scope Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "nested-any-inherited-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Namespaces: []string{"production"}, // Root scope constraint
+					},
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds: []string{"*"}, // No local namespace, but inherits root
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+		{
+			name: "Exclude Global Wildcard Tier 1",
+			rule: kyvernov1.Rule{
+				Name: "exclude-global",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}},
+				},
+				ExcludeResources: &kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{
+						Kinds: []string{"*"},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "globally with no namespace isolation",
+		},
+		{
+			name: "Exclude Nested Any Scoped Wildcard Tier 2",
+			rule: kyvernov1.Rule{
+				Name: "exclude-nested-scoped",
+				MatchResources: kyvernov1.MatchResources{
+					ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}},
+				},
+				ExcludeResources: &kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: kyvernov1.ResourceDescription{
+								Kinds:      []string{"*"},
+								Namespaces: []string{"dev"},
+							},
+						},
+					},
+				},
+			},
+			expectWarning:   true,
+			expectedContent: "within a restricted namespace scope",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg, found := hasWildcard(tc.rule)
+			if found != tc.expectWarning {
+				t.Fatalf("expected warning found to be %v, got %v", tc.expectWarning, found)
+			}
+			if tc.expectWarning && !strings.Contains(msg, tc.expectedContent) {
+				t.Errorf("expected warning message to contain %q, but got %q", tc.expectedContent, msg)
+			}
+		})
+	}
 }
