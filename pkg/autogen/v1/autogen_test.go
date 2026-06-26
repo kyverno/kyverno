@@ -190,6 +190,16 @@ func TestUpdateGenRuleByte(t *testing.T) {
 			kind:  "Pod",
 			want:  []byte("request.object.spec.template.metadata"),
 		},
+		{
+			pbyte: []byte("request.object.spec.containers[0].image == 'nginx' && request.object.metadata.labels.env == 'prod'"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.spec.containers[0].image == 'nginx' && request.object.spec.template.metadata.labels.env == 'prod'"),
+		},
+		{
+			pbyte: []byte("request.object.spec.containers[0].image == 'nginx' && request.object.metadata.labels.env == 'prod'"),
+			kind:  "Cronjob",
+			want:  []byte("request.object.spec.jobTemplate.spec.template.spec.containers[0].image == 'nginx' && request.object.spec.jobTemplate.spec.template.metadata.labels.env == 'prod'"),
+		},
 	}
 	for _, tt := range tests {
 		got := updateFields(tt.pbyte, tt.kind, false)
@@ -230,6 +240,16 @@ func TestUpdateCELFields(t *testing.T) {
 			pbyte: []byte("object.metadata"),
 			kind:  "Pod",
 			want:  []byte("object.spec.template.metadata"),
+		},
+		{
+			pbyte: []byte("object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)"),
+			kind:  "Pod",
+			want:  []byte("object.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.template.metadata.labels)"),
+		},
+		{
+			pbyte: []byte("object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)"),
+			kind:  "Cronjob",
+			want:  []byte("object.spec.jobTemplate.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.jobTemplate.spec.template.metadata.labels)"),
 		},
 	}
 	for _, tt := range tests {

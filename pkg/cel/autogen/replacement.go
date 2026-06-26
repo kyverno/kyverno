@@ -1,7 +1,7 @@
 package autogen
 
 import (
-	"bytes"
+	"strings"
 )
 
 type Replacement struct {
@@ -10,14 +10,21 @@ type Replacement struct {
 }
 
 func (r *Replacement) Apply(data []byte) []byte {
-	data = bytes.ReplaceAll(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = bytes.ReplaceAll(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
-	return data
+	return Apply(data, *r)
 }
 
+// Apply performs all replacements in a single pass using strings.NewReplacer,
+// which scans left-to-right and never revisits already-replaced text.
+// This prevents double-replacement when a replacement's output contains
+// a pattern matched by another replacement (e.g. "metadata" -> "spec.template.metadata"
+// contains "spec", which would be re-matched by the "spec" replacement).
 func Apply(data []byte, replacements ...Replacement) []byte {
-	for _, replacement := range replacements {
-		data = replacement.Apply(data)
+	oldnew := make([]string, 0, len(replacements)*4)
+	for _, r := range replacements {
+		oldnew = append(oldnew,
+			"object."+r.From, "object."+r.To,
+			"oldObject."+r.From, "oldObject."+r.To,
+		)
 	}
-	return data
+	return []byte(strings.NewReplacer(oldnew...).Replace(string(data)))
 }
