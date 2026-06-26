@@ -260,7 +260,7 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 	assert.Error(t, err, "restoreCache must not create resources that don't exist yet")
 }
 
-// Regression test for kyverno/kyverno#16363: cloning a resource whose source
+// Regression test for kyverno/kyverno#15444: cloning a resource whose source
 // carries ownerReferences (e.g. a Secret synced from an external controller)
 // into a different namespace must strip those ownerReferences. Otherwise the
 // inherited owner does not exist in the target namespace and Kubernetes'
