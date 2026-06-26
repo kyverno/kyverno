@@ -114,13 +114,12 @@ func TestQueryLogicalFallbacks(t *testing.T) {
 			expected: "truthy",
 		},
 		{
-			name:     "fallback respects nesting and strings",
+			name: "fallback respects nesting and strings",
 			// Explicitly using 'missing_items' to guarantee a NotFoundError is thrown for the left side
 			query:    "request.object.missing_items[?name == 'a||b'] || 'fallback'",
-			expected: "fallback", 
+			expected: "fallback",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := ctx.Query(tc.query)

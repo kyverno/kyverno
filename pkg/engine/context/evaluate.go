@@ -9,7 +9,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
-// safeSplitLogicalOr explicitly splits a JMESPath query by '||' 
+// safeSplitLogicalOr explicitly splits a JMESPath query by '||'
 // while respecting string literals, escapes, and nesting depth.
 func safeSplitLogicalOr(query string) []string {
 	var parts []string
@@ -81,8 +81,8 @@ func isTruthy(v interface{}) bool {
 
 // Query the JSON context with JMESPATH search path.
 // Note: This method implements custom handling for JMESPath logical OR ('||') expressions.
-// When a NotFoundError occurs, it explicitly evaluates operands sequentially, treating missing 
-// keys as null. This prevents the query from failing early and allows fallbacks to evaluate 
+// When a NotFoundError occurs, it explicitly evaluates operands sequentially, treating missing
+// keys as null. This prevents the query from failing early and allows fallbacks to evaluate
 // correctly according to standard JMESPath truthiness rules.
 func (ctx *context) Query(query string) (interface{}, error) {
 	if err := ctx.loadDeferred(query); err != nil {
