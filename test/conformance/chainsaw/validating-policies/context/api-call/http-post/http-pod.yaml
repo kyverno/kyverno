@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
   - name: test-api
-    image: public.ecr.aws/docker/library/python:3.9-slim
+    image: python:3.9-slim
     command: ["sh", "-c"]
     args:
     - |

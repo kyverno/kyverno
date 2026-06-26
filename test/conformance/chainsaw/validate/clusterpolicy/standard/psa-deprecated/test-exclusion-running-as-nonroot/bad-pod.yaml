@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: busybox
-    image: public.ecr.aws/docker/library/busybox
+    image: busybox
     args:
     - sleep
     - 1d
@@ -19,7 +19,7 @@ spec:
         - ALL
   initContainers:
   - name: nginx
-    image: public.ecr.aws/docker/library/nginx
+    image: nginx
     args:
     - sleep
     - 1d
