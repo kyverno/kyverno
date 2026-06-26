@@ -97,7 +97,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		var trigger *unstructured.Unstructured
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
-			trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
+			trigger, err = common.GetResource(context.Background(), c.client, ur.Spec.Resource, ur.Spec, c.log)
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 				if err := updateURStatus(c.statusControl, *ur, err); err != nil {
@@ -107,7 +107,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			}
 		} else {
 			if admissionRequest.Operation == admissionv1.Create {
-				trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
+				trigger, err = common.GetResource(context.Background(), c.client, ur.Spec.Resource, ur.Spec, c.log)
 				if err != nil || trigger == nil {
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
