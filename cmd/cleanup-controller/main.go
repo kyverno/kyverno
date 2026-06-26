@@ -116,6 +116,7 @@ func main() {
 		internal.WithProfiling(),
 		internal.WithMetrics(),
 		internal.WithTracing(),
+		internal.WithOmitEvents(),
 		internal.WithKubeconfig(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
