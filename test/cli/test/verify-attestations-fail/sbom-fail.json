@@ -1,0 +1,11 @@
+{
+  "bomFormat": "SPDX",
+  "specVersion": "2.3",
+  "metadata": {
+    "component": {
+      "type": "application",
+      "name": "app",
+      "version": "1.0"
+    }
+  }
+}

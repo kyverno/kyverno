@@ -69,6 +69,30 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
+          attestations:
+            description: |-
+              Attestations provides local attestation predicate files for verifyImages.attestations tests,
+              allowing those rules to be tested without fetching attestations from an OCI registry.
+            items:
+              description: TestAttestation provides a local attestation predicate
+                file for verifyImages.attestations tests.
+              properties:
+                image:
+                  description: Image is the container image reference the attestation
+                    applies to (e.g. ghcr.io/example/app:1.0).
+                  type: string
+                predicateFile:
+                  description: |-
+                    PredicateFile is the path to the local JSON file containing the attestation predicate.
+                    The path is resolved relative to the test directory.
+                  type: string
+                predicateType:
+                  description: |-
+                    PredicateType is the attestation predicate type (e.g. https://cyclonedx.org/schema/bom).
+                    It must match the type specified in the policy's verifyImages.attestations rule.
+                  type: string
+              type: object
+            type: array
           checks:
             description: Checks are the verifications to be checked in the test
             items:
