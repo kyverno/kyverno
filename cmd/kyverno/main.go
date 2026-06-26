@@ -306,9 +306,15 @@ func createrLeaderControllers(
 		var mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
 		var mapBindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
 		var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
+		var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+		var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 		var mapBindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1")
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1beta1")
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
@@ -337,6 +343,8 @@ func createrLeaderControllers(
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
+			mapV1Informer,
+			mapBindingV1Informer,
 			mapBetaInformer,
 			mapBindingBetaInformer,
 			mapAlphaInformer,
