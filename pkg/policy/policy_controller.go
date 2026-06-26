@@ -13,6 +13,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -64,9 +65,10 @@ type policyController struct {
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
 
-	pInformer    kyvernov1informers.ClusterPolicyInformer
-	npInformer   kyvernov1informers.PolicyInformer
-	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer
+	pInformer     kyvernov1informers.ClusterPolicyInformer
+	npInformer    kyvernov1informers.PolicyInformer
+	gpolInformer  policiesv1beta1informers.GeneratingPolicyInformer
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -82,6 +84,9 @@ type policyController struct {
 
 	// gpolLister can list/get generating policy from the shared informer's store
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister
+
+	// ngpolLister can list/get namespaced generating policy from the shared informer's store
+	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -106,6 +111,9 @@ type policyController struct {
 
 	watchManager *gpol.WatchManager
 
+	gpolEngine   gpolengine.Engine
+	gpolProvider gpolengine.Provider
+
 	// mapper
 	restMapper meta.RESTMapper
 }
@@ -118,6 +126,7 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -128,6 +137,8 @@ func NewPolicyController(
 	jp jmespath.Interface,
 	urGenerator generator.UpdateRequestGenerator,
 	watchManager *gpol.WatchManager,
+	gpolEngine gpolengine.Engine,
+	gpolProvider gpolengine.Provider,
 ) (*policyController, error) {
 	// Event broad caster
 	eventInterface := client.GetEventsInterface()
@@ -147,6 +158,7 @@ func NewPolicyController(
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		gpolInformer:  gpolInformer,
+		ngpolInformer: ngpolInformer,
 		eventGen:      eventGen,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -160,6 +172,8 @@ func NewPolicyController(
 		jp:              jp,
 		urGenerator:     urGenerator,
 		watchManager:    watchManager,
+		gpolEngine:      gpolEngine,
+		gpolProvider:    gpolProvider,
 	}
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	pc.restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
@@ -169,8 +183,9 @@ func NewPolicyController(
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
 	pc.gpolLister = gpolInformer.Lister()
+	pc.ngpolLister = ngpolInformer.Lister()
 
-	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, ngpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 
 	return &pc, nil
 }
@@ -256,6 +271,20 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		}
 	}
 
+	oldngpol := oldPolicy.AsNamespacedGeneratingPolicy()
+	newngpol := newPolicy.AsNamespacedGeneratingPolicy()
+	if oldngpol != nil && newngpol != nil {
+		if datautils.DeepEqual(oldngpol.Spec, newngpol.Spec) {
+			return
+		}
+		// If the policy is updated to disable synchronization, we need to remove the watchers.
+		policyKey := oldngpol.GetNamespace() + "/" + oldngpol.GetName()
+		if oldngpol.Spec.SynchronizationEnabled() && !newngpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("removing watchers for namespaced generating policy", "name", policyKey)
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, false)
+		}
+	}
+
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
 	pc.enqueuePolicy(newPolicy)
 }
@@ -287,6 +316,15 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		}
 		p = engineapi.NewGeneratingPolicy(gpol)
+	case *policiesv1beta1.NamespacedGeneratingPolicy:
+		ngpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.NamespacedGeneratingPolicy)
+		policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
+		if ngpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, false)
+		} else {
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, true)
+		}
+		p = engineapi.NewNamespacedGeneratingPolicy(ngpol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
@@ -306,6 +344,8 @@ func (pc *policyController) enqueuePolicy(policy engineapi.GenericPolicy) {
 		pc.queue.Add("kpol/" + key)
 	} else if policy.AsGeneratingPolicy() != nil {
 		pc.queue.Add("gpol/" + key)
+	} else if policy.AsNamespacedGeneratingPolicy() != nil {
+		pc.queue.Add("ngpol/" + key)
 	}
 }
 
@@ -342,6 +382,15 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 	}
 
 	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
+
+	if _, err := pc.ngpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
@@ -451,6 +500,36 @@ func (pc *policyController) syncPolicy(key string) error {
 				errs = append(errs, err)
 			}
 		}
+	case "ngpol":
+		// polName for ngpol is "namespace/name"
+		ns, name, err := cache.SplitMetaNamespaceKey(polName)
+		if err != nil {
+			return err
+		}
+		ngpol, err := pc.ngpolLister.NamespacedGeneratingPolicies(ns).Get(name)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
+		// create UR on policy events to update/generate downstream resources
+		if ngpol.Spec.SynchronizationEnabled() {
+			logger.V(4).Info("creating UR on namespaced generating policy events", "name", policyKey)
+			if err := pc.createURForNamespacedGeneratingPolicy(ngpol); err != nil {
+				logger.Error(err, "failed to create UR on namespaced generating policy events", "name", policyKey)
+				errs = append(errs, err)
+			}
+		}
+		// generate resources for existing triggers
+		if ngpol.Spec.GenerateExistingEnabled() {
+			logger.V(4).Info("generating resources for existing triggers for namespacedgeneratingpolicy", "name", policyKey)
+			if err := pc.handleNamespacedGenerateExisting(ngpol); err != nil {
+				logger.Error(err, "failed to create UR for namespaced generating policy", "name", policyKey)
+				errs = append(errs, err)
+			}
+		}
 	}
 	return multierr.Combine(errs...)
 }
@@ -513,6 +592,13 @@ func (pc *policyController) requeuePolicies() {
 		}
 	} else {
 		logger.Error(err, "unable to list GeneratingPolicies")
+	}
+	if ngpols, err := pc.ngpolLister.List(labels.Everything()); err == nil {
+		for _, ngpol := range ngpols {
+			pc.enqueuePolicy(engineapi.NewNamespacedGeneratingPolicy(ngpol))
+		}
+	} else {
+		logger.Error(err, "unable to list NamespacedGeneratingPolicies")
 	}
 }
 
