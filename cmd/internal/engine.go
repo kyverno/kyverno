@@ -39,6 +39,7 @@ func NewEngine(
 	apiCallConfig apicall.APICallConfiguration,
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,
+	nsLister corev1listers.NamespaceLister,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, resyncPeriod)
 	logger = logger.WithName("engine")
@@ -52,6 +53,7 @@ func NewEngine(
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig), factories.WithGlobalContextStore(gctxStore)),
 		exceptionsSelector,
 		nil,
+		nsLister,
 	)
 }
 
