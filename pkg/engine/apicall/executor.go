@@ -87,7 +87,10 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.name, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 	var w http.ResponseWriter
 
 	if a.config.maxAPICallResponseLength != 0 {
