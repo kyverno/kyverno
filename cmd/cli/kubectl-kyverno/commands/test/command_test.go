@@ -480,6 +480,123 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 	})
 }
 
+func TestRunTest_CELHTTPGetMock(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test", "cel-http-get-mock")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "runTest cel-http-get-mock failed: %s", out.String())
+	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-get-mock")
+
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "check-external-config" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+				for _, rule := range r.PolicyResponse.Rules {
+					assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected rule to pass")
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	assert.True(t, found, "expected engine response for policy check-external-config")
+}
+
+func TestRunTest_CELHTTPPostMock(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test", "cel-http-post-mock")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "runTest cel-http-post-mock failed: %s", out.String())
+	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock")
+
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "check-pod-admission" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+				for _, rule := range r.PolicyResponse.Rules {
+					assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected rule to pass")
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	assert.True(t, found, "expected engine response for policy check-pod-admission")
+}
+
+func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test", "cel-http-post-mock-deny")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "runTest cel-http-post-mock-deny failed: %s", out.String())
+	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock-deny")
+
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "check-pod-admission" {
+				found = true
+				require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+				for _, rule := range r.PolicyResponse.Rules {
+					assert.Equal(t, engineapi.RuleStatusFail, rule.Status(), "expected rule to fail")
+				}
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	assert.True(t, found, "expected engine response for policy check-pod-admission (deny scenario)")
+}
+
 func TestMutatingPolicyContextResourceLookup(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
