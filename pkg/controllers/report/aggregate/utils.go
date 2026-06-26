@@ -16,17 +16,27 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type maps struct {
-	pol    map[string]policyMapEntry
-	vap    sets.Set[string]
-	mappol sets.Set[string]
-	vpol   sets.Set[string]
-	ivpol  sets.Set[string]
-	gpol   sets.Set[string]
-	mpol   sets.Set[string]
+// Maps holds the set of currently-active policy keys per policy type, used to
+// filter report results during aggregation (a result whose policy is no longer
+// active is dropped). Fields are exported so callers outside this package (the
+// integration test framework) can build a Maps and run the real merge via
+// MergeReports / AggregateResults.
+type Maps struct {
+	Pol    map[string]PolicyMapEntry
+	Vap    sets.Set[string]
+	Mappol sets.Set[string]
+	Vpol   sets.Set[string]
+	Ivpol  sets.Set[string]
+	Gpol   sets.Set[string]
+	Mpol   sets.Set[string]
 }
 
-func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
+// MergeReports merges the results of the given reports into accumulator, keyed
+// by (source, policy, [rule], uid). On a key collision it keeps the result with
+// the later Timestamp.Seconds (and the first-seen result when timestamps are
+// equal), and it drops results whose policy is not present in maps. Pure: no
+// I/O, no clients, no clock.
+func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
 			continue
@@ -34,7 +44,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 		for _, result := range report.GetResults() {
 			switch result.Source {
 			case reportutils.SourceValidatingPolicy:
-				if maps.vpol != nil && maps.vpol.Has(result.Policy) {
+				if maps.Vpol != nil && maps.Vpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -43,7 +53,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			case reportutils.SourceImageValidatingPolicy:
-				if maps.ivpol != nil && maps.ivpol.Has(result.Policy) {
+				if maps.Ivpol != nil && maps.Ivpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -52,7 +62,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			case reportutils.SourceGeneratingPolicy:
-				if maps.gpol != nil && maps.gpol.Has(result.Policy) {
+				if maps.Gpol != nil && maps.Gpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -61,7 +71,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
-				if maps.vap != nil && maps.vap.Has(result.Policy) {
+				if maps.Vap != nil && maps.Vap.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -70,7 +80,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			case reportutils.SourceMutatingAdmissionPolicy:
-				if maps.mappol != nil && maps.mappol.Has(result.Policy) {
+				if maps.Mappol != nil && maps.Mappol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -79,7 +89,7 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			case reportutils.SourceMutatingPolicy:
-				if maps.mpol != nil && maps.mpol.Has(result.Policy) {
+				if maps.Mpol != nil && maps.Mpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -88,8 +98,8 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					}
 				}
 			default:
-				currentPolicy := maps.pol[result.Policy]
-				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
+				currentPolicy := maps.Pol[result.Policy]
+				if currentPolicy.Rules != nil && currentPolicy.Rules.Has(result.Rule) {
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
 						accumulator[key] = result
@@ -100,6 +110,21 @@ func mergeReports(maps maps, accumulator map[string]openreportsv1alpha1.ReportRe
 			}
 		}
 	}
+}
+
+// AggregateResults runs MergeReports over the given reports and returns the
+// merged results as a slice. This is the single-pass, stateless aggregation the
+// reports controller performs inside backReconcile, exposed for reuse (for
+// example by the integration test framework) without the controller's queues,
+// caches, or timers.
+func AggregateResults(maps Maps, uid types.UID, reports ...reportsv1.ReportInterface) []openreportsv1alpha1.ReportResult {
+	accumulator := map[string]openreportsv1alpha1.ReportResult{}
+	MergeReports(maps, accumulator, uid, reports...)
+	results := make([]openreportsv1alpha1.ReportResult, 0, len(accumulator))
+	for _, result := range accumulator {
+		results = append(results, result)
+	}
+	return results
 }
 
 func deleteReport(ctx context.Context, report reportsv1.ReportInterface, client versioned.Interface, orClient openreportsclient.OpenreportsV1alpha1Interface) error {

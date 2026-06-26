@@ -88,9 +88,12 @@ type controller struct {
 	backQueue  workqueue.TypedRateLimitingInterface[any]
 }
 
-type policyMapEntry struct {
-	policy kyvernov1.PolicyInterface
-	rules  sets.Set[string]
+// PolicyMapEntry holds an active traditional policy and its (autogen-expanded)
+// rule names. MergeReports reads only Rules; Policy is retained for caller
+// reference.
+type PolicyMapEntry struct {
+	Policy kyvernov1.PolicyInterface
+	Rules  sets.Set[string]
 }
 
 func NewController(
@@ -426,20 +429,20 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.Wait()
 }
 
-func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
-	results := map[string]policyMapEntry{}
+func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {
+	results := map[string]PolicyMapEntry{}
 	cpols, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return nil, err
 	}
 	for _, cpol := range cpols {
 		key := cache.MetaObjectToName(cpol).String()
-		results[key] = policyMapEntry{
-			policy: cpol,
-			rules:  sets.New[string](),
+		results[key] = PolicyMapEntry{
+			Policy: cpol,
+			Rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
-			results[key].rules.Insert(rule.Name)
+			results[key].Rules.Insert(rule.Name)
 		}
 	}
 	pols, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
@@ -448,12 +451,12 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	}
 	for _, pol := range pols {
 		key := cache.MetaObjectToName(pol).String()
-		results[key] = policyMapEntry{
-			policy: pol,
-			rules:  sets.New[string](),
+		results[key] = PolicyMapEntry{
+			Policy: pol,
+			Rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.Default.ComputeRules(pol, "") {
-			results[key].rules.Insert(rule.Name)
+			results[key].Rules.Insert(rule.Name)
 		}
 	}
 	return results, nil
@@ -850,18 +853,18 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
-	maps := maps{
-		pol:    policyMap,
-		vap:    vapMap,
-		mappol: mappolMap,
-		vpol:   vpolMap,
-		ivpol:  ivpolMap,
-		gpol:   gpolMap,
-		mpol:   mpolMap,
+	maps := Maps{
+		Pol:    policyMap,
+		Vap:    vapMap,
+		Mappol: mappolMap,
+		Vpol:   vpolMap,
+		Ivpol:  ivpolMap,
+		Gpol:   gpolMap,
+		Mpol:   mpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]openreportsv1alpha1.ReportResult{}
-	mergeReports(maps, merged, types.UID(name), reports...)
+	MergeReports(maps, merged, types.UID(name), reports...)
 	policySet := sets.New[string]() // collect policies for cache population
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(merged))
 	for _, result := range merged {
