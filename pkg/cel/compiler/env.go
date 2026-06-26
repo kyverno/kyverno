@@ -26,16 +26,19 @@ type VersionedEnvOptions struct {
 
 // EnvOptionsForVersion returns all CEL environment options applicable for the given
 // compiler compatibility version.
-func EnvOptionsForVersion(version *version.Version, options ...VersionedEnvOptions) []cel.EnvOption {
+func EnvOptionsForVersion(v *version.Version, options ...VersionedEnvOptions) []cel.EnvOption {
+	if v == nil {
+		return nil
+	}
 	result := make([]cel.EnvOption, 0)
 	for _, option := range options {
 		if option.IntroducedVersion == nil {
 			continue
 		}
-		if !version.AtLeast(option.IntroducedVersion) {
+		if !v.AtLeast(option.IntroducedVersion) {
 			continue
 		}
-		if option.RemovedVersion != nil && !version.LessThan(option.RemovedVersion) {
+		if option.RemovedVersion != nil && !v.LessThan(option.RemovedVersion) {
 			continue
 		}
 		result = append(result, option.EnvOptions...)

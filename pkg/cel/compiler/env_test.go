@@ -36,7 +36,9 @@ func TestEnvOptions_HomogeneousAggregateBehavior(t *testing.T) {
 	require.Error(t, issues.Err())
 
 	_, issues = dynamicEnv.Compile(expr)
-	require.Nil(t, issues)
+	if issues != nil {
+		require.NoError(t, issues.Err())
+	}
 }
 
 func TestDynamicResourceEnvOptionsWithCompat_OrValueOnConcrete(t *testing.T) {
@@ -44,7 +46,9 @@ func TestDynamicResourceEnvOptionsWithCompat_OrValueOnConcrete(t *testing.T) {
 	require.NoError(t, err)
 
 	ast, issues := dynamicCompatEnv.Compile(`[1,2].orValue([])`)
-	require.Nil(t, issues)
+	if issues != nil {
+		require.NoError(t, issues.Err())
+	}
 
 	program, err := dynamicCompatEnv.Program(ast)
 	require.NoError(t, err)
@@ -77,5 +81,7 @@ func TestEnvOptionsForVersion(t *testing.T) {
 	v2Env, err := cel.NewEnv(EnvOptionsForVersion(version.MajorMinor(2, 0), legacyOpts, currentOpts)...)
 	require.NoError(t, err)
 	_, issues = v2Env.Compile(`[1, "two"]`)
-	require.Nil(t, issues)
+	if issues != nil {
+		require.NoError(t, issues.Err())
+	}
 }
