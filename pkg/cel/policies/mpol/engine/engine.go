@@ -262,10 +262,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
-	pols := e.provider.Fetch(context.TODO(), true)
-	for _, p := range pols {
-		if p.Policy.GetName() == policyName {
-			return p, nil
+	for _, mutateExisting := range []bool{false, true} {
+		pols := e.provider.Fetch(context.TODO(), mutateExisting)
+		for _, p := range pols {
+			if p.Policy.GetName() == policyName {
+				return p, nil
+			}
 		}
 	}
 	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
