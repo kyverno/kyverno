@@ -5,6 +5,7 @@ import (
 	"maps"
 	"path"
 	"slices"
+	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -20,8 +21,19 @@ import (
 )
 
 func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
+	sortedPolicies := slices.Clone(policies)
+	slices.SortFunc(sortedPolicies, func(a, b engineapi.GenericPolicy) int {
+		if x := strings.Compare(a.GetNamespace(), b.GetNamespace()); x != 0 {
+			return x
+		}
+		if x := strings.Compare(a.GetName(), b.GetName()); x != 0 {
+			return x
+		}
+		return strings.Compare(a.GetKind(), b.GetKind())
+	})
+
 	var fineGrained, basic []engineapi.GenericPolicy
-	for _, policy := range policies {
+	for _, policy := range sortedPolicies {
 		p := extractGenericPolicy(policy)
 		if validConditions(expressionCache, p.GetMatchConditions()) != nil {
 			fineGrained = append(fineGrained, policy)
