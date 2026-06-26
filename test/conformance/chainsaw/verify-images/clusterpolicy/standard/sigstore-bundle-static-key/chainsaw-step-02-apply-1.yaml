@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: signed-pod
+  namespace: test-sigstore-bundle
+spec:
+  containers:
+  - image: quay.io/arewm/tekton-tasks@sha256:cd8bdc23b5d0ce8def63bc2db79494f112d70f631e778a24f498967fc7c99cda
+    name: app
