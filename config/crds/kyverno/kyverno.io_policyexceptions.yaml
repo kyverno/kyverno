@@ -166,6 +166,16 @@ spec:
                   - ruleNames
                   type: object
                 type: array
+              failureAction:
+                description: |-
+                  FailureAction overrides the policy's failureAction for resources that match this exception.
+                  Allowed values are Audit or Enforce. This allows policy exceptions to change a Deny policy to Audit for specific namespaces or workloads.
+                enum:
+                - audit
+                - enforce
+                - Audit
+                - Enforce
+                type: string
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
@@ -648,6 +658,14 @@ spec:
                   required:
                   - controlName
                   type: object
+                type: array
+              validationActions:
+                description: |-
+                  ValidationActions overrides the policy's spec.validationActions for resources that match this exception.
+                  Applicable to ValidatingPolicy (CEL-based policies). Allowed values are Warn, Audit, Deny.
+                  This allows changing validation actions for specific namespaces or workloads.
+                items:
+                  type: string
                 type: array
             required:
             - exceptions
@@ -807,6 +825,16 @@ spec:
                   - ruleNames
                   type: object
                 type: array
+              failureAction:
+                description: |-
+                  FailureAction overrides the policy's failureAction for resources that match this exception.
+                  Allowed values are Audit or Enforce. This allows policy exceptions to change a Deny policy to Audit for specific namespaces or workloads.
+                enum:
+                - audit
+                - enforce
+                - Audit
+                - Enforce
+                type: string
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
@@ -1289,6 +1317,14 @@ spec:
                   required:
                   - controlName
                   type: object
+                type: array
+              validationActions:
+                description: |-
+                  ValidationActions overrides the policy's spec.validationActions for resources that match this exception.
+                  Applicable to ValidatingPolicy (CEL-based policies). Allowed values are Warn, Audit, Deny.
+                  This allows changing validation actions for specific namespaces or workloads.
+                items:
+                  type: string
                 type: array
             required:
             - exceptions
