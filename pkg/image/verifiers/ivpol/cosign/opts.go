@@ -260,38 +260,47 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 		return nil, rekorPubKeys, ctlogPubKey, nil
 	}
 
-	if len(ctlog.URL) == 0 {
-		return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
-	}
-	rekorClient, err := rekor.GetRekorClient(ctlog.URL)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
-	}
-
+	// Gate Rekor and CTLog setup independently — a user may want to skip
+	// Rekor (e.g. against a private TSA with no Rekor entry) while still
+	// verifying SCTs.
+	var rekorClient *client.Rekor
 	var rekorPubKey *cosign.TrustedTransparencyLogPubKeys
-	var ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
-	if ctlog.RekorPubKey == "" {
-		if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+	if !ctlog.InsecureIgnoreTlog {
+		if len(ctlog.URL) == 0 {
+			return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
 		}
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
+		var err error
+		rekorClient, err = rekor.GetRekorClient(ctlog.URL)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
 		}
-		rekorPubKey = &key
+		if ctlog.RekorPubKey == "" {
+			if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+			}
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
+			}
+			rekorPubKey = &key
+		}
 	}
 
-	if ctlog.CTLogPubKey == "" {
-		if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
+	var ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
+	if !ctlog.InsecureIgnoreSCT {
+		if ctlog.CTLogPubKey == "" {
+			var err error
+			if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
+			}
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
+			}
+			ctlogPubKey = &key
 		}
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
-		}
-		ctlogPubKey = &key
 	}
 
 	return rekorClient, rekorPubKey, ctlogPubKey, nil
