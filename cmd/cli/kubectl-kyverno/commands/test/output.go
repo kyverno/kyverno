@@ -429,7 +429,9 @@ func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, reso
 	return nil, nil
 }
 
-func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
+const resourceDiffReason = "Resource diff"
+
+func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool, removeColor bool) {
 	printer := table.NewTablePrinter(out)
 	for i := range resultsTable.RawRows {
 		resultsTable.RawRows[i].ID = i + 1
@@ -437,6 +439,28 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 	fmt.Fprintf(out, "Aggregated Failed Test Cases : ")
 	fmt.Fprintln(out)
 	printer.Print(resultsTable.Rows(detailedResults))
+	if !detailedResults {
+		printDiffs(out, resultsTable.RawRows, removeColor)
+	}
+}
+
+func printDiffs(out io.Writer, rows []table.Row, removeColor bool) {
+	for _, row := range rows {
+		if !row.IsFailure || strings.TrimSpace(StripANSI(row.Reason)) != resourceDiffReason {
+			continue
+		}
+		policy, rule, resource, msg := row.Policy, row.Rule, row.Resource, row.Message
+		if removeColor {
+			policy = StripANSI(policy)
+			rule = StripANSI(rule)
+			resource = StripANSI(resource)
+			msg = StripANSI(msg)
+		}
+		if strings.TrimSpace(msg) == "" {
+			continue
+		}
+		fmt.Fprintf(out, "\n--- %s / %s / %s ---\n%s\n", policy, rule, resource, msg)
+	}
 }
 
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
