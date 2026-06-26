@@ -1842,3 +1842,33 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_CrossResource_PDB_5498 reproduces the exact issue #5498 / #8615
+// use case: a policy that LISTs PodDisruptionBudgets and verifies every
+// Deployment has a matching PDB, resolved entirely offline against the local
+// resource snapshot supplied via --resource (no live cluster).
+//
+// It exercises the multi-document YAML input form by pointing --resource at a
+// single file containing both Deployments and the PDB. The PDB is declared
+// before the Deployments in the file, proving the complete snapshot is
+// available before the first resource is evaluated (web-app passes because a
+// matching PDB exists; api-server fails because none does).
+//
+// Fixtures are reused from the local-apicall-list directory so no new fixture
+// is introduced.
+func Test_Apply_CrossResource_PDB_5498(t *testing.T) {
+	tc := &TestCase{
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res/resources.yaml"},
+			PolicyReport:  true,
+		},
+		expectedReports: []openreportsv1alpha1.Report{{
+			Summary: openreportsv1alpha1.ReportSummary{
+				Pass: 1,
+				Fail: 1,
+			},
+		}},
+	}
+	verifyTestcase(t, tc, compareSummary)
+}
