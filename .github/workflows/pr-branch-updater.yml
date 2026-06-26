@@ -16,8 +16,11 @@ concurrency:
 
 jobs:
   update:
-    uses: kyverno/.github/.github/workflows/pr-branch-updater.yml@995416156c093fc5d1d6d905fd619d5bb40081dd
+    uses: kyverno/.github/.github/workflows/pr-branch-updater.yml@36a967326e724e5e5fe6c93d7f45d6c1a3436301
     secrets:
-      # Use the bot token so update-branch can also handle PRs that touch
-      # workflow files (requires workflow write permission).
-      GH_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+      # GitHub App credentials for the PR branch updater app/installation used by this
+      # reusable workflow. When rotating these secrets, keep the app installation and
+      # required permissions aligned with the workflow's needs (including workflow,
+      # contents, and pull request write access).
+      APP_CLIENT_ID: ${{ secrets.PR_UPDATER_APP_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.PR_UPDATER_APP_PRIVATE_KEY }}
