@@ -245,6 +245,9 @@ func (c *serverResources) FindResources(group, version, kind, subresource string
 			return resources, err
 		}
 	}
+	if len(resources) == 0 {
+		return nil, ErrResourceNotFound
+	}
 	return resources, err
 }
 
@@ -274,6 +277,7 @@ func (c *serverResources) findResources(group, version, kind, subresource string
 		}
 	}
 	resources := map[TopLevelApiDescription]metav1.APIResource{}
+	lowerKind := strings.ToLower(kind)
 	// first match resouces
 	for _, list := range serverGroupsAndResources {
 		gv, err := schema.ParseGroupVersion(list.GroupVersion)
@@ -283,7 +287,15 @@ func (c *serverResources) findResources(group, version, kind, subresource string
 			for _, resource := range list.APIResources {
 				if !strings.Contains(resource.Name, "/") {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
-					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
+					matchKind := wildcard.Match(lowerKind, strings.ToLower(gvk.Kind))
+					matchSing := wildcard.Match(lowerKind, strings.ToLower(resource.SingularName))
+					var matchName bool
+					if idx := strings.IndexByte(resource.Name, '/'); idx != -1 {
+						matchName = wildcard.Match(lowerKind, strings.ToLower(resource.Name[:idx]))
+					} else {
+						matchName = wildcard.Match(lowerKind, strings.ToLower(resource.Name))
+					}
+					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && (matchKind || matchName || matchSing) {
 						gvrs := TopLevelApiDescription{
 							GroupVersion: gv,
 							Kind:         resource.Kind,
@@ -429,7 +441,13 @@ func findResource(groupVersion string, kind string, serverPreferredResources, se
 		for _, serverResourceList := range serverPreferredResources {
 			for _, serverResource := range serverResourceList.APIResources {
 				serverResourceGv := getServerResourceGroupVersion(serverResourceList.GroupVersion, serverResource.Group, serverResource.Version)
-				if serverResource.Kind == kind || serverResource.SingularName == kind {
+				var topLevelName string
+				if idx := strings.IndexByte(serverResource.Name, '/'); idx != -1 {
+					topLevelName = serverResource.Name[:idx]
+				} else {
+					topLevelName = serverResource.Name
+				}
+				if strings.EqualFold(serverResource.Kind, kind) || strings.EqualFold(serverResource.SingularName, kind) || strings.EqualFold(topLevelName, kind) {
 					gv, _ := schema.ParseGroupVersion(serverResourceGv)
 					serverResource.Group = gv.Group
 					serverResource.Version = gv.Version
@@ -467,7 +485,13 @@ func getMatchingServerResources(groupVersion string, kind string, serverGroupsAn
 		for _, serverResource := range serverResourceList.APIResources {
 			serverResourceGv := getServerResourceGroupVersion(serverResourceList.GroupVersion, serverResource.Group, serverResource.Version)
 			if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, serverResourceGv) {
-				if serverResource.Kind == kind || serverResource.SingularName == kind {
+				var topLevelName string
+				if idx := strings.IndexByte(serverResource.Name, '/'); idx != -1 {
+					topLevelName = serverResource.Name[:idx]
+				} else {
+					topLevelName = serverResource.Name
+				}
+				if strings.EqualFold(serverResource.Kind, kind) || strings.EqualFold(serverResource.SingularName, kind) || strings.EqualFold(topLevelName, kind) {
 					gv, _ := schema.ParseGroupVersion(serverResourceGv)
 					serverResource.Group = gv.Group
 					serverResource.Version = gv.Version
