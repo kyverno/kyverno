@@ -330,7 +330,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@5adad89dcce7b79f20274ae8e112bcec7bd46764 # v2.8.5
+        uses: fluxcd/flux2/action@1fd61a06264d71cf445ed55c4f14d401d26a1c64 # v2.8.8
         with:
           version: 0.35.0
       - name: Install Cosign
