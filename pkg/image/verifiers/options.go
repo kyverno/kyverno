@@ -1,5 +1,7 @@
 package verifiers
 
+import "github.com/sigstore/sigstore-go/pkg/root"
+
 type Options struct {
 	SigstoreBundle       bool
 	ImageRef             string
@@ -22,6 +24,7 @@ type Options struct {
 	RekorPubKey          string
 	IgnoreSCT            bool
 	TSACertChain         string
+	TrustedMaterial      *root.TrustedRoot
 	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string
