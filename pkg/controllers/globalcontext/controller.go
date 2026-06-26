@@ -41,15 +41,16 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
-	kubeClient         kubernetes.Interface
-	dclient            dclient.Interface
-	kyvernoClient      versioned.Interface
-	store              store.Store
-	eventGen           event.Interface
-	maxResponseLength  int64
-	apiCallTimeout     time.Duration
-	shouldUpdateStatus bool
-	jp                 jmespath.Interface
+	kubeClient             kubernetes.Interface
+	dclient                dclient.Interface
+	kyvernoClient          versioned.Interface
+	store                  store.Store
+	eventGen               event.Interface
+	maxResponseLength      int64
+	apiCallTimeout         time.Duration
+	shouldUpdateStatus     bool
+	enableSATokenInjection bool
+	jp                     jmespath.Interface
 }
 
 func NewController(
@@ -63,23 +64,25 @@ func NewController(
 	apiCallTimeout time.Duration,
 	shouldUpdateStatus bool,
 	jp jmespath.Interface,
+	enableSATokenInjection bool,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
 	c := &controller{
-		gceLister:          gceInformer.Lister(),
-		queue:              queue,
-		kubeClient:         kubeClient,
-		dclient:            dclient,
-		kyvernoClient:      kyvernoClient,
-		store:              storage,
-		eventGen:           eventGen,
-		maxResponseLength:  maxResponseLength,
-		apiCallTimeout:     apiCallTimeout,
-		shouldUpdateStatus: shouldUpdateStatus,
-		jp:                 jp,
+		gceLister:              gceInformer.Lister(),
+		queue:                  queue,
+		kubeClient:             kubeClient,
+		dclient:                dclient,
+		kyvernoClient:          kyvernoClient,
+		store:                  storage,
+		eventGen:               eventGen,
+		maxResponseLength:      maxResponseLength,
+		apiCallTimeout:         apiCallTimeout,
+		shouldUpdateStatus:     shouldUpdateStatus,
+		enableSATokenInjection: enableSATokenInjection,
+		jp:                     jp,
 	}
 
 	if _, err := controllerutils.AddEventHandlersT(gceInformer.Informer(), c.addGTXEntry, c.updateGTXEntry, c.deleteGTXEntry); err != nil {
@@ -176,5 +179,6 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2beta1.Glo
 		c.apiCallTimeout,
 		c.shouldUpdateStatus,
 		c.jp,
+		c.enableSATokenInjection,
 	)
 }
