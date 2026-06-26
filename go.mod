@@ -424,3 +424,5 @@ require (
 )
 
 replace k8s.io/pod-security-admission v0.34.1 => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
+
+replace github.com/kyverno/api => github.com/realshuting/api v0.0.1-alpha.3.0.20260626084733-baa4028e1335
