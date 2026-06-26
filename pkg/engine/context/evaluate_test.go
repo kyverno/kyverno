@@ -88,7 +88,7 @@ func TestQueryOperation(t *testing.T) {
 }
 
 // TestQueryLogicalFallbacks proves the new JMESPath || evaluation works correctly
-func TestQueryLogicalFallbacks(t *testing.T) {
+func TestQueryLogicalFallbacksBasic(t *testing.T) {
 	// Mock JSON where 'name' is falsey ("") and 'items' contains an object
 	mockJSON := `{"name": "", "items": [{"name": "other"}]}`
 	ctx := createTestContext(mockJSON, `{}`)
