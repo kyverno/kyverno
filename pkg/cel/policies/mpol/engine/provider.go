@@ -109,6 +109,14 @@ type staticProvider struct {
 
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var filtered []Policy
+	if !mutateExisting {
+		for _, pol := range p.policies {
+			if pol.Policy.GetSpec().AdmissionEnabled() {
+				filtered = append(filtered, pol)
+			}
+		}
+		return filtered
+	}
 	for _, pol := range p.policies {
 		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
 			filtered = append(filtered, pol)
