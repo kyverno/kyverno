@@ -212,9 +212,9 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				targetNamespace = ""
 			}
 
-			// Owner references are namespace-scoped: an ownerReference may only
-			// point to an owner in the same namespace as the dependent. When a
-			// resource is generated into a different namespace than its source
+			// OwnerReferences for namespaced resources may only refer to an owner in the same
+			// namespace (or a cluster-scoped owner). When a resource is generated into a
+			// different namespace than its source
 			// (e.g. cloning a Secret that was synced into another namespace by an
 			// external controller and therefore carries an ownerReference to that
 			// controller's CR), the inherited ownerReferences would point at an
