@@ -212,6 +212,22 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				targetNamespace = ""
 			}
 
+			// OwnerReferences for namespaced resources may only refer to an owner in the same
+			// namespace (or a cluster-scoped owner). When a resource is generated into a
+			// different namespace than its source
+			// (e.g. cloning a Secret that was synced into another namespace by an
+			// external controller and therefore carries an ownerReference to that
+			// controller's CR), the inherited ownerReferences would point at an
+			// owner that does not exist in the target namespace. Kubernetes'
+			// garbage collector then deletes the freshly created resource almost
+			// immediately, so it "never gets cloned". Strip them, mirroring the
+			// legacy clone generation behavior (see pkg/background/generate/clone.go).
+			// Strip ownerReferences only when we can confirm the source namespace differs.
+			srcNamespace := item.GetNamespace()
+			if srcNamespace != "" && srcNamespace != targetNamespace && item.GetOwnerReferences() != nil {
+				item.SetOwnerReferences(nil)
+			}
+
 			// In CLI evaluation mode, we do not create the resource in the cluster
 			// but just store it in the generated resources list.
 			if cp.cliEvaluation {
