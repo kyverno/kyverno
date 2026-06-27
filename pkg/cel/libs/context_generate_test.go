@@ -280,6 +280,7 @@ func TestGenerateResources_StripsCrossNamespaceOwnerReferences(t *testing.T) {
 	cm := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
+		"metadata": map[string]any{
 			"name":      "example",
 			"namespace": "kyverno",
 			"ownerReferences": []any{
@@ -294,7 +295,7 @@ func TestGenerateResources_StripsCrossNamespaceOwnerReferences(t *testing.T) {
 			},
 		},
 	}
-	err = cp.GenerateResources("tenant-ns", []map[string]any{secret})
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
 	require.NoError(t, err)
 	require.Len(t, cp.GetGeneratedResources(), 1)
 
