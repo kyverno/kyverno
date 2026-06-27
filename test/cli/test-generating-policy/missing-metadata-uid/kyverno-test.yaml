@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: missing-metadata-uid
+policies:
+- policy.yaml
+resources:
+- resource-no-uid.yaml
+- resource-with-uid.yaml
+results:
+- isGeneratingPolicy: true
+  kind: MyResource
+  policy: example
+  resources:
+  - default/my-resource-no-uid
+  result: error
+- isGeneratingPolicy: true
+  kind: MyResource
+  policy: example
+  resources:
+  - default/my-resource-with-uid
+  generatedResource: generated/configmap.yaml
+  result: pass
