@@ -277,10 +277,9 @@ func TestGenerateResources_StripsCrossNamespaceOwnerReferences(t *testing.T) {
 	}
 	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
-	secret := map[string]any{
+	cm := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata": map[string]any{
 			"name":      "example",
 			"namespace": "kyverno",
 			"ownerReferences": []any{
