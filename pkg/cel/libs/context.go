@@ -222,7 +222,9 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			// garbage collector then deletes the freshly created resource almost
 			// immediately, so it "never gets cloned". Strip them, mirroring the
 			// legacy clone generation behavior (see pkg/background/generate/clone.go).
-			if item.GetNamespace() != targetNamespace && item.GetOwnerReferences() != nil {
+			// Strip ownerReferences only when we can confirm the source namespace differs.
+			srcNamespace := item.GetNamespace()
+			if srcNamespace != "" && srcNamespace != targetNamespace && item.GetOwnerReferences() != nil {
 				item.SetOwnerReferences(nil)
 			}
 
