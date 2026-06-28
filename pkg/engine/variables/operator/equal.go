@@ -87,6 +87,18 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 		}
 	}
 
+	// When the value is numeric, compare it against the string key by reusing
+	// the numeric handlers (which parse the string operand). This keeps the
+	// comparison symmetric with the int/float key paths, e.g. Equals("5", 5).
+	switch typedValue := value.(type) {
+	case int:
+		return eh.validateValueWithIntPattern(int64(typedValue), key)
+	case int64:
+		return eh.validateValueWithIntPattern(typedValue, key)
+	case float64:
+		return eh.validateValueWithFloatPattern(typedValue, key)
+	}
+
 	if val, ok := value.(string); ok {
 		return wildcard.Match(val, key)
 	}

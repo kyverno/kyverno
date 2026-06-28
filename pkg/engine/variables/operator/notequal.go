@@ -92,6 +92,18 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 		}
 	}
 
+	// When the value is numeric, compare it against the string key by reusing
+	// the numeric handlers (which parse the string operand). This keeps the
+	// comparison symmetric with the int/float key paths, e.g. NotEquals("5", 5).
+	switch typedValue := value.(type) {
+	case int:
+		return neh.validateValueWithIntPattern(int64(typedValue), key)
+	case int64:
+		return neh.validateValueWithIntPattern(typedValue, key)
+	case float64:
+		return neh.validateValueWithFloatPattern(typedValue, key)
+	}
+
 	if val, ok := value.(string); ok {
 		return !wildcard.Match(val, key)
 	}
