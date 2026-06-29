@@ -356,6 +356,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.reporting.imageVerify | bool | `true` | Enables the feature |
 | features.reporting.generate | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
+| features.excludeBootstrapResources.enabled | bool | `false` | Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled. |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |

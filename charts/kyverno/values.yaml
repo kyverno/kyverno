@@ -845,6 +845,9 @@ features:
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
+  excludeBootstrapResources:
+    # -- Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled.
+    enabled: false
   backgroundScan:
     # -- Enables the feature
     enabled: true

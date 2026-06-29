@@ -134,6 +134,7 @@ func createrLeaderControllers(
 	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
+	excludeBootstrapResources bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -185,6 +186,7 @@ func createrLeaderControllers(
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
 		autoUpdateWebhooks,
+		excludeBootstrapResources,
 		admissionReports,
 		runtime,
 		configuration,
@@ -358,6 +360,7 @@ func main() {
 		maxQueuedEvents                 int
 		omitEvents                      string
 		autoUpdateWebhooks              bool
+		excludeBootstrapResources       bool
 		webhookRegistrationTimeout      time.Duration
 		admissionReports                bool
 		dumpPayload                     bool
@@ -382,6 +385,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.BoolVar(&excludeBootstrapResources, "excludeBootstrapResources", false, "Set this flag to 'true' to exclude cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks, avoiding a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while this is enabled.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
@@ -618,6 +622,7 @@ func main() {
 					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
+					excludeBootstrapResources,
 					kubeInformer,
 					kubeKyvernoInformer,
 					kyvernoInformer,

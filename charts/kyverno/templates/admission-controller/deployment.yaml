@@ -203,6 +203,7 @@ spec:
               "controllerRuntimeMetrics"
               "deferredLoading"
               "dumpPayload"
+              "excludeBootstrapResources"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
               "generateMutatingAdmissionPolicy"
