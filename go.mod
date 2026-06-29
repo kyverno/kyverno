@@ -33,7 +33,7 @@ require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/kyverno/api v0.0.1-alpha.3.0.20260623064037-bfe8d45e844f
+	github.com/kyverno/api v0.0.1-alpha.3.0.20260626140541-1384610c309e
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
