@@ -95,6 +95,10 @@ func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, er
 	return mpolengine.Policy{}, nil
 }
 
+func (f *fakeEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.Policy {
+	return map[string]mpolengine.Policy{}
+}
+
 func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	args := f.Called()
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
