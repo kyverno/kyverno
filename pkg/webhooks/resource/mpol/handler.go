@@ -134,11 +134,12 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 }
 
 func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string) []string {
+	compiledPolicies := h.engine.GetCompiledPolicies(policies...)
 	filtered := make([]string, 0, len(policies))
 	for _, name := range policies {
-		policy, err := h.engine.GetCompiledPolicy(name)
-		if err != nil {
-			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name, "error", err.Error())
+		policy, ok := compiledPolicies[name]
+		if !ok {
+			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name, "error", fmt.Errorf("compiled policy %q not found", name))
 			continue
 		}
 		if policy.Policy.GetSpec().SkipBackgroundRequestsEnabled() {

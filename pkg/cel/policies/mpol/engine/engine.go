@@ -31,6 +31,7 @@ type Engine interface {
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
 type EngineResponse struct {
@@ -262,15 +263,35 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
+	policies := e.GetCompiledPolicies(policyName)
+	if policy, ok := policies[policyName]; ok {
+		return policy, nil
+	}
+	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
+}
+
+func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
+	expectedNames := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		expectedNames[name] = struct{}{}
+	}
+
+	policies := make(map[string]Policy, len(expectedNames))
 	for _, mutateExisting := range []bool{false, true} {
-		pols := e.provider.Fetch(context.TODO(), mutateExisting)
-		for _, p := range pols {
-			if p.Policy.GetName() == policyName {
-				return p, nil
+		compiledPolicies := e.provider.Fetch(context.TODO(), mutateExisting)
+		for _, policy := range compiledPolicies {
+			name := policy.Policy.GetName()
+			if len(expectedNames) > 0 {
+				if _, ok := expectedNames[name]; !ok {
+					continue
+				}
+			}
+			if _, ok := policies[name]; !ok {
+				policies[name] = policy
 			}
 		}
 	}
-	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
+	return policies
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {

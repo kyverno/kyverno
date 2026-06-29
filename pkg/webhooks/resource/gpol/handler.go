@@ -29,17 +29,13 @@ func New(
 	urGenerator updaterequest.Generator,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
-	backgroundServiceAccountName ...string,
+	backgroundServiceAccountName string,
 ) *handler {
-	var bgsa string
-	if len(backgroundServiceAccountName) > 0 {
-		bgsa = backgroundServiceAccountName[0]
-	}
 	return &handler{
 		urGenerator:                  urGenerator,
 		gpolLister:                   gpolLister,
 		ngpolLister:                  ngpolLister,
-		backgroundServiceAccountName: bgsa,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
@@ -65,14 +61,19 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 			ClusterRoles:      request.ClusterRoles,
 		}
 		for _, policy := range policies {
-			gpol, err := h.gpolLister.Get(policy)
-			if err != nil {
-				logger.Error(err, "failed to get generating policy", "policy", policy)
-				continue
-			}
-			if isBackgroundRequest && skipBackgroundRequests(gpol) {
-				logger.V(4).Info("skipping background request for generating policy", "policy", policy)
-				continue
+			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
+			var gpol *policiesv1beta1.GeneratingPolicy
+			if needPolicy {
+				var err error
+				gpol, err = h.gpolLister.Get(policy)
+				if err != nil {
+					logger.Error(err, "failed to get generating policy", "policy", policy)
+					continue
+				}
+				if isBackgroundRequest && skipBackgroundRequests(gpol) {
+					logger.V(4).Info("skipping background request for generating policy", "policy", policy)
+					continue
+				}
 			}
 			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
 			if err != nil {
@@ -168,14 +169,19 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 			ClusterRoles:      request.ClusterRoles,
 		}
 		for _, policy := range policies {
-			ngpol, err := h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
-			if err != nil {
-				logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
-				continue
-			}
-			if isBackgroundRequest && skipBackgroundRequests(ngpol) {
-				logger.V(4).Info("skipping background request for namespaced generating policy", "policy", policy, "namespace", namespace)
-				continue
+			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
+			var ngpol *policiesv1beta1.NamespacedGeneratingPolicy
+			if needPolicy {
+				var err error
+				ngpol, err = h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
+				if err != nil {
+					logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
+					continue
+				}
+				if isBackgroundRequest && skipBackgroundRequests(ngpol) {
+					logger.V(4).Info("skipping background request for namespaced generating policy", "policy", policy, "namespace", namespace)
+					continue
+				}
 			}
 			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
 			if err != nil {

@@ -68,6 +68,16 @@ func (m *mockEngine) GetCompiledPolicy(name string) (mpolengine.Policy, error) {
 	return mpolengine.Policy{}, fmt.Errorf("policy %s not found", name)
 }
 
+func (m *mockEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.Policy {
+	policies := make(map[string]mpolengine.Policy, len(names))
+	for _, name := range names {
+		if p, ok := m.policies[name]; ok {
+			policies[name] = p
+		}
+	}
+	return policies
+}
+
 func TestMutate_DryRunDoesNotFireMutateExistingURs(t *testing.T) {
 	urMock := &mockURGenerator{}
 	engineMock := &mockEngine{
