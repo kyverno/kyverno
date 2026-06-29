@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -561,4 +562,64 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	makeRule := func() []admissionregistrationv1.NamedRuleWithOperations {
+		return []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+				},
+			},
+		}}
+	}
+
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpol-sample"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: makeRule(),
+			},
+		},
+	}
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ngpol-sample", Namespace: "default"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: makeRule(),
+			},
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	gpolWebhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+		expressionCache,
+	)
+	ngpolWebhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.NamespacedGeneratingPolicyWebhookName,
+		"/ngpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedGeneratingPolicy(ngpol)},
+		expressionCache,
+	)
+
+	assert.Len(t, gpolWebhooks, 1)
+	assert.Len(t, ngpolWebhooks, 1)
+	assert.True(t, strings.HasPrefix(gpolWebhooks[0].Name, config.GeneratingPolicyWebhookName+"-"))
+	assert.True(t, strings.HasPrefix(ngpolWebhooks[0].Name, config.NamespacedGeneratingPolicyWebhookName+"-"))
+	assert.NotEqual(t, gpolWebhooks[0].Name, ngpolWebhooks[0].Name)
 }
