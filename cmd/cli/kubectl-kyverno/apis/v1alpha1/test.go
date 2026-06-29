@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
@@ -124,11 +125,23 @@ type GlobalContextEntryValue struct {
 	Name string `json:"name"`
 
 	// Data is the static JSON root for this mock entry (arbitrary object).
+	// Mutually exclusive with Resources and ResourceFiles.
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Data runtime.RawExtension `json:"data"`
+	Data *runtime.RawExtension `json:"data,omitempty"`
 
-	// FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.
+	// Resources is a list of inline Kubernetes resource manifests.
+	// Mutually exclusive with Data and ResourceFiles.
+	// +kubebuilder:validation:Optional
+	Resources []runtime.RawExtension `json:"resources,omitempty"`
+
+	// ResourceFiles is a list of YAML file paths (relative to the test directory)
+	// containing Kubernetes resource manifests. Supports multi-document YAML.
+	// Mutually exclusive with Data and Resources.
+	// +kubebuilder:validation:Optional
+	ResourceFiles []string `json:"resourceFiles,omitempty"`
+
+	// FieldPath is an optional JMESPath applied to decoded Data (or the resources list) to produce the root before projections.
 	FieldPath string `json:"fieldPath,omitempty"`
 
 	// Projections are optional named JMESPath extracts (see GlobalContextProjection).
@@ -137,10 +150,23 @@ type GlobalContextEntryValue struct {
 
 // ValidateAPICallResponses validates mock HTTP entries before a test run.
 func ValidateAPICallResponses(entries []APICallResponseEntry) error {
+	seen := make(map[string]struct{}, len(entries))
 	for i := range entries {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
+		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// silently discard earlier entries, so we surface it as a validation error.
+		resolvedURL := entries[i].ResolvedURL()
+		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
+		key := resolvedURL
+		if method != "" {
+			key = method + ":" + resolvedURL
+		}
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }
@@ -225,16 +251,65 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 				return fmt.Errorf("globalContextEntries entry %q projection %q: path is required", e.Name, p.Name)
 			}
 		}
-		data := strings.TrimSpace(string(e.Data.Raw))
-		if data == "" || data == "null" {
-			return fmt.Errorf("globalContextEntries entry %q: data is required", e.Name)
+
+		hasData := e.Data != nil && len(strings.TrimSpace(string(e.Data.Raw))) > 0 && strings.TrimSpace(string(e.Data.Raw)) != "null"
+		hasResources := e.Resources != nil
+		hasResourceFiles := e.ResourceFiles != nil
+
+		// data, resources, and resourceFiles are mutually exclusive
+		sourceCount := 0
+		if hasData {
+			sourceCount++
 		}
-		obj, err := RawExtensionToObject(e.Data)
-		if err != nil {
-			return fmt.Errorf("globalContextEntries entry %q: data must be valid JSON: %w", e.Name, err)
+		if hasResources {
+			sourceCount++
 		}
-		if _, ok := obj.(map[string]interface{}); !ok {
-			return fmt.Errorf("globalContextEntries entry %q: data must be a JSON object", e.Name)
+		if hasResourceFiles {
+			sourceCount++
+		}
+		if sourceCount > 1 {
+			return fmt.Errorf("globalContextEntries entry %q: data, resources, and resourceFiles are mutually exclusive", e.Name)
+		}
+		if sourceCount == 0 {
+			return fmt.Errorf("globalContextEntries entry %q: one of data, resources, or resourceFiles is required", e.Name)
+		}
+
+		if hasData {
+			obj, err := RawExtensionToObject(*e.Data)
+			if err != nil {
+				return fmt.Errorf("globalContextEntries entry %q: data must be valid JSON: %w", e.Name, err)
+			}
+			if _, ok := obj.(map[string]interface{}); !ok {
+				return fmt.Errorf("globalContextEntries entry %q: data must be a JSON object", e.Name)
+			}
+		}
+
+		if hasResources {
+			for j, r := range e.Resources {
+				obj, err := RawExtensionToObject(r)
+				if err != nil {
+					return fmt.Errorf("globalContextEntries entry %q resources[%d]: must be valid JSON: %w", e.Name, j, err)
+				}
+				if _, ok := obj.(map[string]interface{}); !ok {
+					return fmt.Errorf("globalContextEntries entry %q resources[%d]: must be a JSON object (Kubernetes resource manifest)", e.Name, j)
+				}
+			}
+		}
+
+		if hasResourceFiles {
+			for j, f := range e.ResourceFiles {
+				trimmed := strings.TrimSpace(f)
+				if trimmed == "" {
+					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be empty", e.Name, j)
+				}
+				if filepath.IsAbs(trimmed) || strings.HasPrefix(filepath.ToSlash(trimmed), "/") {
+					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not be absolute", e.Name, j)
+				}
+				clean := filepath.ToSlash(filepath.Clean(trimmed))
+				if clean == ".." || strings.HasPrefix(clean, "../") {
+					return fmt.Errorf("globalContextEntries entry %q resourceFiles[%d]: file path must not escape the test directory", e.Name, j)
+				}
+			}
 		}
 	}
 	return nil
