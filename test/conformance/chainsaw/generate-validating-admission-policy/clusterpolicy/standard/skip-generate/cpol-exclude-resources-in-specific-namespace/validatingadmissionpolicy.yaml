@@ -3,5 +3,6 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
+    reports.kyverno.io/enabled: "true"
   name: cpol-disallow-host-path-t17
 spec: {}
