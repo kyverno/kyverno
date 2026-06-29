@@ -464,7 +464,7 @@ func Test_Equal_ResourceQuantityCrossType(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "resource quantity Mi equals int",
+			name:     "numeric string quantity equals int",
 			key:      "1024",
 			value:    1024,
 			expected: true,
