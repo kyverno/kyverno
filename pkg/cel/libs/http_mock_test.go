@@ -3,7 +3,7 @@ package libs
 import (
 	"testing"
 
-	sdklibhttp "github.com/kyverno/sdk/cel/libs/http"
+	sdklibhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
