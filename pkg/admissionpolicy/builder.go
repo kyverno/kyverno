@@ -174,6 +174,8 @@ func BuildValidatingAdmissionPolicy(
 	policyLabels := policy.GetLabels()
 	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
 		vap.Labels[kyverno.LabelExcludeReporting] = "true"
+	} else {
+		controllerutils.SetLabel(vap, kyverno.LabelEnableVAPReporting, "true")
 	}
 	return nil
 }
@@ -311,6 +313,8 @@ func BuildMutatingAdmissionPolicy(
 	policyLabels := mp.GetLabels()
 	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
 		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	} else {
+		controllerutils.SetLabel(mapol, kyverno.LabelEnableVAPReporting, "true")
 	}
 }
 
@@ -448,6 +452,8 @@ func BuildMutatingAdmissionPolicyBeta(
 	policyLabels := mp.GetLabels()
 	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
 		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	} else {
+		controllerutils.SetLabel(mapol, kyverno.LabelEnableVAPReporting, "true")
 	}
 }
 

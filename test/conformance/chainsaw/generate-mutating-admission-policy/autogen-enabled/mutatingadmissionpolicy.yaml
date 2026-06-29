@@ -3,6 +3,7 @@ kind: MutatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
+    reports.kyverno.io/enabled: "true"
   name: mpol-autogen-enabled
   ownerReferences:
   - apiVersion: policies.kyverno.io/v1beta1
