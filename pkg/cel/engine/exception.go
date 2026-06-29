@@ -25,6 +25,9 @@ func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policie
 	}
 	var out []*policiesv1beta1.PolicyException
 	for _, exception := range exceptions {
+		if exception.IsExpired() {
+			continue
+		}
 		for _, ref := range exception.Spec.PolicyRefs {
 			if ref.Name == name && ref.Kind == kind {
 				out = append(out, exception)
