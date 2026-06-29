@@ -429,3 +429,51 @@ func TestEqualHandler_ValidateValueWithBoolPattern(t *testing.T) {
 		})
 	}
 }
+
+func Test_Equal_ResourceQuantityCrossType(t *testing.T) {
+	handler := NewEqualHandler(logr.Discard(), nil)
+
+	tests := []struct {
+		name     string
+		key      interface{}
+		value    interface{}
+		expected bool
+	}{
+		{
+			name:     "string quantity equals int",
+			key:      "5",
+			value:    5,
+			expected: true,
+		},
+		{
+			name:     "string quantity equals int64",
+			key:      "5",
+			value:    int64(5),
+			expected: true,
+		},
+		{
+			name:     "string quantity equals float64",
+			key:      "5",
+			value:    float64(5),
+			expected: true,
+		},
+		{
+			name:     "different quantity returns false",
+			key:      "5",
+			value:    6,
+			expected: false,
+		},
+		{
+			name:     "resource quantity Mi equals int",
+			key:      "1024",
+			value:    1024,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, handler.Evaluate(tt.key, tt.value))
+		})
+	}
+}
