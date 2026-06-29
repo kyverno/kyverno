@@ -399,6 +399,58 @@ func BuildMutatingAdmissionPolicyBindingBeta(
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
+// BuildMutatingAdmissionPolicyV1 builds a native v1 MutatingAdmissionPolicy from a MutatingPolicy (K8s 1.36+).
+func BuildMutatingAdmissionPolicyV1(
+	mapol *admissionregistrationv1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := negateExceptionMatchConditions(exceptions)
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition(mc))
+	}
+
+	var fpt *admissionregistrationv1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := admissionregistrationv1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		fpt = &conv
+	}
+
+	// set owner reference
+	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	// set policy spec
+	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
+				return rule
+			}),
+		},
+		MatchConditions:    matchConditions,
+		Mutations:          mp.Spec.Mutations,
+		Variables:          mp.Spec.Variables,
+		FailurePolicy:      fpt,
+		ReinvocationPolicy: (*admissionregistrationv1.ReinvocationPolicyType)(mp.Spec.GetReinvocationPolicy()),
+	}
+	// set labels
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
+}
+
+// BuildMutatingAdmissionPolicyBindingV1 builds a native v1 MutatingAdmissionPolicyBinding from a MutatingPolicy (K8s 1.36+).
+func BuildMutatingAdmissionPolicyBindingV1(
+	mapbinding *admissionregistrationv1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1beta1.MutatingPolicy,
+) {
+	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	mapbinding.Spec = admissionregistrationv1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
 func translateResourceFilters(discoveryClient dclient.IDiscovery,
 	matchResources *admissionregistrationv1.MatchResources,
 	rules *[]admissionregistrationv1.NamedRuleWithOperations,

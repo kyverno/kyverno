@@ -133,3 +133,19 @@ func (c *controller) getCELExceptions(policyName string) ([]policiesv1beta1.Poli
 func constructBindingName(polName string) string {
 	return polName + "-binding"
 }
+
+// getMutatingAdmissionPolicyV1 gets the Kubernetes MutatingAdmissionPolicy (v1)
+func (c *controller) getMutatingAdmissionPolicyV1(name string) (*admissionregistrationv1.MutatingAdmissionPolicy, error) {
+	if c.mapV1Lister == nil {
+		return nil, fmt.Errorf("MutatingAdmissionPolicy v1 lister is nil")
+	}
+	return c.mapV1Lister.Get(name)
+}
+
+// getMutatingAdmissionPolicyBindingV1 gets the Kubernetes MutatingAdmissionPolicyBinding (v1)
+func (c *controller) getMutatingAdmissionPolicyBindingV1(name string) (*admissionregistrationv1.MutatingAdmissionPolicyBinding, error) {
+	if c.mapbindingV1Lister == nil {
+		return nil, fmt.Errorf("MutatingAdmissionPolicyBinding v1 lister is nil")
+	}
+	return c.mapbindingV1Lister.Get(name)
+}

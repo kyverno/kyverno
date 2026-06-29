@@ -20,8 +20,10 @@ import (
 )
 
 const (
+	mutatingPoliciesV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicies"
 	mutatingPoliciesBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicies"
 	mutatingPoliciesAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicies"
+	mutatingBindingsV1    = "admissionregistration.k8s.io/v1/mutatingadmissionpolicybindings"
 	mutatingBindingsBeta  = "admissionregistration.k8s.io/v1beta1/mutatingadmissionpolicybindings"
 	mutatingBindingsAlpha = "admissionregistration.k8s.io/v1alpha1/mutatingadmissionpolicybindings"
 	validatingPoliciesV1  = "admissionregistration.k8s.io/v1/validatingadmissionpolicies"
@@ -139,18 +141,29 @@ func TestHasMutatingAdmissionPolicyPermission(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "v1beta1 allowed",
+			name: "v1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingPoliciesV1: true,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "v1 denied, v1beta1 allowed",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingPoliciesV1:   false,
 					mutatingPoliciesBeta: true,
 				},
 			},
 			expected: true,
 		},
 		{
-			name: "v1beta1 denied, v1alpha1 allowed",
+			name: "v1 denied, v1beta1 denied, v1alpha1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingPoliciesV1:    false,
 					mutatingPoliciesBeta:  false,
 					mutatingPoliciesAlpha: true,
 				},
@@ -158,9 +171,10 @@ func TestHasMutatingAdmissionPolicyPermission(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "both denied",
+			name: "all denied",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingPoliciesV1:    false,
 					mutatingPoliciesBeta:  false,
 					mutatingPoliciesAlpha: false,
 				},
@@ -183,18 +197,29 @@ func TestHasMutatingAdmissionPolicyBindingPermission(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "v1beta1 allowed",
+			name: "v1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingBindingsV1: true,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "v1 denied, v1beta1 allowed",
+			auth: &mockAuthChecker{
+				results: map[string]bool{
+					mutatingBindingsV1:   false,
 					mutatingBindingsBeta: true,
 				},
 			},
 			expected: true,
 		},
 		{
-			name: "v1beta1 denied, v1alpha1 allowed",
+			name: "v1 denied, v1beta1 denied, v1alpha1 allowed",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingBindingsV1:    false,
 					mutatingBindingsBeta:  false,
 					mutatingBindingsAlpha: true,
 				},
@@ -202,9 +227,10 @@ func TestHasMutatingAdmissionPolicyBindingPermission(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "both denied",
+			name: "all denied",
 			auth: &mockAuthChecker{
 				results: map[string]bool{
+					mutatingBindingsV1:    false,
 					mutatingBindingsBeta:  false,
 					mutatingBindingsAlpha: false,
 				},
@@ -227,6 +253,16 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 		expect    bool
 		expectErr bool
 	}{
+		{
+			name: "v1 present",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+				},
+			},
+			expect: true,
+		},
 		{
 			name: "v1beta1 present",
 			resources: []*metav1.APIResourceList{
@@ -251,7 +287,6 @@ func TestIsMutatingAdmissionPolicyRegistered(t *testing.T) {
 			name:      "neither present",
 			resources: []*metav1.APIResourceList{},
 			expect:    false,
-			expectErr: true,
 		},
 	}
 
@@ -278,7 +313,17 @@ func TestPreferredMutatingAdmissionPolicyVersion(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "v1beta1 preferred when both resources are present",
+			name: "v1 preferred when available",
+			resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: "admissionregistration.k8s.io/v1",
+					APIResources: []metav1.APIResource{{Name: "mutatingadmissionpolicies"}, {Name: "mutatingadmissionpolicybindings"}},
+				},
+			},
+			expect: MutatingAdmissionPolicyVersionV1,
+		},
+		{
+			name: "v1beta1 preferred when v1 absent",
 			resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: "admissionregistration.k8s.io/v1beta1",
