@@ -4,6 +4,10 @@ name: helm-release
 
 permissions: {}
 
+concurrency:
+  group: helm-gh-pages-${{ github.repository }}
+  cancel-in-progress: false
+
 on:
   push:
     tags:
@@ -11,6 +15,23 @@ on:
       - kyverno-policies-chart-v*
       - kyverno-chart-*
       - kyverno-policies-chart-*
+  workflow_dispatch:
+    inputs:
+      chart:
+        description: 'Chart to release (kyverno or kyverno-policies)'
+        required: true
+        type: choice
+        options:
+          - kyverno
+          - kyverno-policies
+      version:
+        description: 'Chart version (e.g. 3.8.1)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout (tag or branch, e.g. kyverno-policies-chart-3.8.1)'
+        required: true
+        type: string
 
 jobs:
   helm-tests:
@@ -21,6 +42,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
       - name: Setup python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -44,6 +66,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
       - name: Run ah lint
         working-directory: ./charts/
         run: ah lint
@@ -59,27 +83,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
       - name: Install tools
         uses: ./.github/actions/tools/install
         with:
           helm: true
           cosign: true
       - name: Set version
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ inputs.chart }}" == "kyverno-policies" ]]; then
+              echo "RELEASE_VERSION=kyverno-policies-chart-${{ inputs.version }}" >> $GITHUB_ENV
+            else
+              echo "RELEASE_VERSION=kyverno-chart-${{ inputs.version }}" >> $GITHUB_ENV
+            fi
+          else
+            echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          fi
       - name: Create charts tmp directory
         run: |
           mkdir charts-tmp
-          if [[ "$RELEASE_VERSION" = "kyverno-policies-chart-v"* ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            cp -a charts/${{ inputs.chart }} charts-tmp/${{ inputs.chart }}
+          elif [[ "$RELEASE_VERSION" = "kyverno-policies-chart-v"* ]] || [[ "$RELEASE_VERSION" = "kyverno-policies-chart-"* ]]; then
             cp -a charts/kyverno-policies charts-tmp/kyverno-policies
-          fi
-          if [[ "$RELEASE_VERSION" = "kyverno-chart-v"* ]]; then
+          elif [[ "$RELEASE_VERSION" = "kyverno-chart-v"* ]] || [[ "$RELEASE_VERSION" = "kyverno-chart-"* ]]; then
             cp -a charts/kyverno charts-tmp/kyverno
-          fi
-          if [[ "$RELEASE_VERSION" = "kyverno-policies-chart-"* ]]; then
-            cp -a charts/kyverno-policies charts-tmp/kyverno-policies
-          fi
-          if [[ "$RELEASE_VERSION" = "kyverno-chart-"* ]]; then
-            cp -a charts/kyverno charts-tmp/kyverno
+          else
+            echo "Unknown release version: $RELEASE_VERSION"
+            exit 1
           fi
       - name: Run chart-releaser
         uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 #v1.7.0
