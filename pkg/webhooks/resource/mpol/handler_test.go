@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -81,4 +82,86 @@ func TestMutate_DryRunDoesNotFireMutateExistingURs(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, int32(0), urMock.called.Load(), "dry-run request must not create mutate-existing UpdateRequests")
+}
+
+type captureLogSink struct {
+	messages []string
+	levels   []int
+	values   [][]interface{}
+}
+
+func (s *captureLogSink) Init(logr.RuntimeInfo) {}
+
+func (s *captureLogSink) Enabled(int) bool {
+	return true
+}
+
+func (s *captureLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+	s.levels = append(s.levels, level)
+	s.messages = append(s.messages, msg)
+	s.values = append(s.values, append([]interface{}{}, keysAndValues...))
+}
+
+func (s *captureLogSink) Error(error, string, ...interface{}) {}
+
+func (s *captureLogSink) WithValues(...interface{}) logr.LogSink {
+	return s
+}
+
+func (s *captureLogSink) WithName(string) logr.LogSink {
+	return s
+}
+
+func TestLogMutationRulesLogsOnlyRealMutations(t *testing.T) {
+	sink := &captureLogSink{}
+	logger := logr.New(sink)
+
+	mutatedPolicy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "add-team-label"},
+	}
+	unmutatedPolicy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "no-change"},
+	}
+	skippedPolicy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "skipped-policy"},
+	}
+
+	logMutationRules(logger, []mpolengine.MutatingPolicyResponse{
+		{
+			Policy:  mutatedPolicy,
+			Mutated: true,
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RulePass("", engineapi.Mutation, "success", nil),
+			},
+		},
+		{
+			Policy:  unmutatedPolicy,
+			Mutated: false,
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RulePass("", engineapi.Mutation, "success", nil),
+			},
+		},
+		{
+			Policy:  skippedPolicy,
+			Mutated: true,
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("", engineapi.Mutation, "skip", nil),
+			},
+		},
+	})
+
+	assert.Len(t, sink.messages, 1)
+	assert.Equal(t, 2, sink.levels[0])
+	assert.Equal(t, "mutation rules from policy applied successfully", sink.messages[0])
+	assert.Equal(t, "add-team-label", valueForKey(sink.values[0], "policy"))
+	assert.Nil(t, valueForKey(sink.values[0], "rules"), "MutatingPolicy rules are unnamed, so the log should not add a fake empty rule")
+}
+
+func valueForKey(values []interface{}, key string) interface{} {
+	for i := 0; i < len(values)-1; i += 2 {
+		if values[i] == key {
+			return values[i+1]
+		}
+	}
+	return nil
 }

@@ -21,6 +21,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
@@ -58,6 +59,8 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 type MutatingPolicyResponse struct {
 	Policy policiesv1beta1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
+	// Mutated is true when this policy produced at least one JSON patch.
+	Mutated bool
 }
 
 type Predicate = func(policiesv1beta1.MutatingPolicyLike) bool
@@ -93,9 +96,13 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
+			var original runtime.Object
+			if attr.GetObject() != nil {
+				original = attr.GetObject().DeepCopyObject()
+			}
 			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil)
-			response.Policies = append(response.Policies, r)
 			if patched != nil {
+				r.Mutated = hasResourceChanges(original, patched)
 				response.PatchedResource = patched
 				// Update attr to use the patched resource for the next policy evaluation
 				attr = admission.NewAttributesRecord(
@@ -112,6 +119,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 					attr.GetUserInfo(),
 				)
 			}
+			response.Policies = append(response.Policies, r)
 		}
 	}
 	return response, nil
@@ -154,9 +162,13 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
+		var original runtime.Object
+		if attr.GetObject() != nil {
+			original = attr.GetObject().DeepCopyObject()
+		}
 		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace)
-		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
+			ruleResponse.Mutated = hasResourceChanges(original, patchedResource)
 			response.PatchedResource = patchedResource
 			// Update attr to use the patched resource for the next policy evaluation
 			attr = admission.NewAttributesRecord(
@@ -173,6 +185,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 				attr.GetUserInfo(),
 			)
 		}
+		response.Policies = append(response.Policies, ruleResponse)
 	}
 	return response, nil
 }
@@ -259,6 +272,40 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+func hasResourceChanges(original runtime.Object, patched *unstructured.Unstructured) bool {
+	if original == nil || patched == nil {
+		return false
+	}
+
+	var originalResource *unstructured.Unstructured
+	if resource, ok := original.(*unstructured.Unstructured); ok {
+		originalResource = resource.DeepCopy()
+	} else {
+		originalMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(original)
+		if err != nil {
+			return false
+		}
+		originalResource = &unstructured.Unstructured{Object: originalMap}
+	}
+
+	originalBytes, err := originalResource.MarshalJSON()
+	if err != nil {
+		return false
+	}
+
+	patchedBytes, err := patched.MarshalJSON()
+	if err != nil {
+		return false
+	}
+
+	patches, err := jsonpatch.CreatePatch(originalBytes, patchedBytes)
+	if err != nil {
+		return false
+	}
+
+	return len(patches) > 0
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
