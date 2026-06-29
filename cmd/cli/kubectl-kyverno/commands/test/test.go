@@ -371,15 +371,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
-								if ruleToCloneSourceResource[policy.GetName()] == nil {
-									ruleToCloneSourceResource[policy.GetName()] = map[string]string{}
-								}
-								ruleToCloneSourceResource[policy.GetName()][rule.Name] = res.CloneSourceResource
+								policyCloneSources[rule.Name] = res.CloneSourceResource
 							} else {
-								if ruleToCloneSourceResource[policy.GetName()] == nil {
-									ruleToCloneSourceResource[policy.GetName()] = map[string]string{}
-								}
-								ruleToCloneSourceResource[policy.GetName()][rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						} else { // clone or data
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
@@ -394,15 +388,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 							}
 							if len(genClone) != 0 {
 								if isGit {
-									if ruleToCloneSourceResource[policy.GetName()] == nil {
-										ruleToCloneSourceResource[policy.GetName()] = map[string]string{}
-									}
-									ruleToCloneSourceResource[policy.GetName()][rule.Name] = res.CloneSourceResource
+									policyCloneSources[rule.Name] = res.CloneSourceResource
 								} else {
-									if ruleToCloneSourceResource[policy.GetName()] == nil {
-										ruleToCloneSourceResource[policy.GetName()] = map[string]string{}
-									}
-									ruleToCloneSourceResource[policy.GetName()][rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+									policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}
