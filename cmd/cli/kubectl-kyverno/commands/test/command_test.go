@@ -926,3 +926,60 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	}
 	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
+
+func TestRunTest_CloneSourceNotCollideAcrossPolicies(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-generate", "clone-same-rule-name")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "runTest failed: %s", out.String())
+
+	t.Run("policy-a resolves its own clone source", func(t *testing.T) {
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "sync-secret-a" {
+					found = true
+					require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response for sync-secret-a")
+					for _, rule := range r.PolicyResponse.Rules {
+						assert.Equal(t, engineapi.RuleStatusPass, rule.Status(),
+							"sync-secret-a/sync-secret should pass with its own clone source")
+					}
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy sync-secret-a")
+	})
+
+	t.Run("policy-b resolves its own clone source", func(t *testing.T) {
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "sync-secret-b" {
+					found = true
+					require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response for sync-secret-b")
+					for _, rule := range r.PolicyResponse.Rules {
+						assert.Equal(t, engineapi.RuleStatusPass, rule.Status(),
+							"sync-secret-b/sync-secret should pass with its own clone source")
+					}
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy sync-secret-b")
+	})
+}

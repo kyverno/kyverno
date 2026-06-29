@@ -360,15 +360,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
-				if rule.Name == res.Rule {
+				resPolicyName := res.Policy
+				if idx := strings.LastIndex(resPolicyName, "/"); idx != -1 {
+					resPolicyName = resPolicyName[idx+1:]
+				}
+				if rule.Name == res.Rule && policy.GetName() == resPolicyName {
 					if rule.HasGenerate() {
+						cloneKey := policy.GetName() + "/" + rule.Name
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
-								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								ruleToCloneSourceResource[cloneKey] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								ruleToCloneSourceResource[cloneKey] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						} else { // clone or data
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
@@ -383,9 +387,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 							}
 							if len(genClone) != 0 {
 								if isGit {
-									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+									ruleToCloneSourceResource[cloneKey] = res.CloneSourceResource
 								} else {
-									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+									ruleToCloneSourceResource[cloneKey] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}

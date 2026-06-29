@@ -27,8 +27,10 @@ import (
 func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
+	policyName := policyContext.Policy().GetName()
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		if path, ok := ruleToCloneSourceResource[rule.Name()]; ok {
+		cloneKey := policyName + "/" + rule.Name()
+		if path, ok := ruleToCloneSourceResource[cloneKey]; ok {
 			resourceBytes, err := resource.GetFileBytes(path)
 			if err != nil {
 				fmt.Fprintf(out, "failed to get resource bytes\n")
