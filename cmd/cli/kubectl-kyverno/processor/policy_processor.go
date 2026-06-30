@@ -793,6 +793,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	case "CONNECT":
+		operation = kyvernov1.Connect
 	}
 	// an explicitly configured operation (e.g. from the test result entry) takes
 	// precedence over the values file
