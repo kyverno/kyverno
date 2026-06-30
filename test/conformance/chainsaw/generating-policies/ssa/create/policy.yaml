@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: ssa-generate-cm
+spec:
+  useServerSideApply: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "ssa-config",
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "mode": "ssa",
+              "key": "value"
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply(variables.nsName, variables.configmap)
