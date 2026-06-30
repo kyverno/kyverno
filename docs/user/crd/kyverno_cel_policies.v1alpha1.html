@@ -633,6 +633,35 @@ Required.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules.
+If set to &quot;true&quot;, create &amp; update for generated resources will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -4430,6 +4459,34 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>skipBackgroundRequests</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &quot;true&quot;, it must be set to &quot;false&quot; to apply generateExisting rules to those requests.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -4651,6 +4708,35 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
           <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
 Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules.
+If set to &quot;true&quot;, create &amp; update for generated resources will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -6846,6 +6932,34 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
           
 
           <p>MutateExisting controls whether existing resources are mutated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>skipBackgroundRequests</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &quot;true&quot;, it must be set to &quot;false&quot; to apply mutateExisting rules to those requests.</p>
 
 
           
