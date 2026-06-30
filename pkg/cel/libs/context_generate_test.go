@@ -43,6 +43,7 @@ func TestGenerateResources_NamespacedPolicyRejectsClusterScoped(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	err := cp.GenerateResources("tenant-ns", []map[string]any{clusterRoleBinding()})
 	assert.Error(t, err, "namespaced policy must not generate a cluster-scoped resource")
@@ -56,6 +57,7 @@ func TestGenerateResources_NamespacedPolicyAllowsNamespaced(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -115,7 +117,7 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -157,7 +159,7 @@ func TestGenerateResources_DifferentTriggerExistingResourceNotAdopted(t *testing
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -195,7 +197,7 @@ func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -235,7 +237,7 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -266,7 +268,7 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 			{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "orig"}}},
 		},
 	}
-	original.SetGenerateContext("policy-a", "trigger-a", "default", "v1", "", "Pod", "uid-a", true)
+	original.SetGenerateContext("policy-a", "default", "trigger-a", "default", "v1", "", "Pod", "uid-a", true)
 
 	cloned := original.Clone()
 	clone, ok := cloned.(*contextProvider)
@@ -276,7 +278,7 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	assert.Empty(t, clone.generatedResources)
 	assert.Equal(t, original.genCtx, clone.genCtx)
 
-	clone.SetGenerateContext("policy-b", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false)
+	clone.SetGenerateContext("policy-b", "kube-system", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false)
 	clone.generatedResources = append(clone.generatedResources, &unstructured.Unstructured{
 		Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "clone"}},
 	})
