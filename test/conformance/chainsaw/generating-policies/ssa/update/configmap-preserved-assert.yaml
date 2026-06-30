@@ -1,9 +1,11 @@
-# After SSA update (triggered by namespace label change), the drifted value must be restored.
+# After SSA update, Kyverno-owned data should be reconciled while external fields are preserved.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ssa-update-config
   namespace: ssa-update-ns
+  annotations:
+    other-controller-managed: "true"
 data:
   mode: ssa
   key: original

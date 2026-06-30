@@ -37,7 +37,23 @@ spec:
           metadata:
             name: ssa-update-config
             namespace: ssa-update-ns
+            annotations:
+              other-controller-managed: "true"
           data:
+            key: drifted
+  - name: verify external annotation exists before reconcile
+    try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: ssa-update-config
+            namespace: ssa-update-ns
+            annotations:
+              other-controller-managed: "true"
+          data:
+            mode: ssa
             key: drifted
   - name: trigger policy re-evaluation by updating the namespace
     try:
