@@ -5,11 +5,17 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -295,4 +301,39 @@ func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
 	got, err := p.resolveResource("Deployment")
 	assert.NilError(t, err)
 	assert.Equal(t, "deployments", got)
+}
+
+func Test_makePolicyContext_operation(t *testing.T) {
+	// makePolicyContext derives the admission operation from the
+	// `request.operation` variable. CONNECT must be honored like the other
+	// operations; before the fix it fell through to the CREATE default.
+	testcases := []struct {
+		operation string
+		expected  kyvernov1.AdmissionOperation
+	}{
+		{operation: "CREATE", expected: kyvernov1.Create},
+		{operation: "UPDATE", expected: kyvernov1.Update},
+		{operation: "DELETE", expected: kyvernov1.Delete},
+		{operation: "CONNECT", expected: kyvernov1.Connect},
+	}
+	res := unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]interface{}{"name": "test"},
+	}}
+	policyArray, _, _, _, _, _, _, _ := yamlutils.GetPolicy(policyNamespaceSelector)
+	assert.Assert(t, len(policyArray) > 0)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	for _, tc := range testcases {
+		vars, err := variables.New(os.Stdout, nil, "", "", nil, "request.operation="+tc.operation)
+		assert.NilError(t, err)
+		p := &PolicyProcessor{
+			Store:     &store.Store{},
+			Variables: vars,
+		}
+		pc, err := p.makePolicyContext(jp, cfg, res, policyArray[0], nil, schema.GroupVersionKind{Version: "v1", Kind: "Pod"}, "")
+		assert.NilError(t, err)
+		assert.Equal(t, tc.expected, pc.Operation(), "operation %s", tc.operation)
+	}
 }
