@@ -788,6 +788,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	case "CONNECT":
+		operation = kyvernov1.Connect
 	}
 
 	var newResource unstructured.Unstructured
