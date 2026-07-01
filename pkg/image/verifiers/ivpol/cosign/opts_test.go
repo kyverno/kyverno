@@ -193,7 +193,6 @@ func TestCheckOptions_WithSource(t *testing.T) {
 			Data: testPublicKey,
 		},
 		CTLog: &v1beta1.CTLog{
-			URL:                "https://rekor.sigstore.dev",
 			InsecureIgnoreTlog: true,
 		},
 		Source: &v1beta1.Source{
@@ -208,24 +207,6 @@ func TestCheckOptions_WithSource(t *testing.T) {
 	assert.NotEmpty(t, opts.RegistryClientOpts)
 }
 
-func TestCheckOptions_MissingRekorURL(t *testing.T) {
-	ctx := context.TODO()
-	baseROpts, baseNOpts := baseOpts()
-
-	cosignCfg := &v1beta1.Cosign{
-		Key: &v1beta1.Key{
-			Data: testPublicKey,
-		},
-		CTLog: &v1beta1.CTLog{
-			InsecureIgnoreTlog: true,
-		},
-	}
-
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "rekor URL must be provided")
-}
-
 func TestCheckOptions_InvalidPublicKey(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
@@ -235,7 +216,6 @@ func TestCheckOptions_InvalidPublicKey(t *testing.T) {
 			Data: "invalid-key-data",
 		},
 		CTLog: &v1beta1.CTLog{
-			URL:                "https://rekor.sigstore.dev",
 			InsecureIgnoreTlog: true,
 		},
 	}
