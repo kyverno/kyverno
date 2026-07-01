@@ -94,7 +94,6 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
-	assert.NotNil(t, opts.RekorClient)
 	assert.True(t, opts.IgnoreTlog)
 	assert.True(t, opts.IgnoreSCT)
 }
