@@ -1,0 +1,4 @@
+apiVersion: test.kyverno.io/v1
+kind: TestResource
+metadata:
+  name: test-custom-resource
