@@ -144,6 +144,7 @@ spec:
               "dumpPayload"
               "globalContext"
               "logging"
+              "omitEvents"
               "ttlController"
               "protectManagedResources"
             ) | nindent 12 }}
