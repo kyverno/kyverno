@@ -34,8 +34,10 @@ type Maps struct {
 // MergeReports merges the results of the given reports into accumulator, keyed
 // by (source, policy, [rule], uid). On a key collision it keeps the result with
 // the later Timestamp.Seconds (and the first-seen result when timestamps are
-// equal), and it drops results whose policy is not present in maps. Pure: no
-// I/O, no clients, no clock.
+// equal), and it drops results whose policy is not present in maps.
+//
+// accumulator must be non-nil.
+// Pure: no I/O, no clients, no clock.
 func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
