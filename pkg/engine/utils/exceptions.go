@@ -16,9 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
+// MatchesException takes a list of exceptions and checks if there is an exception that applies to the incoming resource.
 // It returns the matched policy exception.
+// Deprecated: use MatchesExceptionWithContext to provide an explicit context.
 func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, isCluster bool, logger logr.Logger) []kyvernov2.PolicyException {
+	return MatchesExceptionWithContext(context.Background(), client, polexs, policyContext, isCluster, logger)
+}
+
+// MatchesExceptionWithContext takes a list of exceptions and checks if there is an exception that applies to the incoming resource.
+// It returns the matched policy exception.
+func MatchesExceptionWithContext(ctx context.Context, client engineapi.Client, polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, isCluster bool, logger logr.Logger) []kyvernov2.PolicyException {
 	if len(polexs) == 0 {
 		return nil
 	}
@@ -31,7 +38,7 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 	nsLabels := policyContext.NamespaceLabels()
 	if isCluster {
 		if resource.GetNamespace() != "" {
-			namespace, err := client.GetNamespace(context.TODO(), resource.GetNamespace(), metav1.GetOptions{})
+			namespace, err := client.GetNamespace(ctx, resource.GetNamespace(), metav1.GetOptions{})
 			if err != nil {
 				logger.Error(err, "failed to get namespace", "name", resource.GetNamespace())
 				return nil
