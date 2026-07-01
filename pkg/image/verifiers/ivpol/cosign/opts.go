@@ -74,18 +74,22 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
 	}
+	var err error
 
-	rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
-	if err != nil {
-		return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
-	}
-	opts.RekorClient = rekorClient
-	opts.RekorPubKeys = rekorPubKeys
-	opts.CTLogPubKeys = ctlogPubKey
+	// rekor cient initialization should only happen in keyless scenarios
+	if att.Key == nil {
+		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
+		if err != nil {
+			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
+		}
+		opts.RekorClient = rekorClient
+		opts.RekorPubKeys = rekorPubKeys
+		opts.CTLogPubKeys = ctlogPubKey
 
-	if opts.RekorClient == nil {
-		if opts.RekorPubKeys != nil {
-			opts.Offline = true
+		if opts.RekorClient == nil {
+			if opts.RekorPubKeys != nil {
+				opts.Offline = true
+			}
 		}
 	}
 
