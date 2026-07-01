@@ -944,6 +944,13 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ReportProperties != nil {
+		in, out := &in.ReportProperties, &out.ReportProperties
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SkipBackgroundRequests != nil {
 		in, out := &in.SkipBackgroundRequests, &out.SkipBackgroundRequests
 		*out = new(bool)
