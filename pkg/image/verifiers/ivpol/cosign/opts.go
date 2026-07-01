@@ -105,7 +105,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	}
 
 	if att.Keyless != nil {
-		// rekor cient initialization should only happen in keyless scenarios
+		// rekor client initialization should only happen in keyless scenarios
 		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
 		if err != nil {
 			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
