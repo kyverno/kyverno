@@ -1866,6 +1866,10 @@ cleanupController:
         # If not set, the token will have no audience restriction.
         audience: ""
 
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role
+      extraResources: []
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
