@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
@@ -61,13 +62,20 @@ var (
 
 // TODO:
 // - helm review labels / selectors
-// - implement probes
 // - supports certs in cronjob
 
-type probes struct{}
+type probes struct {
+	logger        logr.Logger
+	certValidator tls.CertValidator
+}
 
-func (probes) IsReady(context.Context) bool {
-	return true
+func (p probes) IsReady(ctx context.Context) bool {
+	valid, err := p.certValidator.ValidateCert(ctx)
+	if err != nil {
+		p.logger.Error(err, "failed to validate certificates")
+		return false
+	}
+	return valid
 }
 
 func (probes) IsLive(context.Context) bool {
@@ -171,6 +179,21 @@ func main() {
 			os.Exit(1)
 		}
 		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
+		// single renewer used for both health probes (CertValidator) and cert rotation (CertRenewer)
+		certRenewer := tls.NewCertRenewer(
+			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			tls.CertRenewalInterval,
+			tls.CAValidityDuration,
+			tls.TLSValidityDuration,
+			renewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
@@ -257,26 +280,12 @@ func main() {
 				)
 
 				// controllers
-				renewer := tls.NewCertRenewer(
-					setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-					tls.CertRenewalInterval,
-					tls.CAValidityDuration,
-					tls.TLSValidityDuration,
-					renewBefore,
-					serverIP,
-					config.KyvernoServiceName(),
-					config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-					config.KyvernoNamespace(),
-					caSecretName,
-					tlsSecretName,
-					keyAlgorithm,
-				)
 				certController := internal.NewController(
 					certmanager.ControllerName,
 					certmanager.NewController(
 						caSecret,
 						tlsSecret,
-						renewer,
+						certRenewer,
 						caSecretName,
 						tlsSecretName,
 						config.KyvernoNamespace(),
@@ -450,7 +459,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			probes{logger: setup.Logger.WithName("probes"), certValidator: certRenewer},
 			setup.Configuration,
 		)
 		// start server
