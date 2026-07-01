@@ -25,12 +25,15 @@ func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cach
 		return response, err
 	}
 
-	for _, policy := range response.Policies {
-		if policy.Result == nil {
-			continue
-		}
+	if w.metrics != nil {
+		for _, policy := range response.Policies {
+			if policy.Result == nil {
+				continue
+			}
 
-		w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+			w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+			w.metrics.RecordResult(context.TODO(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+		}
 	}
 
 	return response, nil
