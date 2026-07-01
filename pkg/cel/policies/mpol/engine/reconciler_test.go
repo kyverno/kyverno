@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -38,16 +37,6 @@ func TestReconcile(t *testing.T) {
 	ctx := context.Background()
 	name := types.NamespacedName{Namespace: "default", Name: "test-policy"}
 
-	//t.Run("policy not found", func(t *testing.T) {
-	//	rec := newReconciler(
-	//		&fakeClient{err: errors.ErrUnsupported(policiesv1alpha1.Resource("mutatingpolicies"), "test-policy")},
-	//		compiler.NewCompiler(), nil, false,
-	///	)
-	//	res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
-	//	assert.NoError(t, err)
-	//	assert.Equal(t, reconcile.Result{}, res)
-	//})
-
 	t.Run("successful reconciliation", func(t *testing.T) {
 		mp := &policiesv1beta1.MutatingPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
@@ -80,23 +69,37 @@ func TestFetch(t *testing.T) {
 			expectedNames:  []string{},
 		},
 		{
-			name:           "mutateExisting = false, return all policies",
+			name:           "mutateExisting = false, return only admission enabled policies",
 			mutateExisting: false,
 			policyMap: map[string][]Policy{
 				"ns1/policy1": {
 					{
 						Policy: &policiesv1beta1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy1"},
+							Spec: policiesv1beta1.MutatingPolicySpec{
+								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+									Admission: &policiesv1beta1.AdmissionConfiguration{
+										Enabled: &trueBool,
+									},
+								},
+							},
 						},
 					},
 					{
 						Policy: &policiesv1beta1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy2"},
+							Spec: policiesv1beta1.MutatingPolicySpec{
+								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+									Admission: &policiesv1beta1.AdmissionConfiguration{
+										Enabled: &falseBool,
+									},
+								},
+							},
 						},
 					},
 				},
 			},
-			expectedNames: []string{"policy1", "policy2"},
+			expectedNames: []string{"policy1"},
 		},
 		{
 			name:           "mutateExisting = true, only enabled ones returned",
@@ -170,14 +173,6 @@ func TestFetch(t *testing.T) {
 			assert.ElementsMatch(t, tt.expectedNames, gotNames)
 		})
 	}
-}
-
-type fakeFetchWithError struct {
-	*reconciler
-}
-
-func (f *fakeFetchWithError) Fetch(ctx context.Context, mutateExisting bool) ([]Policy, error) {
-	return nil, fmt.Errorf("simulated fetch error")
 }
 
 func TestMatchesMutateExisting(t *testing.T) {
