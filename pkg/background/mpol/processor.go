@@ -28,11 +28,12 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -83,6 +84,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		targets  *unstructured.UnstructuredList
 	)
 
+	if ur.Spec.Policy == "" {
+		return updateURStatus(p.statusControl, *ur, fmt.Errorf("update request %s has empty policy key", ur.GetName()), nil)
+	}
+
 	mpol, err := p.GetPolicy(ur)
 	if mpol == nil {
 		return err
@@ -130,13 +135,54 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 	}
 
-	ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	baseAR := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	// ParsePolicyKey returns (name, namespace). For cluster-scoped policies the namespace is "".
+	// MatchNames expects just the bare name (not "namespace/name").
+	// The scope predicate is derived from the UR key (not the target's namespace) so that a
+	// cluster-scoped MutatingPolicy with the same name is never matched when the UR is for a
+	// NamespacedMutatingPolicy, and vice versa.
+	policyName, policyNamespace := policy.ParsePolicyKey(ur.Spec.Policy)
+	scopePredicate := mpolengine.ClusteredPolicy()
+	if policyNamespace != "" {
+		scopePredicate = mpolengine.NamespacedPolicy(policyNamespace)
+	}
 	for _, target := range targets.Items {
 		object := &target
 		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to get resource version for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
+		}
+
+		// Build the AdmissionRequest for this target. For background-only scans there is no
+		// real admission request, so we construct a synthetic one from the target resource.
+		// Operation is Update (background scans mutate already-existing resources).
+		// Object.Raw, Kind, Resource, Namespace and Name are populated so that request.*
+		// CEL variables (request.object, request.namespace, etc.) reflect the actual target.
+		ar := baseAR
+		if ar == nil {
+			raw, err := json.Marshal(object.Object)
+			if err != nil {
+				failures = append(failures, fmt.Errorf("failed to marshal target object for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				continue
+			}
+			gvk := object.GroupVersionKind()
+			ar = &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Kind: metav1.GroupVersionKind{
+					Group:   gvk.Group,
+					Version: gvk.Version,
+					Kind:    gvk.Kind,
+				},
+				Resource: metav1.GroupVersionResource{
+					Group:    mapping.Resource.Group,
+					Version:  mapping.Resource.Version,
+					Resource: mapping.Resource.Resource,
+				},
+				Namespace: object.GetNamespace(),
+				Name:      object.GetName(),
+				Object:    runtime.RawExtension{Raw: raw},
+			}
 		}
 
 		attr := admission.NewAttributesRecord(
@@ -147,13 +193,13 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			object.GetName(),
 			mapping.Resource,
 			"",
-			admission.Operation(""),
+			admission.Operation(ar.Operation),
 			nil,
 			false,
 			admissionpolicy.NewUser(ar.UserInfo),
 		)
 
-		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(ur.Spec.Policy), mpolengine.Or(mpolengine.ClusteredPolicy(), mpolengine.NamespacedPolicy(attr.GetNamespace()))))
+		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
@@ -293,15 +339,17 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 	var err error
 
 	failures := make([]error, 0, 1)
-	mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), ur.Spec.Policy, metav1.GetOptions{})
-	if err == nil {
-		return mpol, nil
-	}
 
-	// Try NamespacedMutatingPolicy
-	if errors.IsNotFound(err) {
-		name, ns := policy.ParsePolicyKey(ur.Spec.Policy)
+	name, ns := policy.ParsePolicyKey(ur.Spec.Policy)
+	if ns != "" {
+		// Namespaced policy: go directly to NamespacedMutatingPolicy lookup.
 		mpol, err = p.kyvernoClient.PoliciesV1beta1().NamespacedMutatingPolicies(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
+			return mpol, nil
+		}
+	} else {
+		// Cluster-scoped policy: try MutatingPolicy.
+		mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), name, metav1.GetOptions{})
 		if err == nil {
 			return mpol, nil
 		}
