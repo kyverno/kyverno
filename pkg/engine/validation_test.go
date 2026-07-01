@@ -41,6 +41,7 @@ func testValidate(
 		contextLoader,
 		nil,
 		nil,
+		nil,
 	)
 	return e.Validate(
 		ctx,

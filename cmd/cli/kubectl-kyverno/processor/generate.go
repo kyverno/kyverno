@@ -122,6 +122,7 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		store.ContextLoaderFactory(s, nil),
 		nil,
 		nil,
+		nil,
 	))
 	return c, nil
 }
