@@ -7,12 +7,12 @@ import (
 )
 
 type Client interface {
-	// Set Adds an image to the cache. The image is considered to be verified for the given rule in the policy
-	// The entry outomatically expires after sometime
-	// Returns true when the cache entry is added
-	Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error)
+	// Set adds a verified image digest to the cache for the given policy rule.
+	// The entry automatically expires after some time.
+	// Returns true when the cache entry is added.
+	Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, verifiedDigest string, useCache bool) (bool, error)
 
-	// Get Searches for the image verified using the rule in the policy in the cache
-	// Returns true when the cache entry is found
-	Get(ctx context.Context, policy metav1.Object, ruleName string, imagerRef string, useCache bool) (bool, error)
+	// Get searches for a verified image digest in the cache for the given policy rule.
+	// Returns whether an entry was found and the verified digest bound to that entry.
+	Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, string, error)
 }

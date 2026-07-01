@@ -80,33 +80,37 @@ func (iv *imageVerifier) Verify(
 		}
 
 		isInCache := false
+		cachedDigest := ""
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+			found, verifiedDigest, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 			if err != nil {
 				iv.logger.Error(err, "error occurred during cache get", "image", image)
-			} else {
-				isInCache = found
+			} else if found {
+				isInCache, cachedDigest, err = iv.verifyCacheDigestBinding(ctx, image, imageInfo, verifiedDigest)
+				if err != nil {
+					iv.logger.Error(err, "failed to validate cache digest binding", "image", image)
+					isInCache = false
+					cachedDigest = ""
+				}
 			}
 		}
 
 		var ruleResp *engineapi.RuleResponse
 		var digest string
 		if isInCache {
-			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image, "digest", cachedDigest)
 			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
-			digest = imageInfo.Digest
+			digest = cachedDigest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
-			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
+			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass && digest != "" {
 				if iv.ivCache != nil {
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, digest, imageVerify.UseCache)
 					if err != nil {
 						iv.logger.Error(err, "error occurred during cache set", "image", image)
-					} else {
-						if setted {
-							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-						}
+					} else if setted {
+						iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image, "digest", digest)
 					}
 				}
 			}
@@ -576,6 +580,42 @@ func (iv *imageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string
 	iv.policyContext.JSONContext().Checkpoint()
 	defer iv.policyContext.JSONContext().Restore()
 	return EvaluateConditions(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger)
+}
+
+func (iv *imageVerifier) verifyCacheDigestBinding(
+	ctx context.Context,
+	image string,
+	imageInfo apiutils.ImageInfo,
+	cachedDigest string,
+) (bool, string, error) {
+	if cachedDigest == "" {
+		return false, "", nil
+	}
+	currentDigest, err := iv.resolveImageDigest(ctx, imageInfo)
+	if err != nil {
+		return false, "", err
+	}
+	if currentDigest != cachedDigest {
+		iv.logger.V(2).Info(
+			"cache entry digest mismatch, re-verifying",
+			"image", image,
+			"cachedDigest", cachedDigest,
+			"currentDigest", currentDigest,
+		)
+		return false, "", nil
+	}
+	return true, cachedDigest, nil
+}
+
+func (iv *imageVerifier) resolveImageDigest(ctx context.Context, imageInfo apiutils.ImageInfo) (string, error) {
+	if imageInfo.Digest != "" {
+		return imageInfo.Digest, nil
+	}
+	desc, err := iv.rclient.FetchImageDescriptor(ctx, imageInfo.String())
+	if err != nil {
+		return "", err
+	}
+	return desc.Digest.String(), nil
 }
 
 func (iv *imageVerifier) handleMutateDigest(ctx context.Context, digest string, imageInfo apiutils.ImageInfo) (*jsonpatch.JsonPatchOperation, string, error) {
