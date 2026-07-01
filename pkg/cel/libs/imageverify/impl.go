@@ -51,6 +51,7 @@ func ImageVerifyCELFuncs(
 	}
 	return &ivfuncs{
 		Adapter:         adapter,
+		logger:          logger,
 		imgCtx:          imgCtx,
 		creds:           spec.Credentials,
 		imgRules:        imgRules,
@@ -71,8 +72,10 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
 		} else if !match {
+			f.logger.V(4).Info("skipping image, no matchImageReferences match", "image", image)
 			return f.NativeToValue(count)
 		}
+		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
 		for _, attestor := range attestors {
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
@@ -81,9 +84,9 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			}
 
 			if attestor.IsCosign() {
-				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-					f.logger.Info("failed to verify image cosign", "error", err)
-				} else {
+				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
+				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err == nil {
+					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
 					count += 1
 				}
 			} else if attestor.IsNotary() {
@@ -94,13 +97,13 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				if attestor.Notary.TSACerts != nil {
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
-				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify image notary", "error", err)
-				} else {
+				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err == nil {
+					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
 					count += 1
 				}
 			}
 		}
+		f.logger.V(6).Info("verifyImageSignatures returning", "image", image, "verifiedCount", count)
 		return f.NativeToValue(count)
 	}
 }
@@ -121,8 +124,10 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
 		} else if !match {
+			f.logger.V(4).Info("skipping image, no matchImageReferences match", "image", image)
 			return f.NativeToValue(count)
 		}
+		f.logger.V(4).Info("verifyAttestationSignatures called", "image", image, "attestation", attestation, "attestorCount", len(attestors))
 		for _, attestor := range attestors {
 			attest, ok := f.attestationList[attestation]
 			if !ok {
@@ -134,9 +139,9 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
 			if attestor.IsCosign() {
-				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-					f.logger.Info("failed to verify attestation cosign", "error", err)
-				} else {
+				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
+				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err == nil {
+					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 					count += 1
 				}
 			} else if attestor.IsNotary() {
@@ -150,13 +155,13 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				if attestor.Notary.TSACerts != nil {
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
-				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
-					f.logger.Info("failed to verify attestation notary", "error", err)
-				} else {
+				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err == nil {
+					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 					count += 1
 				}
 			}
 		}
+		f.logger.V(6).Info("verifyAttestationSignatures returning", "image", image, "attestation", attestation, "verifiedCount", count)
 		return f.NativeToValue(count)
 	}
 }
