@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: observed-generation
+spec:
+  concurrent: false
+  steps:
+  - name: create-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-policy-ready
+    use:
+      template: ../../../_step-templates/mutating-policy-v1-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-observed-generation
+  - name: assert-observed-generation-initial
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: test-observed-generation
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - observedGeneration: 1
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - observedGeneration: 1
+  - name: update-policy-spec
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: test-observed-generation
+          spec:
+            mutations:
+            - patchType: ApplyConfiguration
+              applyConfiguration:
+                expression: |
+                  Object{
+                    metadata: Object.metadata{
+                      labels: {"mutated": "updated"}
+                    }
+                  }
+  - name: wait-policy-ready-after-update
+    use:
+      template: ../../../_step-templates/mutating-policy-v1-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-observed-generation
+  - name: assert-observed-generation-updated
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: test-observed-generation
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - observedGeneration: 2
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - observedGeneration: 2

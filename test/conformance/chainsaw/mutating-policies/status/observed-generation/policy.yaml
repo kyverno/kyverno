@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: test-observed-generation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["configmaps"]
+      operations: ["CREATE"]
+  variables:
+  - name: x
+    expression: "'test'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: |
+        Object{
+          metadata: Object.metadata{
+            labels: {"mutated": variables.x}
+          }
+        }
