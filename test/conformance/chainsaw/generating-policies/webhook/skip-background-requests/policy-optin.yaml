@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: gpol-skip-background-optin
+spec:
+  evaluation:
+    skipBackgroundRequests: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["UPDATE"]
+      resources: ["namespaces"]
+      resourceNames: ["gpol-skip-background-ns"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: generated
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "generated-optin",
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "source": "opt-in"
+            })
+          }
+        ]
+  generate:
+  - expression: generator.apply(variables.nsName, variables.generated)
