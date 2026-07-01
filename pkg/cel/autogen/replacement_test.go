@@ -141,3 +141,17 @@ func TestApplyRewritesExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyOrderIndependence(t *testing.T) {
+	// Pass metadata replacement before spec replacement.
+	// In a sequential implementation, metadata -> spec.template.metadata contains "spec",
+	// which would be erroneously matched again by the subsequent spec replacement.
+	replacements := []Replacement{
+		{From: "metadata", To: "spec.template.metadata"},
+		{From: "spec", To: "spec.template.spec"},
+	}
+	expr := []byte("object.metadata.labels['app'] == 'foo' && object.spec.replicas > 0")
+	want := []byte("object.spec.template.metadata.labels['app'] == 'foo' && object.spec.template.spec.replicas > 0")
+	got := Apply(expr, replacements...)
+	assert.Equal(t, want, got)
+}
