@@ -332,6 +332,32 @@ func Test_extractImageInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			// Filter field: only extract the array element where name == "bundle",
+			// skipping non-image params like {"name":"kind","value":"Task"}.
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"TaskRun": []kyvernov1.ImageExtractorConfig{
+					{Name: "taskRef", Path: "/spec/taskRef/params/*", Key: "name", Value: "value", Filter: "bundle"},
+				},
+			},
+			raw: []byte(`{"apiVersion":"tekton.dev/v1","kind":"TaskRun","metadata":{"name":"example"},"spec":{"taskRef":{"resolver":"bundles","params":[{"name":"kind","value":"Task"},{"name":"bundle","value":"gcr.io/tekton-releases/catalog/upstream/git-clone:0.7"},{"name":"name","value":"git-clone"}]}}}`),
+			images: map[string]map[string]ImageInfo{
+				"taskRef": {
+					"bundle": {
+						imageutils.ImageInfo{
+							Registry:         "gcr.io",
+							Name:             "git-clone",
+							Path:             "tekton-releases/catalog/upstream/git-clone",
+							Tag:              "0.7",
+							Reference:        "gcr.io/tekton-releases/catalog/upstream/git-clone:0.7",
+							ReferenceWithTag: "gcr.io/tekton-releases/catalog/upstream/git-clone:0.7",
+						},
+						"/spec/taskRef/params/1/value",
+						[]string{},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		resource, err := kubeutils.BytesToUnstructured(test.raw)
@@ -340,4 +366,17 @@ func Test_extractImageInfo(t *testing.T) {
 		assert.NilError(t, err)
 		assert.DeepEqual(t, test.images, images)
 	}
+}
+
+func Test_extractImageInfo_filterRequiresKey(t *testing.T) {
+	extractionConfig := kyvernov1.ImageExtractorConfigs{
+		"TaskRun": []kyvernov1.ImageExtractorConfig{
+			{Name: "taskRef", Path: "/spec/taskRef/params/*", Value: "value", Filter: "bundle"},
+		},
+	}
+	raw := []byte(`{"apiVersion":"tekton.dev/v1","kind":"TaskRun","metadata":{"name":"example"},"spec":{"taskRef":{"params":[{"name":"bundle","value":"gcr.io/example/image:v1"}]}}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+	_, err = ExtractImagesFromResource(*resource, extractionConfig, cfg)
+	assert.ErrorContains(t, err, "filter requires key")
 }

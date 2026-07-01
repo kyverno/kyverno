@@ -1,0 +1,46 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: taskruns-filter
+spec:
+  admission: true
+  background: true
+  rules:
+  - name: verify-images
+    match:
+      any:
+      - resources:
+          kinds:
+          - tekton.dev/v1/TaskRun
+    preconditions:
+      all:
+      - key: '{{request.operation}}'
+        operator: NotEquals
+        value: DELETE
+    imageExtractors:
+      TaskRun:
+      - name: taskRef
+        path: /spec/taskRef/params/*
+        key: name
+        value: value
+        filter: bundle
+    verifyImages:
+    - imageReferences:
+      - "*"
+      mutateDigest: false
+      verifyDigest: false
+      required: false
+      attestors:
+      - entries:
+        - keys:
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----
+            rekor:
+              ignoreTlog: true
+            ctlog:
+              ignoreSCT: true
+      failureAction: Audit
