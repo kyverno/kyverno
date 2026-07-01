@@ -378,6 +378,7 @@ func main() {
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 		_, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
+			setup.RegistrySecretLister,
 			gcstore,
 			restMapper,
 		)

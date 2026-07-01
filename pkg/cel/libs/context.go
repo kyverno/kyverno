@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
+
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -82,6 +83,7 @@ type contextProvider struct {
 
 func NewContextProvider(
 	client dclient.Interface,
+	secretLister corev1listers.SecretLister,
 	gctxStore gctxstore.Store,
 	restMapper meta.RESTMapper,
 ) (Context, error) {
@@ -93,7 +95,7 @@ func NewContextProvider(
 		return nil, err
 	}
 
-	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), authOpts, nameOpts)
+	idl, err := imagedataloader.New(secretLister, authOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}
