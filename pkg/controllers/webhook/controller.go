@@ -152,14 +152,15 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
-	server             string
-	defaultTimeout     int32
-	servicePort        int32
-	autoUpdateWebhooks bool
-	admissionReports   bool
-	runtime            runtimeutils.Runtime
-	configuration      config.Configuration
-	caSecretName       string
+	server                    string
+	defaultTimeout            int32
+	servicePort               int32
+	autoUpdateWebhooks        bool
+	excludeBootstrapResources bool
+	admissionReports          bool
+	runtime                   runtimeutils.Runtime
+	configuration             config.Configuration
+	caSecretName              string
 
 	// state
 	lock        sync.Mutex
@@ -197,6 +198,7 @@ func NewController(
 	defaultTimeout int32,
 	servicePort int32,
 	autoUpdateWebhooks bool,
+	excludeBootstrapResources bool,
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
@@ -208,36 +210,37 @@ func NewController(
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 	)
 	c := controller{
-		discoveryClient:    discoveryClient,
-		mwcClient:          mwcClient,
-		vwcClient:          vwcClient,
-		leaseClient:        leaseClient,
-		kyvernoClient:      kyvernoClient,
-		mwcLister:          mwcInformer.Lister(),
-		vwcLister:          vwcInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polLister:          polInformer.Lister(),
-		vpolLister:         vpolInformer.Lister(),
-		nvpolLister:        nvpolInformer.Lister(),
-		gpolLister:         gpolInformer.Lister(),
-		ngpolLister:        ngpolInformer.Lister(),
-		ivpolLister:        ivpolInformer.Lister(),
-		nivpolLister:       nivpolInformer.Lister(),
-		mpolLister:         mpolInformer.Lister(),
-		nmpolLister:        nmpolInformer.Lister(),
-		deploymentLister:   deploymentInformer.Lister(),
-		secretLister:       secretInformer.Lister(),
-		leaseLister:        leaseInformer.Lister(),
-		clusterroleLister:  clusterroleInformer.Lister(),
-		queue:              queue,
-		server:             server,
-		defaultTimeout:     defaultTimeout,
-		servicePort:        servicePort,
-		autoUpdateWebhooks: autoUpdateWebhooks,
-		admissionReports:   admissionReports,
-		runtime:            runtime,
-		configuration:      configuration,
-		caSecretName:       caSecretName,
+		discoveryClient:           discoveryClient,
+		mwcClient:                 mwcClient,
+		vwcClient:                 vwcClient,
+		leaseClient:               leaseClient,
+		kyvernoClient:             kyvernoClient,
+		mwcLister:                 mwcInformer.Lister(),
+		vwcLister:                 vwcInformer.Lister(),
+		cpolLister:                cpolInformer.Lister(),
+		polLister:                 polInformer.Lister(),
+		vpolLister:                vpolInformer.Lister(),
+		nvpolLister:               nvpolInformer.Lister(),
+		gpolLister:                gpolInformer.Lister(),
+		ngpolLister:               ngpolInformer.Lister(),
+		ivpolLister:               ivpolInformer.Lister(),
+		nivpolLister:              nivpolInformer.Lister(),
+		mpolLister:                mpolInformer.Lister(),
+		nmpolLister:               nmpolInformer.Lister(),
+		deploymentLister:          deploymentInformer.Lister(),
+		secretLister:              secretInformer.Lister(),
+		leaseLister:               leaseInformer.Lister(),
+		clusterroleLister:         clusterroleInformer.Lister(),
+		queue:                     queue,
+		server:                    server,
+		defaultTimeout:            defaultTimeout,
+		servicePort:               servicePort,
+		autoUpdateWebhooks:        autoUpdateWebhooks,
+		excludeBootstrapResources: excludeBootstrapResources,
+		admissionReports:          admissionReports,
+		runtime:                   runtime,
+		configuration:             configuration,
+		caSecretName:              caSecretName,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -916,6 +919,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 					},
 				}},
 				FailurePolicy:           &fail,
+				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -944,6 +948,8 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	slices.SortFunc(result.Webhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
 	})
+
+	excludeBootstrapResourcesFromMutatingWebhooks(result.Webhooks, c.excludeBootstrapResources)
 
 	return result, multierr.Combine(errs...)
 }
@@ -1164,6 +1170,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 					},
 				}},
 				FailurePolicy:           &fail,
+				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -1191,6 +1198,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
 	})
+
+	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
 
 	return webhookConfig, multierr.Combine(errs...)
 }
