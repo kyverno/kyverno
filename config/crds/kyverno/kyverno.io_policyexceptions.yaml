@@ -153,7 +153,8 @@ spec:
                       description: |-
                         PolicyName identifies the policy to which the exception is applied.
                         The policy name uses the format <namespace>/<name> unless it
-                        references a ClusterPolicy.
+                        references a ClusterPolicy. Wildcard patterns are supported and
+                        matched using shell-style glob patterns (e.g., "*", "default/*", "disallow-*").
                       type: string
                     ruleNames:
                       description: RuleNames identifies the rules to which the exception
@@ -794,7 +795,8 @@ spec:
                       description: |-
                         PolicyName identifies the policy to which the exception is applied.
                         The policy name uses the format <namespace>/<name> unless it
-                        references a ClusterPolicy.
+                        references a ClusterPolicy. Wildcard patterns are supported and
+                        matched using shell-style glob patterns (e.g., "*", "default/*", "disallow-*").
                       type: string
                     ruleNames:
                       description: RuleNames identifies the rules to which the exception
