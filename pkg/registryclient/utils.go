@@ -12,7 +12,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// parseSecretReference parses a secret reference which can be:
+// ParseSecretReference parses a secret reference which can be:
 // - "secret-name" -> namespace=defaultNamespace, name=secret-name
 // - "namespace/secret-name" -> namespace=namespace, name=secret-name
 func ParseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
@@ -27,7 +27,7 @@ func ParseSecretReference(secretRef string, defaultNamespace string) (namespace 
 
 // generateKeychainForPullSecrets generates keychain by fetching secrets data from imagePullSecrets.
 // Supports namespace/name notation for secrets in any namespace.
-func generateKeychainForPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) (authn.Keychain, error) {
+func generateKeychainForPullSecrets(ctx context.Context, lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) (authn.Keychain, error) {
 	var secrets []corev1.Secret
 	for _, imagePullSecret := range imagePullSecrets {
 		namespace, name := ParseSecretReference(imagePullSecret, defaultNamespace)
@@ -40,5 +40,5 @@ func generateKeychainForPullSecrets(lister corev1listers.SecretLister, defaultNa
 			logging.V(4).Info("secret not found, skipping", "namespace", namespace, "name", name)
 		}
 	}
-	return kauth.NewFromPullSecrets(context.TODO(), secrets)
+	return kauth.NewFromPullSecrets(ctx, secrets)
 }
