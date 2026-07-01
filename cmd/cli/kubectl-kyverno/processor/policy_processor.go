@@ -45,10 +45,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -126,7 +126,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.NewOrDie()
+		rclient = registryclient.New(nil, "", "", "", false)
 	}
 	isCluster := false
 	if len(p.CrdPaths) > 0 {

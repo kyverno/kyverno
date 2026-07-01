@@ -107,7 +107,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 
 	// Create the real ContextProvider — same code path as production.
 	// Only the underlying K8s API is swapped (envtest instead of real cluster).
-	ctxProvider, err := libs.NewContextProvider(dc, nil, nil, mgr.GetRESTMapper(), false)
+	ctxProvider, err := libs.NewContextProvider(dc, nil, mgr.GetRESTMapper())
 	if err != nil {
 		_ = env.Stop()
 		return nil, fmt.Errorf("failed to create context provider: %w", err)

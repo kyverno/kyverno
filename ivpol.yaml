@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-autogen-none-sample
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 20
+  failurePolicy: Ignore
+  validationActions:
+  - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments"]
+  matchImageReferences:
+    - glob: 959415290689.dkr.ecr.eu-west-1.amazonaws.com/*
+  attestors:
+    - name: cosign
+      cosign:
+        key:
+          data: |-
+            -----BEGIN PUBLIC KEY-----
+            MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMZUJ63RgLGkksiaVtbIWy6OMRbId
+            CReaW25pLa80dUK+BO8EcnNLSUcRU4tgydWF469YHq23ELcPDm7l2t7DxA==
+            -----END PUBLIC KEY-----
+  validations:
+    - expression: >-
+        image.getMetadata(object.spec.template.spec.containers[0].image).config.architecture == "amd64"
+      message: failed to check image architecture
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.cosign])).all(e, e > 0)
+      message: failed to verify image with cosign

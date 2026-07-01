@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
@@ -27,10 +26,8 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 	if dclient != nil && !isFake {
 		return libs.NewContextProvider(
 			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 			gctxstore.New(),
 			restMapper,
-			true,
 		)
 	}
 

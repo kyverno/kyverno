@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -13,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type CompiledImageValidatingPolicy struct {
@@ -22,10 +24,11 @@ type CompiledImageValidatingPolicy struct {
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
-// wait.. this thing only gets called in the cli ? where do we call the kubernetes evaluator ?
-func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
-	// create a context
-	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
+// is this a dumb wrapper just to build an image context and not have to rely on libraries context ?
+// is a libraries context available to us at this function's call site ?
+func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes,
+	namespace runtime.Object, lister corev1listers.SecretLister, authOpts []remote.Option, nameOpts []name.Option) (map[string]*EvaluationResult, error) {
+	ictx, err := imagedataloader.NewImageContext(lister, authOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}

@@ -26,7 +26,7 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient verifie
 		return nil, err
 	}
 
-	remoteOpts, err := registryClient.Options(ctx)
+	remoteOpts, _, err := registryClient.Options(ctx)
 	if err != nil {
 		return nil, err
 	}

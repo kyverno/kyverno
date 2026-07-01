@@ -11,13 +11,15 @@ import (
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
-	"github.com/kyverno/kyverno/pkg/config"
+	kyvernocfg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
+	"k8s.io/client-go/informers"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -36,14 +38,13 @@ func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFu
 
 type SetupResult struct {
 	Logger                 logr.Logger
-	Configuration          config.Configuration
-	MetricsConfiguration   config.MetricsConfiguration
+	Configuration          kyvernocfg.Configuration
+	MetricsConfiguration   kyvernocfg.MetricsConfiguration
 	MetricsManager         metrics.MetricsConfigManager
 	Jp                     jmespath.Interface
 	KubeClient             kubeclient.UpstreamInterface
 	OpenreportsClient      openreportsclient.OpenreportsV1alpha1Interface
 	LeaderElectionClient   kubeclient.UpstreamInterface
-	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
 	RegistrySecretLister   corev1listers.SecretLister
 	KyvernoClient          kyvernoclient.UpstreamInterface
@@ -73,11 +74,25 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	client = client.WithMetrics(metricsManager, metrics.KubeClient)
 	configuration := startConfigController(ctx, logger, client, skipResourceFilters)
 	sdownTracing := SetupTracing(logger, name, client)
-	var registryClient registryclient.Client
 	var registrySecretLister corev1listers.SecretLister
+
 	if config.UsesRegistryClient() {
-		registryClient, registrySecretLister = setupRegistryClient(ctx, logger, client)
+		// is this informer bootstrap the same as what existed before ?
+		informerFactory := informers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, informers.WithNamespace(kyvernocfg.KyvernoNamespace()))
+
+		stopCh := make(chan struct{})
+		// we can't call close stop channel at the end of this, the informer will die
+		// we need a cancellable context
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		registrySecretLister = informerFactory.Core().V1().Secrets().Lister()
+		registryclient.SetupGlobalRegistryClient(registrySecretLister, "kyverno",
+			imagePullSecrets,
+			registryCredentialHelpers, allowInsecureRegistry)
 	}
+
 	var imageVerifyCache imageverifycache.Client
 	if config.UsesImageVerifyCache() {
 		imageVerifyCache = setupImageVerifyCache(logger)
@@ -143,7 +158,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			Jp:                     jmespath.New(configuration),
 			KubeClient:             client,
 			LeaderElectionClient:   leaderElectionClient,
-			RegistryClient:         registryClient,
 			ImageVerifyCacheClient: imageVerifyCache,
 			RegistrySecretLister:   registrySecretLister,
 			OpenreportsClient:      orClient,

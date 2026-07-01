@@ -12,16 +12,16 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/policy"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// THIS PLACE STORES THE VERIFIER TYPES THAT WRAP COSIGN OR NOTARY AND CONFORM THEM TO THE VERIFIER INTERFACE KYVERNO EXPECTS
-// maybe this is why the image verifier library can't be moved outside of kyverno kyverno ? because it relies on types directly from this package ?
 type Verifier struct {
-	secretInterface imagedataloader.SecretInterface
+	secretInterface corev1listers.SecretLister
 	log             logr.Logger
 }
 
-func NewVerifier(secretInterface imagedataloader.SecretInterface, logger logr.Logger) *Verifier {
+func NewVerifier(secretInterface corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
 		log:             logging.WithName("Cosign"),
 		secretInterface: secretInterface,
