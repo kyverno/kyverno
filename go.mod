@@ -8,12 +8,12 @@ require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alitto/pond v1.9.2
+	github.com/alitto/pond/v2 v2.7.1
 	github.com/aquilax/truncate v1.0.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v7 v7.0.0
 	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/distribution/reference v0.6.0
