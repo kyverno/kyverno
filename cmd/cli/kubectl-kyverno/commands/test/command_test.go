@@ -249,6 +249,62 @@ func TestResultCountsOnMismatch(t *testing.T) {
 	}
 }
 
+// TestIsExpectedFailure covers the regression from #16100: a negative mutation
+// test (patchedResources with result: fail) reports a resource diff, and that
+// intentional diff must be treated as a passing test. A rule status mismatch
+// ("Want X, got Y") must never be rescued, so #15361 / #11519 stays fixed.
+func TestIsExpectedFailure(t *testing.T) {
+	failResult := v1alpha1.TestResult{
+		TestResultBase: v1alpha1.TestResultBase{Result: openreportsv1alpha1.Result(openreports.StatusFail)},
+	}
+	passResult := v1alpha1.TestResult{
+		TestResultBase: v1alpha1.TestResultBase{Result: openreportsv1alpha1.Result(openreports.StatusPass)},
+	}
+
+	tests := []struct {
+		name   string
+		ok     bool
+		reason string
+		test   v1alpha1.TestResult
+		want   bool
+	}{
+		{
+			name:   "resource diff with expected fail is rescued as pass",
+			ok:     false,
+			reason: reasonResourceDiff,
+			test:   failResult,
+			want:   true,
+		},
+		{
+			name:   "resource diff with expected pass is not rescued",
+			ok:     false,
+			reason: reasonResourceDiff,
+			test:   passResult,
+			want:   false,
+		},
+		{
+			name:   "status mismatch with expected fail is not rescued",
+			ok:     false,
+			reason: "Want fail, got pass",
+			test:   failResult,
+			want:   false,
+		},
+		{
+			name:   "matching result is never a rescued failure",
+			ok:     true,
+			reason: "Ok",
+			test:   failResult,
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isExpectedFailure(tt.ok, tt.reason, tt.test))
+		})
+	}
+}
+
 func Test_JSONPayload(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
