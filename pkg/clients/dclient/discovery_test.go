@@ -121,6 +121,14 @@ func Test_findResource(t *testing.T) {
 	assert.Equal(t, apiResource.Group, "")
 	assert.Equal(t, apiResource.Version, "v1")
 
+	// Test plural form matching
+	apiResource, parentAPIResource, gvr, err = findResource("", "Pods", serverPreferredResourcesList, serverGroupsAndResources)
+	assert.NoError(t, err)
+	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods", Group: "", Version: "v1"})
+	assert.Equal(t, parentAPIResource, (*metav1.APIResource)(nil))
+	assert.Equal(t, apiResource.Name, podAPIResource.Name)
+	assert.Equal(t, apiResource.Kind, podAPIResource.Kind)
+
 	apiResource, parentAPIResource, gvr, err = findResource("policy/v1", "Eviction", serverPreferredResourcesList, serverGroupsAndResources)
 	assert.NoError(t, err)
 	assert.Equal(t, gvr, schema.GroupVersionResource{Resource: "pods/eviction", Group: "policy", Version: "v1"})
