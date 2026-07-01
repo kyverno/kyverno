@@ -89,6 +89,7 @@ func main() {
 		renewBefore              time.Duration
 		maxAPICallResponseLength int64
 		apiCallTimeout           time.Duration
+		enableSATokenInjection   bool
 		autoDeleteWebhooks       bool
 		tlsKeyAlgorithm          string
 	)
@@ -109,6 +110,7 @@ func main() {
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
+	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", true, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Enabled by default; set to false to opt out.")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
@@ -214,6 +216,7 @@ func main() {
 				apiCallTimeout,
 				false,
 				setup.Jp,
+				enableSATokenInjection,
 			),
 			globalcontextcontroller.Workers,
 		)

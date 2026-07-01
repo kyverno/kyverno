@@ -71,6 +71,7 @@
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
   {{- $flags = append $flags (print "--apiCallTimeout=" .apiCallTimeout) -}}
+  {{- $flags = append $flags (print "--enableSATokenInjection=" .enableSATokenInjection) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
