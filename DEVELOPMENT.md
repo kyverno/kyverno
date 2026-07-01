@@ -482,7 +482,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. There are multiple environment variables that need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
    - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
-   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip address of your local machine)
    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
    - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`
