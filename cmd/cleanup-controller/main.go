@@ -227,7 +227,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, gcstore, restMapper)
+		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, setup.RegistrySecretLister, gcstore, restMapper)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create CEL context provider")
 			os.Exit(1)

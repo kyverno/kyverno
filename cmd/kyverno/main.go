@@ -683,6 +683,7 @@ func main() {
 
 		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
+			setup.RegistrySecretLister,
 			gcstore,
 			restMapper,
 		)

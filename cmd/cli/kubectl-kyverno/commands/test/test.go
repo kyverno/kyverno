@@ -651,6 +651,8 @@ func applyImageValidatingPolicies(
 	var lister corev1listers.SecretLister
 	if dclient != nil {
 		// how should i manage that informer ?
+		// this informer technically lives for the duration of the cli command..
+		// maybe we can tolerate the fact that we don't have proper closure of it ?
 		kubeClient := dclient.GetKubeClient()
 		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
 

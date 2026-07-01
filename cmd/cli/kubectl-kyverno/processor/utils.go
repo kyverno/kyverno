@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/informers"
 )
 
 func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool {
@@ -24,8 +25,20 @@ func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool
 
 func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}, httpMockIndex map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		// TODO: informer exit, we rely on the fact that this is gonna be used in the cli
+		// so the context and the informer will just die at the end of the command execution.
+		// but maybe we can do better ?
+		stopCh := make(chan struct{})
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister := informerFactory.Core().V1().Secrets().Lister()
 		return libs.NewContextProvider(
 			dclient,
+			lister,
 			gctxstore.New(),
 			restMapper,
 		)
