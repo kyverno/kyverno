@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -80,6 +81,9 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 
 func Test_serviceGetRequest(t *testing.T) {
 	testfn := func(t *testing.T, useChunked bool) {
+		assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+		t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
 		serverResponse := []byte(`{ "day": "Sunday" }`)
 		s := buildTestServer(serverResponse, useChunked)
 		defer s.Close()
@@ -141,6 +145,9 @@ func Test_serviceGetRequest(t *testing.T) {
 }
 
 func Test_servicePostRequest(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
 	serverResponse := []byte(`{ "day": "Monday" }`)
 	s := buildTestServer(serverResponse, false)
 	defer s.Close()
@@ -275,6 +282,9 @@ func buildEchoHeaderTestServer() *httptest.Server {
 }
 
 func Test_serviceHeaders(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
 	s := buildEchoHeaderTestServer()
 	defer s.Close()
 
@@ -315,6 +325,95 @@ type mockClient struct{}
 
 func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return []byte("{}"), nil
+}
+
+func Test_NamespacedPolicy_ServiceCallBlocked(t *testing.T) {
+	assert.NilError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("false"))
+	t.Cleanup(func() {
+		assert.NilError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("false"))
+	})
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: "https://webhook.example.com/check",
+				},
+			},
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "service calls are not allowed in namespaced policies")
+	assert.ErrorContains(t, err, "allowHTTPInNamespacedPolicies")
+}
+
+func Test_NamespacedPolicy_ServiceCallAllowedWithToggle(t *testing.T) {
+	assert.NilError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("true"))
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() {
+		assert.NilError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("false"))
+		toggle.HTTPBlocklist.Reset()
+	})
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+				},
+			},
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
+}
+
+func Test_ClusterPolicy_ServiceCallNotGated(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+				},
+			},
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+
+	// policyNamespace="" means ClusterPolicy — toggle should not apply
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
 }
 
 func Test_CrossNamespaceAccess(t *testing.T) {
@@ -396,6 +495,9 @@ func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
 }
 
 func Test_contextCancellation(t *testing.T) {
+	assert.NilError(t, toggle.HTTPBlocklist.Parse(""))
+	t.Cleanup(func() { toggle.HTTPBlocklist.Reset() })
+
 	// Server that delays response longer than our context timeout
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
