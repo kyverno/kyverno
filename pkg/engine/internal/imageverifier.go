@@ -549,7 +549,10 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		return fmt.Errorf("a type is required")
 	}
 	image := imageInfo.String()
-	statementsByPredicate, types := buildStatementMap(statements)
+	statementsByPredicate, types, err := buildStatementMap(statements)
+	if err != nil {
+		return fmt.Errorf("failed to build statement map: %w", err)
+	}
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 	statements = statementsByPredicate[attestation.Type]
 	if statements == nil {
