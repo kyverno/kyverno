@@ -146,7 +146,11 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
 		}
 		opts.TrustedMaterial = trustedRoot
-	} else if att.Key != nil {
+
+		return opts, nil
+	}
+
+	if att.Key != nil {
 		if len(att.Key.Data) > 0 {
 			opts.SigVerifier, err = decodePEM([]byte(att.Key.Data), signatureAlgorithmMap[att.Key.HashAlgorithm])
 			if err != nil {
@@ -158,7 +162,10 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
 			}
 		}
-	} else if att.Certificate != nil {
+		return opts, nil
+	}
+
+	if att.Certificate != nil {
 		if att.Certificate.Certificate != nil && att.Certificate.Certificate.Value != "" {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := certFromBytes([]byte(att.Certificate.Certificate.Value))
@@ -199,8 +206,10 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 			opts.RootCerts = cp
 		}
+
+		return opts, nil
 	}
-	return opts, nil
+	return nil, fmt.Errorf("cosign verifier needs to have one key, keyless or certificate fields set")
 }
 
 func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
