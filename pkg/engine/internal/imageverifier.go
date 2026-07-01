@@ -192,7 +192,12 @@ func (iv *imageVerifier) verifyAttestors(
 	for i, attestorSet := range attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
-		iv.logger.V(4).Info("verifying attestors", "path", path)
+		if deadline, ok := ctx.Deadline(); ok {
+			// debug whether we have enough time to validate images for multi-containers pods
+			iv.logger.V(4).Info("starting image verification", "path", path, "image", image, "deadlineRemaining", time.Until(deadline).String())
+		} else {
+			iv.logger.V(4).Info("verifying attestors", "path", path)
+		}
 		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify image", "image", image)
@@ -210,7 +215,16 @@ func (iv *imageVerifier) verifyAttestors(
 func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineapi.RuleResponse {
 	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 	var netErr *net.OpError
-	if errors.As(err, &netErr) {
+	isNetErr := errors.As(err, &netErr)
+	isContextCanceled := errors.Is(err, context.Canceled)
+	isDeadlineExceeded := errors.Is(err, context.DeadlineExceeded)
+	if isNetErr || isContextCanceled || isDeadlineExceeded {
+		iv.logger.V(4).Info("image verification infrastructure error",
+			"image", image,
+			"networkError", isNetErr,
+			"contextCanceled", isContextCanceled,
+			"deadlineExceeded", isDeadlineExceeded,
+		)
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err, iv.rule.ReportProperties)
 	}
 	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties)
