@@ -25,6 +25,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			name: "Single Ignore Policy",
 			vpols: []*policiesv1beta1.ValidatingPolicy{
 				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-ignore",
+					},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -57,7 +60,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ValidatingPolicyWebhookName + "-ignore",
+					Name: config.ValidatingPolicyWebhookName + "-ignore-test-ignore",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -87,6 +90,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			name: "Single Fail Policy",
 			vpols: []*policiesv1beta1.ValidatingPolicy{
 				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-fail",
+					},
 					Spec: policiesv1beta1.ValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Fail),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -119,7 +125,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ValidatingPolicyWebhookName + "-fail",
+					Name: config.ValidatingPolicyWebhookName + "-fail-test-fail",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -301,6 +307,101 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				},
 			},
 		},
+			{
+				name: "Multiple Policies with Different Selectors (Issue #16131)",
+				vpols: []*policiesv1beta1.ValidatingPolicy{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "deny-app-deletion-by-label",
+						},
+						Spec: policiesv1beta1.ValidatingPolicySpec{
+							FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+							MatchConstraints: &admissionregistrationv1.MatchResources{
+								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+									{
+										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+											Rule: admissionregistrationv1.Rule{
+												APIGroups:   []string{"argoproj.io"},
+												APIVersions: []string{"v1alpha1"},
+												Resources:   []string{"applications"},
+												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "deny-intermediate-app-deletion",
+						},
+						Spec: policiesv1beta1.ValidatingPolicySpec{
+							FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+							MatchConstraints: &admissionregistrationv1.MatchResources{
+								ObjectSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"definer.myorg.de/type": "intermediate",
+									},
+								},
+								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+									{
+										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+											Rule: admissionregistrationv1.Rule{
+												APIGroups:   []string{"argoproj.io"},
+												APIVersions: []string{"v1alpha1"},
+												Resources:   []string{"applications"},
+												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+					{
+						Name: config.ValidatingPolicyWebhookName + "-fail-deny-app-deletion-by-label",
+						Rules: []admissionregistrationv1.RuleWithOperations{
+							{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"argoproj.io"},
+									APIVersions: []string{"v1alpha1"},
+									Resources:   []string{"applications"},
+									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+								},
+							},
+						},
+						FailurePolicy:     ptr.To(admissionregistrationv1.Fail),
+						NamespaceSelector: nil,
+						ObjectSelector:    nil,
+					},
+					{
+						Name: config.ValidatingPolicyWebhookName + "-ignore-deny-intermediate-app-deletion",
+						Rules: []admissionregistrationv1.RuleWithOperations{
+							{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"argoproj.io"},
+									APIVersions: []string{"v1alpha1"},
+									Resources:   []string{"applications"},
+									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+								},
+							},
+						},
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"definer.myorg.de/type": "intermediate",
+							},
+						},
+					},
+				},
+			},
 	}
 
 	for _, tt := range tests {
@@ -360,6 +461,9 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			name: "Autogen Single Ignore Policy",
 			ivpols: []*policiesv1beta1.ImageValidatingPolicy{
 				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-ivpol-ignore",
+					},
 					Spec: policiesv1beta1.ImageValidatingPolicySpec{
 						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 						MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -382,7 +486,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			},
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
-					Name: config.ImageValidatingPolicyValidateWebhookName + "-ignore",
+					Name: config.ImageValidatingPolicyValidateWebhookName + "-ignore-test-ivpol-ignore",
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
