@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -262,4 +264,105 @@ func TestBuildMutatingAdmissionPolicyBeta_MutationTypeConversion(t *testing.T) {
 	assert.Equal(t, admissionregistrationv1beta1.PatchTypeJSONPatch, mapol2.Spec.Mutations[0].PatchType)
 	assert.NotNil(t, mapol2.Spec.Mutations[0].JSONPatch)
 	assert.Equal(t, "[{'op': 'add', 'path': '/metadata/labels/app', 'value': 'test'}]", mapol2.Spec.Mutations[0].JSONPatch.Expression)
+}
+
+func TestBuildMutatingAdmissionPolicyBeta_ReportingLabels(t *testing.T) {
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-mpol",
+			UID:  "test-uid",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("enabled when reporting not excluded", func(t *testing.T) {
+		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"},
+		}
+		BuildMutatingAdmissionPolicyBeta(mapol, mp, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := mapol.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("disabled when source excludes reporting", func(t *testing.T) {
+		excluded := mp.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"},
+		}
+		BuildMutatingAdmissionPolicyBeta(mapol, excluded, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := mapol.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
+}
+
+func TestBuildValidatingAdmissionPolicy_ReportingLabels(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-vpol",
+			UID:  "test-uid",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+	policy := engineapi.NewValidatingPolicy(vpol)
+
+	t.Run("enabled when reporting not excluded", func(t *testing.T) {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "vpol-test-vpol"},
+		}
+		err := BuildValidatingAdmissionPolicy(nil, vap, policy, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "true", vap.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := vap.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("disabled when source excludes reporting", func(t *testing.T) {
+		excluded := vpol.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		excludedPolicy := engineapi.NewValidatingPolicy(excluded)
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "vpol-test-vpol"},
+		}
+		err := BuildValidatingAdmissionPolicy(nil, vap, excludedPolicy, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "true", vap.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := vap.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
 }

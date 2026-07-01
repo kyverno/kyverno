@@ -3,6 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
+    reports.kyverno.io/enabled: "true"
   name: cpol-check-label-app4
   ownerReferences:
   - apiVersion: kyverno.io/v1
