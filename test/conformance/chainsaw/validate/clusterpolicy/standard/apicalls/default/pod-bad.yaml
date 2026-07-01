@@ -4,5 +4,5 @@ metadata:
   name: bad-pod
 spec:
   containers:
-  - image: public.ecr.aws/docker/library/nginx
+  - image: nginx
     name: example

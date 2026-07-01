@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: my-app-container
-        image: public.ecr.aws/docker/library/nginx
+        image: nginx
         securityContext:
           allowPrivilegeEscalation: false
         
