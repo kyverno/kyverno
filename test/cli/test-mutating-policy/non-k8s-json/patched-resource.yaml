@@ -1,0 +1,11 @@
+application:
+  name: web-app
+  version: 1.0.0
+processedBy: kyverno
+user:
+  email: john@example.com
+  name: john
+  settings:
+    notifications: true
+    theme: dark
+    validated: true
