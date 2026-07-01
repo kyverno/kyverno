@@ -1843,6 +1843,9 @@ cleanupController:
   rbac:
     # -- Create RBAC resources
     create: true
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role
+      extraResources: []
 
     serviceAccount:
       # -- Service account name
