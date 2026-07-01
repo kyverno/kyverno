@@ -16,7 +16,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 

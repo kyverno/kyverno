@@ -15,11 +15,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
-
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/sdk/extensions/registryclient"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
-	"k8s.io/client-go/informers"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -77,20 +74,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var registrySecretLister corev1listers.SecretLister
 
 	if config.UsesRegistryClient() {
-		// is this informer bootstrap the same as what existed before ?
-		informerFactory := informers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, informers.WithNamespace(kyvernocfg.KyvernoNamespace()))
-
-		stopCh := make(chan struct{})
-		// we can't call close stop channel at the end of this, the informer will die
-		// we need a cancellable context
-		defer close(stopCh)
-		informerFactory.Start(stopCh)
-		informerFactory.WaitForCacheSync(stopCh)
-
-		registrySecretLister = informerFactory.Core().V1().Secrets().Lister()
-		registryclient.SetupGlobalRegistryClient(registrySecretLister, "kyverno",
-			imagePullSecrets,
-			registryCredentialHelpers, allowInsecureRegistry)
+		_, registrySecretLister = setupRegistryClient(ctx, logger, client)
 	}
 
 	var imageVerifyCache imageverifycache.Client

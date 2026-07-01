@@ -32,7 +32,6 @@ type ivfuncs struct {
 	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
-	secretLister    corev1listers.SecretLister
 	authOpts        []remote.Option
 	nameOpts        []name.Option
 }
