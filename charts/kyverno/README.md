@@ -621,6 +621,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
+| cleanupController.rbac.coreClusterRole.extraResources | list | `[]` | Extra resource permissions to add in the core cluster role |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
