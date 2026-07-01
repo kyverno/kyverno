@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-generate-existing-restart-background-controller
+  namespace: sync-generate-existing-restart-background-controller
+data:
+  key: value
