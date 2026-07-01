@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -22,6 +22,8 @@ import (
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 var tufMu sync.Mutex
@@ -42,7 +44,7 @@ func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
 
-func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
+func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
 	tufMu.Lock()
 	defer tufMu.Unlock()
 
@@ -241,17 +243,14 @@ func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 	return nil
 }
 
-func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretInterface, src *v1beta1.Source) ([]remote.Option, error) {
+func sourceRemoteOpts(ctx context.Context, secretLister corev1listers.SecretLister, src *v1beta1.Source) ([]remote.Option, error) {
 	opts := make([]remote.Option, 0)
 	if len(src.SignaturePullSecrets) > 0 {
 		signaturePullSecrets := make([]string, 0, len(src.SignaturePullSecrets))
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc, err := imagedataloader.NewAutoRefreshSecretsKeychain(secretLister, signaturePullSecrets...)
-		if err != nil {
-			return nil, err
-		}
+		kc := regcreds.NewSecretsKeychain(secretLister, "kyverno", signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil

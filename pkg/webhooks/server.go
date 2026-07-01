@@ -126,6 +126,8 @@ func NewServer(
 			WithAdmission(vpolLogger.WithName("validate")).
 			ToHandlerFunc("NVPOL"),
 	)
+	// is this a webhook for the policy resource or the general resources ?
+	// gonna go with general resource
 	mux.HandlerFunc(
 		"POST",
 		"/ivpol/validate/*policies",

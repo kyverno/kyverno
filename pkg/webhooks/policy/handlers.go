@@ -16,16 +16,20 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type policyHandlers struct {
 	client                       dclient.Interface
+	secretlister                 corev1listers.SecretLister
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 }
 
-func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string) *policyHandlers {
+func NewHandlers(client dclient.Interface, secretLister corev1listers.SecretLister, backgroundSA, reportsSA string) *policyHandlers {
 	return &policyHandlers{
+		secretlister:                 secretLister,
 		client:                       client,
 		backgroundServiceAccountName: backgroundSA,
 		reportsServiceAccountName:    reportsSA,
@@ -48,7 +52,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
-		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
+		warnings, err := eval.Validate(ivpol, h.secretlister)
 		if err != nil {
 			logger.Error(err, "ImageValidatingPolicy validation errors")
 		}

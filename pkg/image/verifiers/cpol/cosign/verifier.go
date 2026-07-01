@@ -47,6 +47,7 @@ func (v *verifier) VerifySignature(ctx context.Context, opts verifiers.Options) 
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
 
+	// verify image signatures is a wrapper around a cosign function of the same name
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
@@ -65,6 +66,7 @@ func (v *verifier) VerifySignature(ctx context.Context, opts verifiers.Options) 
 	}
 
 	logger.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
+	// extract the payload of what from the signatures ?
 	payload, err := extractPayload(signatures)
 	if err != nil {
 		return nil, err
@@ -74,6 +76,8 @@ func (v *verifier) VerifySignature(ctx context.Context, opts verifiers.Options) 
 		return nil, err
 	}
 
+	// is this the annotations checker they are talking about in the thread sent by shuting ?
+	// what are the opts annotations we pass
 	err = checkAnnotations(payload, opts.Annotations)
 	if err != nil {
 		return nil, err

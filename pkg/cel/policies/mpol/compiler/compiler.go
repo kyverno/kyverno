@@ -170,6 +170,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libCtx},
 			imagedata.Latest(),
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		hash.Lib(
 			hash.Latest(),

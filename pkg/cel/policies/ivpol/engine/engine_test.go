@@ -163,7 +163,7 @@ func Test_ImageVerifyEngine(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil)
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)

@@ -12,8 +12,8 @@ spec:
         operations: ["CREATE"]
         resources: ["pods"]
   matchConditions:
-    - name: "check-prod-label"  
-      expression: >- 
+    - name: "check-prod-label"
+      expression: >-
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   matchImageReferences:
     - glob: ghcr.io/*

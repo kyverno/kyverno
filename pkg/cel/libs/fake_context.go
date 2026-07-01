@@ -3,6 +3,7 @@ package libs
 import (
 	"fmt"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,7 +94,7 @@ func (cp *FakeContextProvider) GetGlobalReference(name, projection string) (any,
 	return data, nil
 }
 
-func (cp *FakeContextProvider) GetImageData(image string) (map[string]any, error) {
+func (cp *FakeContextProvider) GetImageData(image string, _ []remote.Option) (map[string]any, error) {
 	if cp.images == nil {
 		return nil, fmt.Errorf("image data not found in the context")
 	}

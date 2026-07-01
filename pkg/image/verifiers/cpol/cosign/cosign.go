@@ -49,7 +49,7 @@ func countPEMCertBlocks(pem []byte) int {
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
-	options, err := opts.Client.Options(ctx)
+	options, _, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
 	}

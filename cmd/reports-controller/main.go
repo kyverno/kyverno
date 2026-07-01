@@ -378,11 +378,11 @@ func main() {
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 		_, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			setup.RegistrySecretLister,
 			gcstore,
 			restMapper,
-			false,
 		)
+
 		if err != nil {
 			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
@@ -425,7 +425,6 @@ func main() {
 			setup.Configuration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
-			setup.RegistryClient,
 			setup.ImageVerifyCacheClient,
 			setup.KubeClient,
 			setup.KyvernoClient,

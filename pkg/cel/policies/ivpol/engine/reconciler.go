@@ -18,7 +18,7 @@ import (
 type reconciler struct {
 	client       client.Client
 	lock         *sync.RWMutex
-	policies     map[string]Policy
+	policies     map[string]Policy // this is not a compiled policy man
 	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }

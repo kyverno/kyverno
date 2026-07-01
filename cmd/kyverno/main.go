@@ -430,6 +430,7 @@ func main() {
 		internal.WithReporting(),
 		internal.WithRestConfig(),
 	)
+
 	// parse flags
 	internal.ParseFlags(appConfig)
 	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
@@ -571,7 +572,6 @@ func main() {
 			setup.Configuration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
-			setup.RegistryClient,
 			setup.ImageVerifyCacheClient,
 			setup.KubeClient,
 			setup.KyvernoClient,
@@ -676,17 +676,16 @@ func main() {
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
+			setup.RegistrySecretLister,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
 
 		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			setup.RegistrySecretLister,
 			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			restMapper,
-			false,
 		)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create cel context provider")
@@ -768,6 +767,8 @@ func main() {
 				matching.NewMatcher(),
 			), metrics.AdmissionRequest)
 
+			// create an image validating policy engine (that contains HandleMutating and HandleValidating)
+			// and wrap it in a metrics wrapper. where is this engine invoked ?
 			ivpolEngine = ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
@@ -778,8 +779,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-				nil,
+				setup.RegistrySecretLister,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
@@ -886,7 +886,10 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
+				Mutation: webhooks.HandlerFunc(resourceHandlers.Mutate),
+				// this is the ivpol mutating webhook entry point
+				// all of this brings me to the question, where did we get the credentials specified in the image validating policy and pass them
+				// to those handlers ?
 				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
 				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateClustered),
 				NamespacedMutatingPolicies:        webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
@@ -894,8 +897,9 @@ func main() {
 				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateClustered),
 				NamespacedValidatingPolicies:      webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
-				NamespacedGeneratingPolicies:      webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				// create a handler function from ivpolhanlders.Validate
+				GeneratingPolicies:           webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies: webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

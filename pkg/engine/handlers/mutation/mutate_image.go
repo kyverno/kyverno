@@ -113,6 +113,7 @@ func (h mutateImageHandler) Process(
 
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
+	// for each rule in the image verify rules we extracted
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
 		if err != nil {
@@ -120,6 +121,7 @@ func (h mutateImageHandler) Process(
 				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err, rule.ReportProperties),
 			)
 		}
+		// build an image verifier in the mutate image handler ??
 		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)

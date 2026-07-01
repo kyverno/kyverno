@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -25,43 +25,38 @@ type registryClientFactory struct {
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {
-	if creds != nil || len(imagePullSecrets) > 0 {
-		registryOptions := []registryclient.Option{
-			registryclient.WithTracing(),
-		}
-		if creds != nil && creds.AllowInsecureRegistry {
-			registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
-		}
-		if creds != nil && len(creds.Providers) > 0 {
-			providers := make([]string, 0, len(creds.Providers))
-			for _, helper := range creds.Providers {
-				providers = append(providers, string(helper))
+	if resourceNamespace == "" {
+		resourceNamespace = config.KyvernoNamespace()
+	}
+
+	if len(imagePullSecrets) == 0 {
+		client := registryclient.New(f.secretsLister, config.KyvernoNamespace(), "", "", creds.AllowInsecureRegistry)
+		return adapters.RegistryClient(client), nil
+	}
+
+	if creds != nil {
+		providers := ""
+		if len(creds.Providers) > 0 {
+			for i, helper := range creds.Providers {
+				providers += string(helper)
+				// only add a coma if we still didn't reach the end
+				if i <= len(creds.Providers)-1 {
+					providers += ","
+				}
 			}
-			registryOptions = append(registryOptions, registryclient.WithCredentialProviders(providers...))
 		}
 
 		secrets := make([]string, 0)
 		if creds != nil && f.secretsLister != nil && len(creds.Secrets) > 0 {
 			secrets = append(secrets, creds.Secrets...)
 		}
-		if len(imagePullSecrets) > 0 {
-			fallbackNamespace := resourceNamespace
-			if strings.TrimSpace(fallbackNamespace) == "" {
-				fallbackNamespace = config.KyvernoNamespace()
-			}
-			for _, s := range imagePullSecrets {
-				secretNamespace, secretName := registryclient.ParseSecretReference(s, fallbackNamespace)
-				secrets = append(secrets, secretNamespace+"/"+secretName)
-			}
-		}
+
+		secretsJoined := ""
 		if f.secretsLister != nil && len(secrets) > 0 {
 			// Support namespace/name notation with Kyverno namespace as default
-			registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(f.secretsLister, config.KyvernoNamespace(), secrets...))
+			secretsJoined = strings.Join(secrets, ",")
 		}
-		client, err := registryclient.New(registryOptions...)
-		if err != nil {
-			return nil, err
-		}
+		client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", creds.AllowInsecureRegistry)
 		return adapters.RegistryClient(client), nil
 	}
 	return f.globalClient, nil
