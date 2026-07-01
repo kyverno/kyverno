@@ -56,7 +56,6 @@ type compiledPolicy struct {
 	variables            map[string]cel.Program
 }
 
-// another eval function that is probably used in kubernetes that has nothing to do with the one in eval.go
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
 	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
 	if err != nil {
