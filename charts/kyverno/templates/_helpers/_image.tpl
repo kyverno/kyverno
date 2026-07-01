@@ -7,7 +7,7 @@
 {{- else if not (typeIs "string" $tag) -}}
   {{- fail "Image tags must be strings." -}}
 {{- end -}}
-{{- if or (eq $tag "") (eq $tag "<nil>") (eq $tag "0") -}}
+{{- if eq $tag "" -}}
   {{- fail "An image tag is required. Please set a tag value or ensure defaultTag is provided." -}}
 {{- end -}}
 {{- $imageRegistry := default (default .image.defaultRegistry .globalRegistry) .image.registry -}}
