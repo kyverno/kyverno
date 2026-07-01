@@ -16,3 +16,11 @@ rules:
   - create
   - update
   - delete
+- apiGroups:
+  - ''
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
