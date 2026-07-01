@@ -31,7 +31,7 @@ func TestRemoveDuplicates(t *testing.T) {
 		t.Run(tt.testFile, func(t *testing.T) {
 			fileBytes, err := GetFileBytes(filepath.Join(baseTestDir, tt.testFile))
 			assert.NilError(t, err)
-			resources, err := GetUnstructuredResources(fileBytes)
+			resources, err := GetUnstructuredResources(fileBytes, "")
 			assert.NilError(t, err)
 
 			uniques, duplicates := RemoveDuplicates(resources)
