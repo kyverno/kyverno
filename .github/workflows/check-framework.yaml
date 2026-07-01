@@ -6,6 +6,10 @@ on:
     branches:
       - main
       - release-*
+    paths-ignore:
+      - 'docs/**'
+      - 'charts/**'
+      - '**/*.md'
   push:
     branches:
       - main
@@ -44,6 +48,12 @@ jobs:
         uses: ./.github/actions/go/setup
         with:
           gobuild-cache-prefix: ''
+
+      - name: Cache envtest binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: envtest-${{ env.ENVTEST_VERSION }}-${{ env.K8S_VERSION }}
 
       # todo: turn to a make command
       - name: Install envtest

@@ -13,26 +13,31 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/gzip"
-	"github.com/kyverno/sdk/cel/libs/hash"
-	"github.com/kyverno/sdk/cel/libs/http"
-	"github.com/kyverno/sdk/cel/libs/image"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/json"
-	"github.com/kyverno/sdk/cel/libs/math"
-	"github.com/kyverno/sdk/cel/libs/random"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/libs/time"
-	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/user"
-	"github.com/kyverno/sdk/cel/libs/x509"
-	"github.com/kyverno/sdk/cel/libs/yaml"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
+	"github.com/kyverno/sdk/extensions/cel/libs/hash"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/image"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/json"
+	"github.com/kyverno/sdk/extensions/cel/libs/math"
+	"github.com/kyverno/sdk/extensions/cel/libs/random"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/libs/time"
+	"github.com/kyverno/sdk/extensions/cel/libs/transform"
+	"github.com/kyverno/sdk/extensions/cel/libs/user"
+	"github.com/kyverno/sdk/extensions/cel/libs/x509"
+	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
+	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-var compileError = "validating policy compiler " + compiler.KyvernoVersion.String() + " error: %s"
+var (
+	vpolCompilerVersion = version.MajorMinor(1, 0)
+	compileError        = "validating policy compiler " + vpolCompilerVersion.String() + " error: %s"
+)
 
 type Exception struct {
 	AllowedImages []string `cel:"allowedImages"`
@@ -60,7 +65,12 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+	}
+
+	env, err := vpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -127,7 +137,12 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+	}
+
+	env, err := vpolEnvSet.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -193,8 +208,8 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
+func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
@@ -205,7 +220,8 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	env, err := cel.NewEnv()
+	base := environment.MustBaseEnvSet(vpolCompilerVersion)
+	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -226,59 +242,69 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			compiler.KyvernoVersion,
+			globalcontext.Latest(),
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			compiler.KyvernoVersion,
+			resource.Latest(),
 		),
 		image.Lib(
-			compiler.KyvernoVersion,
+			image.Latest(),
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			compiler.KyvernoVersion,
+			imagedata.Latest(),
 		),
 		user.Lib(
-			compiler.KyvernoVersion,
+			user.Latest(),
 		),
 		hash.Lib(
-			compiler.KyvernoVersion,
+			hash.Latest(),
 		),
 		math.Lib(
-			compiler.KyvernoVersion,
+			math.Latest(),
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			compiler.KyvernoVersion,
+			json.Latest(),
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			compiler.KyvernoVersion,
+			yaml.Latest(),
 		),
 		random.Lib(
-			compiler.KyvernoVersion,
+			random.Latest(),
 		),
 		x509.Lib(
-			compiler.KyvernoVersion,
+			x509.Latest(),
 		),
 		time.Lib(
-			compiler.KyvernoVersion,
+			time.Latest(),
 		),
 		transform.Lib(
-			compiler.KyvernoVersion,
+			transform.Latest(),
 		),
 		gzip.Lib(
-			compiler.KyvernoVersion,
+			gzip.Latest(),
 		),
 		http.Lib(
-			http.Context{ContextInterface: compiler.NewLazyCELHTTPContext(namespace)},
-			compiler.KyvernoVersion,
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+			http.Latest(),
 		),
 	}
 
-	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: vpolCompilerVersion,
+			EnvOptions:        baseOpts,
+		},
+		// libraries
+		environment.VersionedOptions{
+			IntroducedVersion: vpolCompilerVersion,
+			EnvOptions:        libEnvOpts,
+		},
+	)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-skip-background-default
+spec:
+  failurePolicy: Fail
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["UPDATE"]
+      resources: ["namespaces"]
+      resourceNames: ["mpol-skip-background-ns"]
+  targetMatchConstraints:
+    namespaceSelector:
+      matchLabels:
+        test: enabled
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["target-cm"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              bgmutated: "true"
+            }
+          }
+        }

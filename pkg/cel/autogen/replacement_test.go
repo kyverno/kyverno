@@ -6,50 +6,120 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUpdateGenRuleByte(t *testing.T) {
+func TestApplyRewritesExpressions(t *testing.T) {
 	tests := []struct {
-		pbyte  []byte
+		name   string
+		expr   string
 		config string
-		want   []byte
+		want   string
 	}{
 		{
-			pbyte:  []byte("object.spec"),
+			name:   "deployments spec",
+			expr:   "object.spec",
 			config: "deployments",
-			want:   []byte("object.spec.template.spec"),
+			want:   "object.spec.template.spec",
 		},
 		{
-			pbyte:  []byte("oldObject.spec"),
+			name:   "deployments oldObject spec",
+			expr:   "oldObject.spec",
 			config: "deployments",
-			want:   []byte("oldObject.spec.template.spec"),
+			want:   "oldObject.spec.template.spec",
 		},
 		{
-			pbyte:  []byte("object.spec"),
+			name:   "cronjobs spec",
+			expr:   "object.spec",
 			config: "cronjobs",
-			want:   []byte("object.spec.jobTemplate.spec.template.spec"),
+			want:   "object.spec.jobTemplate.spec.template.spec",
 		},
 		{
-			pbyte:  []byte("oldObject.spec"),
+			name:   "cronjobs oldObject spec",
+			expr:   "oldObject.spec",
 			config: "cronjobs",
-			want:   []byte("oldObject.spec.jobTemplate.spec.template.spec"),
+			want:   "oldObject.spec.jobTemplate.spec.template.spec",
 		},
 		{
-			pbyte:  []byte("object.metadata"),
+			name:   "deployments metadata is rewritten",
+			expr:   "object.metadata",
 			config: "deployments",
-			want:   []byte("object.spec.template.metadata"),
+			want:   "object.spec.template.metadata",
 		},
 		{
-			pbyte:  []byte("object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
+			name:   "deployments metadata.labels is rewritten",
+			expr:   "object.metadata.labels['app']",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels['app']",
+		},
+		{
+			name:   "deployments object metadata.namespace is preserved",
+			expr:   "object.metadata.namespace",
+			config: "deployments",
+			want:   "object.metadata.namespace",
+		},
+		{
+			name:   "deployments oldObject metadata.namespace is preserved",
+			expr:   "oldObject.metadata.namespace",
+			config: "deployments",
+			want:   "oldObject.metadata.namespace",
+		},
+		{
+			name:   "cronjobs object metadata.namespace is preserved",
+			expr:   "object.metadata.namespace",
 			config: "cronjobs",
-			want:   []byte("object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
+			want:   "object.metadata.namespace",
 		},
 		{
-			pbyte:  []byte("object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
+			name:   "cronjobs oldObject metadata.namespace is preserved",
+			expr:   "oldObject.metadata.namespace",
+			config: "cronjobs",
+			want:   "oldObject.metadata.namespace",
+		},
+		{
+			name:   "namespace membership expression is preserved (deployments)",
+			expr:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
 			config: "deployments",
-			want:   []byte("object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"),
+			want:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
+		},
+		{
+			name:   "namespace membership expression is preserved (cronjobs)",
+			expr:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
+			config: "cronjobs",
+			want:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
+		},
+		{
+			name:   "namespace preserved while sibling metadata fields are rewritten",
+			expr:   "object.metadata.namespace == 'foo' && object.metadata.labels['team'] == 'platform'",
+			config: "deployments",
+			want:   "object.metadata.namespace == 'foo' && object.spec.template.metadata.labels['team'] == 'platform'",
+		},
+		{
+			name:   "only the namespace segment is protected, not longer identifiers",
+			expr:   "object.metadata.namespaceFoo",
+			config: "deployments",
+			want:   "object.spec.template.metadata.namespaceFoo",
+		},
+		{
+			name:   "user content containing protected sentinel-like text is not corrupted",
+			expr:   "object.metadata.labels['__KYVERNO_PROTECTED_OBJECT_METADATA_NAMESPACE__'] == 'x'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels['__KYVERNO_PROTECTED_OBJECT_METADATA_NAMESPACE__'] == 'x'",
+		},
+		{
+			name:   "cronjobs containers expression",
+			expr:   "object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
+			config: "cronjobs",
+			want:   "object.spec.jobTemplate.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
+		},
+		{
+			name:   "deployments containers expression",
+			expr:   "object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 		},
 	}
 	for _, tt := range tests {
-		got := Apply(tt.pbyte, ReplacementsMap[ConfigsMap[tt.config].ReplacementsRef]...)
-		assert.Equal(t, tt.want, got)
+		t.Run(tt.name, func(t *testing.T) {
+			got := Apply([]byte(tt.expr), ReplacementsMap[ConfigsMap[tt.config].ReplacementsRef]...)
+			assert.Equal(t, []byte(tt.want), got)
+		})
 	}
 }
