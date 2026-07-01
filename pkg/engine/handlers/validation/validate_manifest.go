@@ -283,7 +283,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 	logger.V(4).Info("verifying resource by k8s-manifest-sigstore")
 	result, err := k8smanifest.VerifyResource(resource, vo)
 	if err != nil {
-		logger.V(4).Info("verifyResoource return err", err.Error())
+		logger.V(4).Info("verifyResource return err","error", err.Error())
 		if k8smanifest.IsSignatureNotFoundError(err) {
 			// no signature found
 			failReason := fmt.Sprintf("%s: %s", attestorPath+subPath, err.Error())
@@ -297,10 +297,10 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 		}
 	} else {
 		resBytes, _ := json.Marshal(result)
-		logger.V(4).Info("verify result", string(resBytes))
+		logger.V(4).Info("verify result", "result", string(resBytes))
 		if result.Verified {
 			// verification success.
-			reason := fmt.Sprintf("singed by a valid signer: %s", result.Signer)
+			reason := fmt.Sprintf("signed by a valid signer: %s", result.Signer)
 			return true, reason, nil
 		} else {
 			failReason := fmt.Sprintf("%s: %s", attestorPath+subPath, "failed to verify signature.")
