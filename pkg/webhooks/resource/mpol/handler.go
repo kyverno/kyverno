@@ -130,6 +130,17 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		logger.Error(err, "mutation failures")
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+	for _, policy := range response.Policies {
+		var successRules []string
+		for _, rule := range policy.Rules {
+			if rule.Status() == engineapi.RuleStatusPass {
+				successRules = append(successRules, rule.Name())
+			}
+		}
+		if len(successRules) > 0 {
+			logger.V(2).Info("mutation rules from MutatingPolicy applied successfully", "policy", policy.Policy.GetName(), "rules", successRules)
+		}
+	}
 	return resp
 }
 
