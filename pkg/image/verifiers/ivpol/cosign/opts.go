@@ -42,12 +42,37 @@ func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
 
+func needsTUF(att *v1beta1.Cosign) bool {
+	// Keyless verification always requires TUF
+	if att.Keyless != nil {
+		return true
+	}
+
+	// Certificate verification may require TUF
+	if att.Certificate != nil {
+		return true
+	}
+
+	// Static key verification with ignored tlog/SCT does not require TUF
+	if att.Key != nil &&
+		att.CTLog != nil &&
+		att.CTLog.InsecureIgnoreTlog &&
+		att.CTLog.InsecureIgnoreSCT {
+		return false
+	}
+
+	// Default to requiring TUF
+	return true
+}
+
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
 	tufMu.Lock()
 	defer tufMu.Unlock()
 
-	if err := initializeTuf(ctx, att.TUF); err != nil {
-		return nil, err
+	if needsTUF(att) {
+		if err := initializeTuf(ctx, att.TUF); err != nil {
+			return nil, err
+		}
 	}
 	cosignRemoteOpts := []ociremote.Option{}
 
@@ -260,6 +285,7 @@ func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretIn
 func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
 	// In keyless, if no TrustRoot was defined and CTLog is nil, then default to rekor pub keys as done in cosign
 	if ctlog == nil {
+
 		rekorPubKeys, err := cosign.GetRekorPubs(ctx)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("getting Rekor public keys: %w", err)
