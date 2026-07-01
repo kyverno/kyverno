@@ -98,7 +98,7 @@ type PolicyProcessor struct {
 	Stdin                     bool
 	Rc                        *ResultCounts
 	PrintPatchResource        bool
-	RuleToCloneSourceResource map[string]string
+	RuleToCloneSourceResource map[string]map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource

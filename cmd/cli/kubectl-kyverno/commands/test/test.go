@@ -353,22 +353,27 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 
 	// TODO document the code below
-	ruleToCloneSourceResource := map[string]string{}
+	ruleToCloneSourceResource := map[string]map[string]string{}
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
-				if rule.Name == res.Rule {
+
+				if policy.GetName() == res.Policy && rule.Name == res.Rule {
+					policyCloneSources := ruleToCloneSourceResource[policy.GetName()]
+					if policyCloneSources == nil {
+						policyCloneSources = map[string]string{}
+						ruleToCloneSourceResource[policy.GetName()] = policyCloneSources
+					}
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
-								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								policyCloneSources[rule.Name] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						} else { // clone or data
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
@@ -383,9 +388,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 							}
 							if len(genClone) != 0 {
 								if isGit {
-									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+									policyCloneSources[rule.Name] = res.CloneSourceResource
 								} else {
-									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+									policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}

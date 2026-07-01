@@ -24,21 +24,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
+func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
+	policyName := policyContext.Policy().GetName()
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		if path, ok := ruleToCloneSourceResource[rule.Name()]; ok {
-			resourceBytes, err := resource.GetFileBytes(path)
-			if err != nil {
-				fmt.Fprintf(out, "failed to get resource bytes\n")
-			} else {
-				r, err := resource.GetUnstructuredResources(resourceBytes)
+		if paths, ok := ruleToCloneSourceResource[policyName]; ok {
+			if path, ok := paths[rule.Name()]; ok {
+				resourceBytes, err := resource.GetFileBytes(path)
 				if err != nil {
-					fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
-				}
-				for _, res := range r {
-					objects = append(objects, res)
+					fmt.Fprintf(out, "failed to get resource bytes\n")
+				} else {
+					r, err := resource.GetUnstructuredResources(resourceBytes)
+					if err != nil {
+						fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
+					}
+					for _, res := range r {
+						objects = append(objects, res)
+					}
 				}
 			}
 		}
