@@ -5,6 +5,13 @@ metadata:
 spec:
   template: false
   steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+    - sleep:
+        duration: 10s
+
   - name: step-01
     try:
     - apply:
