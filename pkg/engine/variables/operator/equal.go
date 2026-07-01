@@ -76,16 +76,13 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 	// Attempt to extract resource quantity from string.
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
-		switch typedValue := value.(type) {
-		case string:
-			resourceValue, err := resource.ParseQuantity(typedValue)
-			if err != nil {
-				eh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
-				return false
-			}
+		resourceValue, ok := parseComparableQuantity(value)
+		if ok {
 			return resourceKey.Equal(resourceValue)
 		}
-	}
+			eh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+			return false
+		}
 
 	if val, ok := value.(string); ok {
 		return wildcard.Match(val, key)
@@ -93,6 +90,25 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 
 	eh.log.V(2).Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
+}
+
+func parseComparableQuantity(value interface{}) (resource.Quantity, bool) {
+	switch typedValue := value.(type) {
+	case string:
+		q, err := resource.ParseQuantity(typedValue)
+		return q, err == nil
+	case int:
+		q, err := resource.ParseQuantity(strconv.Itoa(typedValue))
+		return q, err == nil
+	case int64:
+		q, err := resource.ParseQuantity(strconv.FormatInt(typedValue, 10))
+		return q, err == nil
+	case float64:
+		q, err := resource.ParseQuantity(strconv.FormatFloat(typedValue, 'f', -1, 64))
+		return q, err == nil
+	default:
+		return resource.Quantity{}, false
+	}
 }
 
 func (eh EqualHandler) validateValueWithFloatPattern(key float64, value interface{}) bool {
