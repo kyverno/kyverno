@@ -40,7 +40,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 	c := NewCompiler(ictx, lister, gvr)
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
-		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
+		p, errList := c.Compile(ctx, ivpol.Policy, ivpol.Exceptions)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
