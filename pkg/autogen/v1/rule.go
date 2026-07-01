@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"bytes"
 	"sort"
 	"strings"
 
@@ -387,27 +386,31 @@ var (
 	}
 )
 
+// applySinglePass performs all replacements in a single pass using strings.NewReplacer,
+// which scans left-to-right and never revisits already-replaced text.
+// This prevents double-replacement when a replacement's output contains
+// a pattern matched by another replacement.
+func applySinglePass(data []byte, rules [][2][]byte) []byte {
+	oldnew := make([]string, 0, len(rules)*2)
+	for _, r := range rules {
+		oldnew = append(oldnew, string(r[0]), string(r[1]))
+	}
+	return []byte(strings.NewReplacer(oldnew...).Replace(string(data)))
+}
+
 func updateFields(data []byte, kind string, cel bool) []byte {
 	switch kind {
 	case "Pod":
 		if cel {
-			for _, replacement := range podCELReplacementRules {
-				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-			}
+			data = applySinglePass(data, podCELReplacementRules[:])
 		} else {
-			for _, replacement := range podReplacementRules {
-				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-			}
+			data = applySinglePass(data, podReplacementRules[:])
 		}
 	case "Cronjob":
 		if cel {
-			for _, replacement := range cronJobCELReplacementRules {
-				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-			}
+			data = applySinglePass(data, cronJobCELReplacementRules[:])
 		} else {
-			for _, replacement := range cronJobReplacementRules {
-				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
-			}
+			data = applySinglePass(data, cronJobReplacementRules[:])
 		}
 	}
 

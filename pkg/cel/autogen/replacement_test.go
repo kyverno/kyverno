@@ -115,6 +115,24 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 		},
+		{
+			name:   "deployments combined spec and metadata expression",
+			expr:   "object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.template.metadata.labels)",
+		},
+		{
+			name:   "cronjobs combined spec and metadata expression",
+			expr:   "object.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.metadata.labels)",
+			config: "cronjobs",
+			want:   "object.spec.jobTemplate.spec.template.spec.containers.all(c, !has(c.securityContext) || !c.securityContext.privileged) && has(object.spec.jobTemplate.spec.template.metadata.labels)",
+		},
+		{
+			name:   "cronjobs oldObject combined spec and metadata expression",
+			expr:   "oldObject.spec.containers.size() > 0 && oldObject.metadata.name != 'skip'",
+			config: "cronjobs",
+			want:   "oldObject.spec.jobTemplate.spec.template.spec.containers.size() > 0 && oldObject.spec.jobTemplate.spec.template.metadata.name != 'skip'",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -122,4 +140,18 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			assert.Equal(t, []byte(tt.want), got)
 		})
 	}
+}
+
+func TestApplyOrderIndependence(t *testing.T) {
+	// Pass metadata replacement before spec replacement.
+	// In a sequential implementation, metadata -> spec.template.metadata contains "spec",
+	// which would be erroneously matched again by the subsequent spec replacement.
+	replacements := []Replacement{
+		{From: "metadata", To: "spec.template.metadata"},
+		{From: "spec", To: "spec.template.spec"},
+	}
+	expr := []byte("object.metadata.labels['app'] == 'foo' && object.spec.replicas > 0")
+	want := []byte("object.spec.template.metadata.labels['app'] == 'foo' && object.spec.template.spec.replicas > 0")
+	got := Apply(expr, replacements...)
+	assert.Equal(t, want, got)
 }

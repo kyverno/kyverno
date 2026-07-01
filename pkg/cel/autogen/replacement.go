@@ -19,9 +19,7 @@ type Replacement struct {
 }
 
 func (r *Replacement) Apply(data []byte) []byte {
-	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
-	return data
+	return Apply(data, *r)
 }
 
 // replace rewrites every occurrence of from with to, except occurrences that
@@ -92,9 +90,79 @@ func isIdentifierByte(b byte) bool {
 		(b >= '0' && b <= '9')
 }
 
+// rule pairs a from pattern with its to replacement.
+type rule struct {
+	from []byte
+	to   []byte
+}
+
+// Apply performs all substitutions in a single left-to-right scan over data,
+// processing all Replacement rules simultaneously. At each position it checks
+// every rule's pattern and applies the first (longest) match, then advances
+// past the replaced text without re-scanning it. This guarantees that output
+// produced by one substitution is never examined again by any other rule,
+// preventing double-replacement regardless of the order rules are supplied.
+// Protected suffixes (e.g. `.namespace`) are honoured: a match whose
+// immediately-following bytes form a protected suffix is left unchanged.
 func Apply(data []byte, replacements ...Replacement) []byte {
-	for _, replacement := range replacements {
-		data = replacement.Apply(data)
+	if len(replacements) == 0 {
+		return data
 	}
-	return data
+
+	// Build a flat list of (from, to) byte-slice pairs — two per Replacement
+	// (object.X and oldObject.X).
+	rules := make([]rule, 0, len(replacements)*2)
+	for _, r := range replacements {
+		rules = append(rules,
+			rule{[]byte("object." + r.From), []byte("object." + r.To)},
+			rule{[]byte("oldObject." + r.From), []byte("oldObject." + r.To)},
+		)
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(len(data))
+
+	for len(data) > 0 {
+		// Find the earliest match among all rules. Ties are broken by rule
+		// order (first rule wins), which is consistent with strings.NewReplacer.
+		bestIdx := -1
+		bestRule := -1
+		for i, r := range rules {
+			if len(r.from) == 0 {
+				continue
+			}
+			idx := bytes.Index(data, r.from)
+			if idx < 0 {
+				continue
+			}
+			if bestIdx < 0 || idx < bestIdx || (idx == bestIdx && i < bestRule) {
+				bestIdx = idx
+				bestRule = i
+			}
+		}
+
+		if bestIdx < 0 {
+			// No more matches — flush the rest.
+			buf.Write(data)
+			break
+		}
+
+		// Emit everything before the match unchanged.
+		buf.Write(data[:bestIdx])
+
+		r := rules[bestRule]
+		rest := data[bestIdx+len(r.from):]
+		if isProtected(rest) {
+			// Protected: emit the original pattern and advance past it.
+			buf.Write(r.from)
+		} else {
+			// Apply the substitution and advance past the matched pattern.
+			buf.Write(r.to)
+		}
+		// Advance past the match. We do NOT re-scan the emitted output,
+		// so no rule can corrupt text that was just written.
+		data = rest
+	}
+
+	return buf.Bytes()
 }
