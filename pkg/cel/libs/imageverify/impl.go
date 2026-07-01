@@ -58,7 +58,12 @@ func ImageVerifyCELFuncs(
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
-	authOpts, nameOpts := regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+
+	authOpts := []remote.Option{}
+	nameOpts := []name.Option{}
+	if spec.Credentials != nil {
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+	}
 
 	return &ivfuncs{
 		Adapter:         adapter,

@@ -30,7 +30,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	}
 
 	if len(imagePullSecrets) == 0 {
-		client := registryclient.New(f.secretsLister, config.KyvernoNamespace(), "", "", creds.AllowInsecureRegistry)
+		client := registryclient.New(f.secretsLister, config.KyvernoNamespace(), "", "", false)
 		return adapters.RegistryClient(client), nil
 	}
 
@@ -47,7 +47,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		}
 
 		secrets := make([]string, 0)
-		if creds != nil && f.secretsLister != nil && len(creds.Secrets) > 0 {
+		if f.secretsLister != nil && len(creds.Secrets) > 0 {
 			secrets = append(secrets, creds.Secrets...)
 		}
 

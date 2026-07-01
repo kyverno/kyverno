@@ -70,9 +70,13 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	// get custom registry credentials from the policy, turn them to authentication options
 	// for the imagedata libray
 	// TODO: is us ignoring the name options a problem ? what name options are we using ?
-	authOpts, nameOpts := regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
+	authOpts := []remote.Option{}
+	nameOpts := []name.Option{}
+	if spec.Credentials != nil {
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
+	}
 
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, nameOpts)
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -179,7 +183,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 }
 
 func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context,
-	ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, nameOpts []name.Option) (*environment.EnvSet, *engine.VariablesProvider, error) {
+	ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option) (*environment.EnvSet, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),

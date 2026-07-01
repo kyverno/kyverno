@@ -247,9 +247,11 @@ func (e *engineImpl) handleMutation(
 	allNameOpts := []name.Option{}
 	allAuthOpts := []remote.Option{}
 	for _, p := range filteredPolicies {
-		authOpts, nameOpts := regcreds.RemoteOptsFromIvpolCredentials(e.lister, *p.Policy.GetSpec().Credentials, config.KyvernoNamespace())
-		allAuthOpts = append(allAuthOpts, authOpts...)
-		allNameOpts = append(allNameOpts, nameOpts...)
+		if p.Policy.GetSpec().Credentials != nil {
+			authOpts, nameOpts := regcreds.RemoteOptsFromIvpolCredentials(e.lister, *p.Policy.GetSpec().Credentials, config.KyvernoNamespace())
+			allAuthOpts = append(allAuthOpts, authOpts...)
+			allNameOpts = append(allNameOpts, nameOpts...)
+		}
 	}
 
 	ictx, err := imagedataloader.NewImageContext(e.lister, allAuthOpts, allNameOpts)
