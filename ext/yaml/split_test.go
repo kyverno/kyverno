@@ -49,7 +49,6 @@ func TestSplitDocuments(t *testing.T) {
 		},
 		wantErr: false,
 	},
-		// TODO those tests should fail IMHO
 		{
 			name: "empty doc",
 			args: args{
@@ -66,18 +65,33 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n---\n"),
 			},
-			wantDocuments: []string{
-				"---\n",
-			},
-			wantErr: false,
+			wantDocuments: []string{},
+			wantErr:       false,
 		},
 		{
-			name: "only separators",
+			name: "only separators with blank lines",
 			args: args{
 				[]byte("---\n\n\n---\n"),
 			},
+			wantDocuments: []string{},
+			wantErr:       false,
+		},
+		{
+			name: "separator and comment only",
+			args: args{
+				[]byte("---\n# Source: helm-chart/my-template.yaml\n---\n"),
+			},
+			wantDocuments: []string{},
+			wantErr:       false,
+		},
+		{
+			name: "multiple real resources with leading separator",
+			args: args{
+				[]byte("---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: pod1\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: svc1\n"),
+			},
 			wantDocuments: []string{
-				"---\n\n\n",
+				"---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: pod1\n",
+				"apiVersion: v1\nkind: Service\nmetadata:\n  name: svc1\n",
 			},
 			wantErr: false,
 		},
