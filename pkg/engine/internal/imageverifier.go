@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/notary"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/local"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
@@ -249,7 +250,7 @@ func (iv *imageVerifier) verifyAttestations(
 			for _, a := range attestor.Entries {
 				var attestationError error
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				v, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
+				v, opts, subPath := iv.buildVerifier(ctx, a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := v.FetchAttestations(ctx, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations", "image", image)
@@ -352,7 +353,7 @@ func (iv *imageVerifier) verifyAttestorSet(
 				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
-			v, opts, subPath := iv.buildVerifier(a, imageVerify, image, nil)
+			v, opts, subPath := iv.buildVerifier(ctx, a, imageVerify, image, nil)
 			cosignResp, entryError = v.VerifySignature(ctx, *opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %w", attestorPath+subPath, entryError)
@@ -376,11 +377,24 @@ func (iv *imageVerifier) verifyAttestorSet(
 }
 
 func (iv *imageVerifier) buildVerifier(
+	ctx context.Context,
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
 ) (verifiers.ImageVerifier, *verifiers.Options, string) {
+	// When local attestations are provided (e.g. by the CLI during `kyverno test`),
+	// serve them instead of fetching from the registry, preserving registry behavior otherwise.
+	if attestation != nil {
+		predicateType := attestation.Type
+		if predicateType == "" {
+			predicateType = attestation.PredicateType
+		}
+		if provider, ok := local.ProviderFromContext(ctx); ok && provider.Has(image, predicateType) {
+			iv.logger.V(2).Info("using local attestations", "image", image, "predicateType", predicateType)
+			return local.NewVerifier(provider), &verifiers.Options{ImageRef: image, Type: predicateType}, ""
+		}
+	}
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
 		return iv.buildNotaryVerifier(attestor, image, attestation)

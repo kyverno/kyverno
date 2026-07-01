@@ -479,6 +479,57 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 	})
 }
 
+func TestValidateAttestations(t *testing.T) {
+	valid := TestAttestation{
+		Image:         "ghcr.io/example/app:1.0",
+		PredicateType: "https://cyclonedx.org/schema/bom",
+		PredicateFile: "sbom.json",
+	}
+	tests := []struct {
+		name        string
+		entries     []TestAttestation
+		errContains string
+	}{
+		{name: "nil", entries: nil},
+		{name: "empty", entries: []TestAttestation{}},
+		{name: "valid", entries: []TestAttestation{valid}},
+		{
+			name:        "missing image",
+			entries:     []TestAttestation{{PredicateType: valid.PredicateType, PredicateFile: valid.PredicateFile}},
+			errContains: "image is required",
+		},
+		{
+			name:        "missing predicateType",
+			entries:     []TestAttestation{{Image: valid.Image, PredicateFile: valid.PredicateFile}},
+			errContains: "predicateType is required",
+		},
+		{
+			name:        "missing predicateFile",
+			entries:     []TestAttestation{{Image: valid.Image, PredicateType: valid.PredicateType}},
+			errContains: "predicateFile is required",
+		},
+		{
+			name:        "duplicate image and predicateType",
+			entries:     []TestAttestation{valid, valid},
+			errContains: "duplicate attestation",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateAttestations(tc.entries)
+			if tc.errContains == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.errContains) {
+				t.Fatalf("expected error containing %q, got %v", tc.errContains, err)
+			}
+		})
+	}
+}
+
 func TestRawExtensionToObject(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		v, err := RawExtensionToObject(runtime.RawExtension{})
