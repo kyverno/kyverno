@@ -16,6 +16,7 @@ type FakeContextProvider struct {
 	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
+	policyNamespace    string
 	triggerName        string
 	triggerNamespace   string
 	triggerAPIVersion  string
@@ -177,8 +178,9 @@ func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
-func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (cp *FakeContextProvider) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
 	cp.policyName = polName
+	cp.policyNamespace = policyNamespace
 	cp.triggerName = triggerName
 	cp.triggerNamespace = triggerNamespace
 	cp.triggerAPIVersion = triggerAPIVersion
