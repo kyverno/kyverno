@@ -61,7 +61,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
 			}
 
-			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
+			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
@@ -268,7 +268,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
+			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
