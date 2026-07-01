@@ -3,6 +3,7 @@ package apicall
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -315,6 +317,10 @@ type mockClient struct{}
 
 func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return []byte("{}"), nil
+}
+
+func (c *mockClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func Test_CrossNamespaceAccess(t *testing.T) {

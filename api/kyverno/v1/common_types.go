@@ -253,9 +253,14 @@ type ServiceCall struct {
 	Headers []HTTPHeader `json:"headers,omitempty"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
-	// the server certificate.
+	// the server certificate. Mutually exclusive with CABundleFrom.
 	// +kubebuilder:validation:Optional
-	CABundle string `json:"caBundle"`
+	CABundle string `json:"caBundle,omitempty"`
+
+	// CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+	// Mutually exclusive with CABundle.
+	// +kubebuilder:validation:Optional
+	CABundleFrom *SecretOrConfigMapSource `json:"caBundleFrom,omitempty"`
 }
 
 // Method is a HTTP request type.
@@ -271,11 +276,47 @@ type RequestData struct {
 	Value *apiextv1.JSON `json:"value"`
 }
 
-type HTTPHeader struct {
-	// Key is the header key
+// SecretKeySelector selects a key from a Kubernetes Secret.
+type SecretKeySelector struct {
+	// Name of the secret.
+	Name string `json:"name"`
+	// Namespace of the secret. Required for cluster-scoped contexts; defaults to policy namespace for namespaced policies.
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace,omitempty"`
+	// Key within the secret's data map.
 	Key string `json:"key"`
-	// Value is the header value
-	Value string `json:"value"`
+}
+
+// ConfigMapKeySelector selects a key from a Kubernetes ConfigMap.
+type ConfigMapKeySelector struct {
+	// Name of the configmap.
+	Name string `json:"name"`
+	// Namespace of the configmap. Required for cluster-scoped contexts; defaults to policy namespace for namespaced policies.
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace,omitempty"`
+	// Key within the configmap's data map.
+	Key string `json:"key"`
+}
+
+// SecretOrConfigMapSource selects a value from a Kubernetes Secret or ConfigMap.
+type SecretOrConfigMapSource struct {
+	// SecretKeyRef selects a key of a Secret.
+	// +kubebuilder:validation:Optional
+	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
+	// ConfigMapKeyRef selects a key of a ConfigMap.
+	// +kubebuilder:validation:Optional
+	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+}
+
+type HTTPHeader struct {
+	// Key is the header key.
+	Key string `json:"key"`
+	// Value is the header value. Mutually exclusive with ValueFrom.
+	// +kubebuilder:validation:Optional
+	Value string `json:"value,omitempty"`
+	// ValueFrom sources the header value from a Secret or ConfigMap key. Mutually exclusive with Value.
+	// +kubebuilder:validation:Optional
+	ValueFrom *SecretOrConfigMapSource `json:"valueFrom,omitempty"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.

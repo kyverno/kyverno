@@ -253,22 +253,118 @@ spec:
                                   caBundle:
                                     description: |-
                                       CABundle is a PEM encoded CA bundle which will be used to validate
-                                      the server certificate.
+                                      the server certificate. Mutually exclusive with CABundleFrom.
                                     type: string
+                                  caBundleFrom:
+                                    description: |-
+                                      CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                      Mutually exclusive with CABundle.
+                                    properties:
+                                      configMapKeyRef:
+                                        description: ConfigMapKeyRef selects a key
+                                          of a ConfigMap.
+                                        properties:
+                                          key:
+                                            description: Key within the configmap's
+                                              data map.
+                                            type: string
+                                          name:
+                                            description: Name of the configmap.
+                                            type: string
+                                          namespace:
+                                            description: Namespace of the configmap.
+                                              Required for cluster-scoped contexts;
+                                              defaults to policy namespace for namespaced
+                                              policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretKeyRef:
+                                        description: SecretKeyRef selects a key of
+                                          a Secret.
+                                        properties:
+                                          key:
+                                            description: Key within the secret's data
+                                              map.
+                                            type: string
+                                          name:
+                                            description: Name of the secret.
+                                            type: string
+                                          namespace:
+                                            description: Namespace of the secret.
+                                              Required for cluster-scoped contexts;
+                                              defaults to policy namespace for namespaced
+                                              policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
                                   headers:
                                     description: Headers is a list of optional HTTP
                                       headers to be included in the request.
                                     items:
                                       properties:
                                         key:
-                                          description: Key is the header key
+                                          description: Key is the header key.
                                           type: string
                                         value:
-                                          description: Value is the header value
+                                          description: Value is the header value.
+                                            Mutually exclusive with ValueFrom.
                                           type: string
+                                        valueFrom:
+                                          description: ValueFrom sources the header
+                                            value from a Secret or ConfigMap key.
+                                            Mutually exclusive with Value.
+                                          properties:
+                                            configMapKeyRef:
+                                              description: ConfigMapKeyRef selects
+                                                a key of a ConfigMap.
+                                              properties:
+                                                key:
+                                                  description: Key within the configmap's
+                                                    data map.
+                                                  type: string
+                                                name:
+                                                  description: Name of the configmap.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace of the configmap.
+                                                    Required for cluster-scoped contexts;
+                                                    defaults to policy namespace for
+                                                    namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                            secretKeyRef:
+                                              description: SecretKeyRef selects a
+                                                key of a Secret.
+                                              properties:
+                                                key:
+                                                  description: Key within the secret's
+                                                    data map.
+                                                  type: string
+                                                name:
+                                                  description: Name of the secret.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace of the secret.
+                                                    Required for cluster-scoped contexts;
+                                                    defaults to policy namespace for
+                                                    namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                          type: object
                                       required:
                                       - key
-                                      - value
                                       type: object
                                     type: array
                                   url:
@@ -1288,8 +1384,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -1298,15 +1442,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -2374,8 +2572,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -2384,15 +2630,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -2758,8 +3058,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -2768,15 +3116,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -3516,8 +3918,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -3526,15 +3976,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -5343,22 +5847,118 @@ spec:
                                       caBundle:
                                         description: |-
                                           CABundle is a PEM encoded CA bundle which will be used to validate
-                                          the server certificate.
+                                          the server certificate. Mutually exclusive with CABundleFrom.
                                         type: string
+                                      caBundleFrom:
+                                        description: |-
+                                          CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                          Mutually exclusive with CABundle.
+                                        properties:
+                                          configMapKeyRef:
+                                            description: ConfigMapKeyRef selects a
+                                              key of a ConfigMap.
+                                            properties:
+                                              key:
+                                                description: Key within the configmap's
+                                                  data map.
+                                                type: string
+                                              name:
+                                                description: Name of the configmap.
+                                                type: string
+                                              namespace:
+                                                description: Namespace of the configmap.
+                                                  Required for cluster-scoped contexts;
+                                                  defaults to policy namespace for
+                                                  namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                          secretKeyRef:
+                                            description: SecretKeyRef selects a key
+                                              of a Secret.
+                                            properties:
+                                              key:
+                                                description: Key within the secret's
+                                                  data map.
+                                                type: string
+                                              name:
+                                                description: Name of the secret.
+                                                type: string
+                                              namespace:
+                                                description: Namespace of the secret.
+                                                  Required for cluster-scoped contexts;
+                                                  defaults to policy namespace for
+                                                  namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                        type: object
                                       headers:
                                         description: Headers is a list of optional
                                           HTTP headers to be included in the request.
                                         items:
                                           properties:
                                             key:
-                                              description: Key is the header key
+                                              description: Key is the header key.
                                               type: string
                                             value:
-                                              description: Value is the header value
+                                              description: Value is the header value.
+                                                Mutually exclusive with ValueFrom.
                                               type: string
+                                            valueFrom:
+                                              description: ValueFrom sources the header
+                                                value from a Secret or ConfigMap key.
+                                                Mutually exclusive with Value.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                           required:
                                           - key
-                                          - value
                                           type: object
                                         type: array
                                       url:
@@ -6388,8 +6988,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -6398,15 +7050,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -7486,8 +8196,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -7496,15 +8258,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -7879,8 +8699,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -7889,15 +8761,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -8650,8 +9580,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -8660,15 +9642,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -10557,22 +11597,118 @@ spec:
                                   caBundle:
                                     description: |-
                                       CABundle is a PEM encoded CA bundle which will be used to validate
-                                      the server certificate.
+                                      the server certificate. Mutually exclusive with CABundleFrom.
                                     type: string
+                                  caBundleFrom:
+                                    description: |-
+                                      CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                      Mutually exclusive with CABundle.
+                                    properties:
+                                      configMapKeyRef:
+                                        description: ConfigMapKeyRef selects a key
+                                          of a ConfigMap.
+                                        properties:
+                                          key:
+                                            description: Key within the configmap's
+                                              data map.
+                                            type: string
+                                          name:
+                                            description: Name of the configmap.
+                                            type: string
+                                          namespace:
+                                            description: Namespace of the configmap.
+                                              Required for cluster-scoped contexts;
+                                              defaults to policy namespace for namespaced
+                                              policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretKeyRef:
+                                        description: SecretKeyRef selects a key of
+                                          a Secret.
+                                        properties:
+                                          key:
+                                            description: Key within the secret's data
+                                              map.
+                                            type: string
+                                          name:
+                                            description: Name of the secret.
+                                            type: string
+                                          namespace:
+                                            description: Namespace of the secret.
+                                              Required for cluster-scoped contexts;
+                                              defaults to policy namespace for namespaced
+                                              policies.
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
                                   headers:
                                     description: Headers is a list of optional HTTP
                                       headers to be included in the request.
                                     items:
                                       properties:
                                         key:
-                                          description: Key is the header key
+                                          description: Key is the header key.
                                           type: string
                                         value:
-                                          description: Value is the header value
+                                          description: Value is the header value.
+                                            Mutually exclusive with ValueFrom.
                                           type: string
+                                        valueFrom:
+                                          description: ValueFrom sources the header
+                                            value from a Secret or ConfigMap key.
+                                            Mutually exclusive with Value.
+                                          properties:
+                                            configMapKeyRef:
+                                              description: ConfigMapKeyRef selects
+                                                a key of a ConfigMap.
+                                              properties:
+                                                key:
+                                                  description: Key within the configmap's
+                                                    data map.
+                                                  type: string
+                                                name:
+                                                  description: Name of the configmap.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace of the configmap.
+                                                    Required for cluster-scoped contexts;
+                                                    defaults to policy namespace for
+                                                    namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                            secretKeyRef:
+                                              description: SecretKeyRef selects a
+                                                key of a Secret.
+                                              properties:
+                                                key:
+                                                  description: Key within the secret's
+                                                    data map.
+                                                  type: string
+                                                name:
+                                                  description: Name of the secret.
+                                                  type: string
+                                                namespace:
+                                                  description: Namespace of the secret.
+                                                    Required for cluster-scoped contexts;
+                                                    defaults to policy namespace for
+                                                    namespaced policies.
+                                                  type: string
+                                              required:
+                                              - key
+                                              - name
+                                              type: object
+                                          type: object
                                       required:
                                       - key
-                                      - value
                                       type: object
                                     type: array
                                   url:
@@ -11386,8 +12522,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -11396,15 +12580,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -12266,8 +13504,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -12276,15 +13562,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -12650,8 +13990,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -12660,15 +14048,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -13573,8 +15015,56 @@ spec:
                                             caBundle:
                                               description: |-
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
-                                                the server certificate.
+                                                the server certificate. Mutually exclusive with CABundleFrom.
                                               type: string
+                                            caBundleFrom:
+                                              description: |-
+                                                CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                Mutually exclusive with CABundle.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                             headers:
                                               description: Headers is a list of optional
                                                 HTTP headers to be included in the
@@ -13583,15 +15073,69 @@ spec:
                                                 properties:
                                                   key:
                                                     description: Key is the header
-                                                      key
+                                                      key.
                                                     type: string
                                                   value:
                                                     description: Value is the header
-                                                      value
+                                                      value. Mutually exclusive with
+                                                      ValueFrom.
                                                     type: string
+                                                  valueFrom:
+                                                    description: ValueFrom sources
+                                                      the header value from a Secret
+                                                      or ConfigMap key. Mutually exclusive
+                                                      with Value.
+                                                    properties:
+                                                      configMapKeyRef:
+                                                        description: ConfigMapKeyRef
+                                                          selects a key of a ConfigMap.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the configmap's data
+                                                              map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              configmap.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the configmap. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                      secretKeyRef:
+                                                        description: SecretKeyRef
+                                                          selects a key of a Secret.
+                                                        properties:
+                                                          key:
+                                                            description: Key within
+                                                              the secret's data map.
+                                                            type: string
+                                                          name:
+                                                            description: Name of the
+                                                              secret.
+                                                            type: string
+                                                          namespace:
+                                                            description: Namespace
+                                                              of the secret. Required
+                                                              for cluster-scoped contexts;
+                                                              defaults to policy namespace
+                                                              for namespaced policies.
+                                                            type: string
+                                                        required:
+                                                        - key
+                                                        - name
+                                                        type: object
+                                                    type: object
                                                 required:
                                                 - key
-                                                - value
                                                 type: object
                                               type: array
                                             url:
@@ -15368,22 +16912,118 @@ spec:
                                       caBundle:
                                         description: |-
                                           CABundle is a PEM encoded CA bundle which will be used to validate
-                                          the server certificate.
+                                          the server certificate. Mutually exclusive with CABundleFrom.
                                         type: string
+                                      caBundleFrom:
+                                        description: |-
+                                          CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                          Mutually exclusive with CABundle.
+                                        properties:
+                                          configMapKeyRef:
+                                            description: ConfigMapKeyRef selects a
+                                              key of a ConfigMap.
+                                            properties:
+                                              key:
+                                                description: Key within the configmap's
+                                                  data map.
+                                                type: string
+                                              name:
+                                                description: Name of the configmap.
+                                                type: string
+                                              namespace:
+                                                description: Namespace of the configmap.
+                                                  Required for cluster-scoped contexts;
+                                                  defaults to policy namespace for
+                                                  namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                          secretKeyRef:
+                                            description: SecretKeyRef selects a key
+                                              of a Secret.
+                                            properties:
+                                              key:
+                                                description: Key within the secret's
+                                                  data map.
+                                                type: string
+                                              name:
+                                                description: Name of the secret.
+                                                type: string
+                                              namespace:
+                                                description: Namespace of the secret.
+                                                  Required for cluster-scoped contexts;
+                                                  defaults to policy namespace for
+                                                  namespaced policies.
+                                                type: string
+                                            required:
+                                            - key
+                                            - name
+                                            type: object
+                                        type: object
                                       headers:
                                         description: Headers is a list of optional
                                           HTTP headers to be included in the request.
                                         items:
                                           properties:
                                             key:
-                                              description: Key is the header key
+                                              description: Key is the header key.
                                               type: string
                                             value:
-                                              description: Value is the header value
+                                              description: Value is the header value.
+                                                Mutually exclusive with ValueFrom.
                                               type: string
+                                            valueFrom:
+                                              description: ValueFrom sources the header
+                                                value from a Secret or ConfigMap key.
+                                                Mutually exclusive with Value.
+                                              properties:
+                                                configMapKeyRef:
+                                                  description: ConfigMapKeyRef selects
+                                                    a key of a ConfigMap.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        configmap's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the configmap.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        configmap. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                                secretKeyRef:
+                                                  description: SecretKeyRef selects
+                                                    a key of a Secret.
+                                                  properties:
+                                                    key:
+                                                      description: Key within the
+                                                        secret's data map.
+                                                      type: string
+                                                    name:
+                                                      description: Name of the secret.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace of the
+                                                        secret. Required for cluster-scoped
+                                                        contexts; defaults to policy
+                                                        namespace for namespaced policies.
+                                                      type: string
+                                                  required:
+                                                  - key
+                                                  - name
+                                                  type: object
+                                              type: object
                                           required:
                                           - key
-                                          - value
                                           type: object
                                         type: array
                                       url:
@@ -16413,8 +18053,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -16423,15 +18115,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -17511,8 +19261,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -17521,15 +19323,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -17904,8 +19764,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -17914,15 +19826,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
@@ -18675,8 +20645,60 @@ spec:
                                                 caBundle:
                                                   description: |-
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
-                                                    the server certificate.
+                                                    the server certificate. Mutually exclusive with CABundleFrom.
                                                   type: string
+                                                caBundleFrom:
+                                                  description: |-
+                                                    CABundleFrom sources the CA bundle from a Secret or ConfigMap key.
+                                                    Mutually exclusive with CABundle.
+                                                  properties:
+                                                    configMapKeyRef:
+                                                      description: ConfigMapKeyRef
+                                                        selects a key of a ConfigMap.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the configmap's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            configmap.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the configmap. Required
+                                                            for cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                    secretKeyRef:
+                                                      description: SecretKeyRef selects
+                                                        a key of a Secret.
+                                                      properties:
+                                                        key:
+                                                          description: Key within
+                                                            the secret's data map.
+                                                          type: string
+                                                        name:
+                                                          description: Name of the
+                                                            secret.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace of
+                                                            the secret. Required for
+                                                            cluster-scoped contexts;
+                                                            defaults to policy namespace
+                                                            for namespaced policies.
+                                                          type: string
+                                                      required:
+                                                      - key
+                                                      - name
+                                                      type: object
+                                                  type: object
                                                 headers:
                                                   description: Headers is a list of
                                                     optional HTTP headers to be included
@@ -18685,15 +20707,73 @@ spec:
                                                     properties:
                                                       key:
                                                         description: Key is the header
-                                                          key
+                                                          key.
                                                         type: string
                                                       value:
                                                         description: Value is the
-                                                          header value
+                                                          header value. Mutually exclusive
+                                                          with ValueFrom.
                                                         type: string
+                                                      valueFrom:
+                                                        description: ValueFrom sources
+                                                          the header value from a
+                                                          Secret or ConfigMap key.
+                                                          Mutually exclusive with
+                                                          Value.
+                                                        properties:
+                                                          configMapKeyRef:
+                                                            description: ConfigMapKeyRef
+                                                              selects a key of a ConfigMap.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the configmap's
+                                                                  data map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the configmap.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the configmap.
+                                                                  Required for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                          secretKeyRef:
+                                                            description: SecretKeyRef
+                                                              selects a key of a Secret.
+                                                            properties:
+                                                              key:
+                                                                description: Key within
+                                                                  the secret's data
+                                                                  map.
+                                                                type: string
+                                                              name:
+                                                                description: Name
+                                                                  of the secret.
+                                                                type: string
+                                                              namespace:
+                                                                description: Namespace
+                                                                  of the secret. Required
+                                                                  for cluster-scoped
+                                                                  contexts; defaults
+                                                                  to policy namespace
+                                                                  for namespaced policies.
+                                                                type: string
+                                                            required:
+                                                            - key
+                                                            - name
+                                                            type: object
+                                                        type: object
                                                     required:
                                                     - key
-                                                    - value
                                                     type: object
                                                   type: array
                                                 url:
