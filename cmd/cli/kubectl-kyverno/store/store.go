@@ -3,7 +3,7 @@ package store
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 )
 
 type Context struct {
@@ -53,7 +53,7 @@ func (s *Store) GetForeachElement() int {
 
 func (s *Store) SetRegistryAccess(access bool) {
 	if access {
-		s.registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
+		s.registryClient = registryclient.New(nil, "", "", "", false)
 	}
 }
 

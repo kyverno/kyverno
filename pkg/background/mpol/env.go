@@ -55,6 +55,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
 			compiler.KyvernoVersion,
+			nil,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

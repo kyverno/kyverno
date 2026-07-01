@@ -8,10 +8,11 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -43,15 +44,16 @@ type CompiledPolicy interface {
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	matchConditions      []cel.Program
-	matchImageReferences []engine.MatchImageReference     // what are the image prefixes this compiled policy applies to
-	validations          []engine.Validation              // a validation is just a group of cel programs
-	imageExtractors      map[string]engine.ImageExtractor // image extractors.. where does the image name lie in the spec of the object i am evaluating ?
-	attestors            []*variables.CompiledAttestor    // how can an attestor be compiled?
-	attestationList      map[string]string                // or these
-	auditAnnotations     map[string]cel.Program           // dont know what those are
-	creds                *policiesv1beta1.Credentials     // how does this field get built ?
-	exceptions           []engine.Exception               // policy exceptions
-	variables            map[string]cel.Program           // variables defined in spec.variables
+	matchImageReferences []engine.MatchImageReference
+	validations          []engine.Validation
+	imageExtractors      map[string]engine.ImageExtractor
+	attestors            []*variables.CompiledAttestor
+	attestationList      map[string]string
+	auditAnnotations     map[string]cel.Program
+	authOpts             []remote.Option
+	nameOpts             []name.Option
+	exceptions           []engine.Exception
+	variables            map[string]cel.Program
 }
 
 // another eval function that is probably used in kubernetes that has nothing to do with the one in eval.go
@@ -140,8 +142,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	// the compiled policy contains a credentials field. this is what is later used to build the image validating auth options
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
 		return nil, err
 	}
 

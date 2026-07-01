@@ -8,7 +8,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -24,7 +24,7 @@ import (
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 
 	tests := []struct {
@@ -85,14 +85,6 @@ func TestGetClient_NilSecretsLister(t *testing.T) {
 type trackingSecretLister struct {
 	corev1listers.SecretLister
 	accessed map[string]bool // tracks namespace/name pairs that were accessed
-}
-
-func (t *trackingSecretLister) Secrets(namespace string) corev1listers.SecretNamespaceLister {
-	return &trackingSecretNamespaceLister{
-		SecretNamespaceLister: t.SecretLister.Secrets(namespace),
-		accessed:              t.accessed,
-		namespace:             namespace,
-	}
 }
 
 type trackingSecretNamespaceLister struct {
@@ -320,8 +312,8 @@ func (m *mockRegistryClient) Keychain() authn.Keychain {
 	return authn.DefaultKeychain
 }
 
-func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, error) {
-	return []gcrremote.Option{}, nil
+func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, []name.Option, error) {
+	return []gcrremote.Option{}, []name.Option{}, nil
 }
 
 func (m *mockRegistryClient) NameOptions() []name.Option {

@@ -43,7 +43,7 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %v", opts.ImageRef)
 	}
-	remoteOpts, err := opts.Client.Options(ctx)
+	remoteOpts, _, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create remote opts: %v", opts.ImageRef)
 	}

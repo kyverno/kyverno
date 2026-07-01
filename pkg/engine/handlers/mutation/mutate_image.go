@@ -66,7 +66,6 @@ func NewMutateImageHandler(
 	}, nil
 }
 
-// i need to figure out when does this whole thing get triggered
 func (h mutateImageHandler) Process(
 	ctx context.Context,
 	logger logr.Logger,

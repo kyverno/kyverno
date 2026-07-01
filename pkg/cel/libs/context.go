@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -19,6 +20,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,15 +82,18 @@ type contextProvider struct {
 
 func NewContextProvider(
 	client dclient.Interface,
-	imageOpts []imagedataloader.Option,
 	gctxStore gctxstore.Store,
 	restMapper meta.RESTMapper,
-	cliEvaluation bool,
 ) (Context, error) {
-	// this is where we initate the loader for the vpol
-	// the opts for validation would be in the default opts of that thing
-	// takes a secret lister and image opts
-	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+	// By default, the libraries context uses the global registry client credentials.
+	// callers who will need to pass in different authentication options (the ivpol)
+	// will simply pass different opts to the image data loader during image fetching
+	authOpts, nameOpts, err := registryclient.GlobalOptsOrDefault(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), authOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +101,6 @@ func NewContextProvider(
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
-		cliEvaluation:      cliEvaluation,
 		restMapper:         restMapper,
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}
@@ -134,9 +138,12 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
-	// TODO: get image credentials from image verification policies?
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image) // make a request to the oci image resgitry to get the image metadata from there
+func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	// NOTE: we deliberately not pass name options here because there is currently only one
+	// name option we build, which is name.Insecure. This option already gets build and passed
+	// during the fetching of the global registry client options and then building the image data
+	// loader from those options.
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
