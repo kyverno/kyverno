@@ -35,7 +35,7 @@ require (
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/api v0.0.1-alpha.3.0.20260626140541-1384610c309e
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
-	github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd
+	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
 	github.com/kyverno/sdk v0.0.0-20260701220717-ee6f0027f44f
@@ -103,9 +103,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.23 // indirect
 	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.0 // indirect
+	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
+	github.com/hairyhenderson/go-fsimpl v0.4.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/kyverno/pkg/certmanager v0.0.10 // indirect
+	github.com/kyverno/pkg/tls v0.0.9 // indirect
 	github.com/mark3labs/mcp-go v0.49.0 // indirect
+	github.com/nlepage/go-tarfs v1.2.1 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect

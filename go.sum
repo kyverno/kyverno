@@ -544,6 +544,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c9
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99/go.mod h1:3bDW6wMZJB7tiONtC/1Xpicra6Wp5GgbTbQWCbI5fkc=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 h1:HWRh5R2+9EifMyIHV7ZV+MIZqgz+PMpZ14Jynv3O2Zs=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0/go.mod h1:JfhWUomR1baixubs02l85lZYYOm7LV6om4ceouMv45c=
+github.com/hairyhenderson/go-fsimpl v0.4.1 h1:wYWMU58YwXejAnGmMmTY5tV+K7fV5CVHDwkr4PB3DgY=
+github.com/hairyhenderson/go-fsimpl v0.4.1/go.mod h1:ywOnXIc4id9F2+/U+oPJSALXZV5lD2BsfldWXsA7Si0=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
 github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
@@ -659,10 +661,16 @@ github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c7
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
 github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd h1:C+Jii2MJSkRmSXp7F3UKTg66fBEoVpBqADGZMRDyVd0=
 github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd/go.mod h1:HPJjI6oilGXEyq7878IWXM3PonqqnbOffyvkcZvPNZA=
+github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f h1:o2qMAiPpM+rD7kXqoezmrFs5Q8IZp37zWC/lzCUmZMU=
+github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f/go.mod h1:V6cgYzv4EwKXkqHGl6y4FTueyel5e6xlZ4AVxr6Ycec=
 github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e h1:gh9iMuJS8yloxo3JIzvgLWZWwy5iRjEkA8/U7rK3iu8=
 github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e/go.mod h1:3LgZogzltja+Sx0o5CIa7d7+991v8sWXHskU0fWSOsQ=
+github.com/kyverno/pkg/certmanager v0.0.10 h1:6+1273WynuKpgA04yQSGTtW71KLJGHhHn3rTj9e8oIw=
+github.com/kyverno/pkg/certmanager v0.0.10/go.mod h1:3KZ2WOzigwCh4bII5QnnI3iqP52gqjKu/a+33Fxb0KA=
 github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55 h1:0EnvOmQqzChsnza54+CXcRS42WBi1cc6eaS8Pb+ye20=
 github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55/go.mod h1:02vxM0GNXz9+B/i6+rMfWAIwibUuAH+qFsd73IFskgQ=
+github.com/kyverno/pkg/tls v0.0.9 h1:qESRb4YsmBeiXcR6rq6DiKFmbAb5mjmmYmw6VfBreu0=
+github.com/kyverno/pkg/tls v0.0.9/go.mod h1:t2pXB7A1BrS95f6XAvkau70kq/1i7nGjebAwci3L9Go=
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTsIwiRnZ3k9SvVJOagDyttWxVsngYLgvBownRG7So=
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2/go.mod h1:EumSDUMvIitgwlZBvVYnlgC285mZ0yCjAfoiu8s3o/g=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:9u+4QYMLdZPC8qeUB1TnfiUYRrFGYHxjYQsPiHKgJjI=
@@ -766,6 +774,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8m
 github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
+github.com/nlepage/go-tarfs v1.2.1 h1:o37+JPA+ajllGKSPfy5+YpsNHDjZnAoyfvf5GsUa+Ks=
+github.com/nlepage/go-tarfs v1.2.1/go.mod h1:rno18mpMy9aEH1IiJVftFsqPyIpwqSUiAOpJYjlV2NA=
 github.com/notaryproject/notation-core-go v1.3.0 h1:mWJaw1QBpBxpjLSiKOjzbZvB+xh2Abzk14FHWQ+9Kfs=
 github.com/notaryproject/notation-core-go v1.3.0/go.mod h1:hzvEOit5lXfNATGNBT8UQRx2J6Fiw/dq/78TQL8aE64=
 github.com/notaryproject/notation-go v1.3.2 h1:4223iLXOHhEV7ZPzIUJEwwMkhlgzoYFCsMJvSH1Chb8=
