@@ -86,6 +86,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -96,6 +97,8 @@ func createrLeaderControllers(
 		jp,
 		urGenerator,
 		watchManager,
+		gpolEngine,
+		gpolProvider,
 	)
 	if err != nil {
 		return nil, err

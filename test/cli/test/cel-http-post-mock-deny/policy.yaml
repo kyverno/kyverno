@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-pod-admission
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
+  validations:
+    - expression: >
+        http.Post("https://authz.example.com/validate",
+          {"namespace": object.metadata.namespace, "name": object.metadata.name}).body.allowed == true
+      message: "External authorization service rejected this pod"
