@@ -83,6 +83,83 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
 
+  cosign-keyless-extensions:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - v1.33.x
+          - v1.34.x
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install tools
+        uses: ./.github/actions/tools/helm
+      - name: Install crane
+        uses: ./.github/actions/tools/crane
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        with:
+          cosign-release: v2.6.1
+      - name: Install chainsaw
+        uses: ./.github/actions/tools/chainsaw
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export USE_CONFIG=standard
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno/wait-ready
+      - name: Create and sign test image
+        shell: bash
+        run: |
+          set -e
+          DIGEST=$(crane digest cgr.dev/chainguard/static)
+          IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
+          TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
+          crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
+          cosign sign $TEST_IMAGE_URL -y
+          echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
+          echo "CERT_GITHUB_WORKFLOW_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
+          echo "CERT_GITHUB_WORKFLOW_REF=${{ github.ref }}" >> $GITHUB_ENV
+          echo "CERT_GITHUB_WORKFLOW_TRIGGER=${{ github.event_name }}" >> $GITHUB_ENV
+          echo "CERT_GITHUB_WORKFLOW_SHA=${{ github.sha }}" >> $GITHUB_ENV
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
+          CERT_GITHUB_WORKFLOW_REPOSITORY: ${{ env.CERT_GITHUB_WORKFLOW_REPOSITORY }}
+          CERT_GITHUB_WORKFLOW_REF: ${{ env.CERT_GITHUB_WORKFLOW_REF }}
+          CERT_GITHUB_WORKFLOW_TRIGGER: ${{ env.CERT_GITHUB_WORKFLOW_TRIGGER }}
+          CERT_GITHUB_WORKFLOW_SHA: ${{ env.CERT_GITHUB_WORKFLOW_SHA }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw/image-validating-policies/standard/cosign-keyless-additional-extensions && chainsaw test --config .chainsaw.yaml
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno/logs
+
   custom-sigstore:
     runs-on: ubuntu-latest
     strategy:
