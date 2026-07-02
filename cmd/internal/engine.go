@@ -22,7 +22,6 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/client-go/kubernetes"
-
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 

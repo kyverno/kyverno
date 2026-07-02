@@ -67,7 +67,6 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 				"verify_image_signature_string_stringarray",
 				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
 				types.IntType,
-				// what is verfiying a signature versus verifying an attestation ?
 				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
 			),
 		},
