@@ -602,6 +602,15 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 }
 
 func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
+	// While webhook health is unknown/unhealthy (startup, leader change, a cluster
+	// resumed after an outage) the recorded webhook state has not been rebuilt from a
+	// confirmed-healthy reconcile. Do not downgrade policies to NotReady in that
+	// window: it evicts them from the policy cache and the handler then admits
+	// requests unmutated/unvalidated, silently skipping failurePolicy: Fail rules
+	// (#11560, #16281). Preserve the last known status; a healthy reconcile updates it.
+	if !c.watchdogCheck() {
+		return nil
+	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
@@ -727,7 +736,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if c.runtime.IsRollingUpdate() {
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
-			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+			if !c.watchdogCheck() {
+				// Health not confirmed (startup, leader change, resumed cluster):
+				// rebuilding now would publish an empty webhook configuration and drop
+				// every rule. Requeue and keep the persisted configuration until the
+				// watchdog confirms health (it refreshes on its own ticker).
+				c.enqueueResourceWebhooks(1 * time.Second)
+			} else if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
 				c.stateRecorder.Reset()
 				return err
 			}
@@ -739,7 +754,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if c.runtime.IsRollingUpdate() {
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
-			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+			if !c.watchdogCheck() {
+				// Health not confirmed (startup, leader change, resumed cluster):
+				// rebuilding now would publish an empty webhook configuration and drop
+				// every rule. Requeue and keep the persisted configuration until the
+				// watchdog confirms health (it refreshes on its own ticker).
+				c.enqueueResourceWebhooks(1 * time.Second)
+			} else if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
 				c.stateRecorder.Reset()
 				return err
 			}
