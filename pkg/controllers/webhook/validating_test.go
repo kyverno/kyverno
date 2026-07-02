@@ -665,6 +665,113 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestMergeLabelSelectors(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        *metav1.LabelSelector
+		b        *metav1.LabelSelector
+		expected *metav1.LabelSelector
+	}{
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: nil,
+		},
+		{
+			name: "a nil returns b",
+			a:    nil,
+			b: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+		{
+			name: "b nil returns a",
+			a: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			b: nil,
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+		{
+			// Core regression: both non-nil but no matchLabels -- API server strips
+			// empty matchLabels:{} on storage, so merged result must have nil
+			// MatchLabels and nil MatchExpressions to satisfy DeepEqual on re-read.
+			name:     "both non-nil with no labels or expressions produce nil fields",
+			a:        &metav1.LabelSelector{},
+			b:        &metav1.LabelSelector{},
+			expected: &metav1.LabelSelector{},
+		},
+		{
+			name: "labels from both inputs are merged",
+			a: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			b: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"team": "infra"},
+			},
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod", "team": "infra"},
+			},
+		},
+		{
+			name: "expressions from both inputs are merged",
+			a: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "env", Operator: metav1.LabelSelectorOpIn, Values: []string{"prod"}},
+				},
+			},
+			b: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "team", Operator: metav1.LabelSelectorOpExists},
+				},
+			},
+			expected: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "env", Operator: metav1.LabelSelectorOpIn, Values: []string{"prod"}},
+					{Key: "team", Operator: metav1.LabelSelectorOpExists},
+				},
+			},
+		},
+		{
+			// Regression: global config has only MatchExpressions (GKE Autopilot injects
+			// these); policy has no namespaceSelector. Result must not carry matchLabels:{}.
+			name: "expression-only selector produces nil MatchLabels",
+			a:    &metav1.LabelSelector{},
+			b: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"kube-system"}},
+				},
+			},
+			expected: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"kube-system"}},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mergeLabelSelectors(tt.a, tt.b)
+			assert.Equal(t, tt.expected, got)
+			// Verify nil fields explicitly -- the core invariant this fix protects.
+			if got != nil {
+				if len(got.MatchLabels) == 0 {
+					assert.Nil(t, got.MatchLabels, "MatchLabels must be nil when empty, not an empty map")
+				}
+				if len(got.MatchExpressions) == 0 {
+					assert.Nil(t, got.MatchExpressions, "MatchExpressions must be nil when empty, not an empty slice")
+				}
+			}
+		})
+	}
+}
 func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T) {
 	makeRule := func() []admissionregistrationv1.NamedRuleWithOperations {
 		return []admissionregistrationv1.NamedRuleWithOperations{{
