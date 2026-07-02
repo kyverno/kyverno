@@ -1,32 +1,33 @@
-apiVersion: policies.kyverno.io/v1
+apiVersion: policies.kyverno.io/v1beta1
 kind: GeneratingPolicy
 metadata:
-  name: gpol-skip-background-default
+  name: ssa-generate-cm-update
 spec:
+  useServerSideApply: true
   matchConstraints:
     resourceRules:
-    - apiGroups: [""]
+    - apiGroups:   [""]
       apiVersions: ["v1"]
-      operations: ["UPDATE"]
-      resources: ["namespaces"]
-      resourceNames: ["gpol-skip-background-ns"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
   variables:
     - name: nsName
       expression: "object.metadata.name"
-    - name: generated
+    - name: configmap
       expression: >-
         [
           {
             "kind": dyn("ConfigMap"),
             "apiVersion": dyn("v1"),
             "metadata": dyn({
-              "name": "generated-default",
+              "name": "ssa-update-config",
               "namespace": string(variables.nsName),
             }),
             "data": dyn({
-              "source": "default-skip"
+              "mode": "ssa",
+              "key": "original"
             })
           }
         ]
   generate:
-  - expression: generator.apply(variables.nsName, variables.generated)
+    - expression: generator.apply(variables.nsName, variables.configmap)
