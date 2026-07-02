@@ -13,10 +13,18 @@ func IsEmptyDocument(document document) bool {
 			continue
 		}
 		// Accept --- and ... markers optionally followed by whitespace and/or a comment.
+		// A comment must be separated from the marker by whitespace, otherwise the line
+		// is treated as content (e.g. "---#foo" is not a marker with a trailing comment).
 		if strings.HasPrefix(line, "---") || strings.HasPrefix(line, "...") {
-			rest := strings.TrimSpace(line[3:])
-			if rest == "" || strings.HasPrefix(rest, "#") {
+			rest := line[3:]
+			if rest == "" {
 				continue
+			}
+			if strings.HasPrefix(rest, " ") || strings.HasPrefix(rest, "\t") {
+				rest = strings.TrimSpace(rest)
+				if rest == "" || strings.HasPrefix(rest, "#") {
+					continue
+				}
 			}
 		}
 		return false

@@ -40,6 +40,8 @@ func TestIsEmptyDocument(t *testing.T) {
 		{"four dots", "....", false},
 		{"doc-start glued to word", "---foo", false},
 		{"doc-end glued to word", "...bar", false},
+		{"doc-start glued to comment", "---#foo", false},
+		{"doc-end glued to comment", "...#bar", false},
 		{"doc-start with non-comment text", "--- not a comment", false},
 		{"doc-end with non-comment text", "... not a comment", false},
 	}
