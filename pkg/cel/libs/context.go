@@ -51,12 +51,13 @@ type Context interface {
 	GetHTTPMocks() map[string]interface{}
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
-	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
+	SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
 	Clone() Context
 }
 
 type generateContext struct {
 	policyName        string
+	policyNamespace   string
 	triggerName       string
 	triggerNamespace  string
 	triggerAPIVersion string
@@ -206,7 +207,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				// (enforced in the generator lib). Cluster-scoped resources have
 				// no namespace, so generating one would escape that scope. Reject
 				// it instead of silently creating the resource cluster-wide.
-				if namespace != "" {
+				if namespace != "" && cp.genCtx.policyNamespace != "" {
 					return fmt.Errorf("cross-scope generation denied: a policy scoped to namespace %q cannot generate cluster-scoped resource %s/%s", namespace, item.GetAPIVersion(), item.GetKind())
 				}
 				targetNamespace = ""
@@ -317,10 +318,11 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 }
 
 func (cp *contextProvider) SetGenerateContext(
-	polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
+	polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
 	restoreCache bool,
 ) {
 	cp.genCtx.policyName = polName
+	cp.genCtx.policyNamespace = policyNamespace
 	cp.genCtx.triggerName = triggerName
 	cp.genCtx.triggerNamespace = triggerNamespace
 	cp.genCtx.triggerAPIVersion = triggerAPIVersion

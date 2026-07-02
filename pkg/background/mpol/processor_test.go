@@ -47,7 +47,7 @@ func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data 
 	return &unstructured.Unstructured{}, nil
 }
 func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
 	panic("not implemented")
 }
 
@@ -93,6 +93,10 @@ func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amd
 
 func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
 	return mpolengine.Policy{}, nil
+}
+
+func (f *fakeEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.Policy {
+	return map[string]mpolengine.Policy{}
 }
 
 func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {

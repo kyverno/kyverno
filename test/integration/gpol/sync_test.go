@@ -174,7 +174,7 @@ func setupSyncTestWith(t *testing.T, source *corev1.Secret, policy *policiesv1be
 	t.Cleanup(stopWM)
 	processor := framework.NewURProcessorWithSyncWatchers(gpolEngine, gpolProvider, testEnv.ContextProvider, wm)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), policy.Name)
 	resp := h.Generate(ctx, logr.Discard(), framework.NamespaceAdmissionRequest(targetNs, namespaceJSON(targetNs)), "", time.Now())
