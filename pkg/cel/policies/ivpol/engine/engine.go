@@ -212,7 +212,6 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 	return false, nil
 }
 
-// TODO: we never used the policy credentials in this function before, does this mean this was always a bug ?
 func (e *engineImpl) handleMutation(
 	ctx context.Context,
 	policies []Policy,

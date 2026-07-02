@@ -82,13 +82,10 @@ func (p *Policy) Evaluate(
 	if !match {
 		return nil, nil, nil
 	}
-	// create a lazy map
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
 	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: data.Context}
-	// for each variable in the compile policy
 	for name, variable := range p.variables {
-		// append a function to evaluate this variable with the dataNew input
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, dataNew)
 			if out != nil {
