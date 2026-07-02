@@ -6,6 +6,17 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -17,16 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/admission"
 )
 
 type fakeContext struct{}
@@ -47,7 +48,7 @@ func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data 
 	return &unstructured.Unstructured{}, nil
 }
 func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
 	panic("not implemented")
 }
 
