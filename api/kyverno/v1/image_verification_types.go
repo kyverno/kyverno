@@ -40,8 +40,6 @@ var signatureAlgorithmMap = map[string]bool{
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
-//
-// a type that represents an image verification rule in the old policy api
 type ImageVerification struct {
 	// Allowed values are Audit or Enforce.
 	// +optional
@@ -96,7 +94,6 @@ type ImageVerification struct {
 	Attestations []Attestation `json:"attestations,omitempty"`
 
 	// Deprecated. Use annotations per Attestor instead.
-	// a global one at the policy level. but we now have a per attestor annotation field
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
@@ -145,7 +142,6 @@ type AttestorSet struct {
 	// value N, then N must be less than or equal to the size of entries, and at least N entries must match.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum:=1
-	// the count of attestors that must match an image for it to be considered valid
 	Count *int `json:"count,omitempty"`
 
 	// Entries contains the available attestors. An attestor can be a static key,
@@ -182,7 +178,6 @@ type Attestor struct {
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.
-	// inner annotations per attestor (assuming you have mutiple cosign attestors in a single policy)
 	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
