@@ -381,17 +381,17 @@ func TestValidatingAdmissionPolicyBindingLabel_LongName_Deterministic(t *testing
 }
 
 func TestTruncateLabelName_ShortName(t *testing.T) {
-	assert.Equal(t, "short-name", truncateLabelName("short-name"))
+	assert.Equal(t, "short-name", normalizeLabelName("short-name"))
 }
 
 func TestTruncateLabelName_ExactlyAtLimit(t *testing.T) {
 	name := strings.Repeat("a", 63)
-	assert.Equal(t, name, truncateLabelName(name))
+	assert.Equal(t, name, normalizeLabelName(name))
 }
 
 func TestTruncateLabelName_OneOverLimit(t *testing.T) {
 	name := strings.Repeat("a", 64)
-	result := truncateLabelName(name)
+	result := normalizeLabelName(name)
 	assert.LessOrEqual(t, len(result), 63)
 	// MD5 hex is always 32 chars
 	assert.Equal(t, 32, len(result))

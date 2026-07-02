@@ -105,17 +105,17 @@ func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 }
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
-	return LabelPrefixValidatingAdmissionPolicyBinding + truncateLabelName(binding.GetName())
+	return LabelPrefixValidatingAdmissionPolicyBinding + normalizeLabelName(binding.GetName())
 }
 
 func MutatingAdmissionPolicyBindingLabel(binding metav1.Object) string {
-	return LabelPrefixMutatingAdmissionPolicyBinding + truncateLabelName(binding.GetName())
+	return LabelPrefixMutatingAdmissionPolicyBinding + normalizeLabelName(binding.GetName())
 }
 
-// truncateLabelName ensures the name portion of a Kubernetes label key stays within the
+// normalizeLabelName ensures the name portion of a Kubernetes label key stays within the
 // 63-character limit. Names exceeding this limit are replaced by their MD5 hash (32 hex
 // chars), which is deterministic and always within bounds.
-func truncateLabelName(name string) string {
+func normalizeLabelName(name string) string {
 	if len(name) <= 63 {
 		return name
 	}
