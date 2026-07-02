@@ -17,6 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -71,9 +72,9 @@ func TestMain(m *testing.M) {
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
-		expectedReports []openreportsv1alpha1.Report
-		config          ApplyCommandConfig
-		stdinFile       string
+		expectedReportSummary []openreportsv1alpha1.ReportSummary
+		config                ApplyCommandConfig
+		stdinFile             string
 	}
 	// copy disallow_latest_tag.yaml to local path
 	localFileName, err := copyFileToThisDir("../../../../../test/best_practices/disallow_latest_tag.yaml")
@@ -88,14 +89,12 @@ func Test_Apply(t *testing.T) {
 				exceptionsWithinPolicies: true,
 				PolicyReport:             true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  0,
+				Skip:  1,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -105,14 +104,12 @@ func Test_Apply(t *testing.T) {
 				exceptionsWithinResources: true,
 				PolicyReport:              true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  0,
+				Skip:  1,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -123,14 +120,12 @@ func Test_Apply(t *testing.T) {
 				exceptionsWithinPolicies:  true,
 				PolicyReport:              true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  2,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  2,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -139,14 +134,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -155,14 +148,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -171,14 +162,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -187,14 +176,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  2,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  2,
 			}},
 		},
 		{
@@ -204,14 +191,12 @@ func Test_Apply(t *testing.T) {
 				PolicyReport:  true,
 				AuditWarn:     true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			}},
 		},
 		{
@@ -223,14 +208,12 @@ func Test_Apply(t *testing.T) {
 				warnExitCode:  3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			}},
 		},
 		{
@@ -241,14 +224,12 @@ func Test_Apply(t *testing.T) {
 				AuditWarn:     true,
 			},
 			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  1,
 			}},
 		},
 		{
@@ -258,14 +239,12 @@ func Test_Apply(t *testing.T) {
 				Variables:     []string{"request.operation=UPDATE"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -274,14 +253,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -290,14 +267,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -306,14 +281,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -322,14 +295,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -338,14 +309,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -354,14 +323,12 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -373,14 +340,12 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -392,14 +357,12 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  0,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -413,14 +376,12 @@ func Test_Apply(t *testing.T) {
 				ValuesFile:   "../../../../../test/cli/test-validating-admission-policy/with-bindings-3/values.yaml",
 				PolicyReport: true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  2,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  2,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -432,14 +393,12 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -451,14 +410,12 @@ func Test_Apply(t *testing.T) {
 				UserInfoPath: "../../../../../test/cli/test-validating-admission-policy/check-user-info/userinfo.yaml",
 				PolicyReport: true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -469,14 +426,12 @@ func Test_Apply(t *testing.T) {
 				PolicyReport:  true,
 				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -488,14 +443,12 @@ func Test_Apply(t *testing.T) {
 				PolicyReport:  true,
 				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  2,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
 		},
 		{
@@ -509,15 +462,108 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  3,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  3,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
 			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_default_namespace.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_without_namespace.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			}},
+		},
+		{
+			// Same as the above, but sets (fallback) namespace, making the policy pass
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_default_namespace.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_without_namespace.yaml"},
+				PolicyReport:  true,
+				Namespace:     "myapp-namespace",
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  1,
+				Fail:  0,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			}},
+		},
+		{
+			// Policy and resource using implicit namespace ("default" because CLI flag isn't set)
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag_namespaced_implicit.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			}},
+		},
+		{
+			// Policy and resource using implicit namespace ("mynamespace" set via CLI flag")
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag_namespaced_implicit.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:  true,
+				Namespace:     "mynamespace",
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			}},
+		},
+		{
+			// Policy and resource using same explicit namespace different from implicit namespace set as CLI flag
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag_namespaced_explicit.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag_custom_namespace.yaml"},
+				PolicyReport:  true,
+				Namespace:     "mynamespace",
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{{
+				Pass:  0,
+				Fail:  1,
+				Skip:  0,
+				Error: 0,
+				Warn:  0,
+			}},
+		},
+		{
+			// Policy using implicit namespace, resource using different explicit namespace (no results)
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag_namespaced_implicit.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag_custom_namespace.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{},
+		},
+		{
+			// Policy using explicit namespace, resource using implicit namespace (no results)
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag_namespaced_explicit.yaml"},
+				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReportSummary: []openreportsv1alpha1.ReportSummary{},
 		},
 	}
 
@@ -547,15 +593,33 @@ func Test_Apply(t *testing.T) {
 		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
 		assert.NoError(t, err, desc)
 
-		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
-		assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
-		combined := []openreportsv1alpha1.ClusterReport{
-			report.MergeClusterReports(clustered),
+		clustered, namespaced := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
+
+		if len(tc.expectedReportSummary) == 0 {
+			assert.Equal(t, 0, len(clustered), "test case expects no results, got %s cluster reports")
+			assert.Equal(t, 0, len(namespaced), "test case expects no results, got %s namespace reports")
+			return
 		}
-		assert.Equal(t, len(combined), len(tc.expectedReports))
-		for i, resp := range combined {
-			compareSummary(tc.expectedReports[i].Summary, resp.Summary, desc)
+
+		hasClustered := len(clustered) > 0
+		hasNamespaced := len(namespaced) > 0
+
+		assert.Condition(t, func() (sucess bool) { return hasClustered || hasNamespaced && !(hasClustered && hasNamespaced) }, "test must return either a cluster policy reports or namespace policy reports")
+
+		var summary openreportsv1alpha1.ReportSummary
+		if hasClustered {
+			combined := report.MergeClusterReports(clustered)
+			summary = combined.Summary
+		} else if hasNamespaced {
+			results := []openreportsv1alpha1.ReportResult{}
+			for _, resp := range namespaced {
+				results = append(results, resp.Results...)
+			}
+			summary = reportutils.CalculateSummary(results)
 		}
+
+		assert.Equal(t, 1, len(tc.expectedReportSummary), "test must specify either no or exactly one expected report summary, got %s")
+		compareSummary(tc.expectedReportSummary[0], summary, desc)
 	}
 
 	for _, tc := range testcases {
