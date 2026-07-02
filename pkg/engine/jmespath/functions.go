@@ -1273,6 +1273,14 @@ func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction 
 	}
 }
 
+// isInternalIP reports whether ip belongs to a non-public range that must not
+// be treated as external. Besides loopback and private ranges this covers
+// link-local unicast (169.254.0.0/16 and fe80::/10, which includes the
+// 169.254.169.254 cloud metadata endpoint) and the unspecified address.
+func isInternalIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
+}
+
 func jpIsExternalURL(arguments []any) (any, error) {
 	var err error
 	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
@@ -1285,7 +1293,7 @@ func jpIsExternalURL(arguments []any) (any, error) {
 	}
 	ip := net.ParseIP(parsedURL.Hostname())
 	if ip != nil {
-		return !(ip.IsLoopback() || ip.IsPrivate()), nil
+		return !isInternalIP(ip), nil
 	}
 	// If it can't be parsed as an IP, then resolve the domain name
 	addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), parsedURL.Hostname())
@@ -1293,7 +1301,7 @@ func jpIsExternalURL(arguments []any) (any, error) {
 		return nil, err
 	}
 	for _, addr := range addrs {
-		if addr.IP.IsLoopback() || addr.IP.IsPrivate() {
+		if isInternalIP(addr.IP) {
 			return false, nil
 		}
 	}
