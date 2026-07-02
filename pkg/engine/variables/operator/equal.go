@@ -92,7 +92,7 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 	// operand). This keeps the comparison symmetric with the int/float key paths,
 	// e.g. Equals("5", 5). Non-numeric keys (e.g. "abc" or quantity-like "100Mi")
 	// are skipped here and fall through to the string handling below, avoiding
-	// noisy parse-error logs for what is simply a not-equal comparison.
+	// noisy parse-error logs for what is simply an unequal comparison.
 	switch typedValue := value.(type) {
 	case int:
 		if _, err := strconv.ParseInt(key, 10, 64); err == nil {
