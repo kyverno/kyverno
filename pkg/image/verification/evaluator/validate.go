@@ -92,7 +92,7 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
-	// We just wanna validate that the policy compiles. No need to supply real authentication optins to the context
+	// We just wanna validate that the policy compiles. No need to supply real authentication options to the context
 	ictx, err := imagedataloader.NewImageContext(lister, nil, nil)
 	if err != nil {
 		return nil, err
