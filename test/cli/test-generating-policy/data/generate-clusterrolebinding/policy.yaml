@@ -1,0 +1,41 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: generate-clusterrolebinding
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["serviceaccounts"]
+  matchConditions:
+    - name: has-namespace-creator-label
+      expression: object.metadata.?labels[?"xyz/namespace-creator"].orValue("") == "enabled"
+  variables:
+    - name: downstream
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("rbac.authorization.k8s.io/v1"),
+            "kind": dyn("ClusterRoleBinding"),
+            "metadata": dyn({
+              "name": dyn("namespace-editor-" + string(object.metadata.namespace) + "-" + string(object.metadata.name))
+            }),
+            "roleRef": dyn({
+              "apiGroup": "rbac.authorization.k8s.io",
+              "kind": "ClusterRole",
+              "name": "namespace-editor"
+            }),
+            "subjects": dyn([{
+              "kind": "ServiceAccount",
+              "name": string(object.metadata.name),
+              "namespace": string(object.metadata.namespace)
+            }])
+          }
+        ]
+  generate:
+    - expression: generator.Apply("", variables.downstream)
