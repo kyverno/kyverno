@@ -89,7 +89,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
-			return EngineResponse{Match: false, PolicyMatched: false}, err
+			return EngineResponse{Match: false, PolicyMatched: false}, nil
 		}
 	}
 
