@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
