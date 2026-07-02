@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: skip-background-requests
+spec:
+  concurrent: false
+  steps:
+  - name: grant-background-user-permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create trigger namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: create default-skip generating policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-default.yaml
+  - name: wait-generating-policy-ready-default
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: gpol-skip-background-default
+  - name: wait-webhook-default
+    try:
+    - sleep:
+        duration: 5s
+  - name: background-user-updates-namespace-default
+    try:
+    - script:
+        content: |
+          kubectl label namespace gpol-skip-background-ns trigger=default --overwrite --as system:serviceaccount:kyverno:kyverno-background-controller
+  - name: no-generated-resource-by-default
+    try:
+    - script:
+        content: |
+          if kubectl get configmap generated-default -n gpol-skip-background-ns >/dev/null 2>&1; then
+            echo "expected generated-default to be absent when background requests are skipped"
+            exit 1
+          fi
+  - name: cleanup-default-policy
+    try:
+    - delete:
+        ref:
+          apiVersion: policies.kyverno.io/v1
+          kind: GeneratingPolicy
+          name: gpol-skip-background-default
+  - name: create opt-in generating policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-optin.yaml
+  - name: wait-generating-policy-ready-optin
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: gpol-skip-background-optin
+  - name: wait-webhook-optin
+    try:
+    - sleep:
+        duration: 5s
+  - name: background-user-updates-namespace-optin
+    try:
+    - script:
+        content: |
+          kubectl label namespace gpol-skip-background-ns trigger=optin --overwrite --as system:serviceaccount:kyverno:kyverno-background-controller
+  - name: generated-resource-appears-when-opted-in
+    try:
+    - assert:
+        file: configmap-optin-assert.yaml
