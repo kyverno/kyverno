@@ -39,6 +39,12 @@ global:
   # -- Global priority class name for pod priority. Non-global values will override the global value.
   priorityClassName: ''
 
+  # -- Global scheduler name used to schedule the pods. Non-global values will override the global value.
+  schedulerName: ''
+
+  # -- Global runtime class name applied to the pods. Non-global values will override the global value.
+  runtimeClassName: ''
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
@@ -1089,6 +1095,12 @@ admissionController:
   # -- Optional priority class
   priorityClassName: ''
 
+  # -- Optional scheduler name
+  schedulerName: ''
+
+  # -- Optional runtime class name
+  runtimeClassName: ''
+
   # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities.
   # This will help ensure Kyverno stability in busy clusters.
   # Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/
@@ -1616,6 +1628,12 @@ backgroundController:
   # -- Optional priority class
   priorityClassName: ''
 
+  # -- Optional scheduler name
+  schedulerName: ''
+
+  # -- Optional runtime class name
+  runtimeClassName: ''
+
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
@@ -1975,6 +1993,12 @@ cleanupController:
 
   # -- Optional priority class
   priorityClassName: ''
+
+  # -- Optional scheduler name
+  schedulerName: ''
+
+  # -- Optional runtime class name
+  runtimeClassName: ''
 
   # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
   # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
@@ -2341,6 +2365,12 @@ reportsController:
 
   # -- Optional priority class
   priorityClassName: ''
+
+  # -- Optional scheduler name
+  schedulerName: ''
+
+  # -- Optional runtime class name
+  runtimeClassName: ''
 
   # -- Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities.
   # This will help ensure Kyverno reports stability in busy clusters.

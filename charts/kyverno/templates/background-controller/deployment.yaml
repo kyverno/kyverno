@@ -59,6 +59,12 @@ spec:
       {{- with .Values.backgroundController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
+      {{- with .Values.backgroundController.schedulerName | default .Values.global.schedulerName }}
+      schedulerName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.backgroundController.runtimeClassName | default .Values.global.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
       {{- with .Values.backgroundController.hostNetwork }}
       hostNetwork: {{ . }}
       {{- end }}
