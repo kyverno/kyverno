@@ -124,7 +124,7 @@ func TestGenerate_CreateTriggersUpdateRequest(t *testing.T) {
 	waitForGpolInLister(t, "gen-networkpolicy")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-networkpolicy")
 	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("test-pod", "default", admissionv1.Create, podJSON), "", time.Now())
@@ -158,7 +158,7 @@ func TestGenerate_DryRunSkipsGeneration(t *testing.T) {
 	waitForGpolInLister(t, "gen-dryrun-skip")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	req := framework.PodAdmissionRequestWithOp("dry-pod", "default", admissionv1.Create, podJSON)
 	req.DryRun = ptr.To(true)
@@ -192,7 +192,7 @@ func TestGenerate_DeleteWithSyncDeletesDownstream(t *testing.T) {
 	waitForGpolInLister(t, "gen-sync-delete")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-sync-delete")
 	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("del-pod", "default", admissionv1.Delete, podJSON), "", time.Now())
@@ -225,7 +225,7 @@ func TestGenerate_DeleteMatchingDeleteOpFiresGeneration(t *testing.T) {
 	waitForGpolInLister(t, "gen-on-delete")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-on-delete")
 	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("audit-pod", "default", admissionv1.Delete, podJSON), "", time.Now())
@@ -261,7 +261,7 @@ func TestGenerate_UpdateWithSyncSetsSynchronize(t *testing.T) {
 	waitForGpolInLister(t, "gen-sync-update")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-sync-update")
 	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("sync-pod", "default", admissionv1.Update, podJSON), "", time.Now())
@@ -299,7 +299,7 @@ func TestGenerate_MultiplePoliciesCreateMultipleURs(t *testing.T) {
 	waitForGpolInLister(t, "gen-multi-b")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-multi-a", "gen-multi-b")
 	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("multi-pod", "default", admissionv1.Create, podJSON), "", time.Now())
@@ -355,7 +355,7 @@ func TestGenerateFullFlow_PodCreateGeneratesConfigMap(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -420,7 +420,7 @@ func TestGenerateFullFlow_DryRunProducesNoDownstream(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	req := framework.PodAdmissionRequestWithOp("dryrun-pod", "default", admissionv1.Create, podJSON)
 	req.DryRun = ptr.To(true)
@@ -500,7 +500,7 @@ func TestGenerateFullFlow_MultiplePoliciesGenerateDifferentResources(t *testing.
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -595,7 +595,7 @@ func TestGenerateNamespaced_CreateTriggersURWithNamespacePrefix(t *testing.T) {
 	waitForNgpolInLister(t, "team-gen", "gen-team-configmap")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-team-configmap")
 	resp := h.GenerateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("app-pod", "team-gen", admissionv1.Create, podJSON), "", time.Now())
@@ -619,7 +619,7 @@ func TestGenerateNamespaced_SkipsClusterScopedResources(t *testing.T) {
 	// When the admission request has no namespace (cluster-scoped resource),
 	// the handler should return success immediately without creating any URs.
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	// Empty namespace simulates a cluster-scoped resource like a Node or ClusterRole.
 	ctx := framework.ContextWithPolicies(context.Background(), "some-policy")
@@ -658,7 +658,7 @@ func TestGenerateNamespaced_DeleteWithSyncDeletesDownstream(t *testing.T) {
 	waitForNgpolInLister(t, "team-cleanup", "gen-sync-ns")
 
 	mock := &framework.MockURGenerator{}
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	ctx := framework.ContextWithPolicies(context.Background(), "gen-sync-ns")
 	resp := h.GenerateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("cleanup-pod", "team-cleanup", admissionv1.Delete, podJSON), "", time.Now())
@@ -768,7 +768,7 @@ func TestGenerateFullFlow_ExceptionSkipsGeneration(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -853,7 +853,7 @@ func TestGenerateFullFlow_ExceptionWithMatchCondition(t *testing.T) {
 	// Pod in "exempt" namespace — exception match condition is true, generation skipped.
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mockExempt := framework.NewProcessingURGenerator(processor)
-	hExempt := gpol.New(mockExempt, gpolLister, ngpolLister)
+	hExempt := gpol.New(mockExempt, gpolLister, ngpolLister, "")
 
 	exemptPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -878,7 +878,7 @@ func TestGenerateFullFlow_ExceptionWithMatchCondition(t *testing.T) {
 
 	// Pod in "default" namespace — exception match condition is false, generation proceeds.
 	mockDefault := framework.NewProcessingURGenerator(framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider))
-	hDefault := gpol.New(mockDefault, gpolLister, ngpolLister)
+	hDefault := gpol.New(mockDefault, gpolLister, ngpolLister, "")
 
 	defaultPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -943,7 +943,7 @@ func TestGenerateFullFlow_MatchConditionFalse_NoGeneration(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -988,7 +988,7 @@ func TestGenerateFullFlow_GenerationExpressionError_NoDownstream(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -1051,7 +1051,7 @@ func TestGenerateFullFlow_UnusedBrokenVariable_StillGenerates(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
@@ -1108,7 +1108,7 @@ func TestGenerateFullFlow_UsedBrokenVariable_NoDownstream(t *testing.T) {
 
 	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
 	mock := framework.NewProcessingURGenerator(processor)
-	h := gpol.New(mock, gpolLister, ngpolLister)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
 	triggerPodJSON := []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
