@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -74,18 +76,23 @@ type contextProvider struct {
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
-	cliEvaluation      bool
+	cliEvaluation      bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
 	restMapper         meta.RESTMapper
 }
 
 func NewContextProvider(
 	client dclient.Interface,
-	imageOpts []imagedataloader.Option,
+	secretLister corev1listers.SecretLister,
 	gctxStore gctxstore.Store,
 	restMapper meta.RESTMapper,
 	cliEvaluation bool,
 ) (Context, error) {
-	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+	// By default, the libraries context uses the global registry client credentials.
+	// callers who will need to pass in different authentication options (the ivpol)
+	// will simply pass different opts to the image data loader during image fetching
+	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+
+	idl, err := imagedataloader.New(secretLister, authOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +100,8 @@ func NewContextProvider(
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
-		cliEvaluation:      cliEvaluation,
 		restMapper:         restMapper,
+		cliEvaluation:      cliEvaluation,
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}
 	LibraryContext = ctx
@@ -131,9 +138,14 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
-	// TODO: get image credentials from image verification policies?
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	// NOTE: we deliberately not pass name options here because there is currently only one
+	// name option we build, which is name.Insecure. This option already gets build and passed
+	// during the fetching of the global registry client options and then building the image data
+	// loader from those options.
+	// but we don't actually build that option in the global registry client anymore ?
+	// in the image validating
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}

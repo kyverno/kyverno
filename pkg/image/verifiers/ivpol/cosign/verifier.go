@@ -12,14 +12,15 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/policy"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type Verifier struct {
-	secretInterface imagedataloader.SecretInterface
+	secretInterface corev1listers.SecretLister
 	log             logr.Logger
 }
 
-func NewVerifier(secretInterface imagedataloader.SecretInterface, logger logr.Logger) *Verifier {
+func NewVerifier(secretInterface corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
 		log:             logging.WithName("Cosign"),
 		secretInterface: secretInterface,

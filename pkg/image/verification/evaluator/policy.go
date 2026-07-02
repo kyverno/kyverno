@@ -8,10 +8,11 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -49,7 +50,8 @@ type compiledPolicy struct {
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
-	creds                *policiesv1beta1.Credentials
+	authOpts             []remote.Option
+	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
@@ -115,7 +117,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[engine.ObjectKey] = request
@@ -139,7 +141,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
 		return nil, err
 	}
 

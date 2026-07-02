@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 )
 
@@ -110,8 +110,7 @@ func buildTSAChainPEM(t *testing.T, numIntermediates int) string {
 // TestBuildCosignOptions_TSACertChainTooManyIntermediates verifies that a TSA certificate
 // chain with more than maxIntermediateCerts intermediate CAs is rejected.
 func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 
 	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts+1)
 
@@ -125,15 +124,14 @@ func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 		TSACertChain: tsaChain,
 	}
 
-	_, err = buildCosignOptions(context.TODO(), opts)
+	_, err := buildCosignOptions(context.TODO(), opts)
 	assert.ErrorContains(t, err, "TSA certificate chain contains too many")
 }
 
 // TestBuildCosignOptions_TSACertChainAtLimit verifies that a TSA chain with exactly
 // maxIntermediateCerts intermediates is not rejected by the length check.
 func TestBuildCosignOptions_TSACertChainAtLimit(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 
 	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts)
 
@@ -145,7 +143,7 @@ func TestBuildCosignOptions_TSACertChainAtLimit(t *testing.T) {
 		TSACertChain: tsaChain,
 	}
 
-	_, err = buildCosignOptions(context.TODO(), opts)
+	_, err := buildCosignOptions(context.TODO(), opts)
 	if err != nil {
 		assert.Assert(t, !strings.Contains(err.Error(), "TSA certificate chain contains too many"),
 			"boundary chain (%d intermediates) must not be rejected by intermediate-count check; got: %v", maxIntermediateCerts, err)
@@ -165,8 +163,7 @@ func buildCertChainPEM(t *testing.T, n int) string {
 // TestBuildCosignOptions_CertChainTooLong verifies that a certificate chain longer than
 // maxIntermediateCerts+1 is rejected when opts.Cert and opts.CertChain are set.
 func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))
@@ -179,15 +176,14 @@ func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
 		IgnoreSCT:  true,
 	}
 
-	_, err = buildCosignOptions(context.TODO(), opts)
+	_, err := buildCosignOptions(context.TODO(), opts)
 	assert.ErrorContains(t, err, "certificate chain too long")
 }
 
 // TestBuildCosignOptions_CertChainAtLimit verifies that a certificate chain of exactly
 // maxIntermediateCerts+1 entries is not rejected by the length check.
 func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))
@@ -200,7 +196,7 @@ func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
 		IgnoreSCT:  true,
 	}
 
-	_, err = buildCosignOptions(context.TODO(), opts)
+	_, err := buildCosignOptions(context.TODO(), opts)
 	// May fail for chain-validation reasons but must not fail on the length check.
 	if err != nil {
 		assert.Assert(t, !strings.Contains(err.Error(), "certificate chain too long"),
