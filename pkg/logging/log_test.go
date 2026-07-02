@@ -22,17 +22,26 @@ func captureStderr(t *testing.T, fn func()) string {
 	originalStderr := os.Stderr
 	os.Stderr = w
 
-	done := make(chan string)
+	done := make(chan string, 1)
 	go func() {
+		defer r.Close()
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
 		done <- buf.String()
 	}()
 
+	restore := func() {
+		os.Stderr = originalStderr
+		if w != nil {
+			_ = w.Close()
+			w = nil
+		}
+	}
+	defer restore()
+
 	fn()
 
-	w.Close()
-	os.Stderr = originalStderr
+	restore()
 	return <-done
 }
 
