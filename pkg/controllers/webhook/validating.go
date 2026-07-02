@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"path"
@@ -33,6 +34,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			basic = append(basic, policy)
 		}
 	}
+	slices.SortFunc(fineGrained, func(a, b engineapi.GenericPolicy) int {
+		if x := cmp.Compare(a.GetNamespace(), b.GetNamespace()); x != 0 {
+			return x
+		}
+		return cmp.Compare(a.GetName(), b.GetName())
+	})
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 	// process fine grained policies
 	if len(fineGrained) != 0 {
