@@ -91,6 +91,11 @@ runs:
         export EXPLICIT_INSTALL_SETTINGS="${{ inputs.explicit-install-settings }}"
         echo "Installing Kyverno from main"
         make kind-install-kyverno
+    - name: Apply latest CRDs from repository
+      shell: bash
+      run: |
+        set -e
+        kubectl apply --server-side -R -f ./config/crds
     - name: Install kubectl-evict
       if: inputs.install-kubectl-evict == 'true'
       shell: bash
