@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
