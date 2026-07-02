@@ -926,3 +926,35 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	}
 	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
+
+func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "object-selector")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	got := map[string]engineapi.RuleStatus{}
+	for _, responses := range testResponse.Trigger {
+		for _, response := range responses {
+			for _, rule := range response.PolicyResponse.Rules {
+				got[response.Resource.GetName()] = rule.Status()
+			}
+		}
+	}
+
+	assert.Equal(t, engineapi.RuleStatusPass, got["secret-delete"])
+	assert.Equal(t, engineapi.RuleStatusSkip, got["secret-skip"])
+}

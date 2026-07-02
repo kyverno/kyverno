@@ -828,8 +828,12 @@ func applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := "resource matched"
 			if !resp.Match {
-				status = engineapi.RuleStatusFail
 				message = "resource did not match"
+				if resp.PolicyMatched {
+					status = engineapi.RuleStatusFail
+				} else {
+					status = engineapi.RuleStatusSkip
+				}
 			}
 
 			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)

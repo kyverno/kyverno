@@ -836,8 +836,12 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
-				status = engineapi.RuleStatusFail
 				message = fmt.Sprintf("%s did not match", payloadType)
+				if resp.PolicyMatched {
+					status = engineapi.RuleStatusFail
+				} else {
+					status = engineapi.RuleStatusSkip
+				}
 			}
 
 			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)

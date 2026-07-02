@@ -1,0 +1,18 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: cleanup-invalidated-legacy-sa-tokens
+spec:
+  schedule: "*/5 * * * *"
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      resources:
+      - secrets
+    objectSelector:
+      matchExpressions:
+      - key: kubernetes.io/legacy-token-invalid-since
+        operator: Exists

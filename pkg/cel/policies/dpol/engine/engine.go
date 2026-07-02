@@ -17,8 +17,9 @@ import (
 )
 
 type EngineResponse struct {
-	Resource *unstructured.Unstructured
-	Match    bool
+	Resource      *unstructured.Unstructured
+	Match         bool
+	PolicyMatched bool
 }
 
 type Engine struct {
@@ -88,7 +89,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
-			return EngineResponse{Match: false}, err
+			return EngineResponse{Match: false, PolicyMatched: false}, err
 		}
 	}
 
@@ -97,7 +98,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		return EngineResponse{}, err
 	}
 
-	return EngineResponse{Match: result.Result}, nil
+	return EngineResponse{Match: result.Result, PolicyMatched: true}, nil
 }
 
 func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
