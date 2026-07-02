@@ -136,15 +136,14 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 
 	baseAR := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	// ParsePolicyKey returns (name, namespace). For cluster-scoped policies the namespace is "".
-	// MatchNames expects just the bare name (not "namespace/name").
-	// The scope predicate is derived from the UR key (not the target's namespace) so that a
-	// cluster-scoped MutatingPolicy with the same name is never matched when the UR is for a
-	// NamespacedMutatingPolicy, and vice versa.
-	policyName, policyNamespace := policy.ParsePolicyKey(ur.Spec.Policy)
+	// Derive policyName and scopePredicate from the resolved mpol object rather than from the
+	// UR key. Admission-webhook URs store only the bare policy name (reconciler.MatchesMutateExisting
+	// returns GetName(), not namespace/name), so ParsePolicyKey on the UR key would yield an
+	// empty namespace for NamespacedMutatingPolicies, causing the wrong scope predicate to be used.
+	policyName := mpol.GetName()
 	scopePredicate := mpolengine.ClusteredPolicy()
-	if policyNamespace != "" {
-		scopePredicate = mpolengine.NamespacedPolicy(policyNamespace)
+	if ns := mpol.GetNamespace(); ns != "" {
+		scopePredicate = mpolengine.NamespacedPolicy(ns)
 	}
 	for _, target := range targets.Items {
 		object := &target
@@ -348,10 +347,20 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 			return mpol, nil
 		}
 	} else {
-		// Cluster-scoped policy: try MutatingPolicy.
+		// Cluster-scoped policy: try MutatingPolicy first.
 		mpol, err = p.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.TODO(), name, metav1.GetOptions{})
 		if err == nil {
 			return mpol, nil
+		}
+		// Fallback: CELMutate URs created from admission webhooks use the bare policy name
+		// (reconciler.MatchesMutateExisting returns GetName(), not namespace/name).
+		// Since NamespacedMutatingPolicies only match resources in their own namespace,
+		// the admission request's namespace equals the policy's namespace.
+		if ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest; ar != nil && ar.Namespace != "" {
+			nmpol, nerr := p.kyvernoClient.PoliciesV1beta1().NamespacedMutatingPolicies(ar.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+			if nerr == nil {
+				return nmpol, nil
+			}
 		}
 	}
 

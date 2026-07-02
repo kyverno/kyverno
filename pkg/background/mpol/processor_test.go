@@ -343,3 +343,52 @@ func TestProcess_EmptyPolicyKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, sc.failedCalled, "expected UR to be marked failed for empty policy key")
 }
+
+// TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy verifies that GetPolicy resolves a
+// NamespacedMutatingPolicy when the UR key is a bare name (no namespace/name format).
+// Admission-webhook URs store only the bare name because reconciler.MatchesMutateExisting
+// returns policy.GetName() instead of namespace/name. The fallback uses AdmissionRequest.Namespace
+// to locate the NamespacedMutatingPolicy (valid because NamespacedMutatingPolicies only match
+// resources in their own namespace, so the admission namespace equals the policy namespace).
+func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mypol",
+			Namespace: "test-ns",
+		},
+	}
+	kyvernoClient := fake.NewSimpleClientset(nmpol)
+	sc := &fakeStatusControl{}
+
+	p := NewProcessor(
+		dclient.NewEmptyFakeClient(),
+		kyvernoClient,
+		&fakeEngine{},
+		meta.NewDefaultRESTMapper(nil),
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+	)
+
+	// UR uses bare name (as created by webhook handler), with AdmissionRequest carrying the namespace.
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-bare", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Namespace: "test-ns",
+					},
+				},
+			},
+		},
+	}
+
+	result, err := p.GetPolicy(ur)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "mypol", result.GetName())
+	assert.Equal(t, "test-ns", result.GetNamespace())
+	assert.False(t, sc.failedCalled, "UR should not be marked failed when policy is found via fallback")
+}
