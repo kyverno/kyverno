@@ -361,6 +361,7 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 			if nerr == nil {
 				return nmpol, nil
 			}
+			err = multierr.Combine(err, nerr)
 		}
 	}
 

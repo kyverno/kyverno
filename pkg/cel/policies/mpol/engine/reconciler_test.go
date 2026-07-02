@@ -8,7 +8,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -274,13 +273,13 @@ func TestMatchesMutateExisting(t *testing.T) {
 		},
 	}
 
-	compiler := mpolcompiler.NewCompiler()
+	comp := compiler.NewCompiler()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for k, l := range tt.policies {
 				for i, p := range l {
-					c, _ := compiler.Compile(p.Policy, nil)
+					c, _ := comp.Compile(p.Policy, nil)
 					tt.policies[k][i].CompiledPolicy = c
 				}
 			}
