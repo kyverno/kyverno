@@ -665,12 +665,8 @@ github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTs
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2/go.mod h1:EumSDUMvIitgwlZBvVYnlgC285mZ0yCjAfoiu8s3o/g=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:9u+4QYMLdZPC8qeUB1TnfiUYRrFGYHxjYQsPiHKgJjI=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
-github.com/kyverno/sdk v0.0.0-20260701220717-ee6f0027f44f h1:+9sHpTeRt6Lqsxn184qHdhxAxKTacDaDVfgbfWE0MEc=
-github.com/kyverno/sdk v0.0.0-20260701220717-ee6f0027f44f/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
-github.com/kyverno/sdk v0.0.0-20260702104507-b8006b38fd2c h1:PGOGhTK7TrX0tCbuLvFBrMtOXkiuxEpaeGBfGkoXDyY=
-github.com/kyverno/sdk v0.0.0-20260702104507-b8006b38fd2c/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
-github.com/kyverno/sdk v0.0.0-20260702163210-742c162f778a h1:EHxvMRaQucioDN7teiJA+uLHoHum7rLqltjiA18yVeQ=
-github.com/kyverno/sdk v0.0.0-20260702163210-742c162f778a/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
+github.com/kyverno/sdk v0.0.0-20260702222834-d6e89e5fb6d8 h1:cj1MSok+IJ7AUyFjhUFXcKHfBRaYXdUksdpPY4MULmY=
+github.com/kyverno/sdk v0.0.0-20260702222834-d6e89e5fb6d8/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/lestrrat-go/blackmagic v1.0.4 h1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=
