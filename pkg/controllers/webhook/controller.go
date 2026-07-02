@@ -998,7 +998,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols,
+		ivpolsNeedingMutation(ivpols),
 		c.celExpressionCache)...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
@@ -1012,7 +1012,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
-		nivpols,
+		ivpolsNeedingMutation(nivpols),
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
@@ -1518,6 +1518,26 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 		}
 	}
 	return nivpols, nil
+}
+
+// ivpolsNeedingMutation filters ivpol/nivpol policies to those that actually
+// require a mutating webhook (i.e. MutateDigest or VerifyDigest is enabled).
+// Both fields default to true when nil, so an unset spec always qualifies.
+func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.GenericPolicy {
+	result := make([]engineapi.GenericPolicy, 0, len(policies))
+	for _, p := range policies {
+		ivpol := p.AsImageValidatingPolicyLike()
+		if ivpol == nil {
+			continue
+		}
+		spec := ivpol.GetSpec()
+		mutateDigest := spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest
+		verifyDigest := spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest
+		if mutateDigest || verifyDigest {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
