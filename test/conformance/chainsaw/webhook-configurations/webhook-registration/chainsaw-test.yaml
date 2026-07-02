@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: webhook-registeration
+  name: webhook-registration
 spec:
   concurrent: false
   steps:

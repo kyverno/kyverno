@@ -61,7 +61,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
 			}
 
-			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
+			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
@@ -268,7 +268,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					}
 				}
 			}
-			if _, ok := p.(*policiesv1beta1.GeneratingPolicy); ok {
+			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
 				// all four operations including CONNECT are needed for generate.
 				for _, match := range p.GetMatchConstraints().ResourceRules {
 					rule := match.RuleWithOperations
@@ -309,22 +309,33 @@ func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
 		return a
 	}
 
-	merged := &metav1.LabelSelector{
-		MatchLabels:      map[string]string{},
-		MatchExpressions: []metav1.LabelSelectorRequirement{},
-	}
+	merged := &metav1.LabelSelector{}
 
 	// copy a
 	for k, v := range a.MatchLabels {
+		if merged.MatchLabels == nil {
+			merged.MatchLabels = map[string]string{}
+		}
 		merged.MatchLabels[k] = v
 	}
 	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
 
 	// copy b
 	for k, v := range b.MatchLabels {
+		if merged.MatchLabels == nil {
+			merged.MatchLabels = map[string]string{}
+		}
 		merged.MatchLabels[k] = v
 	}
 	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+
+	// nil out empty slices/maps so DeepEqual matches what the API server stores
+	if len(merged.MatchLabels) == 0 {
+		merged.MatchLabels = nil
+	}
+	if len(merged.MatchExpressions) == 0 {
+		merged.MatchExpressions = nil
+	}
 
 	return merged
 }
