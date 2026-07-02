@@ -886,10 +886,7 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation: webhooks.HandlerFunc(resourceHandlers.Mutate),
-				// this is the ivpol mutating webhook entry point
-				// all of this brings me to the question, where did we get the credentials specified in the image validating policy and pass them
-				// to those handlers ?
+				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
 				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
 				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateClustered),
 				NamespacedMutatingPolicies:        webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
@@ -897,9 +894,8 @@ func main() {
 				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateClustered),
 				NamespacedValidatingPolicies:      webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
 				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-				// create a handler function from ivpolhanlders.Validate
-				GeneratingPolicies:           webhooks.HandlerFunc(gpolHandlers.Generate),
-				NamespacedGeneratingPolicies: webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies:      webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),

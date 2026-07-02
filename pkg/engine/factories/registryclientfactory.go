@@ -29,35 +29,51 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		resourceNamespace = config.KyvernoNamespace()
 	}
 
-	if len(imagePullSecrets) == 0 {
-		client := registryclient.New(f.secretsLister, config.KyvernoNamespace(), "", "", false)
-		return adapters.RegistryClient(client), nil
+	if creds == nil && len(imagePullSecrets) == 0 {
+		return f.globalClient, nil
 	}
 
+	// the policy contains extra credentials apart from whats passed in imagePullSecrets
 	if creds != nil {
-		providers := ""
-		if len(creds.Providers) > 0 {
-			for i, helper := range creds.Providers {
-				providers += string(helper)
-				// only add a coma if we still didn't reach the end
-				if i <= len(creds.Providers)-1 {
-					providers += ","
-				}
-			}
+		// turn the array of providers to a single comma separated string
+		strs := make([]string, len(creds.Providers))
+		for i, p := range creds.Providers {
+			strs[i] = string(p)
 		}
+		providers := strings.Join(strs, ",")
 
+		// create an array of secret names where we will accumulate whats in creds and imagePullSecrets
+		// creds.Secrets default to the Kyverno namespace, imagePullSecrets default to the resource namespace,
+		// so each list must be prefixed independently before merging.
 		secrets := make([]string, 0)
 		if f.secretsLister != nil && len(creds.Secrets) > 0 {
-			secrets = append(secrets, creds.Secrets...)
+			secrets = append(secrets, prefixSecretNamespaces(creds.Secrets, config.KyvernoNamespace())...)
+		}
+		if len(imagePullSecrets) > 0 {
+			secrets = append(secrets, prefixSecretNamespaces(imagePullSecrets, resourceNamespace)...)
 		}
 
-		secretsJoined := ""
-		if f.secretsLister != nil && len(secrets) > 0 {
-			// Support namespace/name notation with Kyverno namespace as default
-			secretsJoined = strings.Join(secrets, ",")
-		}
-		client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", creds.AllowInsecureRegistry)
+		secretsJoined := strings.Join(secrets, ",")
+		client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, providers, creds.AllowInsecureRegistry)
 		return adapters.RegistryClient(client), nil
 	}
-	return f.globalClient, nil
+
+	// creds is nil. create a registry client with only the imagePullSecrets and no providers
+	secretsJoined := strings.Join(prefixSecretNamespaces(imagePullSecrets, resourceNamespace), ",")
+	client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", false)
+	return adapters.RegistryClient(client), nil
+}
+
+// prefixSecretNamespaces prefixes each secret ref with defaultNamespace unless it already
+// uses namespace/name notation.
+func prefixSecretNamespaces(secrets []string, defaultNamespace string) []string {
+	prefixed := make([]string, len(secrets))
+	for i, s := range secrets {
+		if strings.Contains(s, "/") {
+			prefixed[i] = s
+		} else {
+			prefixed[i] = defaultNamespace + "/" + s
+		}
+	}
+	return prefixed
 }

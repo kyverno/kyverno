@@ -98,6 +98,14 @@ func (t *trackingSecretNamespaceLister) Get(name string) (*corev1.Secret, error)
 	return t.SecretNamespaceLister.Get(name)
 }
 
+func (t *trackingSecretLister) Secrets(namespace string) corev1listers.SecretNamespaceLister {
+	return &trackingSecretNamespaceLister{
+		SecretNamespaceLister: t.SecretLister.Secrets(namespace),
+		accessed:              t.accessed,
+		namespace:             namespace,
+	}
+}
+
 func TestRegistryClientFactory_GetClient(t *testing.T) {
 	// Setup fake Kubernetes client with secrets
 	clientset := fake.NewSimpleClientset()
