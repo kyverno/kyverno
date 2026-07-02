@@ -114,7 +114,7 @@ type ApplyCommandConfig struct {
 	BatchSize                 int
 	ContinueOnError           bool
 	ShowPerformance           bool
-	CrdPath                   string
+	CrdPaths                  []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -247,7 +247,9 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
-	cmd.Flags().StringVar(&applyCommandConfig.CrdPath, "crd-path", "", "crd path to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-path", nil, "Deprecated: use --crd-paths instead")
+	_ = cmd.Flags().MarkDeprecated("crd-path", "use --crd-paths instead")
 	return cmd
 }
 
@@ -266,6 +268,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
+
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
@@ -362,9 +365,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1beta1.PolicyException
+	var celExceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
+		results := exception.SelectFrom(resources)
+		exceptions = results.Exceptions
+		celExceptions = results.CELExceptions
 	} else {
 		results, err := exception.Load(c.Exception...)
 		if err != nil {
@@ -372,13 +377,13 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 		if results != nil {
 			exceptions = results.Exceptions
-			celexceptions = results.CELExceptions
+			celExceptions = results.CELExceptions
 		}
 	}
 
 	if c.exceptionsWithinPolicies {
 		exceptions = append(exceptions, polexs...)
-		celexceptions = append(celexceptions, celpolexs...)
+		celExceptions = append(celExceptions, celpolexs...)
 	}
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
@@ -397,7 +402,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(envoyPols)
 		policyRulesCount += len(httpPols)
 		exceptionsCount := len(exceptions)
-		exceptionsCount += len(celexceptions)
+		exceptionsCount += len(celExceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, resourceCount, exceptionsCount)
@@ -438,7 +443,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		parameterResources,
 		jsonPayloads,
 		exceptions,
-		celexceptions,
+		celExceptions,
 		&skippedInvalidPolicies,
 		dClient,
 		userInfo,
@@ -447,17 +452,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -579,7 +584,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -620,7 +625,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -1164,6 +1169,7 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 	}
 	var err error
 	var dClient dclient.Interface
+
 	if c.Cluster {
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
 		if err != nil {
@@ -1215,6 +1221,15 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error
 	return nil
 }
 
+func hasStdinPath(paths []string) bool {
+	for _, path := range paths {
+		if path == "-" {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1222,7 +1237,7 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.PolicyPaths) == 0 {
 		return fmt.Errorf("require policy")
 	}
-	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
+	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
@@ -1231,8 +1246,15 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
-	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
-		return fmt.Errorf("crdpath and kubeconfig flags are mutually exclusive, please use only one of them")
+	normalized := make([]string, 0, len(c.CrdPaths))
+	for _, p := range c.CrdPaths {
+		if strings.TrimSpace(p) != "" {
+			normalized = append(normalized, p)
+		}
+	}
+	c.CrdPaths = normalized
+	if len(c.CrdPaths) != 0 && strings.TrimSpace(c.KubeConfig) != "" {
+		return fmt.Errorf("crd-paths and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
 	return nil
 }

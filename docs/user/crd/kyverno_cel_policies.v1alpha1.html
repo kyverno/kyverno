@@ -633,6 +633,35 @@ Required.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules.
+If set to &quot;true&quot;, create &amp; update for generated resources will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -2005,6 +2034,68 @@ These values can be referenced in CEL expressions via <code>exceptions.allowedVa
 
           <p>ReportResult indicates whether the policy exception should be reported in the policy report
 as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies the time when the policy exception expires.
+Once expired, the exception will no longer be applied to incoming requests.
+The expected format is RFC3339 date-time (for example &quot;2026-05-01T00:00:00Z&quot;).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>properties</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Properties is an optional map for additional metadata attached to this exception.
+For example:</p>
+<ul>
+<li>reason: why this exception is needed</li>
+<li>ticket: external approval/request identifier</li>
+<li>approved-by: comma-separated approver list</li>
+</ul>
 
 
           
@@ -3557,6 +3648,41 @@ The payload may contain other key-value pairs.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>trustedRoot</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-StringOrExpression">
+                <span style="font-family: monospace">StringOrExpression</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TrustedRoot is the sigstore-go TrustedRoot JSON
+(mediaType application/vnd.dev.sigstore.trustedroot+json;version=0.1).
+When set, Kyverno uses this trust material directly instead of fetching
+trusted_root.json from the Sigstore TUF repository. Use this field when
+verifying attestations from providers that do not operate a TUF server,
+such as GitHub Actions. Takes precedence over the tuf field.
+Supports an inline JSON value or a CEL expression (e.g. variables.myRoot).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -4333,6 +4459,34 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>skipBackgroundRequests</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &quot;true&quot;, it must be set to &quot;false&quot; to apply generateExisting rules to those requests.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -4554,6 +4708,35 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
           <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
 Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules.
+If set to &quot;true&quot;, create &amp; update for generated resources will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -6091,6 +6274,35 @@ If not provided, the system roots are used.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>additionalExtensions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -6720,6 +6932,34 @@ Optional. Default value is &quot;Kubernetes&quot;.</p>
           
 
           <p>MutateExisting controls whether existing resources are mutated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>skipBackgroundRequests</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &quot;true&quot;, it must be set to &quot;false&quot; to apply mutateExisting rules to those requests.</p>
 
 
           
@@ -7609,6 +7849,68 @@ as a skip result or pass result. Defaults to &quot;skip&quot;.</p>
     
     
       <tr>
+        <td><code>expiresAt</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExpiresAt specifies the time when the policy exception expires.
+Once expired, the exception will no longer be applied to incoming requests.
+The expected format is RFC3339 date-time (for example &quot;2026-05-01T00:00:00Z&quot;).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>properties</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Properties is an optional map for additional metadata attached to this exception.
+For example:</p>
+<ul>
+<li>reason: why this exception is needed</li>
+<li>ticket: external approval/request identifier</li>
+<li>approved-by: comma-separated approver list</li>
+</ul>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>evaluationMode</code>
           
           </br>
@@ -7926,6 +8228,7 @@ fully supported that should likely be the preferred way to handle these.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#policies-kyverno-io-v1alpha1-Certificate">Certificate</a>, 
+        <a href="#policies-kyverno-io-v1alpha1-Cosign">Cosign</a>, 
         <a href="#policies-kyverno-io-v1alpha1-Notary">Notary</a>)
     </p>
   

@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,11 +15,32 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
+
+// generateBatchSize is the maximum number of RuleContext entries per UpdateRequest.
+// Large clusters with generateExisting/synchronize can produce thousands of triggers,
+// causing a single UR to exceed the etcd request size limit.
+const generateBatchSize = 100
+
+// submitUR creates an UpdateRequest and sets its status to Pending.
+func (pc *policyController) submitUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
+	created, err := pc.urGenerator.Generate(ctx, pc.kyvernoClient, ur, pc.log)
+	if err != nil {
+		return err
+	}
+	if created != nil {
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, updated, metav1.UpdateOptions{})
+		return err
+	}
+	return nil
+}
 
 func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
@@ -50,13 +72,13 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			continue
 		}
 		if generate.GetData() != nil {
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
 				errs = append(errs, err)
 			}
 		}
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -65,16 +87,9 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 	if len(ur.Spec.RuleContext) == 0 {
 		return multierr.Combine(errs...)
 	}
-	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if created != nil {
-		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
+	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating URs for generate", "total", len(ur.Spec.RuleContext))
+	for _, batch := range splitUR(ur, generateBatchSize) {
+		if err := pc.submitUR(context.TODO(), batch); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -128,21 +143,11 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
-	logger.V(4).Info("creating new UR for generate")
-	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
-	if err != nil {
-		errors = append(errors, err)
-		return multierr.Combine(errors...)
-	}
-	if created != nil {
-		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
+	logger.V(4).Info("creating URs for generateExisting", "total", len(ur.Spec.RuleContext))
+	for _, batch := range splitUR(ur, generateBatchSize) {
+		if err := pc.submitUR(context.TODO(), batch); err != nil {
 			errors = append(errors, err)
-			return multierr.Combine(errors...)
 		}
-		pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName())
 	}
 	return multierr.Combine(errors...)
 }
@@ -162,20 +167,19 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		}
 
 		sync, orphanDownstreamOnPolicyDelete := r.GetSyncAndOrphanDownstream()
-		if generate.GetData() != nil {
-			if sync && (generate.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
-					errs = append(errs, err)
-				}
+		if !sync || orphanDownstreamOnPolicyDelete {
+			continue
+		}
+		for _, pattern := range cleanupPatterns(generate.GeneratePattern) {
+			if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
+				errs = append(errs, err)
 			}
 		}
 
 		for _, foreach := range generate.ForEachGeneration {
-			if foreach.GetData() != nil {
-				if sync && (foreach.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
-						errs = append(errs, err)
-					}
+			for _, pattern := range cleanupPatterns(foreach.GeneratePattern) {
+				if ur, err = pc.buildURForGenerateRuleChanges(policy, ur, r.Name, pattern, true, true); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -202,7 +206,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -219,7 +223,7 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 		return ur, nil
 	}
 
-	pc.log.V(4).Info("sync data rule changes to downstream targets")
+	pc.log.V(4).Info("sync generate rule changes to downstream targets")
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
@@ -230,6 +234,31 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 	}
 
 	return ur, nil
+}
+
+func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePattern {
+	if pattern.GetAPIVersion() != "" && pattern.GetKind() != "" {
+		return []kyvernov1.GeneratePattern{pattern}
+	}
+	if len(pattern.CloneList.Kinds) == 0 {
+		return nil
+	}
+	out := make([]kyvernov1.GeneratePattern, 0, len(pattern.CloneList.Kinds))
+	for _, gvk := range pattern.CloneList.Kinds {
+		apiVersion, kind := kubeutils.GetKindFromGVK(gvk)
+		if apiVersion == "" || kind == "" {
+			continue
+		}
+		// Wildcard GVKs are allowed in CloneList but can't be resolved by downstream lookup.
+		if strings.Contains(apiVersion, "*") || strings.Contains(kind, "*") {
+			continue
+		}
+		p := pattern
+		p.ResourceSpec.APIVersion = apiVersion
+		p.ResourceSpec.Kind = kind
+		out = append(out, p)
+	}
+	return out
 }
 
 func (pc *policyController) unlabelDownstream(selector updatedResource) {

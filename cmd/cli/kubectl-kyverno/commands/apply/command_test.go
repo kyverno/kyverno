@@ -1488,13 +1488,30 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 	assert.True(t, found, "Should have at least one failed rule")
 }
 
-func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+func Test_Apply_PoliciesWithCRD(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
-				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				CrdPaths:      []string{"../../_testdata/apply/test-3/crd/crd.yml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/widget.yaml"},
+				CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/crds/widget-crd.yaml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1522,7 +1539,7 @@ func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
-				CrdPath:       "../../_testdata/apply/test-4/crd/crds.yml",
+				CrdPaths:      []string{"../../_testdata/apply/test-4/crd/crds.yml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -1553,7 +1570,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 		"../../_testdata/apply/test-2/policy.yaml",
 		"--resource",
 		"../../_testdata/apply/test-2/resources.yaml",
-		"--crd-path",
+		"--crd-paths",
 		"./crd.yml",
 		"--kubeconfig",
 		"./kubeconfig.yaml",
@@ -1562,7 +1579,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	expected := `Error: crd-paths and kubeconfig flags are mutually exclusive, please use only one of them`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
@@ -1846,6 +1863,58 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "stdin later in policy and resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin first in policy paths and later in resource paths",
+			args: []string{
+				"-",
+				"policy.yaml",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin later in policy paths and first in resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"-,resource.yaml",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			assert.NotNil(t, cmd)
+
+			b := bytes.NewBufferString("")
+			cmd.SetErr(b)
+
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
 		})
 	}
 }
