@@ -7,6 +7,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -339,7 +340,33 @@ func TestValidatingAdmissionPolicyBindingLabel_LongName(t *testing.T) {
 	}
 	label := ValidatingAdmissionPolicyBindingLabel(binding)
 
+	assert.True(t, strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding), "label must start with the validating binding prefix")
 	namePart := strings.TrimPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+	assert.NotEqual(t, longName, namePart, "long name should be hashed, not used as-is")
+}
+
+func TestMutatingAdmissionPolicyBindingLabel_ShortName(t *testing.T) {
+	binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-mutating-binding"},
+	}
+	label := MutatingAdmissionPolicyBindingLabel(&binding)
+	assert.Equal(t, LabelPrefixMutatingAdmissionPolicyBinding+"my-mutating-binding", label)
+	namePart := strings.TrimPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+}
+
+func TestMutatingAdmissionPolicyBindingLabel_LongName(t *testing.T) {
+	longName := "biding-autoscale.dataplanegroups.konnectclouddataplanegroupconfig.konnect.konghq.com"
+	assert.Greater(t, len(longName), 63, "test precondition: name must be > 63 chars")
+
+	binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: longName},
+	}
+	label := MutatingAdmissionPolicyBindingLabel(&binding)
+
+	assert.True(t, strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding), "label must start with the mutating binding prefix")
+	namePart := strings.TrimPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
 	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
 	assert.NotEqual(t, longName, namePart, "long name should be hashed, not used as-is")
 }
