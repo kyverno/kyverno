@@ -38,12 +38,25 @@ func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv
 	return report
 }
 
+func isAlphaNumeric(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
 func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) reportsv1.ReportInterface {
 	var report reportsv1.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{}
 	} else {
 		report = &reportsv1.EphemeralReport{}
+	}
+	// Kubernetes GenerateName appends a 5-char random suffix plus a hyphen separator.
+	// The total name must not exceed 63 characters (DNS-1035 label limit).
+	// So the base name must not exceed 57 characters before the trailing hyphen is added.
+	if len(name) > 57 {
+		name = name[:57]
+		for len(name) > 0 && !isAlphaNumeric(name[len(name)-1]) {
+			name = name[:len(name)-1]
+		}
 	}
 	report.SetGenerateName(name + "-")
 	report.SetNamespace(namespace)

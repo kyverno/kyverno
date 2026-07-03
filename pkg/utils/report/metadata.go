@@ -1,6 +1,9 @@
 package report
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"regexp"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -97,19 +100,31 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 }
 
 func PolicyLabel(policy engineapi.GenericPolicy) string {
-	return PolicyLabelPrefix(policy) + policy.GetName()
+	return PolicyLabelPrefix(policy) + truncateLabelName(policy.GetName())
+}
+
+var invalidLabelNameEnd = regexp.MustCompile(`[^a-zA-Z0-9]+$`)
+
+func truncateLabelName(name string) string {
+	if len(name) <= 63 {
+		return name
+	}
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))[:8]
+	truncated := name[:54]
+	truncated = invalidLabelNameEnd.ReplaceAllString(truncated, "")
+	return truncated + "-" + hash
 }
 
 func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
-	return LabelPrefixPolicyException + exception.GetName()
+	return LabelPrefixPolicyException + truncateLabelName(exception.GetName())
 }
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
-	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
+	return LabelPrefixValidatingAdmissionPolicyBinding + truncateLabelName(binding.GetName())
 }
 
 func MutatingAdmissionPolicyBindingLabel(binding metav1.Object) string {
-	return LabelPrefixMutatingAdmissionPolicyBinding + binding.GetName()
+	return LabelPrefixMutatingAdmissionPolicyBinding + truncateLabelName(binding.GetName())
 }
 
 func CleanupKyvernoLabels(obj metav1.Object) {

@@ -315,3 +315,44 @@ func TestCleanupKyvernoLabels_NilLabels(t *testing.T) {
 	CleanupKyvernoLabels(obj)
 	assert.Nil(t, obj.Labels)
 }
+func Test_truncateLabelName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "under 63 characters",
+			input:    "my-short-binding",
+			expected: "my-short-binding",
+		},
+		{
+			name:     "exactly 63 characters",
+			input:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			expected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		},
+		{
+			name:     "over 63 characters with hash",
+			input:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaBBBBBBBBBB",
+			expected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-887f1ff6", // FIXED HASH
+		},
+		{
+			name:     "collision prevention",
+			input:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaCCCCCCCCCC",
+			expected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-ceaea04f", // FIXED HASH
+		},
+		{
+			name:     "trailing invalid characters stripped before hash",
+			input:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.-_BBBBBBBBB",
+			expected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-9b3a2c86", // FIXED HASH
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := truncateLabelName(tt.input); got != tt.expected {
+				t.Errorf("truncateLabelName() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
