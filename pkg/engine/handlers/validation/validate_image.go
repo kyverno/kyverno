@@ -78,7 +78,6 @@ func (h validateImageHandler) Process(
 
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
-	failedImages := make([]string, 0)
 	failedErrors := make([]string, 0)
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
@@ -91,7 +90,6 @@ func (h validateImageHandler) Process(
 				}
 				logger.V(4).Info("validating image", "image", image)
 				if v, err := validateImage(policyContext, imageVerify, imageInfo, logger); err != nil {
-					failedImages = append(failedImages, image)
 					failedErrors = append(failedErrors, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
@@ -101,7 +99,7 @@ func (h validateImageHandler) Process(
 			}
 		}
 	}
-	if len(failedImages) > 0 {
+	if len(failedErrors) > 0 {
 		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(failedErrors, "; "))
 	}
 
