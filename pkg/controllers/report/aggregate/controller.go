@@ -412,6 +412,34 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+
+	// Periodic sweep enqueues all reports for reconciliation as a safety net.
+	// This handles edge cases where event-driven reconciliation misses a report
+	// (e.g., orphaned reports without ownerReferences or matching ephemeral reports).
+	go func() {
+		for {
+			time.Sleep(time.Minute * 30)
+			allReports, err := polrInformer.Lister().List(selector)
+			if err != nil {
+				logger.Error(err, "failed to list reports for periodic sweep")
+			} else {
+				for _, item := range allReports {
+					itemMeta := item.(*metav1.PartialObjectMetadata)
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				}
+			}
+			allClusterReports, err := cpolrInformer.Lister().List(selector)
+			if err != nil {
+				logger.Error(err, "failed to list cluster reports for periodic sweep")
+			} else {
+				for _, item := range allClusterReports {
+					itemMeta := item.(*metav1.PartialObjectMetadata)
+					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				}
+			}
+		}
+	}()
+
 	return &c
 }
 
@@ -875,40 +903,46 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		if report != nil {
 			return deleteReport(ctx, report, c.client, c.orClient)
 		}
-	} else {
-		if report == nil {
-			owner := ephemeralReports[0].GetOwnerReferences()[0]
-			scope := &corev1.ObjectReference{
-				Kind:       owner.Kind,
-				Namespace:  namespace,
-				Name:       owner.Name,
-				UID:        owner.UID,
-				APIVersion: owner.APIVersion,
-			}
-			report = reportutils.NewPolicyReport(namespace, name, scope, c.orClient != nil)
-			controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
-		}
-		reportutils.SetResults(report, results...)
-		if report.GetResourceVersion() == "" {
-			r, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient)
-			if err != nil {
-				return err
-			}
+		return nil
+	}
 
-			uuid := r.GetUID()
-			c.cacheMu.Lock()
-			c.reportUUIDToPolicyCache[string(uuid)] = policySet
-			c.cacheMu.Unlock()
-		} else {
-			r, err := updateReport(ctx, report, c.client, c.orClient)
-			if err != nil {
-				return err
-			}
-			uuid := r.GetUID()
-			c.cacheMu.Lock()
-			c.reportUUIDToPolicyCache[string(uuid)] = policySet
-			c.cacheMu.Unlock()
+	if report == nil {
+		owner := ephemeralReports[0].GetOwnerReferences()[0]
+		scope := &corev1.ObjectReference{
+			Kind:       owner.Kind,
+			Namespace:  namespace,
+			Name:       owner.Name,
+			UID:        owner.UID,
+			APIVersion: owner.APIVersion,
 		}
+		report = reportutils.NewPolicyReport(namespace, name, scope, c.orClient != nil)
+		controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
+	} else if len(report.GetOwnerReferences()) == 0 && len(ephemeralReports) > 0 {
+		// Restore ownerReferences if they were lost (e.g., created by an older Kyverno
+		// version or orphaned due to a race condition during resource recreation).
+		owner := ephemeralReports[0].GetOwnerReferences()[0]
+		controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
+	}
+	reportutils.SetResults(report, results...)
+	if report.GetResourceVersion() == "" {
+		r, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient)
+		if err != nil {
+			return err
+		}
+
+		uuid := r.GetUID()
+		c.cacheMu.Lock()
+		c.reportUUIDToPolicyCache[string(uuid)] = policySet
+		c.cacheMu.Unlock()
+	} else {
+		r, err := updateReport(ctx, report, c.client, c.orClient)
+		if err != nil {
+			return err
+		}
+		uuid := r.GetUID()
+		c.cacheMu.Lock()
+		c.reportUUIDToPolicyCache[string(uuid)] = policySet
+		c.cacheMu.Unlock()
 	}
 	return nil
 }
