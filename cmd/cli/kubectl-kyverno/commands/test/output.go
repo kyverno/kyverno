@@ -271,7 +271,7 @@ func printTestResult(
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
-							if len(generatedResources) == 0 && rule.Status() != engineapi.RuleStatusPass {
+							if len(generatedResources) == 0 {
 								ok, message, reason := checkRuleResultOnly(test, response, rule)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 								rows = append(rows, resourceRows...)
