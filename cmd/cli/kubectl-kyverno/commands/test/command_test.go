@@ -933,10 +933,8 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
 	testDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "object-selector")
 
-	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
-		t.Skip("Test directory not found, skipping test")
-		return
-	}
+	_, statErr := os.Stat(testDir)
+	require.NoError(t, statErr, "Test directory not found: %s", testDir)
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
 	testCases := test.LoadTest(nil, testFile)
