@@ -372,6 +372,7 @@ func main() {
 		maxAuditWorkers                 int
 		maxAuditCapacity                int
 		maxAdmissionReports             int
+		maxReportsInFlight              int
 		controllerRuntimeMetricsAddress string
 		tlsKeyAlgorithm                 string
 	)
@@ -405,6 +406,7 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
+	flagset.IntVar(&maxReportsInFlight, "maxReportsInFlight", 1000, "Maximum number of concurrent admission report creations before new ones are dropped")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
@@ -816,7 +818,7 @@ func main() {
 							time.Sleep(2 * time.Second)
 							continue
 						}
-						breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
+						breaker.SetReportsBreaker(breaker.WithConcurrencyLimit("admission reports in-flight", maxReportsInFlight, breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))))
 						return
 					}
 				}()
@@ -826,7 +828,7 @@ func main() {
 				}))
 				// no error has occurred, create a normal breaker
 			} else {
-				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
+				breaker.SetReportsBreaker(breaker.WithConcurrencyLimit("admission reports in-flight", maxReportsInFlight, breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs))))
 			}
 			// admission reports are disabled, create a fake breaker by default
 		} else {
