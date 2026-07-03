@@ -1333,6 +1333,14 @@ admissionController:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+    lifecycle: {}
+    # Example:
+    # lifecycle:
+    #   preStop:
+    #     sleep:
+    #       seconds: 10
+
     # -- Additional container args.
     extraArgs: {}
 
@@ -1703,6 +1711,14 @@ backgroundController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
@@ -2112,6 +2128,14 @@ cleanupController:
     seccompProfile:
       type: RuntimeDefault
 
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
+
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
     # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
@@ -2447,6 +2471,14 @@ reportsController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.

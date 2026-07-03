@@ -38,6 +38,8 @@ annotations:
       description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
     - kind: changed
       description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+    - kind: added
+      description: Add support for configuring container lifecycle hooks (e.g. a preStop sleep) on the admission, background, cleanup and reports controllers.
 dependencies:
   - name: grafana
     version: v0.0.0  # VERSION
