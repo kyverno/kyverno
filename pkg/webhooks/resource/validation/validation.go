@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -26,11 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
-
-// reportCreationTimeout bounds the fire-and-forget admission report creation goroutines.
-// Without it, a reports API that accepts connections but never responds keeps every
-// goroutine (and its report payload) alive indefinitely.
-const reportCreationTimeout = 30 * time.Second
 
 type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
@@ -159,13 +155,16 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	// create the admission report if any of the policies involved doesn't have the report exclusion label
 	if NeedsReports(request, policyContext.NewResource(), v.admissionReports) && hasReportablePolicy(policies) {
+		// snapshot the responses before starting the goroutine: engineResponses is
+		// appended to below, and the report must not depend on that ordering
+		responses := slices.Clone(engineResponses)
 		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
 			// The timeout bounds how long this goroutine can live: if the reports API
 			// hangs (e.g. an unhealthy reports-server behind an aggregated APIService),
 			// unbounded goroutines accumulate at the admission request rate and OOM the pod.
-			ctx, cancel := context.WithTimeout(context.Background(), reportCreationTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), reportutils.CreationTimeout)
 			defer cancel()
-			if err := v.createReports(ctx, policyContext.NewResource(), request, engineResponses...); err != nil {
+			if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
 				if reportutils.IsNamespaceTerminationError(err) {
 					// Log namespace termination errors at debug level as they are expected
 					v.log.V(2).Info("skipping report creation due to namespace termination", "error", err.Error())
