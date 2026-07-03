@@ -21,6 +21,8 @@ import (
 )
 
 type Policy struct {
+	policyName       string
+	policyKind       string
 	mode             policiesv1beta1.EvaluationMode
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConstraints *admissionregistrationv1.MatchResources
@@ -89,6 +91,7 @@ func (p *Policy) evaluateWithData(
 		compiler.RequestKey:         data.Request,
 	}
 	// check if the resource matches an exception
+	var actionOverrideExceptions []*policiesv1beta1.PolicyException
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
@@ -102,10 +105,24 @@ func (p *Policy) evaluateWithData(
 				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
 			}
 		}
-		// if there are matched exceptions and no allowed images, no need to evaluate the policy
-		// as the resource is excluded from policy evaluation
-		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
-			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+		if len(matchedExceptions) > 0 {
+			// Check if any matched exception has ValidationActions on the matching PolicyRef.
+			// If so, don't skip — continue evaluating and attach exceptions to the result.
+			hasActionOverride := false
+			for _, ex := range matchedExceptions {
+				if FindOverrideAction(ex, p.policyName, p.policyKind) != "" {
+					hasActionOverride = true
+					break
+				}
+			}
+			if hasActionOverride {
+				actionOverrideExceptions = matchedExceptions
+			}
+			// if there are matched exceptions and no allowed images/values, and no action override,
+			// no need to evaluate the policy as the resource is excluded from policy evaluation
+			if len(allowedImages) == 0 && len(allowedValues) == 0 && !hasActionOverride {
+				return &EvaluationResult{Exceptions: matchedExceptions}, nil
+			}
 		}
 	}
 	dataNew[compiler.ExceptionsKey] = libs.Exception{
@@ -162,16 +179,17 @@ func (p *Policy) evaluateWithData(
 				Message:          message,
 				Index:            index,
 				AuditAnnotations: auditAnnotations,
+				Exceptions:       actionOverrideExceptions,
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err, Index: index}, nil
+			return &EvaluationResult{Error: err, Exceptions: actionOverrideExceptions, Index: index}, nil
 		}
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Exceptions: actionOverrideExceptions}, nil
 }
 
 func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
@@ -223,4 +241,19 @@ func (p *Policy) match(
 	} else {
 		return false, err
 	}
+}
+
+// FindOverrideActions finds the ValidationActions for the matching PolicyRef in an exception.
+// Returns nil if no matching PolicyRef has ValidationActions set.
+func FindOverrideAction(
+	exception *policiesv1beta1.PolicyException,
+	policyName string,
+	policyKind string,
+) admissionregistrationv1.ValidationAction {
+	for _, ref := range exception.Spec.PolicyRefs {
+		if ref.Name == policyName && ref.Kind == policyKind {
+			return ref.ValidationAction
+		}
+	}
+	return ""
 }

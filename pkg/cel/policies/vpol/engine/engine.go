@@ -21,6 +21,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 )
@@ -138,58 +139,84 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	} else if result == nil {
 		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil))
 	} else if len(result.Exceptions) > 0 {
-		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
-		keys := make([]string, 0, len(result.Exceptions))
-
-		var (
-			highestPriority int
-			selectedIndex   int
-		)
-		for i, ex := range result.Exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(ex)
-			if err != nil {
-				response.Rules = handlers.WithResponses(
-					engineapi.RuleError(
-						"exception",
-						engineapi.Validation,
-						"failed to compute exception key",
-						err,
-						nil,
-					),
-				)
-				return response
-			}
-
-			keys = append(keys, key)
-			exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
-
-			// evaluate exception priority from label
-			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
-				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
-					highestPriority = p
-					selectedIndex = i
-				}
+		// Check if any exception has ValidationActions on the matching PolicyRef
+		var overrideAction admissionregistrationv1.ValidationAction
+		for _, ex := range result.Exceptions {
+			if action := compiler.FindOverrideAction(ex, policy.Policy.GetName(), policy.Policy.GetKind()); action != "" {
+				overrideAction = action
+				break
 			}
 		}
-		// determine final result based on highest-priority exception
-		selectedException := result.Exceptions[selectedIndex]
-		reportResult := selectedException.Spec.ReportResult
 
-		joinedKeys := strings.Join(keys, ", ")
-		msgPrefix := "rule is %s due to policy exception: " + joinedKeys
-		switch reportResult {
-		case string(engineapi.RuleStatusPass):
-			response.Rules = handlers.WithResponses(
-				engineapi.RulePass("exception", engineapi.Validation,
-					fmt.Sprintf(msgPrefix, "passed"), nil,
-				).WithExceptions(exceptions),
+		if overrideAction != "" {
+			// Action override: policy was evaluated, use exception's actions instead of policy's
+			exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+			for _, ex := range result.Exceptions {
+				exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
+			}
+			response.Actions = sets.New(overrideAction)
+			ruleName := ""
+			if result.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)).WithExceptions(exceptions))
+			} else if result.Result {
+				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations).WithExceptions(exceptions))
+			} else {
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations).WithExceptions(exceptions))
+			}
+		} else {
+			exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
+			keys := make([]string, 0, len(result.Exceptions))
+
+			var (
+				highestPriority int
+				selectedIndex   int
 			)
-		default:
-			response.Rules = handlers.WithResponses(
-				engineapi.RuleSkip("exception", engineapi.Validation,
-					fmt.Sprintf(msgPrefix, "skipped"), nil,
-				).WithExceptions(exceptions),
-			)
+			for i, ex := range result.Exceptions {
+				key, err := cache.MetaNamespaceKeyFunc(ex)
+				if err != nil {
+					response.Rules = handlers.WithResponses(
+						engineapi.RuleError(
+							"exception",
+							engineapi.Validation,
+							"failed to compute exception key",
+							err,
+							nil,
+						),
+					)
+					return response
+				}
+
+				keys = append(keys, key)
+				exceptions = append(exceptions, engineapi.NewCELPolicyException(ex))
+
+				// evaluate exception priority from label
+				if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
+					if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
+						highestPriority = p
+						selectedIndex = i
+					}
+				}
+			}
+			// determine final result based on highest-priority exception
+			selectedException := result.Exceptions[selectedIndex]
+			reportResult := selectedException.Spec.ReportResult
+
+			joinedKeys := strings.Join(keys, ", ")
+			msgPrefix := "rule is %s due to policy exception: " + joinedKeys
+			switch reportResult {
+			case string(engineapi.RuleStatusPass):
+				response.Rules = handlers.WithResponses(
+					engineapi.RulePass("exception", engineapi.Validation,
+						fmt.Sprintf(msgPrefix, "passed"), nil,
+					).WithExceptions(exceptions),
+				)
+			default:
+				response.Rules = handlers.WithResponses(
+					engineapi.RuleSkip("exception", engineapi.Validation,
+						fmt.Sprintf(msgPrefix, "skipped"), nil,
+					).WithExceptions(exceptions),
+				)
+			}
 		}
 	} else {
 		// TODO: do we want to set a rule name?

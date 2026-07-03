@@ -1,0 +1,60 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-exception-action-override
+spec:
+  concurrent: false
+  steps:
+    - name: create-namespaces
+      try:
+        - apply:
+            file: development-namespace.yaml
+
+    - name: create-policy
+      try:
+        - apply:
+            file: policy.yaml
+
+    - name: create-policy-exception
+      try:
+        - apply:
+            file: exception.yaml
+
+    - name: wait-for-policy
+      try:
+        - sleep:
+            duration: 10s
+
+    - name: pod-allowed-in-dev-namespace-via-override
+      try:
+        - apply:
+            file: pod-exception.yaml
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: allowed-pod-from-exception-without-labels
+                namespace: development-namespace
+
+    - name: pod-denied-in-default-namespace-without-policy-exception
+      try:
+        - create:
+            file: pod-denied.yaml
+            expect:
+              - check:
+                  ($error != null): true
+                  (contains($error, 'environment')): true
+
+    - name: pod-with-valid-labels-allowed
+      try:
+        - apply:
+            file: allowed-pod.yaml
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: allowed-pod-with-env
+                labels:
+                  environment: dev

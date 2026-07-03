@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-env-label
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [ "" ]
+        apiVersions: [ "v1" ]
+        resources: [ "pods" ]
+        operations: [ "CREATE", "UPDATE" ]
+  validations:
+    - expression: "'environment' in object.metadata.?labels.orValue([])"
+      message: "label 'environment' is required"
