@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: low-priority-warn-override
+  labels:
+    polex.kyverno.io/priority: "5"
+spec:
+  policyRefs:
+    - name: require-team-label
+      kind: ValidatingPolicy
+      validationAction: Warn
+  matchConditions:
+    - name: match-pod
+      expression: "object.metadata.name == 'test-pod'"
