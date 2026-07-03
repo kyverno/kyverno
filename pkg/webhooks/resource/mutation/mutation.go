@@ -30,6 +30,11 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+// reportCreationTimeout bounds the fire-and-forget admission report creation goroutines.
+// Without it, a reports API that accepts connections but never responds keeps every
+// goroutine (and its report payload) alive indefinitely.
+const reportCreationTimeout = 30 * time.Second
+
 type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
@@ -158,7 +163,12 @@ func (v *mutationHandler) applyMutations(
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
 		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
-			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
+			// The timeout bounds how long this goroutine can live: if the reports API
+			// hangs (e.g. an unhealthy reports-server behind an aggregated APIService),
+			// unbounded goroutines accumulate at the admission request rate and OOM the pod.
+			ctx, cancel := context.WithTimeout(context.Background(), reportCreationTimeout)
+			defer cancel()
+			if err := v.createReports(ctx, policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
 		}()
