@@ -96,3 +96,78 @@ func TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage(t *testing.T)
 		assert.Contains(t, responses[0].Message(), "unverified image", "iteration %d", i)
 	}
 }
+
+const verifyImageTwoMatchingPolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "verify-two-images"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [{
+				"imageReferences": ["ghcr.io/verified/*"],
+				"required": true,
+				"verifyDigest": false
+			}]
+		}]
+	}
+}`
+
+const twoMatchingContainersPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "default"
+	},
+	"spec": {
+		"containers": [{
+			"name": "app",
+			"image": "ghcr.io/verified/app:v1"
+		}, {
+			"name": "sidecar",
+			"image": "ghcr.io/verified/sidecar:v1"
+		}]
+	}
+}`
+
+// TestValidateImageHandler_FailureReportsCorrectImages ensures that when multiple
+// images match a verifyImages rule and fail verification, all failing image names
+// are reported -- not an arbitrary one picked by non-deterministic map iteration.
+func TestValidateImageHandler_FailureReportsCorrectImages(t *testing.T) {
+	t.Parallel()
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageTwoMatchingPolicy), &cpol))
+	resource, err := kubeutils.BytesToUnstructured([]byte(twoMatchingContainersPod))
+	require.NoError(t, err)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+	h := handler.(validateImageHandler)
+	logger := logr.Discard()
+	// Run 32 iterations to catch non-deterministic map iteration -- before the fix
+	// the reported image varied across runs; after the fix both images must always appear.
+	for i := 0; i < 32; i++ {
+		_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+		require.NotEmpty(t, responses, "iteration %d: expected a rule response", i)
+		assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status(), "iteration %d", i)
+		msg := responses[0].Message()
+		assert.Contains(t, msg, "ghcr.io/verified/app:v1", "iteration %d: app image must appear in failure message", i)
+		assert.Contains(t, msg, "ghcr.io/verified/sidecar:v1", "iteration %d: sidecar image must appear in failure message", i)
+	}
+}
