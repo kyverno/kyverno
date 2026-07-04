@@ -3,7 +3,10 @@ package report
 import (
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -253,6 +256,8 @@ func TestIsPolicyLabel_AllPrefixes(t *testing.T) {
 		{LabelPrefixValidatingPolicy + "my-vpol", true},
 		{LabelPrefixImageValidatingPolicy + "my-ivpol", true},
 		{LabelPrefixGeneratingPolicy + "my-gpol", true},
+		{LabelPrefixMutatingPolicy + "my-mpol", true},
+		{LabelPrefixDeletingPolicy + "my-dpol", true},
 		{LabelPrefixPolicyException + "my-polex", true},
 		{LabelPrefixValidatingAdmissionPolicy + "my-vap", true},
 		{LabelPrefixValidatingAdmissionPolicyBinding + "my-vapb", true},
@@ -269,6 +274,39 @@ func TestIsPolicyLabel_AllPrefixes(t *testing.T) {
 		t.Run(tt.label, func(t *testing.T) {
 			result := IsPolicyLabel(tt.label)
 			assert.Equal(t, tt.expected, result, "IsPolicyLabel(%q) should be %v", tt.label, tt.expected)
+		})
+	}
+}
+
+func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-mpol"},
+	}
+	nsMpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-mpol", Namespace: "default"},
+	}
+	dpol := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-dpol"},
+	}
+	cleanup := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-cleanuppol"},
+	}
+
+	tests := []struct {
+		name   string
+		policy engineapi.GenericPolicy
+		prefix string
+	}{
+		{"mutating policy", engineapi.NewMutatingPolicy(mpol), LabelPrefixMutatingPolicy},
+		{"namespaced mutating policy", engineapi.NewNamespacedMutatingPolicy(nsMpol), LabelPrefixMutatingPolicy},
+		{"deleting policy", engineapi.NewDeletingPolicyFromLike(dpol), LabelPrefixDeletingPolicy},
+		{"cleanup policy", engineapi.NewCleanupPolicyFromInterface(cleanup), LabelPrefixDeletingPolicy},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.prefix, PolicyLabelPrefix(tt.policy))
+			assert.True(t, IsPolicyLabel(PolicyLabel(tt.policy)))
 		})
 	}
 }
