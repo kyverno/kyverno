@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	mpol "github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/test/integration/framework"
@@ -162,6 +163,66 @@ func TestMutate_JSONPatch_AddsLabel(t *testing.T) {
 	require.NotNil(t, p, "patch for /metadata/labels/env should exist")
 	assert.Equal(t, "add", p.Operation)
 	assert.Equal(t, "production", p.Value)
+}
+
+// allReportsEnabled is a ReportingConfiguration stub that enables every report
+// kind, used to exercise the real report-writing path in tests since the
+// package-level reportutils.ReportingCfg is initialized with reporting disabled.
+type allReportsEnabled struct{}
+
+func (allReportsEnabled) ValidateReportsEnabled() bool              { return true }
+func (allReportsEnabled) MutateReportsEnabled() bool                { return true }
+func (allReportsEnabled) MutateExistingReportsEnabled() bool        { return true }
+func (allReportsEnabled) ImageVerificationReportsEnabled() bool     { return true }
+func (allReportsEnabled) GenerateReportsEnabled() bool              { return true }
+func (allReportsEnabled) IsStatusAllowed(engineapi.RuleStatus) bool { return true }
+
+// Regression test for the report label prefix bug where MutatingPolicy reports
+// were mislabeled under the ValidatingAdmissionPolicy prefix. Verifies the
+// actual EphemeralReport created by the admission handler carries the
+// mpol.kyverno.io label for the triggering policy.
+func TestMutate_JSONPatch_ReportHasMutatingPolicyLabel(t *testing.T) {
+	policy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "report-label-mpol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: `[JSONPatch{op: "add", path: "/metadata/labels/env", value: "production"}]`,
+				},
+			}},
+		},
+	}
+
+	createPolicyWithCleanup(t, policy)
+	waitForPolicyReady(t, 1)
+
+	eventGen := &framework.MockEventGen{}
+	h := mpol.New(testEnv.ContextProvider, engine, testEnv.KyvernoClient, allReportsEnabled{}, nil, "", eventGen)
+
+	ctx := framework.ContextWithPolicies(context.Background(), "report-label-mpol")
+	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("report-label-pod", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "report-label-pod", "namespace": "default", "labels": {}},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.True(t, resp.Allowed, "mutation should allow the resource")
+
+	wantLabel := reportutils.LabelPrefixMutatingPolicy + "report-label-mpol"
+	require.Eventually(t, func() bool {
+		reports, err := testEnv.KyvernoClient.ReportsV1().EphemeralReports("default").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return false
+		}
+		for _, r := range reports.Items {
+			if _, ok := r.Labels[wantLabel]; ok {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond, "expected an EphemeralReport labeled %q", wantLabel)
 }
 
 func TestMutate_JSONPatch_AllowsWithoutChange(t *testing.T) {

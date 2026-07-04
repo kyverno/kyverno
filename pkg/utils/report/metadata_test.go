@@ -288,7 +288,13 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 	dpol := &policiesv1beta1.DeletingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-dpol"},
 	}
+	nsDpol := &policiesv1beta1.NamespacedDeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-dpol", Namespace: "default"},
+	}
 	cleanup := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-cleanuppol"},
+	}
+	clusterCleanup := &kyvernov2.ClusterCleanupPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-cleanuppol"},
 	}
 
@@ -300,7 +306,9 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 		{"mutating policy", engineapi.NewMutatingPolicy(mpol), LabelPrefixMutatingPolicy},
 		{"namespaced mutating policy", engineapi.NewNamespacedMutatingPolicy(nsMpol), LabelPrefixMutatingPolicy},
 		{"deleting policy", engineapi.NewDeletingPolicyFromLike(dpol), LabelPrefixDeletingPolicy},
+		{"namespaced deleting policy", engineapi.NewDeletingPolicyFromLike(nsDpol), LabelPrefixDeletingPolicy},
 		{"cleanup policy", engineapi.NewCleanupPolicyFromInterface(cleanup), LabelPrefixDeletingPolicy},
+		{"cluster cleanup policy", engineapi.NewCleanupPolicyFromInterface(clusterCleanup), LabelPrefixDeletingPolicy},
 	}
 
 	for _, tt := range tests {
