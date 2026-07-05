@@ -60,6 +60,11 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		return err
 	}
 
+	if err := rejectAnnotationsOnBundlePath(cOpts, attestor.Cosign.Annotations); err != nil {
+		logger.Error(err, "image verification failed")
+		return err
+	}
+
 	// Set appropriate claim verifier based on format
 	if cOpts.NewBundleFormat {
 		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
@@ -70,17 +75,13 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var sigs []oci.Signature
 	var verified bool
 
-	if cOpts.NewBundleFormat {
-		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
-	} else {
-		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
-	}
+	sigs, verified, err = dispatchVerify(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		if !(attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT) {
+		if !(cOpts.IgnoreTlog || cOpts.IgnoreSCT) {
 			err := fmt.Errorf("transparency log or timestamp verification failed")
 			logger.Error(err, "image verification failed")
 			return err
@@ -126,12 +127,17 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		return err
 	}
 
+	if err := rejectAnnotationsOnBundlePath(cOpts, attestor.Cosign.Annotations); err != nil {
+		logger.Error(err, "image verification failed")
+		return err
+	}
+
 	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	sigs, verified, err := dispatchVerifyAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
-		err := errors.Wrapf(err, "failed to verify cosign signatures")
+		err := errors.Wrapf(err, "failed to verify cosign attestations")
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
