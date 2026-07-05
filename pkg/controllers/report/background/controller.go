@@ -109,6 +109,7 @@ type controller struct {
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
+	secretLister  corev1listers.SecretLister
 }
 
 func NewController(
@@ -143,6 +144,7 @@ func NewController(
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -171,6 +173,7 @@ func NewController(
 		gctxStore:          gctxStore,
 		mapper:             mapper,
 		typeConverter:      typeConverter,
+		secretLister:       secretLister,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -684,7 +687,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter, c.secretLister)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error

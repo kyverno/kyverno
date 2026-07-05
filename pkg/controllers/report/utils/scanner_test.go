@@ -14,7 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 var podMatchSpec = policiesv1beta1.ImageValidatingPolicySpec{
@@ -32,6 +35,17 @@ var podMatchSpec = policiesv1beta1.ImageValidatingPolicySpec{
 	},
 }
 
+func newTestSecretLister(t *testing.T) corev1listers.SecretLister {
+	t.Helper()
+	clientset := fake.NewSimpleClientset()
+	informerFactory := informers.NewSharedInformerFactory(clientset, 0)
+	stopCh := make(chan struct{})
+	t.Cleanup(func() { close(stopCh) })
+	informerFactory.Start(stopCh)
+	informerFactory.WaitForCacheSync(stopCh)
+	return informerFactory.Core().V1().Secrets().Lister()
+}
+
 func newTestScanner(t *testing.T) Scanner {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -39,7 +53,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil)
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, newTestSecretLister(t))
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {

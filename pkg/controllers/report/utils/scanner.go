@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type scanner struct {
@@ -46,6 +48,7 @@ type scanner struct {
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
+	secretLister  corev1listers.SecretLister
 }
 
 type ScanResult struct {
@@ -76,6 +79,7 @@ func NewScanner(
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) Scanner {
 	return &scanner{
 		logger:        logger,
@@ -86,6 +90,7 @@ func NewScanner(
 		gctxStore:     gctxStore,
 		mapper:        mapper,
 		typeConverter: typeConverter,
+		secretLister:  secretLister,
 	}
 }
 
@@ -285,7 +290,7 @@ func (s *scanner) ScanResource(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-				s.client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()),
+				registryclient.CachedSecretInterface(s.secretLister),
 				nil,
 			), metrics.BackgroundScan)
 			request := celengine.Request(

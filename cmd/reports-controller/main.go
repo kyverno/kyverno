@@ -42,6 +42,7 @@ import (
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -88,6 +89,7 @@ func createReportControllers(
 	eventGenerator event.Interface,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -205,6 +207,7 @@ func createReportControllers(
 				gcstore,
 				restMapper,
 				typeConverter,
+				secretLister,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -247,6 +250,7 @@ func createrLeaderControllers(
 	backgroundScanInterval time.Duration,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -271,6 +275,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		gcstore,
 		typeConverter,
+		secretLister,
 	)
 	return reportControllers, warmup, nil
 }
@@ -514,6 +519,7 @@ func main() {
 					backgroundScanInterval,
 					gcstore,
 					typeConverter,
+					setup.RegistrySecretLister,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
