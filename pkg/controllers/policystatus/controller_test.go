@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -98,6 +99,38 @@ func TestReconcile_ValidatingPolicy_retriesOnUpdateStatusConflict(t *testing.T) 
 	updated, err := client.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.NotNil(t, updated.Status.ConditionStatus.Conditions)
+}
+
+// TestReconcile_DeletingPolicy_preservesLastExecutionTime verifies that the
+// status controller (which owns ConditionStatus) does not clobber the
+// LastExecutionTime field owned by the deleting controller.
+func TestReconcile_DeletingPolicy_preservesLastExecutionTime(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	lastExec := metav1.NewTime(metav1.Now().Add(-time.Hour).Truncate(time.Second))
+	dpol := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-dpol"},
+		Spec:       policiesv1beta1.DeletingPolicySpec{MatchConstraints: emptyMatchResources},
+		Status:     policiesv1beta1.DeletingPolicyStatus{LastExecutionTime: lastExec},
+	}
+
+	client := versionedfake.NewSimpleClientset(dpol)
+	dc := dclient.NewEmptyFakeClient()
+	c := controller{
+		dclient:          dc,
+		client:           client,
+		authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
+		polStateRecorder: webhook.NewStateRecorder(nil),
+	}
+
+	key := webhook.BuildRecorderKey(webhook.DeletingPolicyType, dpol.Name, "")
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", ""))
+
+	updated, err := client.PoliciesV1beta1().DeletingPolicies().Get(ctx, dpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, updated.Status.ConditionStatus.Conditions, "ConditionStatus should be populated")
+	assert.True(t, updated.Status.LastExecutionTime.Equal(&lastExec), "LastExecutionTime must be preserved, got %v want %v", updated.Status.LastExecutionTime, lastExec)
 }
 
 // TestReconcile_AllPolicyTypes verifies that reconcile() correctly routes each
@@ -237,6 +270,43 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 				pol, err := client.PoliciesV1beta1().GeneratingPolicies().Get(context.Background(), "test-gpol", metav1.GetOptions{})
 				require.NoError(t, err)
 				assert.NotEmpty(t, pol.Status.ConditionStatus.Conditions, "GeneratingPolicy status should have conditions")
+			},
+		},
+		{
+			name: "DeletingPolicy",
+			key:  webhook.BuildRecorderKey(webhook.DeletingPolicyType, "test-dpol", ""),
+			objects: []runtime.Object{
+				&policiesv1beta1.DeletingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-dpol"},
+					Spec:       policiesv1beta1.DeletingPolicySpec{MatchConstraints: emptyMatchResources},
+				},
+			},
+			checkFunc: func(t *testing.T, client *versionedfake.Clientset) {
+				t.Helper()
+				pol, err := client.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), "test-dpol", metav1.GetOptions{})
+				require.NoError(t, err)
+				assert.NotEmpty(t, pol.Status.ConditionStatus.Conditions, "DeletingPolicy status should have conditions")
+				// Deleting policies have no webhook, so only the RBAC condition is expected.
+				for i := range pol.Status.ConditionStatus.Conditions {
+					assert.NotEqual(t, string(policiesv1beta1.PolicyConditionTypeWebhookConfigured), pol.Status.ConditionStatus.Conditions[i].Type,
+						"DeletingPolicy should not report a WebhookConfigured condition")
+				}
+			},
+		},
+		{
+			name: "NamespacedDeletingPolicy",
+			key:  webhook.BuildRecorderKey(webhook.NamespacedDeletingPolicyType, "test-ndpol", "test-ns"),
+			objects: []runtime.Object{
+				&policiesv1beta1.NamespacedDeletingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-ndpol", Namespace: "test-ns"},
+					Spec:       policiesv1beta1.DeletingPolicySpec{MatchConstraints: emptyMatchResources},
+				},
+			},
+			checkFunc: func(t *testing.T, client *versionedfake.Clientset) {
+				t.Helper()
+				pol, err := client.PoliciesV1beta1().NamespacedDeletingPolicies("test-ns").Get(context.Background(), "test-ndpol", metav1.GetOptions{})
+				require.NoError(t, err)
+				assert.NotEmpty(t, pol.Status.ConditionStatus.Conditions, "NamespacedDeletingPolicy status should have conditions")
 			},
 		},
 	}

@@ -328,9 +328,10 @@ func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1be
 	switch p := policy.(type) {
 	case *v1beta1.DeletingPolicy:
 		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().DeletingPolicies(), func(p *v1beta1.DeletingPolicy) error {
-			p.Status = v1beta1.DeletingPolicyStatus{
-				LastExecutionTime: metav1.NewTime(time),
-			}
+			// Only update LastExecutionTime; ConditionStatus is owned by the
+			// policy status controller and must be preserved to avoid the two
+			// writers clobbering each other's field.
+			p.Status.LastExecutionTime = metav1.NewTime(time)
 			return nil
 		}, func(current, expect *v1beta1.DeletingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
@@ -341,9 +342,10 @@ func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1be
 		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
 	case *v1beta1.NamespacedDeletingPolicy:
 		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1beta1.NamespacedDeletingPolicy) error {
-			p.Status = v1beta1.DeletingPolicyStatus{
-				LastExecutionTime: metav1.NewTime(time),
-			}
+			// Only update LastExecutionTime; ConditionStatus is owned by the
+			// policy status controller and must be preserved to avoid the two
+			// writers clobbering each other's field.
+			p.Status.LastExecutionTime = metav1.NewTime(time)
 			return nil
 		}, func(current, expect *v1beta1.NamespacedDeletingPolicy) bool {
 			return datautils.DeepEqual(current.Status, expect.Status)
