@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -36,6 +37,7 @@ func TestMain(m *testing.M) {
 	var err error
 	testEnv, err = framework.NewTestEnv(
 		"../../../config/crds/policies.kyverno.io",
+		"../../../config/crds/reports",
 	)
 	if err != nil {
 		panic(err)
@@ -53,6 +55,11 @@ func TestMain(m *testing.M) {
 		testEnv.Stop()
 		panic(err)
 	}
+
+	// The report-writing path in the mpol handler goes through breaker.GetReportsBreaker(),
+	// which is nil unless a real controller process (main.go) has set it. Install a
+	// pass-through breaker so tests exercising report creation don't panic.
+	breaker.SetReportsBreaker(breaker.NewBreaker("reports", func(context.Context) bool { return false }))
 
 	code := m.Run()
 	testEnv.Stop()
@@ -198,6 +205,15 @@ func TestMutate_JSONPatch_ReportHasMutatingPolicyLabel(t *testing.T) {
 	createPolicyWithCleanup(t, policy)
 	waitForPolicyReady(t, 1)
 
+	// The report-result filtering in reportutils.EngineResponseToReportResults reads the
+	// package-level reportutils.ReportingCfg, not the ReportingConfiguration passed to
+	// mpol.New. The framework's TestMain initializes it with no allowed rule statuses, so
+	// "pass" results are dropped before a report is ever written. Override it here so the
+	// mutation result actually makes it into the report, and restore it afterwards.
+	prevCfg := reportutils.ReportingCfg
+	reportutils.ReportingCfg = allReportsEnabled{}
+	t.Cleanup(func() { reportutils.ReportingCfg = prevCfg })
+
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, testEnv.KyvernoClient, allReportsEnabled{}, nil, "", eventGen)
 
@@ -211,17 +227,14 @@ func TestMutate_JSONPatch_ReportHasMutatingPolicyLabel(t *testing.T) {
 	assert.True(t, resp.Allowed, "mutation should allow the resource")
 
 	wantLabel := reportutils.LabelPrefixMutatingPolicy + "report-label-mpol"
+	listOpts := metav1.ListOptions{LabelSelector: wantLabel}
+	t.Cleanup(func() {
+		testEnv.KyvernoClient.ReportsV1().EphemeralReports("default").DeleteCollection(context.Background(), metav1.DeleteOptions{}, listOpts)
+	})
+
 	require.Eventually(t, func() bool {
-		reports, err := testEnv.KyvernoClient.ReportsV1().EphemeralReports("default").List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return false
-		}
-		for _, r := range reports.Items {
-			if _, ok := r.Labels[wantLabel]; ok {
-				return true
-			}
-		}
-		return false
+		reports, err := testEnv.KyvernoClient.ReportsV1().EphemeralReports("default").List(context.Background(), listOpts)
+		return err == nil && len(reports.Items) > 0
 	}, 5*time.Second, 100*time.Millisecond, "expected an EphemeralReport labeled %q", wantLabel)
 }
 
