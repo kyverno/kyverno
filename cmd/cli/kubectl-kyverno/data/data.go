@@ -33,27 +33,27 @@ func APIGroupResources() ([]*restmapper.APIGroupResources, error) {
 }
 
 type crdProcessor struct {
-	apiGroupResource *restmapper.APIGroupResources
-	mutex            sync.RWMutex
+	apiGroupResources []*restmapper.APIGroupResources
+	mutex             sync.RWMutex
 }
 
-func NewCRDProcessor(resources *restmapper.APIGroupResources) *crdProcessor {
+func NewCRDProcessor(resources []*restmapper.APIGroupResources) *crdProcessor {
 	return &crdProcessor{
-		apiGroupResource: resources,
+		apiGroupResources: resources,
 	}
 }
 
-func (p *crdProcessor) UpdateResourceGroup(resources *restmapper.APIGroupResources) {
+func (p *crdProcessor) UpdateResourceGroups(resources []*restmapper.APIGroupResources) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	p.apiGroupResource = resources
+	p.apiGroupResources = resources
 }
 
-func (p *crdProcessor) GetResourceGroup() *restmapper.APIGroupResources {
+func (p *crdProcessor) GetResourceGroups() []*restmapper.APIGroupResources {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	if p.apiGroupResource == nil {
+	if p.apiGroupResources == nil {
 		return nil
 	}
-	return p.apiGroupResource
+	return p.apiGroupResources
 }

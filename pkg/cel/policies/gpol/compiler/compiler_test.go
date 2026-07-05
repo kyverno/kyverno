@@ -121,4 +121,42 @@ func TestCompile(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
+
+	t.Run("should_compile_successfully_with_heterogeneous_object_literals", func(t *testing.T) {
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{
+					{
+						Name: "vpaConfig",
+						Expression: `{
+							"apiVersion": "autoscaling.k8s.io/v1",
+							"kind": "VerticalPodAutoscaler",
+							"metadata": {
+								"name": "test-vpa",
+								"namespace": "default"
+							},
+							"spec": {
+								"startupBoost": {
+									"cpu": {
+										"type": "Quantity",
+										"quantity": "500m",
+										"durationSeconds": 20
+									}
+								}
+							}
+						}`,
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: "generator.Apply(object.metadata.namespace, [variables.vpaConfig])",
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		res, errs := comp.Compile(pol, nil)
+		assert.NotNil(t, res)
+		assert.Nil(t, errs)
+	})
 }
