@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/stretchr/testify/require"
@@ -71,9 +73,16 @@ func Test_SelectFrom(t *testing.T) {
 		&kyvernov2beta1.PolicyException{TypeMeta: v1.TypeMeta{
 			Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String()},
 		},
+		&policiesv1beta1.PolicyException{TypeMeta: v1.TypeMeta{
+			Kind: celExceptionV1beta1.Kind, APIVersion: celExceptionV1beta1.GroupVersion().String()},
+		},
+		&policiesv1.PolicyException{TypeMeta: v1.TypeMeta{
+			Kind: celExceptionV1.Kind, APIVersion: celExceptionV1.GroupVersion().String()},
+		},
 	)
-	exceptions := SelectFrom(resources)
-	require.Len(t, exceptions, 2)
+	results := SelectFrom(resources)
+	require.Len(t, results.Exceptions, 2)
+	require.Len(t, results.CELExceptions, 2)
 }
 
 func toUnstructured(t *testing.T, in ...interface{}) []*unstructured.Unstructured {
