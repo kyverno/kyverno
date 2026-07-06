@@ -83,11 +83,18 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 					}
 					if _, exists := gvr[crdGVR]; !exists {
 						list = append(list, crdGVR)
-						gvr[crdGVR] = crd.Spec.Names.Kind + "List"
-						gvrToGVK[crdGVR] = schema.GroupVersionKind{
+						crdGVK := schema.GroupVersionKind{
 							Group:   crd.Spec.Group,
 							Version: version.Name,
 							Kind:    crd.Spec.Names.Kind,
+						}
+						gvr[crdGVR] = crdGVK.Kind + "List"
+						gvrToGVK[crdGVR] = crdGVK
+
+						crdGVKList := crdGVK
+						crdGVKList.Kind += "List"
+						if !s.Recognizes(crdGVKList) {
+							s.AddKnownTypeWithName(crdGVKList, &unstructured.UnstructuredList{})
 						}
 					}
 				}
@@ -97,15 +104,21 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 			continue
 		}
 
-		plural, _ := meta.UnsafeGuessKindToResource(o.GetObjectKind().GroupVersionKind())
+		gvk := o.GetObjectKind().GroupVersionKind()
+		plural, _ := meta.UnsafeGuessKindToResource(gvk)
 		if _, ok := gvr[plural]; ok {
 			continue
 		}
 
-		s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
+		s.AddKnownTypeWithName(gvk, o)
+		gvkList := gvk
+		gvkList.Kind += "List"
+		if !s.Recognizes(gvkList) {
+			s.AddKnownTypeWithName(gvkList, &unstructured.UnstructuredList{})
+		}
 
-		gvr[plural] = o.GetObjectKind().GroupVersionKind().Kind + "List"
-		gvrToGVK[plural] = o.GetObjectKind().GroupVersionKind()
+		gvr[plural] = gvkList.Kind
+		gvrToGVK[plural] = gvk
 
 		list = append(list, plural)
 	}

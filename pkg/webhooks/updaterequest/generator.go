@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	backoff "github.com/cenkalti/backoff"
+	backoff "github.com/cenkalti/backoff/v7"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -47,7 +47,7 @@ func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) e
 		return nil
 	}
 	logger.V(4).Info("apply Update Request", "request", ur)
-	go g.applyResource(context.TODO(), ur)
+	go g.applyResource(context.TODO(), ur) //nolint:gosec // background context is intentional: the goroutine outlives the request
 	return nil
 }
 
@@ -57,16 +57,20 @@ func (g *generator) applyResource(ctx context.Context, urSpec kyvernov2.UpdateRe
 		RandomizationFactor: 0.5,
 		Multiplier:          1.5,
 		MaxInterval:         time.Second,
-		MaxElapsedTime:      3 * time.Second,
-		Clock:               backoff.SystemClock,
 	}
 	exbackoff.Reset()
-	if err := backoff.Retry(func() error { return g.tryApplyResource(ctx, urSpec) }, exbackoff); err != nil {
+	_, err := backoff.Retry(
+		ctx,
+		func() (bool, error) { return g.tryApplyResource(ctx, urSpec) },
+		backoff.WithBackOff(exbackoff),
+		backoff.WithMaxElapsedTime(3*time.Second),
+	)
+	if err != nil {
 		logger.Error(err, "failed to update request CR")
 	}
 }
 
-func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.UpdateRequestSpec) error {
+func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.UpdateRequestSpec) (bool, error) {
 	l := logger.WithValues("ruleType", urSpec.GetRequestType(), "resource", urSpec.GetResource().String())
 	var queryLabels labels.Set
 
@@ -88,16 +92,16 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 	created, err := g.urGenerator.Generate(ctx, g.client, &ur, l)
 	if err != nil {
 		l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
-		return err
+		return false, err
 	} else if created == nil {
-		return nil
+		return true, nil
 	}
 	updated := created.DeepCopy()
 	updated.Status.State = kyvernov2.Pending
 	_, err = g.client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	l.V(4).Info("successfully created UpdateRequest", "name", updated.GetName(), "namespace", ur.GetNamespace())
-	return nil
+	return true, nil
 }

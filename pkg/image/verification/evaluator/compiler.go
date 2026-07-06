@@ -7,26 +7,25 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/gzip"
-	"github.com/kyverno/sdk/cel/libs/hash"
-	"github.com/kyverno/sdk/cel/libs/http"
-	"github.com/kyverno/sdk/cel/libs/image"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/json"
-	"github.com/kyverno/sdk/cel/libs/math"
-	"github.com/kyverno/sdk/cel/libs/random"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/libs/time"
-	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/user"
-	"github.com/kyverno/sdk/cel/libs/yaml"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
+	"github.com/kyverno/sdk/extensions/cel/libs/hash"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/image"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/json"
+	"github.com/kyverno/sdk/extensions/cel/libs/math"
+	"github.com/kyverno/sdk/extensions/cel/libs/random"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/libs/time"
+	"github.com/kyverno/sdk/extensions/cel/libs/transform"
+	"github.com/kyverno/sdk/extensions/cel/libs/user"
+	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -164,8 +163,8 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*environment.EnvSet, *engine.VariablesProvider, error) {
+	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
 		cel.Variable(engine.ImagesKey, cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
@@ -189,14 +188,70 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		return nil, nil, err
 	}
 
-	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
+	variablesProvider := engine.NewVariablesProvider(env.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(engine.NamespaceType, engine.RequestType)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	baseOpts = append(baseOpts, declOptions...)
+
+	namespace := ivpol.GetNamespace()
+	libEnvOpts := []cel.EnvOption{
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Latest(),
+		),
+		image.Lib(
+			image.Latest(),
+		),
+		imagedata.Lib(
+			imagedata.Context{ContextInterface: libsctx},
+			imagedata.Latest(),
+		),
+		imageverify.Lib(
+			imageverify.Latest(), c.ictx, ivpol, c.lister,
+		),
+		resource.Lib(
+			resource.Context{ContextInterface: libsctx},
+			namespace,
+			resource.Latest(),
+		),
+		user.Lib(
+			user.Latest(),
+		),
+		math.Lib(
+			math.Latest(),
+		),
+		hash.Lib(
+			hash.Latest(),
+		),
+		json.Lib(
+			&json.JsonImpl{},
+			json.Latest(),
+		),
+		yaml.Lib(
+			&yaml.YamlImpl{},
+			yaml.Latest(),
+		),
+		random.Lib(
+			random.Latest(),
+		),
+		time.Lib(
+			time.Latest(),
+		),
+		transform.Lib(
+			transform.Latest(),
+		),
+		gzip.Lib(
+			gzip.Latest(),
+		),
+		http.Lib(
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+			http.Latest(),
+		),
+	}
 
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
@@ -206,60 +261,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		// libaries
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
-			EnvOptions: []cel.EnvOption{
-				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
-					globalcontext.Latest(),
-				),
-				http.Lib(
-					http.Context{ContextInterface: http.NewHTTP(nil)},
-					http.Latest(),
-				),
-				image.Lib(
-					image.Latest(),
-				),
-				imagedata.Lib(
-					imagedata.Context{ContextInterface: libsctx},
-					imagedata.Latest(),
-				),
-				imageverify.Lib(
-					imageverify.Latest(), c.ictx, ivpol, c.lister,
-				),
-				resource.Lib(
-					resource.Context{ContextInterface: libsctx},
-					ivpol.GetNamespace(),
-					resource.Latest(),
-				),
-				user.Lib(
-					user.Latest(),
-				),
-				math.Lib(
-					math.Latest(),
-				),
-				hash.Lib(
-					hash.Latest(),
-				),
-				json.Lib(
-					&json.JsonImpl{},
-					json.Latest(),
-				),
-				yaml.Lib(
-					&yaml.YamlImpl{},
-					yaml.Latest(),
-				),
-				random.Lib(
-					random.Latest(),
-				),
-				time.Lib(
-					time.Latest(),
-				),
-				transform.Lib(
-					transform.Latest(),
-				),
-				gzip.Lib(
-					gzip.Latest(),
-				),
-			},
+			EnvOptions:        libEnvOpts,
 		},
 	)
 	if err != nil {

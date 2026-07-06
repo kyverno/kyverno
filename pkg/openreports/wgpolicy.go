@@ -20,7 +20,7 @@ func (a *WgpolicyClusterReportAdapter) GetResults() []openreportsv1alpha1.Report
 }
 
 func (a *WgpolicyClusterReportAdapter) SetResults(res []openreportsv1alpha1.ReportResult) {
-	wgpolResults := []policyreportv1alpha2.PolicyReportResult{}
+	wgpolResults := make([]policyreportv1alpha2.PolicyReportResult, 0, len(res))
 	for _, r := range res {
 		wgRes := policyreportv1alpha2.PolicyReportResult{
 			Source:           r.Source,
@@ -58,7 +58,7 @@ func (a *WgpolicyReportAdapter) GetResults() []openreportsv1alpha1.ReportResult 
 }
 
 func (a *WgpolicyReportAdapter) SetResults(res []openreportsv1alpha1.ReportResult) {
-	wgpolResults := []policyreportv1alpha2.PolicyReportResult{}
+	wgpolResults := make([]policyreportv1alpha2.PolicyReportResult, 0, len(res))
 	for _, r := range res {
 		wgRes := policyreportv1alpha2.PolicyReportResult{
 			Source:           r.Source,

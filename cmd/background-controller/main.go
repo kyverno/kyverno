@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -26,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -35,6 +38,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -82,6 +86,9 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -92,6 +99,8 @@ func createrLeaderControllers(
 		jp,
 		urGenerator,
 		watchManager,
+		gpolEngine,
+		gpolProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -139,6 +148,9 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
+	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
+	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
+	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
 
 	// config
 	appConfig := internal.NewConfiguration(
@@ -163,6 +175,12 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
+	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
+	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
+	if err := celcompiler.ValidateHTTPFlags(); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup
@@ -222,6 +240,9 @@ func main() {
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
+		)
+		updaterequestmetricscontroller.NewController(
+			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
 		engine := internal.NewEngine(
 			signalCtx,

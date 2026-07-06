@@ -56,7 +56,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.cleanupController.priorityClassName }}
+      {{- with .Values.cleanupController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.cleanupController.hostNetwork }}
@@ -200,8 +200,10 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumeMounts }}
           volumeMounts:
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
             {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
@@ -210,9 +212,17 @@ spec:
             {{- with .Values.cleanupController.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- end }}
-      {{- if or (not $automountSAToken) .Values.cleanupController.extraVolumes }}
       volumes:
+        - name: apicall-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                  {{- with .Values.apiCallToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
         {{- if not $automountSAToken }}
         - name: serviceaccount-token
           projected:
@@ -239,6 +249,5 @@ spec:
         {{- with .Values.cleanupController.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- end }}
 {{- end -}}
 {{- end -}}
