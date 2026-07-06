@@ -768,6 +768,10 @@ func main() {
 				matching.NewMatcher(),
 			), metrics.AdmissionRequest)
 
+			ivpolSecrets := setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace())
+			if setup.RegistrySecretLister != nil {
+				ivpolSecrets = kubeutils.NewCachedSecretInterface(setup.RegistrySecretLister, config.KyvernoNamespace())
+			}
 			ivpolEngine = ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
 				ivpolProvider,
 				func(name string) *corev1.Namespace {
@@ -778,7 +782,7 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				ivpolSecrets,
 				nil,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
