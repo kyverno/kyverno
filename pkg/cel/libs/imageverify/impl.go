@@ -85,9 +85,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
-				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
-					f.logger.V(2).Info("failed to verify image cosign", "image", image, "attestor", attestor.Name, "error", err)
-				} else {
+				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err == nil {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
 					count += 1
 				}
@@ -99,9 +97,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				if attestor.Notary.TSACerts != nil {
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
-				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
-					f.logger.V(2).Info("failed to verify image notary", "image", image, "attestor", attestor.Name, "error", err)
-				} else {
+				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err == nil {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
 					count += 1
 				}
@@ -144,9 +140,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
-				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
-					f.logger.V(2).Info("failed to verify attestation cosign", "image", image, "attestation", attestation, "attestor", attestor.Name, "error", err)
-				} else {
+				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err == nil {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 					count += 1
 				}
@@ -161,9 +155,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				if attestor.Notary.TSACerts != nil {
 					tsaCerts = attestor.Notary.TSACerts.Value
 				}
-				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
-					f.logger.V(2).Info("failed to verify attestation notary", "image", image, "attestation", attestation, "attestor", attestor.Name, "error", err)
-				} else {
+				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err == nil {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 					count += 1
 				}
