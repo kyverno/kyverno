@@ -11,11 +11,11 @@ import (
 
 func TestCreateMatchConstraints(t *testing.T) {
 	tests := []struct {
-		name       			string
-		targets    			[]policiesv1beta1.Target
-		operations 			[]admissionregistrationv1.OperationType
-		namespaceSelector 	*metav1.LabelSelector
-		want       			*admissionregistrationv1.MatchResources
+		name              string
+		targets           []policiesv1beta1.Target
+		operations        []admissionregistrationv1.OperationType
+		namespaceSelector *metav1.LabelSelector
+		want              *admissionregistrationv1.MatchResources
 	}{{
 		name:       "nil targets",
 		operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},

@@ -54,9 +54,13 @@ func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admis
 			},
 		})
 	}
+	var selector *metav1.LabelSelector
+	if namespaceSelector != nil {
+		selector = namespaceSelector.DeepCopy()
+	}
 	return &admissionregistrationv1.MatchResources{
-		ResourceRules: rules,
-		NamespaceSelector: namespaceSelector,
+		ResourceRules:     rules,
+		NamespaceSelector: selector,
 	}
 }
 

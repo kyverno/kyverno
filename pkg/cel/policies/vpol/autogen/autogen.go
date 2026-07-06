@@ -42,7 +42,7 @@ func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, confi
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-   		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
+		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err

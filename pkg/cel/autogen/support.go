@@ -6,7 +6,6 @@ import (
 
 // CanAutoGen checks whether the policy can be applied to Pod controllers
 // It returns false if:
-//   - the matching logic has a namespace selector
 //   - the matching logic has an object selector
 //   - the matching logic has exclusion rules
 //   - the matching logic matches more than one resource and it's not pods
@@ -14,7 +13,7 @@ import (
 func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
 	if match == nil {
 		return false
-	}	
+	}
 	if match.ObjectSelector != nil {
 		if len(match.ObjectSelector.MatchLabels) > 0 || len(match.ObjectSelector.MatchExpressions) > 0 {
 			return false
