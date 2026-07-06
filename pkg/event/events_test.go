@@ -212,6 +212,7 @@ func Test_NewCleanupPolicyEvent_success(t *testing.T) {
 
 	ev := NewCleanupPolicyEvent(pol, res, nil)
 
+	assert.Equal(t, kyvernov2.GroupVersion.String(), ev.Regarding.APIVersion)
 	assert.Equal(t, "remove-stale-pods", ev.Regarding.Name)
 	assert.Equal(t, PolicyApplied, ev.Reason)
 	assert.Equal(t, ResourceCleanedUp, ev.Action)
@@ -258,6 +259,123 @@ func Test_NewCleanupPolicyEvent_namespaced(t *testing.T) {
 	assert.Equal(t, "secret-cleaner", ev.Regarding.Name)
 	assert.Equal(t, "team-a", ev.Regarding.Namespace)
 	assert.Equal(t, ResourceCleanedUp, ev.Action)
+}
+
+func Test_NewBackgroundSuccessEvent_GeneratingPolicy(t *testing.T) {
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gen-resources",
+			UID:  "gpol-uid-1",
+		},
+	}
+	policy := engineapi.NewGeneratingPolicy(gpol)
+	resources := []kyvernov1.ResourceSpec{
+		{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Namespace:  "default",
+			Name:       "generated-cm",
+		},
+	}
+
+	events := NewBackgroundSuccessEvent(GeneratePolicyController, policy, resources)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, policiesv1beta1.GroupVersion.String(), events[0].Regarding.APIVersion)
+	assert.Equal(t, "gen-resources", events[0].Regarding.Name)
+	assert.Equal(t, ResourceGenerated, events[0].Action)
+}
+
+func Test_NewBackgroundFailedEvent_ClusterPolicy(t *testing.T) {
+	cp := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "require-labels",
+			UID:  "cp-uid-1",
+		},
+	}
+	policy := engineapi.NewKyvernoPolicy(cp)
+	resource := kyvernov1.ResourceSpec{
+		APIVersion: "v1",
+		Kind:       "Pod",
+		Namespace:  "default",
+		Name:       "test-pod",
+	}
+	err := errors.New("generation failed")
+
+	events := NewBackgroundFailedEvent(err, policy, "gen-rule", GeneratePolicyController, resource)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, kyvernov1.GroupVersion.String(), events[0].Regarding.APIVersion)
+	assert.Equal(t, "require-labels", events[0].Regarding.Name)
+	assert.Equal(t, PolicyError, events[0].Reason)
+}
+
+func Test_NewPolicyExceptionEvents_PolicyException(t *testing.T) {
+	cp := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "require-labels",
+			UID:  "cp-uid-1",
+		},
+	}
+	polex := &kyvernov2.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "skip-dev",
+			Namespace: "default",
+			UID:       "polex-uid-1",
+		},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("v1")
+	resource.SetKind("Pod")
+	resource.SetNamespace("default")
+	resource.SetName("test-pod")
+
+	er := engineapi.NewEngineResponse(resource, engineapi.NewKyvernoPolicy(cp), nil)
+	ruleResp := engineapi.RuleSkip("require-team", engineapi.Validation, "skipped due to exception", nil).
+		WithExceptions([]engineapi.GenericException{engineapi.NewPolicyException(polex)})
+
+	events := NewPolicyExceptionEvents(er, *ruleResp, AdmissionController)
+
+	assert.Len(t, events, 2)
+	assert.Equal(t, kyvernov2.GroupVersion.String(), events[0].Regarding.APIVersion)
+	assert.Equal(t, "PolicyException", events[0].Regarding.Kind)
+	assert.Equal(t, "skip-dev", events[0].Regarding.Name)
+	assert.Equal(t, kyvernov1.GroupVersion.String(), events[1].Regarding.APIVersion)
+	assert.Equal(t, "ClusterPolicy", events[1].Regarding.Kind)
+	assert.Equal(t, "require-labels", events[1].Regarding.Name)
+}
+
+func Test_NewPolicyExceptionEvents_CELPolicyException(t *testing.T) {
+	cp := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "require-labels",
+			UID:  "cp-uid-1",
+		},
+	}
+	celPolex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "skip-dev",
+			Namespace: "default",
+			UID:       "cel-polex-uid-1",
+		},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetAPIVersion("v1")
+	resource.SetKind("Pod")
+	resource.SetNamespace("default")
+	resource.SetName("test-pod")
+
+	er := engineapi.NewEngineResponse(resource, engineapi.NewKyvernoPolicy(cp), nil)
+	ruleResp := engineapi.RuleSkip("require-team", engineapi.Validation, "skipped due to exception", nil).
+		WithExceptions([]engineapi.GenericException{engineapi.NewCELPolicyException(celPolex)})
+
+	events := NewPolicyExceptionEvents(er, *ruleResp, AdmissionController)
+
+	assert.Len(t, events, 2)
+	assert.Equal(t, policiesv1beta1.GroupVersion.String(), events[0].Regarding.APIVersion)
+	assert.Equal(t, "CELPolicyException", events[0].Regarding.Kind)
+	assert.Equal(t, "skip-dev", events[0].Regarding.Name)
+	assert.Equal(t, kyvernov1.GroupVersion.String(), events[1].Regarding.APIVersion)
 }
 
 func Test_resourceKey_namespaced(t *testing.T) {
