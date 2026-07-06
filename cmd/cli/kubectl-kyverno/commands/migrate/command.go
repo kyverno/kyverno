@@ -60,6 +60,9 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&options.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&options.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringSliceVar(&options.Resources, "resource", nil, "The resource to migrate")
+	if err := cmd.MarkFlagRequired("resource"); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
