@@ -137,9 +137,8 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	baseAR := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	// Derive policyName and scopePredicate from the resolved mpol object rather than from the
-	// UR key. Admission-webhook URs store only the bare policy name (reconciler.MatchesMutateExisting
-	// returns GetName(), not namespace/name), so ParsePolicyKey on the UR key would yield an
-	// empty namespace for NamespacedMutatingPolicies, causing the wrong scope predicate to be used.
+	// UR key. Admission-webhook URs now store namespace/name for NamespacedMutatingPolicies.
+	// Deriving scope from the resolved policy keeps older bare-name URs compatible.
 	policyName := mpol.GetName()
 	scopePredicate := mpolengine.ClusteredPolicy()
 	if ns := mpol.GetNamespace(); ns != "" {
@@ -353,9 +352,7 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 			return mpol, nil
 		}
 		// Fallback: CELMutate URs created from admission webhooks use the bare policy name
-		// (reconciler.MatchesMutateExisting returns GetName(), not namespace/name).
-		// Since NamespacedMutatingPolicies only match resources in their own namespace,
-		// the admission request's namespace equals the policy's namespace.
+		// from older admission-created URs. New URs use namespace/name for namespaced policies.
 		if ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest; ar != nil && ar.Namespace != "" {
 			nmpol, nerr := p.kyvernoClient.PoliciesV1beta1().NamespacedMutatingPolicies(ar.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 			if nerr == nil {
@@ -385,7 +382,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if err != nil {
 		return nil, err
 	}
-	pol, err := p.engine.GetCompiledPolicy(mpol.GetName())
+	pol, err := p.engine.GetCompiledPolicy(mpolengine.PolicyKey(mpol))
 	if err != nil {
 		return nil, err
 	}

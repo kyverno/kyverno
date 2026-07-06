@@ -132,7 +132,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 				continue
 			}
 		}
-		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+		matchedPolicies = append(matchedPolicies, PolicyKey(mpol.Policy))
 	}
 	return matchedPolicies
 }

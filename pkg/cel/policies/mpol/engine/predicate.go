@@ -11,10 +11,21 @@ func MatchNames(names ...string) Predicate {
 	}
 	if len(names) == 1 {
 		name := names[0]
-		return func(policy policiesv1beta1.MutatingPolicyLike) bool { return policy.GetName() == name }
+		return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+			return policy.GetName() == name || PolicyKey(policy) == name
+		}
 	}
 	namesSet := sets.New(names...)
-	return func(policy policiesv1beta1.MutatingPolicyLike) bool { return namesSet.Has(policy.GetName()) }
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		return namesSet.Has(policy.GetName()) || namesSet.Has(PolicyKey(policy))
+	}
+}
+
+func PolicyKey(policy policiesv1beta1.MutatingPolicyLike) string {
+	if policy.GetNamespace() == "" {
+		return policy.GetName()
+	}
+	return policy.GetNamespace() + "/" + policy.GetName()
 }
 
 func ClusteredPolicy() Predicate {

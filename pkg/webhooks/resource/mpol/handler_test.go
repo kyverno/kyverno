@@ -26,10 +26,14 @@ import (
 
 type mockURGenerator struct {
 	called atomic.Int32
+	specs  chan kyvernov2.UpdateRequestSpec
 }
 
-func (m *mockURGenerator) Apply(_ context.Context, _ kyvernov2.UpdateRequestSpec) error {
+func (m *mockURGenerator) Apply(_ context.Context, spec kyvernov2.UpdateRequestSpec) error {
 	m.called.Add(1)
+	if m.specs != nil {
+		m.specs <- spec
+	}
 	return nil
 }
 
@@ -76,6 +80,47 @@ func (m *mockEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.
 		}
 	}
 	return policies
+}
+
+func TestMutate_NamespacedMutateExistingURUsesPolicyKey(t *testing.T) {
+	policyKey := "kyverno-mpol-rca/rca-cert-rotation"
+	urMock := &mockURGenerator{specs: make(chan kyvernov2.UpdateRequestSpec, 1)}
+	engineMock := &mockEngine{
+		matchedPolicies: []string{policyKey},
+		policies: map[string]mpolengine.Policy{
+			policyKey: {
+				Policy: &policiesv1beta1.NamespacedMutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "rca-cert-rotation", Namespace: "kyverno-mpol-rca"},
+				},
+			},
+		},
+	}
+	h := New(nil, engineMock, nil, &mockReportsConfig{}, urMock, "system:serviceaccount:kyverno:kyverno-background-controller", nil)
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Operation: admissionv1.Update,
+			Namespace: "kyverno-mpol-rca",
+			Name:      "rca-cert",
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
+			Object:    runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"rca-cert","namespace":"kyverno-mpol-rca"}}`)},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+
+	h.mutate(context.Background(), logr.Discard(), request, []string{"rca-cert-rotation"}, mpolengine.MatchNames("rca-cert-rotation"))
+
+	select {
+	case spec := <-urMock.specs:
+		assert.Equal(t, kyvernov2.CELMutate, spec.Type)
+		assert.Equal(t, policyKey, spec.Policy)
+		assert.NotNil(t, spec.Context.AdmissionRequestInfo.AdmissionRequest)
+		assert.Equal(t, "kyverno-mpol-rca", spec.Context.AdmissionRequestInfo.AdmissionRequest.Namespace)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected mutate-existing UpdateRequest")
+	}
 }
 
 func TestMutate_DryRunDoesNotFireMutateExistingURs(t *testing.T) {

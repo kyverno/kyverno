@@ -98,6 +98,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	// to honor the SideEffects: NoneOnDryRun contract.
 	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
 		go func() {
+			ctx := context.WithoutCancel(ctx)
 			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
 			if isBackgroundRequest {
 				mpols = h.filterBackgroundPolicies(logger, mpols)

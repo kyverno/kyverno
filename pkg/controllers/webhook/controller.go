@@ -1538,7 +1538,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
+		if !mpol.GetStatus().Generated && (mpol.Spec.AdmissionEnabled() || mpol.Spec.MutateExistingEnabled()) {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}
@@ -1552,7 +1552,7 @@ func (c *controller) getNamespacedMutatingPolicies() ([]engineapi.GenericPolicy,
 	}
 	nmpols := make([]engineapi.GenericPolicy, 0)
 	for _, nmpol := range policies {
-		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated {
+		if !nmpol.GetStatus().Generated && (nmpol.Spec.AdmissionEnabled() || nmpol.Spec.MutateExistingEnabled()) {
 			nmpols = append(nmpols, engineapi.NewNamespacedMutatingPolicy(nmpol))
 		}
 	}
