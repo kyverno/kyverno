@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -31,6 +32,14 @@ func Command() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			for i, resource := range options.Resources {
+				resource = strings.TrimSpace(resource)
+				if resource == "" {
+					return errors.New("resource cannot be empty")
+				}
+				options.Resources[i] = resource
+			}
+
 			clientConfig, err := config.CreateClientConfigWithContext(options.KubeConfig, options.Context)
 			if err != nil {
 				return err
@@ -60,6 +69,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&options.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&options.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringSliceVar(&options.Resources, "resource", nil, "The resource to migrate")
+	_ = cmd.MarkFlagRequired("resource")
 	return cmd
 }
 
