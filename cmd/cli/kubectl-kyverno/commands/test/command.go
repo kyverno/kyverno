@@ -284,9 +284,10 @@ func compareExpectedRuleResult(
 
 // checkRuleResultOnly validates the expected test result against the computed policy
 // report result without comparing resource manifests. Use this for Generation rules
-// that produced no generated resources (for example a CEL evaluation error): passing
-// the trigger resource into checkResult would compare it against generatedResource
-// and fail with a misleading resource diff instead of the status mismatch.
+// that produced no generated resources (for example a CEL evaluation error, or a
+// pass due to policy exceptions with nothing generated): passing the trigger resource
+// into checkResult would compare it against generatedResource and fail with a
+// misleading resource diff instead of the status mismatch.
 func checkRuleResultOnly(test v1alpha1.TestResult, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
 	return compareExpectedRuleResult(test.Result, response, rule)
 }
