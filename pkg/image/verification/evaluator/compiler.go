@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -211,7 +212,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			imagedata.Latest(),
 		),
 		imageverify.Lib(
-			imageverify.Latest(), c.ictx, ivpol, c.lister,
+			imageverify.Latest(), c.ictx, ivpol, c.lister, logging.WithName("ivpol/imageverify"),
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

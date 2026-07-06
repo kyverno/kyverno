@@ -3,6 +3,7 @@ package imageverify
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -61,7 +62,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil),
+		Lib(nil, imgCtx, ivpol, nil, logr.Discard()),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -99,7 +100,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil),
+		Lib(nil, imgCtx, ivpol, nil, logr.Discard()),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)

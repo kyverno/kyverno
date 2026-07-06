@@ -26,9 +26,10 @@ func Latest() *version.Version {
 	return versions.KyvernoLatest
 }
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
+func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface, logger logr.Logger) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
+		logger:  logger,
 		version: v,
 		imgCtx:  imgCtx,
 		ivpol:   ivpol,
