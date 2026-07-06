@@ -78,6 +78,45 @@ func TestExcludeBootstrapResourcesFromMutatingWebhooks(t *testing.T) {
 	})
 }
 
+// TestExcludeBootstrapResources_Idempotent verifies the append is skipped when the
+// exclusion is already present, so applying it twice (or on a webhook that already
+// carries the exclusion) cannot create a duplicate condition name. The API server
+// requires match condition names to be unique within a webhook, so a duplicate
+// would make the whole webhook configuration invalid.
+func TestExcludeBootstrapResources_Idempotent(t *testing.T) {
+	t.Run("validating: applying twice adds only one exclusion", func(t *testing.T) {
+		webhooks := []admissionregistrationv1.ValidatingWebhook{
+			{Name: "resource-fail", FailurePolicy: ptr.To(admissionregistrationv1.Fail)},
+		}
+		excludeBootstrapResourcesFromValidatingWebhooks(webhooks, true)
+		excludeBootstrapResourcesFromValidatingWebhooks(webhooks, true)
+		require.Len(t, webhooks[0].MatchConditions, 1)
+		assert.Equal(t, bootstrapExclusionMatchConditionName, webhooks[0].MatchConditions[0].Name)
+	})
+
+	t.Run("validating: preexisting exclusion name is not duplicated", func(t *testing.T) {
+		webhooks := []admissionregistrationv1.ValidatingWebhook{{
+			Name:          "resource-fail",
+			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: bootstrapExclusionMatchConditionName, Expression: "true"},
+			},
+		}}
+		excludeBootstrapResourcesFromValidatingWebhooks(webhooks, true)
+		require.Len(t, webhooks[0].MatchConditions, 1)
+	})
+
+	t.Run("mutating: applying twice adds only one exclusion", func(t *testing.T) {
+		webhooks := []admissionregistrationv1.MutatingWebhook{
+			{Name: "resource-fail", FailurePolicy: ptr.To(admissionregistrationv1.Fail)},
+		}
+		excludeBootstrapResourcesFromMutatingWebhooks(webhooks, true)
+		excludeBootstrapResourcesFromMutatingWebhooks(webhooks, true)
+		require.Len(t, webhooks[0].MatchConditions, 1)
+		assert.Equal(t, bootstrapExclusionMatchConditionName, webhooks[0].MatchConditions[0].Name)
+	})
+}
+
 // TestBootstrapExclusionExpression pins the CEL expression to the form the
 // Kubernetes docs document for skipping cluster-scoped resources, so an
 // accidental edit that would silently stop matching Node/CSR fails the build.
