@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Semgrep
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Semgrep analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: semgrep/semgrep:1.168.0@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run Semgrep
+        shell: bash
+        run: |
+          semgrep scan \
+            --config=p/security-audit \
+            --config=p/golang \
+            --sarif \
+            --output=semgrep.sarif \
+            --no-error \
+            --metrics=off
+      - name: Upload Semgrep scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.35.4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - analysis
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}
