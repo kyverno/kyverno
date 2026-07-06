@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -15,10 +16,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
+	configmocks "github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -29,6 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 )
+
+func defaultTestConfig() config.Configuration {
+	return config.NewDefaultConfiguration(false)
+}
 
 type fakeContext struct{}
 
@@ -121,7 +129,7 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
-		event.NewFake())
+		event.NewFake(), defaultTestConfig())
 
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,6 +180,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		defaultTestConfig(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -240,6 +249,7 @@ func TestProcess_NilAdmissionRequest_DoesNotPanic(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		defaultTestConfig(),
 	)
 
 	// UR has no AdmissionRequest — this is the background-scan case.
@@ -304,6 +314,7 @@ func TestGetPolicy_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		defaultTestConfig(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -332,6 +343,7 @@ func TestProcess_EmptyPolicyKey(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		defaultTestConfig(),
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -368,6 +380,7 @@ func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		defaultTestConfig(),
 	)
 
 	// UR uses bare name (as created by webhook handler), with AdmissionRequest carrying the namespace.
@@ -391,4 +404,168 @@ func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
 	assert.Equal(t, "mypol", result.GetName())
 	assert.Equal(t, "test-ns", result.GetNamespace())
 	assert.False(t, sc.failedCalled, "UR should not be marked failed when policy is found via fallback")
+}
+
+func TestProcess_SkipsFilteredTargets(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := configmocks.NewMockConfiguration(ctrl)
+	kubeSystemGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
+	defaultGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
+
+	mockConfig.EXPECT().
+		ToFilter(kubeSystemGVK, "", "", "kube-system").
+		Return(true).
+		Times(1)
+	mockConfig.EXPECT().
+		ToFilter(defaultGVK, "", "", "default").
+		Return(false).
+		Times(1)
+
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(kubeSystemGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
+
+	kubeSystem := &unstructured.Unstructured{}
+	kubeSystem.SetGroupVersionKind(kubeSystemGVK)
+	kubeSystem.SetName("kube-system")
+
+	defaultNS := &unstructured.Unstructured{}
+	defaultNS.SetGroupVersionKind(defaultGVK)
+	defaultNS.SetName("default")
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+	}
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, kubeSystem, defaultNS)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	kyvernoClient := fake.NewSimpleClientset(&policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "filter-pol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+						Rule: admissionregistrationv1alpha1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"namespaces"},
+						},
+					},
+				}},
+			},
+		},
+	})
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	restMapper.Add(kubeSystemGVK, meta.RESTScopeRoot)
+
+	engine := &fakeEngine{}
+	engine.On("Evaluate").Return(mpolengine.EngineResponse{}, nil).Once()
+
+	p := NewProcessor(
+		fakeClient,
+		kyvernoClient,
+		engine,
+		restMapper,
+		&libs.FakeContextProvider{},
+		&fakeStatusControl{},
+		event.NewFake(),
+		mockConfig,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-filter", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "filter-pol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{},
+			},
+		},
+	}
+
+	err = p.Process(ur)
+	assert.NoError(t, err)
+	engine.AssertNumberOfCalls(t, "Evaluate", 1)
+}
+
+func TestProcess_MutatesUnfilteredTargets(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := configmocks.NewMockConfiguration(ctrl)
+	cmGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	mockConfig.EXPECT().
+		ToFilter(cmGVK, "", "default", "target-cm").
+		Return(false).
+		Times(1)
+
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(cmGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	cm := &unstructured.Unstructured{}
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+	cm.SetNamespace("default")
+	cm.SetName("target-cm")
+	cm.SetUID("uid-1")
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, cm)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	kyvernoClient := fake.NewSimpleClientset(&policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-pol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+						Rule: admissionregistrationv1alpha1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+		},
+	})
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	restMapper.Add(cmGVK, meta.RESTScopeNamespace)
+
+	patched := cm.DeepCopy()
+	patched.SetLabels(map[string]string{"foo": "bar"})
+
+	engine := &fakeEngine{}
+	engine.On("Evaluate").Return(mpolengine.EngineResponse{PatchedResource: patched}, nil).Once()
+
+	p := NewProcessor(
+		fakeClient,
+		kyvernoClient,
+		engine,
+		restMapper,
+		&libs.FakeContextProvider{},
+		&fakeStatusControl{},
+		event.NewFake(),
+		mockConfig,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-mutate", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "mutate-pol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{},
+			},
+		},
+	}
+
+	err = p.Process(ur)
+	assert.NoError(t, err)
+	engine.AssertNumberOfCalls(t, "Evaluate", 1)
 }

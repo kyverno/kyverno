@@ -20,6 +20,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -51,6 +52,8 @@ type processor struct {
 	statusControl common.StatusControlInterface
 
 	eventGen event.Interface
+
+	configuration config.Configuration
 }
 
 type gvkItem struct {
@@ -65,6 +68,7 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
+	configuration config.Configuration,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -74,6 +78,7 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		eventGen:      eventGen,
+		configuration: configuration,
 	}
 }
 
@@ -147,6 +152,11 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 	for _, target := range targets.Items {
 		object := &target
+		if common.IsFilteredByConfig(p.configuration, object) {
+			logger.V(4).Info("skipping mutateExisting target due to resourceFilters",
+				"kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName())
+			continue
+		}
 		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to get resource version for mpol %s: %v", ur.Spec.GetPolicyKey(), err))

@@ -259,7 +259,7 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELMutate:
-		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen)
+		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen, c.configuration)
 		return processor.Process(ur)
 	}
 	return nil
