@@ -16,10 +16,10 @@ results:
   resources:
   - default/my-resource-no-uid
   result: error
-- isGeneratingPolicy: true
+- generatedResource: generated/configmap.yaml
+  isGeneratingPolicy: true
   kind: MyResource
   policy: example
   resources:
   - default/my-resource-with-uid
-  generatedResource: generated/configmap.yaml
   result: pass
