@@ -4,14 +4,38 @@ import (
 	"bytes"
 )
 
-// protectedSuffixes lists field paths that must remain anchored to the
-// workload object's own metadata and must never be rewritten into a pod
-// template path. For example, `object.metadata.namespace` must stay as-is
-// because pod templates (e.g. on Deployments) usually do not carry a
-// `metadata.namespace` field, which would otherwise break match conditions.
-var protectedSuffixes = [][]byte{
-	[]byte(".namespace"),
+// protectedMetadataFields lists ObjectMeta fields that identify the workload
+// resource itself. These must stay anchored to the controller object during
+// autogen and must never be rewritten into a pod template path. Pod-relevant
+// metadata (labels, annotations) is intentionally omitted so it continues to
+// rewrite to the pod template.
+var protectedMetadataFields = []string{
+	"namespace",
+	"name",
+	"generateName",
+	"uid",
+	"resourceVersion",
+	"generation",
+	"creationTimestamp",
+	"deletionTimestamp",
+	"deletionGracePeriodSeconds",
+	"finalizers",
+	"ownerReferences",
+	"managedFields",
 }
+
+func buildProtectedMetadataSuffixes(fields []string) (dotSuffixes, bracketSuffixes [][]byte) {
+	for _, field := range fields {
+		dotSuffixes = append(dotSuffixes, []byte("."+field))
+		bracketSuffixes = append(bracketSuffixes,
+			[]byte(`["`+field+`"]`),
+			[]byte(`['`+field+`']`),
+		)
+	}
+	return dotSuffixes, bracketSuffixes
+}
+
+var protectedSuffixes, protectedBracketSuffixes = buildProtectedMetadataSuffixes(protectedMetadataFields)
 
 type Replacement struct {
 	From string
@@ -67,21 +91,31 @@ func replace(data, from, to []byte) []byte {
 }
 
 // isProtected reports whether rest (the bytes immediately following a match)
-// begins with any of the protected suffixes as a complete path segment. The
-// suffix must either end the expression or be followed by a non-identifier
-// character so that fields like `metadata.namespace` are protected while
-// hypothetical fields like `metadata.namespaceFoo` are not.
+// begins with any of the protected suffixes as a complete path segment.
 func isProtected(rest []byte) bool {
 	for _, suffix := range protectedSuffixes {
-		if !bytes.HasPrefix(rest, suffix) {
-			continue
+		if isCompleteSuffix(rest, suffix) {
+			return true
 		}
-		next := rest[len(suffix):]
-		if len(next) == 0 || !isIdentifierByte(next[0]) {
+	}
+	for _, suffix := range protectedBracketSuffixes {
+		if bytes.HasPrefix(rest, suffix) {
 			return true
 		}
 	}
 	return false
+}
+
+// isCompleteSuffix reports whether rest begins with suffix as a full path
+// segment. The suffix must either end the expression or be followed by a
+// non-identifier character so that fields like `metadata.name` are protected
+// while hypothetical fields like `metadata.nameFoo` are not.
+func isCompleteSuffix(rest, suffix []byte) bool {
+	if !bytes.HasPrefix(rest, suffix) {
+		return false
+	}
+	next := rest[len(suffix):]
+	return len(next) == 0 || !isIdentifierByte(next[0])
 }
 
 // isIdentifierByte reports whether b can be part of a CEL identifier segment.

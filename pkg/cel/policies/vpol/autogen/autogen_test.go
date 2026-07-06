@@ -218,6 +218,58 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			},
 		},
 		{
+			name:        "autogen preserves object.metadata.name in validations",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [{
+						"apiGroups": [""],
+						"apiVersions": ["v1"],
+						"operations": ["CREATE", "UPDATE"],
+						"resources": ["pods"]
+					}]
+				},
+				"matchConditions": [{
+					"name": "in allowed namespace",
+					"expression": "resource.List('v1', 'configmaps', object.metadata.namespace).size() > 0"
+				}],
+				"validations": [{
+					"expression": "object.metadata.name != ''"
+				}]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{"apps"},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"deployments"},
+									},
+								},
+							}},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{{
+							Name:       "in allowed namespace",
+							Expression: "resource.List('v1', 'configmaps', object.metadata.namespace).size() > 0",
+						}},
+						Validations: []admissionregistrationv1.Validation{{
+							Expression: "object.metadata.name != ''",
+						}},
+					},
+				},
+			},
+		},
+		{
 			name:        "autogen preserves object.metadata.namespace in match conditions",
 			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
