@@ -10,20 +10,26 @@ spec:
         - apply:
             file: development-namespace.yaml
 
-    - name: create-policy
-      try:
-        - apply:
-            file: policy.yaml
+    - name: create policy
+      use:
+        template: ../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy.yaml
+
+    - name: wait-validating-policy-ready
+      use:
+        template: ../../_step-templates/validating-policy-v1-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: require-env-label
 
     - name: create-policy-exception
       try:
         - apply:
             file: exception.yaml
-
-    - name: wait-for-policy
-      try:
-        - sleep:
-            duration: 10s
 
     - name: pod-allowed-in-dev-namespace-via-override
       try:
@@ -36,6 +42,27 @@ spec:
               metadata:
                 name: allowed-pod-from-exception-without-labels
                 namespace: development-namespace
+        - sleep:
+            duration: 30s
+        - assert:
+            resource:
+              apiVersion: wgpolicyk8s.io/v1alpha2
+              kind: PolicyReport
+              metadata:
+                namespace: development-namespace
+                labels:
+                  app.kubernetes.io/managed-by: kyverno
+                ownerReferences:
+                  - apiVersion: v1
+                    kind: Pod
+                    name: allowed-pod-from-exception-without-labels
+              results:
+                - policy: require-env-label
+                  properties:
+                    exceptions: dev-audit-override
+                  result: fail
+                  scored: true
+                  source: KyvernoValidatingPolicy
 
     - name: pod-denied-in-default-namespace-without-policy-exception
       try:
