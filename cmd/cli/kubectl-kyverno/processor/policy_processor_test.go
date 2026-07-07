@@ -1,15 +1,23 @@
 package processor
 
 import (
+	"io"
 	"os"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -118,6 +126,96 @@ func Test_NamespaceSelector(t *testing.T) {
 		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
 		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
+	}
+}
+
+func Test_makePolicyContext_operationFromContext(t *testing.T) {
+	policyArray, _, _, _, _, _, _, _ := yamlutils.GetPolicy(policyNamespaceSelector)
+	policy := policyArray[0]
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "test-pod",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"existing-label": "bar",
+				},
+			},
+		},
+	}
+	gvk := schema.GroupVersionKind{Version: "v1", Kind: "Pod"}
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	tests := []struct {
+		name            string
+		values          map[string]interface{}
+		wantOperation   kyvernov1.AdmissionOperation
+		wantNewResource string
+		wantOldLabelKey string
+		wantOldResource string
+	}{
+		{
+			name:            "defaults to create without request context overrides",
+			wantOperation:   kyvernov1.Create,
+			wantNewResource: "bar",
+		},
+		{
+			name: "infers update from oldObject context",
+			values: map[string]interface{}{
+				"request.oldObject.metadata.labels.existing-label": "foo",
+			},
+			wantOperation:   kyvernov1.Update,
+			wantNewResource: "bar",
+			wantOldLabelKey: "existing-label",
+			wantOldResource: "foo",
+		},
+		{
+			name: "infers delete when request.object is explicitly cleared",
+			values: map[string]interface{}{
+				"request.object":                          nil,
+				"request.oldObject.metadata.name":         "test-pod",
+				"request.oldObject.metadata.namespace":    "default",
+				"request.oldObject.metadata.labels.state": "deleted",
+			},
+			wantOperation:   kyvernov1.Delete,
+			wantOldLabelKey: "state",
+			wantOldResource: "deleted",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vars, err := variables.New(io.Discard, nil, "", "", &v1alpha1.ValuesSpec{
+				GlobalValues: tt.values,
+			})
+			assert.NilError(t, err)
+			p := &PolicyProcessor{
+				Store:     &store.Store{},
+				Variables: vars,
+				Out:       io.Discard,
+			}
+
+			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, nil, gvk, "")
+			assert.NilError(t, err)
+			assert.Equal(t, policyContext.Operation(), tt.wantOperation)
+
+			if tt.wantNewResource == "" {
+				assert.Equal(t, len(policyContext.NewResource().Object), 0)
+			} else {
+				newResource := policyContext.NewResource()
+				assert.Equal(t, newResource.GetLabels()["existing-label"], tt.wantNewResource)
+			}
+
+			if tt.wantOldResource == "" {
+				assert.Equal(t, len(policyContext.OldResource().Object), 0)
+			} else {
+				oldResource := policyContext.OldResource()
+				assert.Equal(t, oldResource.GetLabels()[tt.wantOldLabelKey], tt.wantOldResource)
+			}
+		})
 	}
 }
 
