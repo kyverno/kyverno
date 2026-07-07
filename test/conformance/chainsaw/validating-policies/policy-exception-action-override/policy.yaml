@@ -7,10 +7,10 @@ spec:
     - Deny
   matchConstraints:
     resourceRules:
-      - apiGroups: [ "" ]
-        apiVersions: [ "v1" ]
-        resources: [ "pods" ]
-        operations: [ "CREATE", "UPDATE" ]
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
   validations:
-    - expression: "'environment' in object.metadata.?labels.orValue([])"
+    - expression: "has(object.metadata.labels) && 'environment' in object.metadata.labels"
       message: "label 'environment' is required"

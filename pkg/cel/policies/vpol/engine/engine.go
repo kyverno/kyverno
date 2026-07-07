@@ -161,7 +161,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			} else if result.Result {
 				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations).WithExceptions(exceptions))
 			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations).WithExceptions(exceptions))
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)).WithExceptions(exceptions))
 			}
 		} else {
 			exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))

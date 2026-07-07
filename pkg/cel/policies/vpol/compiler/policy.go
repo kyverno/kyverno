@@ -106,8 +106,8 @@ func (p *Policy) evaluateWithData(
 			}
 		}
 		if len(matchedExceptions) > 0 {
-			// Check if any matched exception has ValidationActions on the matching PolicyRef.
-			// If so, don't skip — continue evaluating and attach exceptions to the result.
+			// Check if any matched exception has ValidationAction on the matching PolicyRef.
+			// If found, we go to evaluation
 			hasActionOverride := false
 			for _, ex := range matchedExceptions {
 				if FindOverrideAction(ex, p.policyName, p.policyKind) != "" {
@@ -243,8 +243,8 @@ func (p *Policy) match(
 	}
 }
 
-// FindOverrideActions finds the ValidationActions for the matching PolicyRef in an exception.
-// Returns nil if no matching PolicyRef has ValidationActions set.
+// FindOverrideAction finds the ValidationAction for the matching PolicyRef in an exception.
+// Returns "" if no matching PolicyRef has ValidationAction set.
 func FindOverrideAction(
 	exception *policiesv1beta1.PolicyException,
 	policyName string,
