@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -46,6 +47,7 @@ type SetupResult struct {
 	RegistryClient         registryclient.Client
 	ImageVerifyCacheClient imageverifycache.Client
 	RegistrySecretLister   corev1listers.SecretLister
+	ImageLoaderOptions     []imagedataloader.Option
 	KyvernoClient          kyvernoclient.UpstreamInterface
 	DynamicClient          dynamicclient.UpstreamInterface
 	ApiServerClient        apiserverclient.UpstreamInterface
@@ -146,6 +148,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			RegistryClient:         registryClient,
 			ImageVerifyCacheClient: imageVerifyCache,
 			RegistrySecretLister:   registrySecretLister,
+			ImageLoaderOptions:     imageLoaderOptions(),
 			OpenreportsClient:      orClient,
 			KyvernoClient:          kyvernoClient,
 			DynamicClient:          dynamicClient,

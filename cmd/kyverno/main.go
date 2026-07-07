@@ -682,9 +682,8 @@ func main() {
 
 		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			setup.ImageLoaderOptions,
 			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			restMapper,
 			false,
 		)

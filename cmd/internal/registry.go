@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -38,4 +39,18 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	registryClient, err := registryclient.New(registryOptions...)
 	checkError(logger, err, "failed to create registry client")
 	return registryClient, secretLister
+}
+
+func imageLoaderOptions() []imagedataloader.Option {
+	var secrets []string
+	if imagePullSecrets != "" {
+		secrets = strings.Split(imagePullSecrets, ",")
+	}
+
+	var providers []string
+	if registryCredentialHelpers != "" {
+		providers = strings.Split(registryCredentialHelpers, ",")
+	}
+
+	return imagedataloader.BuildRemoteOpts(secrets, providers, allowInsecureRegistry)
 }
