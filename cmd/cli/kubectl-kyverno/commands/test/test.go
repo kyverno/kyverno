@@ -719,7 +719,7 @@ func applyImageValidatingPolicies(
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -758,7 +758,7 @@ func applyImageValidatingPolicies(
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -820,7 +820,7 @@ func applyDeletingPolicies(
 				}})
 
 				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(false, response)
 
 				continue
 			}
@@ -839,7 +839,7 @@ func applyDeletingPolicies(
 
 			responses = append(responses, response)
 
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(false, response)
 		}
 	}
 

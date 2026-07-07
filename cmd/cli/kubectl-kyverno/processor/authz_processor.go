@@ -40,7 +40,7 @@ func (p *AuthzProcessor) ApplyHTTPPolicies(resources []*authzhttp.CheckRequest) 
 			if err != nil {
 				return nil, err
 			}
-			p.rc.AddValidatingPolicyResponse(resp)
+			p.rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -55,7 +55,7 @@ func (p *AuthzProcessor) ApplyEnvoyPolicies(resources []*authv3.CheckRequest) ([
 			if err != nil {
 				return nil, err
 			}
-			p.rc.AddValidatingPolicyResponse(resp)
+			p.rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}

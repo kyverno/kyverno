@@ -4,9 +4,11 @@ import (
 	"errors"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -89,5 +91,65 @@ func TestAddGenerateResponse_GeneratingPolicy(t *testing.T) {
 			assert.Equal(t, tt.expected.Error, rc.Error)
 			assert.Equal(t, tt.expected.Skip, rc.Skip)
 		})
+	}
+}
+
+func newValidatingPolicyResponse(actions []admissionregistrationv1.ValidationAction, status engineapi.RuleStatus) engineapi.EngineResponse {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-vpol"},
+		Spec: policiesv1alpha1.ValidatingPolicySpec{
+			ValidationAction: actions,
+		},
+	}
+	rule := engineapi.NewRuleResponse("test-rule", engineapi.Validation, "test failure", status, nil)
+	er := engineapi.EngineResponse{
+		PolicyResponse: engineapi.PolicyResponse{
+			Rules: []engineapi.RuleResponse{*rule},
+		},
+	}
+	return er.WithPolicy(engineapi.NewValidatingPolicyFromLike(vpol))
+}
+
+func TestAddValidatingPolicyResponse_AuditWarnTreatsFailAsWarn(t *testing.T) {
+	rc := &ResultCounts{}
+	resp := newValidatingPolicyResponse([]admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}, engineapi.RuleStatusFail)
+
+	rc.AddValidatingPolicyResponse(true, resp)
+
+	if rc.Fail != 0 || rc.Warn != 1 {
+		t.Errorf("expected fail=0 warn=1, got fail=%d warn=%d", rc.Fail, rc.Warn)
+	}
+}
+
+func TestAddValidatingPolicyResponse_NoAuditWarnFlagCountsFail(t *testing.T) {
+	rc := &ResultCounts{}
+	resp := newValidatingPolicyResponse([]admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}, engineapi.RuleStatusFail)
+
+	rc.AddValidatingPolicyResponse(false, resp)
+
+	if rc.Fail != 1 || rc.Warn != 0 {
+		t.Errorf("expected fail=1 warn=0, got fail=%d warn=%d", rc.Fail, rc.Warn)
+	}
+}
+
+func TestAddValidatingPolicyResponse_DenyActionAlwaysFails(t *testing.T) {
+	rc := &ResultCounts{}
+	resp := newValidatingPolicyResponse([]admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}, engineapi.RuleStatusFail)
+
+	rc.AddValidatingPolicyResponse(true, resp)
+
+	if rc.Fail != 1 || rc.Warn != 0 {
+		t.Errorf("expected fail=1 warn=0 (deny should never become warn), got fail=%d warn=%d", rc.Fail, rc.Warn)
+	}
+}
+
+func TestAddValidatingPolicyResponse_PassCountsPass(t *testing.T) {
+	rc := &ResultCounts{}
+	resp := newValidatingPolicyResponse([]admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}, engineapi.RuleStatusPass)
+
+	rc.AddValidatingPolicyResponse(true, resp)
+
+	if rc.Pass != 1 {
+		t.Errorf("expected pass=1, got pass=%d", rc.Pass)
 	}
 }

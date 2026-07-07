@@ -4,6 +4,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"slices"
 )
 
 type ResultCounts struct {
@@ -191,15 +193,25 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.
 	}
 }
 
-func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.EngineResponse) {
+func (rc *ResultCounts) AddValidatingPolicyResponse(auditWarn bool, engineResponse engineapi.EngineResponse) {
+	audit := false
+	if vpol := engineResponse.Policy().AsValidatingPolicyLike(); vpol != nil {
+		actions := vpol.GetSpec().ValidationActions()
+		audit = !slices.Contains(actions, admissionregistrationv1.Deny)
+	}
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
-		if ruleResp.Status() == engineapi.RuleStatusPass {
+		switch ruleResp.Status() {
+		case engineapi.RuleStatusPass:
 			rc.Pass++
-		} else if ruleResp.Status() == engineapi.RuleStatusFail {
-			rc.Fail++
-		} else if ruleResp.Status() == engineapi.RuleStatusError {
+		case engineapi.RuleStatusFail:
+			if auditWarn && audit {
+				rc.Warn++
+			} else {
+				rc.Fail++
+			}
+		case engineapi.RuleStatusError:
 			rc.Error++
-		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
+		case engineapi.RuleStatusSkip:
 			rc.Skip++
 		}
 	}
