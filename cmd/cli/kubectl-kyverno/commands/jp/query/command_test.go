@@ -56,3 +56,21 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
+
+func TestEvaluateInvalidExpression(t *testing.T) {
+	_, err := evaluate(map[string]interface{}{}, "invalid{{")
+	assert.Error(t, err)
+	// A syntax error should be reported cleanly, quoting the offending
+	// expression and highlighting the location (a caret under the bad token)
+	// rather than a cryptic message.
+	assert.Contains(t, err.Error(), `invalid JMESPath expression "invalid{{"`)
+	assert.Contains(t, err.Error(), "SyntaxError:")
+	assert.Contains(t, err.Error(), "invalid{{")
+	assert.Contains(t, err.Error(), "^")
+}
+
+func TestEvaluateValidExpression(t *testing.T) {
+	result, err := evaluate(map[string]interface{}{"name": "kyverno"}, "name")
+	assert.NoError(t, err)
+	assert.Equal(t, "kyverno", result)
+}
