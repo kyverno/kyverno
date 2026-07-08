@@ -16,6 +16,7 @@ type FakeContextProvider struct {
 	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
+	policyNamespace    string
 	triggerName        string
 	triggerNamespace   string
 	triggerAPIVersion  string
@@ -23,6 +24,7 @@ type FakeContextProvider struct {
 	triggerKind        string
 	triggerUID         string
 	restoreCache       bool
+	useServerSideApply bool
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -177,8 +179,9 @@ func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
-func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool) {
+func (cp *FakeContextProvider) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
 	cp.policyName = polName
+	cp.policyNamespace = policyNamespace
 	cp.triggerName = triggerName
 	cp.triggerNamespace = triggerNamespace
 	cp.triggerAPIVersion = triggerAPIVersion
@@ -186,4 +189,16 @@ func (cp *FakeContextProvider) SetGenerateContext(polName, triggerName, triggerN
 	cp.triggerKind = triggerKind
 	cp.triggerUID = triggerUID
 	cp.restoreCache = restoreCache
+	cp.useServerSideApply = useServerSideApply
+}
+
+func (f *FakeContextProvider) Clone() Context {
+	// Returns a shallow copy. Maps, clients, and other referenced mutable state remain shared.
+	// Only the copied top-level struct fields and the per-worker generatedResources list are isolated here.
+	clone := *f
+
+	// generatedResources is per-evaluation state. Ensure each worker starts with a clean slate.
+	clone.generatedResources = make([]*unstructured.Unstructured, 0)
+
+	return &clone
 }
