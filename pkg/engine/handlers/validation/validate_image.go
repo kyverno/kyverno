@@ -100,7 +100,16 @@ func (h validateImageHandler) Process(
 		}
 	}
 	if len(failedErrors) > 0 {
-		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(failedErrors, "; "))
+		seen := make(map[string]struct{}, len(failedErrors))
+		uniq := make([]string, 0, len(failedErrors))
+		for _, e := range failedErrors {
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			uniq = append(uniq, e)
+		}
+		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(uniq, "; "))
 	}
 
 	logger.V(4).Info("validated image", "rule", rule.Name)

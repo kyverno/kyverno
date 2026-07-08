@@ -158,12 +158,11 @@ func TestValidateImageHandler_FailureReportsCorrectImages(t *testing.T) {
 	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, true)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
-	h := handler.(validateImageHandler)
 	logger := logr.Discard()
 	// Run 32 iterations to catch non-deterministic map iteration -- before the fix
 	// the reported image varied across runs; after the fix both images must always appear.
 	for i := 0; i < 32; i++ {
-		_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+		_, responses := handler.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
 		require.NotEmpty(t, responses, "iteration %d: expected a rule response", i)
 		assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status(), "iteration %d", i)
 		msg := responses[0].Message()
