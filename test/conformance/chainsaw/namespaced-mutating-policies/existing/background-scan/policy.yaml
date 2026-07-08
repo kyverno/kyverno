@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: test-nmpol-background-scan
+  namespace: test-nmpol-background-scan-ns
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE" ]
+      resources: [ "configmaps" ]
+      resourceNames: [ "test-nmpol-background-scan-cm" ]
+  matchConditions:
+  - name: target-namespace
+    expression: object.metadata.namespace == 'test-nmpol-background-scan-ns'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              background: "scan"
+            }
+          }
+        }
