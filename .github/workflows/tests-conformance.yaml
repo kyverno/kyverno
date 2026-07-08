@@ -107,7 +107,7 @@ jobs:
         uses: ./.github/actions/tools/chainsaw
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
+        uses: sigstore/scaffolding/actions/setup@5444af42e303f5ceb37e077637f953133a4eba7c # v0.7.37
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
