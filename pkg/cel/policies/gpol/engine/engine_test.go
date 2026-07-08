@@ -289,4 +289,32 @@ func TestHandle(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
+
+	t.Run("should surface audit annotations as rule response properties", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "triggeredBy",
+						ValueExpression: "'ns/' + object.metadata.namespace",
+					},
+				},
+			},
+		}
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Nil(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+		eng := NewEngine(nsResolver, nil)
+		resp, err := eng.Handle(req, pol, false)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		result := resp.Policies[0].Result
+		assert.NotNil(t, result)
+		assert.Equal(t, "ns/default", result.Properties()["triggeredBy"])
+	})
 }

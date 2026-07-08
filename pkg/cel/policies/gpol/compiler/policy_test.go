@@ -141,4 +141,41 @@ func TestPolicyEvaluate(t *testing.T) {
 		_, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 		assert.Error(t, err)
 	})
+
+	t.Run("returns audit annotations in evaluation result", func(t *testing.T) {
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []cel.Program{},
+			auditAnnotations: map[string]cel.Program{
+				"env": &mockProgram{retVal: types.String("production")},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("audit-name")
+		res.SetNamespace("test-ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "production", result.AuditAnnotations["env"])
+	})
+
+	t.Run("returns error when audit annotation expression fails", func(t *testing.T) {
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []cel.Program{},
+			auditAnnotations: map[string]cel.Program{
+				"broken": &mockProgram{err: fmt.Errorf("annotation eval error")},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("audit-err")
+		res.SetNamespace("ns")
+
+		_, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Error(t, err)
+	})
 }
