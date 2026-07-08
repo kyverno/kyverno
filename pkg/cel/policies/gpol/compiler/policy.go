@@ -111,6 +111,9 @@ func (p *Policy) Evaluate(
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
 	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: data.Context}
+	// Always clear generated resources from the shared context, even on error,
+	// to prevent leaking state into subsequent evaluations.
+	defer data.Context.ClearGeneratedResources()
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, dataNew)
@@ -134,7 +137,6 @@ func (p *Policy) Evaluate(
 		return nil, err
 	}
 	generatedResources := data.Context.GetGeneratedResources()
-	data.Context.ClearGeneratedResources()
 	return &EvaluationResult{
 		GeneratedResources: generatedResources,
 		AuditAnnotations:   auditAnnotations,
