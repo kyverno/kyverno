@@ -49,7 +49,10 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any,
 
 	patchObject := unstructured.Unstructured{Object: value}
 	patchObject.SetGroupVersionKind(patchRequest.VersionedAttributes.VersionedObject.GetObjectKind().GroupVersionKind())
-	patched, err := patch.ApplyStructuredMergeDiff(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
+	// applyStructuredMergeDiff mirrors upstream patch.ApplyStructuredMergeDiff but without the
+	// atomic-field guard, so ApplyConfiguration can set atomic lists/structs (args, fieldRef,
+	// projected volumes) the same way Server-Side Apply does. See smd.go and issue #15094.
+	patched, err := applyStructuredMergeDiff(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
 	if err != nil {
 		return nil, fmt.Errorf("error applying patch: %w", err)
 	}
