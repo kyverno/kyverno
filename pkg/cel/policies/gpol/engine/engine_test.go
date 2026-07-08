@@ -290,14 +290,9 @@ func TestHandle(t *testing.T) {
 		assert.NotNil(t, resp)
 	})
 
-	t.Run("should surface audit annotations only when resources are generated", func(t *testing.T) {
+	t.Run("should surface audit annotations as rule response properties", func(t *testing.T) {
 		gpol := &v1beta1.GeneratingPolicy{
 			Spec: v1beta1.GeneratingPolicySpec{
-				Generation: []v1beta1.Generation{
-					{
-						Expression: "generator.Apply('default', [{'apiVersion': 'v1', 'kind': 'ConfigMap', 'metadata': {'name': 'generated-cm'}, 'data': {'key': 'value'}}])",
-					},
-				},
 				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
 					{
 						Key:             "triggeredBy",
@@ -320,44 +315,7 @@ func TestHandle(t *testing.T) {
 		assert.Len(t, resp.Policies, 1)
 		result := resp.Policies[0].Result
 		assert.NotNil(t, result)
-		// Audit annotations should only be present when resources are generated
+		// Audit annotations are always surfaced on successful evaluation
 		assert.Equal(t, "ns/default", result.Properties()["triggeredBy"])
-	})
-
-	t.Run("should not include audit annotations when no resources are generated", func(t *testing.T) {
-		gpol := &v1beta1.GeneratingPolicy{
-			Spec: v1beta1.GeneratingPolicySpec{
-				// No generation expressions - no resources will be created
-				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
-					{
-						Key:             "shouldNotAppear",
-						ValueExpression: "'ns/' + object.metadata.namespace",
-					},
-				},
-			},
-		}
-		comp := compiler.NewCompiler()
-		compiledGpol, errs := comp.Compile(gpol, nil)
-		assert.Nil(t, errs)
-
-		pol := Policy{
-			Policy:         gpol,
-			CompiledPolicy: compiledGpol,
-		}
-		eng := NewEngine(nsResolver, nil)
-		resp, err := eng.Handle(req, pol, false)
-		assert.NoError(t, err)
-		assert.Len(t, resp.Policies, 1)
-		result := resp.Policies[0].Result
-		// When no resources are generated, audit annotations should not be in properties
-		// The result might be nil if the policy didn't match
-		if result != nil {
-			props := result.Properties()
-			// If Properties() returns an empty map, that's OK; the key should not be set
-			if props != nil {
-				_, exists := props["shouldNotAppear"]
-				assert.False(t, exists, "audit annotations should not be included when no resources are generated")
-			}
-		}
 	})
 }

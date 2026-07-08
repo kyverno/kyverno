@@ -135,11 +135,9 @@ func (e *engineImpl) generate(
 		// policy did not match
 		return response
 	}
-	// Only include audit annotations if generation actually produced resources
-	var auditAnnotations map[string]string
-	if len(result.GeneratedResources) > 0 {
-		auditAnnotations = result.AuditAnnotations
-	}
+	// Always surface audit annotations on successful evaluation, even if no resources were generated.
+	// This aligns with other CEL policy types and allows users to track evaluation metadata
+	// (e.g., reasons, context, or conditions that applied) regardless of generation outcome.
 	if len(result.Exceptions) != 0 {
 		exceptions := result.Exceptions
 		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
@@ -190,7 +188,7 @@ func (e *engineImpl) generate(
 		}
 		return response
 	}
-	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", auditAnnotations).WithGeneratedResources(result.GeneratedResources)
+	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", result.AuditAnnotations).WithGeneratedResources(result.GeneratedResources)
 	return response
 }
 

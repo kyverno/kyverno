@@ -70,6 +70,10 @@ func (p *Policy) Evaluate(
 	if err != nil {
 		return nil, err
 	}
+	// Ensure generated resources are always cleared, even on early returns
+	// (exception-only match, match failure, errors, etc.), to prevent state leaks.
+	defer data.Context.ClearGeneratedResources()
+
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
 	dataNew := map[string]any{
@@ -111,9 +115,6 @@ func (p *Policy) Evaluate(
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
 	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: data.Context}
-	// Always clear generated resources from the shared context, even on error,
-	// to prevent leaking state into subsequent evaluations.
-	defer data.Context.ClearGeneratedResources()
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, dataNew)
