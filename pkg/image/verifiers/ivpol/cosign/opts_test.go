@@ -85,8 +85,8 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 		},
 		CTLog: &v1beta1.CTLog{
 			URL:                "https://rekor.sigstore.dev",
-			InsecureIgnoreTlog: true,
-			InsecureIgnoreSCT:  true,
+			InsecureIgnoreTlog: false,
+			InsecureIgnoreSCT:  false,
 		},
 	}
 
@@ -94,8 +94,10 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
-	assert.True(t, opts.IgnoreTlog)
-	assert.True(t, opts.IgnoreSCT)
+	assert.NotNil(t, opts.RekorClient)
+	assert.NotNil(t, opts.RekorPubKeys)
+	assert.NotNil(t, opts.CTLogPubKeys)
+	assert.NotNil(t, opts.TrustedMaterial)
 }
 
 func TestCheckOptions_Keyless(t *testing.T) {
@@ -521,4 +523,30 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.NotNil(t, opts.SigVerifier)
+	assert.True(t, opts.IgnoreTlog)
+	assert.True(t, opts.IgnoreSCT)
+	assert.Nil(t, opts.RekorClient)
+	assert.Nil(t, opts.RekorPubKeys)
+	assert.Nil(t, opts.CTLogPubKeys)
+	assert.Nil(t, opts.TrustedMaterial)
 }
