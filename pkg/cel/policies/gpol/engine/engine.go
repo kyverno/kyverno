@@ -126,12 +126,17 @@ func (e *engineImpl) generate(
 		return response
 	}
 	context.SetGenerateContext(policy.Policy.GetName(), policy.Policy.GetNamespace(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore, policy.Policy.GetSpec().UseServerSideApply)
-	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
 		return response
 	}
-	if len(exceptions) != 0 {
+	if result == nil {
+		// policy did not match
+		return response
+	}
+	if len(result.Exceptions) != 0 {
+		exceptions := result.Exceptions
 		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
 		keys := make([]string, 0, len(exceptions))
 
@@ -180,7 +185,7 @@ func (e *engineImpl) generate(
 		}
 		return response
 	}
-	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
+	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", result.AuditAnnotations).WithGeneratedResources(result.GeneratedResources)
 	return response
 }
 
