@@ -71,22 +71,25 @@ func extract(
 		case []interface{}:
 			for i, v := range typedObj {
 				switch v.(type) {
-				case map[string]interface{}, []interface{}:
+				case map[string]interface{}:
 					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+						return err
+					}
+				case []interface{}:
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields, jmesPath, imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				}
 			}
+			return nil
 		case map[string]interface{}:
 			for i, v := range typedObj {
 				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
-		default:
 			return nil
 		}
-		return nil
 	}
 	output, ok := obj.(map[string]interface{})
 	if !ok {
