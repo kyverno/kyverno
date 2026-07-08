@@ -46,9 +46,11 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	tufMu.Lock()
 	defer tufMu.Unlock()
 
-	if err := initializeTuf(ctx, att.TUF); err != nil {
-		return nil, err
-	}
+	// Key/certificate verification with the transparency log ignored needs no
+	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
+	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
+	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
+	skipSigstoreInfra := keyOrCert && ignoreTlog
 	cosignRemoteOpts := []ociremote.Option{}
 
 	if att.Source != nil {
@@ -71,10 +73,35 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	}
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
+	var err error
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
 	}
-	var err error
+
+	if !skipSigstoreInfra {
+		if err := initializeTuf(ctx, att.TUF); err != nil {
+			return nil, err
+		}
+		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
+		if err != nil {
+			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
+		}
+		opts.RekorClient = rekorClient
+		opts.RekorPubKeys = rekorPubKeys
+		opts.CTLogPubKeys = ctlogPubKey
+
+		if opts.RekorClient == nil {
+			if opts.RekorPubKeys != nil {
+				opts.Offline = true
+			}
+		}
+
+		trustedRoot, err := getTrustedRootFromTUF(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
+		}
+		opts.TrustedMaterial = trustedRoot
+	}
 
 	if att.CTLog != nil {
 		opts.IgnoreSCT = att.CTLog.InsecureIgnoreSCT
@@ -105,21 +132,6 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	}
 
 	if att.Keyless != nil {
-		// rekor client initialization should only happen in keyless scenarios
-		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
-		if err != nil {
-			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
-		}
-		opts.RekorClient = rekorClient
-		opts.RekorPubKeys = rekorPubKeys
-		opts.CTLogPubKeys = ctlogPubKey
-
-		if opts.RekorClient == nil {
-			if opts.RekorPubKeys != nil {
-				opts.Offline = true
-			}
-		}
-
 		for _, id := range att.Keyless.Identities {
 			opts.Identities = append(opts.Identities,
 				cosign.Identity{
@@ -142,12 +154,6 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 			opts.RootCerts = cp
 		}
-
-		trustedRoot, err := getTrustedRootFromTUF(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
-		}
-		opts.TrustedMaterial = trustedRoot
 
 		return opts, nil
 	}
