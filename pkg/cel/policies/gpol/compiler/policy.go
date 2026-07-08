@@ -39,8 +39,8 @@ func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 // evaluated audit annotations (to be surfaced as report result properties).
 type EvaluationResult struct {
 	GeneratedResources []*unstructured.Unstructured
-	Exceptions        []*policiesv1beta1.PolicyException
-	AuditAnnotations  map[string]string
+	Exceptions         []*policiesv1beta1.PolicyException
+	AuditAnnotations   map[string]string
 }
 
 func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
