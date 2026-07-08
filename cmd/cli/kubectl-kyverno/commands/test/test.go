@@ -451,10 +451,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			var found bool
 			oldResource, found = oldResourceMap[resourceKey]
 			if !found {
-				fmt.Fprintf(out, "no matching old resource found for %q; evaluating without oldObject\n", resourceKey)
+				fmt.Fprintf(out, "  warning: no matching old resource found for %q; evaluating without oldObject\n", resourceKey)
 			}
 		}
-
+		policyOp := map[string]string{}
 		policiesByOperation := map[string][]string{}
 		for _, res := range testCase.Test.Results {
 			if res.Kind != resource.GetKind() || !slices.Contains(res.Resources, resource.GetName()) {
@@ -469,6 +469,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			if !slices.Contains(operations, op) {
 				return nil, fmt.Errorf("unsupported resource operation %q in test policy mapping, supported values are: CREATE, UPDATE, DELETE, CONNECT", op)
 			}
+			if prev, ok := policyOp[res.Policy]; ok && prev != op {
+				return nil, fmt.Errorf("policy %q has multiple resourceOperation values (%s, %s) for resource %q; split into separate tests", res.Policy, prev, op, resource.GetName())
+			}
+			policyOp[res.Policy] = op
 			policiesByOperation[op] = append(policiesByOperation[op], res.Policy)
 		}
 		// the policy processor is for multiple policies at once

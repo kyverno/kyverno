@@ -592,10 +592,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						object = &resource
 						// if OldResource is not provided
 						if p.OldResource == nil {
-							return nil, fmt.Errorf("UPDATE operations require an old resource but it's missing")
-						} else {
-							oldObject = p.OldResource
+							return nil, fmt.Errorf("update operations require an old resource (set spec.oldResources in the test and provide a matching object)")
 						}
+						oldObject = p.OldResource
 					case admissionv1.Connect:
 						object = nil
 						oldObject = nil
