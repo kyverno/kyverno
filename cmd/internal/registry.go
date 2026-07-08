@@ -42,15 +42,25 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 }
 
 func imageLoaderOptions() []imagedataloader.Option {
-	var secrets []string
-	if imagePullSecrets != "" {
-		secrets = strings.Split(imagePullSecrets, ",")
+	return imagedataloader.BuildRemoteOpts(
+		splitAndTrim(imagePullSecrets),
+		splitAndTrim(registryCredentialHelpers),
+		allowInsecureRegistry,
+	)
+}
+
+func splitAndTrim(value string) []string {
+	if value == "" {
+		return nil
 	}
 
-	var providers []string
-	if registryCredentialHelpers != "" {
-		providers = strings.Split(registryCredentialHelpers, ",")
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
 	}
-
-	return imagedataloader.BuildRemoteOpts(secrets, providers, allowInsecureRegistry)
+	return out
 }
