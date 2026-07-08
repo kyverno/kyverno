@@ -7,7 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
 )
 
 // sharedHTTPContext is built once on the first http.* call and reused across

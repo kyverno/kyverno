@@ -35,6 +35,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -278,6 +279,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
 		reportsServiceAccountName,
 		stateRecorder,
 	)
@@ -539,6 +541,9 @@ func main() {
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			&wg,
+		)
+		updaterequestmetricscontroller.NewController(
+			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
 		// log policy changes
 		genericloggingcontroller.NewController(
@@ -864,7 +869,7 @@ func main() {
 			admissionReports,
 			eventGenerator,
 		)
-		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister())
+		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(), backgroundServiceAccountName)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
