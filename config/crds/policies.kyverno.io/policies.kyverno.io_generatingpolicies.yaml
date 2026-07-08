@@ -85,6 +85,12 @@ spec:
                           Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
+                  skipBackgroundRequests:
+                    default: true
+                    description: |-
+                      SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+                      The default value is set to "true", it must be set to "false" to apply generateExisting rules to those requests.
+                    type: boolean
                   synchronize:
                     description: Synchronization defines the configuration for the
                       synchronization of generated resources.
@@ -502,6 +508,12 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
+              useServerSideApply:
+                description: |-
+                  UseServerSideApply controls whether to use server-side apply for generate rules.
+                  If set to "true", create & update for generated resources will use apply instead of create/update.
+                  Defaults to "false" if not specified.
+                type: boolean
               variables:
                 description: |-
                   Variables contain definitions of variables that can be used in composition of other expressions.
@@ -701,6 +713,12 @@ spec:
                           Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
+                  skipBackgroundRequests:
+                    default: true
+                    description: |-
+                      SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+                      The default value is set to "true", it must be set to "false" to apply generateExisting rules to those requests.
+                    type: boolean
                   synchronize:
                     description: Synchronization defines the configuration for the
                       synchronization of generated resources.
@@ -1118,6 +1136,12 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
+              useServerSideApply:
+                description: |-
+                  UseServerSideApply controls whether to use server-side apply for generate rules.
+                  If set to "true", create & update for generated resources will use apply instead of create/update.
+                  Defaults to "false" if not specified.
+                type: boolean
               variables:
                 description: |-
                   Variables contain definitions of variables that can be used in composition of other expressions.
@@ -1316,6 +1340,12 @@ spec:
                           Optional. Defaults to "false" if not specified.
                         type: boolean
                     type: object
+                  skipBackgroundRequests:
+                    default: true
+                    description: |-
+                      SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+                      The default value is set to "true", it must be set to "false" to apply generateExisting rules to those requests.
+                    type: boolean
                   synchronize:
                     description: Synchronization defines the configuration for the
                       synchronization of generated resources.
@@ -1733,6 +1763,12 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
+              useServerSideApply:
+                description: |-
+                  UseServerSideApply controls whether to use server-side apply for generate rules.
+                  If set to "true", create & update for generated resources will use apply instead of create/update.
+                  Defaults to "false" if not specified.
+                type: boolean
               variables:
                 description: |-
                   Variables contain definitions of variables that can be used in composition of other expressions.
