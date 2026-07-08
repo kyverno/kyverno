@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -56,7 +57,12 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	}
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
-	results, _ := yaml.Marshal(failures)
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	_ = enc.Encode(failures)
+	_ = enc.Close()
+	results := buf.Bytes()
 	msg := fmt.Sprintf("\n\nresource %s was blocked due to the following policies \n\n%s", resourceName, results)
 	return msg
 }
