@@ -97,6 +97,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
+		workerCtx := c.context.Clone()
 		var request celengine.EngineRequest
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
@@ -108,7 +109,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 			gvr := mapping.Resource
 			request = celengine.Request(
-				c.context,
+				workerCtx,
 				trigger.GroupVersionKind(),
 				gvr,
 				"",
@@ -122,7 +123,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				nil,
 			)
 		} else {
-			request = celengine.RequestFromAdmission(c.context, *admissionRequest)
+			request = celengine.RequestFromAdmission(workerCtx, *admissionRequest)
 		}
 		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
 		if err != nil {
@@ -152,7 +153,8 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
 			} else {
-				for _, resource := range res.Result.GeneratedResources() {
+				resourcesToSync := res.Result.GeneratedResources()
+				for _, resource := range resourcesToSync {
 					generatedResources = append(generatedResources, kyvernov1.ResourceSpec{
 						Kind:       resource.GetKind(),
 						APIVersion: resource.GetAPIVersion(),
@@ -160,14 +162,18 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						Namespace:  resource.GetNamespace(),
 					})
 				}
-				if isSync {
-					go func() {
-						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
+
+				if res.Result.Status() == engineapi.RuleStatusPass &&
+					isSync &&
+					(!ur.Spec.RuleContext[i].CacheRestore || len(resourcesToSync) > 0) {
+					// Pass resourcesToSync as an argument to safely capture it for the goroutine
+					go func(resources []*unstructured.Unstructured) {
+						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), resources); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						} else {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
-					}()
+					}(resourcesToSync)
 				}
 			}
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
@@ -230,6 +236,11 @@ func (c *CELGenerateController) createReports(
 	resource unstructured.Unstructured,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
+	if resource.GetName() == "" || resource.GetUID() == "" {
+		c.log.V(3).Info("skipping report creation for subresource with empty name or uid", "gvk", resource.GroupVersionKind())
+		return nil
+	}
+
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {

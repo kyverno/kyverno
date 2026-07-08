@@ -48,7 +48,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	celutils "github.com/kyverno/sdk/cel/utils"
+	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -90,6 +90,7 @@ type PolicyProcessor struct {
 	// TODO
 	ContextFs                 billy.Filesystem
 	ContextPath               string
+	GlobalContextEntries      map[string]interface{}
 	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
@@ -102,7 +103,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
-	CrdPath                   string
+	CrdPaths                  []string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
@@ -128,8 +129,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.NewOrDie()
 	}
 	isCluster := false
-	if p.CrdPath != "" {
-		if err := p.loadCrd(); err != nil {
+	if len(p.CrdPaths) > 0 {
+		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
 	}
@@ -306,7 +307,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompiler()
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -510,7 +511,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				k8sPolicies = append(k8sPolicies, pol)
 			}
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -645,7 +646,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
 		// initialize the context provider before compiling to make it globally available
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster)
+		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
 		}
@@ -772,7 +773,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
 		vals, err := p.Variables.ComputeVariables(p.Store, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
-			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
+			return nil, fmt.Errorf(
+				"policy `%s` has variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
 				policy.GetName(),
 				resource.GetName(),
 				err,
@@ -998,16 +1000,30 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
+		// In CLI test mode the discovery client is a fake that panics on
+		// OpenAPIV3(), so we recover and skip it gracefully.
 		if client := p.tryClusterOpenAPI(); client != nil {
 			clients = append(clients, client)
 		}
 	}
 
-	if p.CrdPath != "" {
-		absPath := getAbsPath(p.CrdPath)
-		diskCrds := os.DirFS(absPath)
-		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
-	} else {
+	addedCrdClient := false
+	if len(p.CrdPaths) > 0 {
+		visitedDirs := make(map[string]struct{})
+		for _, crdPath := range p.CrdPaths {
+			if strings.TrimSpace(crdPath) == "" {
+				continue
+			}
+			absPath := getAbsPath(crdPath)
+			if _, seen := visitedDirs[absPath]; !seen {
+				diskCrds := os.DirFS(absPath)
+				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+				visitedDirs[absPath] = struct{}{}
+				addedCrdClient = true
+			}
+		}
+	}
+	if !addedCrdClient {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
 		}
@@ -1018,6 +1034,9 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	return openapiclient.NewComposite(clients...)
 }
 
+// tryClusterOpenAPI attempts to get the OpenAPI client from the cluster's
+// discovery endpoint. Returns nil if the call panics (e.g., fake discovery
+// client in CLI test mode) or if the client is nil.
 func (p *PolicyProcessor) tryClusterOpenAPI() (client openapi.Client) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1044,7 +1063,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
@@ -1058,7 +1077,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
@@ -1072,7 +1091,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 		for _, rr := range mc.ResourceRules {
 			for _, res := range rr.Resources {
 				base, _, _ := strings.Cut(res, "/")
-				if strings.HasPrefix(strings.ToLower(base), kindLower) {
+				if strings.ToLower(base) == kindLower {
 					return base, nil
 				}
 			}
@@ -1239,8 +1258,16 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	return true
 }
 
-func (p *PolicyProcessor) loadCrd() error {
-	return common.LoadCrdFromPath(p.CrdPath)
+func (p *PolicyProcessor) loadCrds() error {
+	for _, crdPath := range p.CrdPaths {
+		if strings.TrimSpace(crdPath) == "" {
+			continue
+		}
+		if err := common.LoadCrdsFromPath(crdPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getAbsPath(path string) string {

@@ -9,7 +9,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -85,8 +85,8 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 	return vars
 }
 
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, nil, namespace)
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) bool {
+	data, err := prepareData(attr, request, namespace)
 	if err != nil {
 		return false
 	}
