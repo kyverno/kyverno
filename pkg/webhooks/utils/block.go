@@ -60,9 +60,14 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
-	_ = enc.Encode(failures)
-	_ = enc.Close()
-	results := buf.Bytes()
+	err := enc.Encode(failures)
+	if cerr := enc.Close(); err == nil {
+		err = cerr
+	}
+	results := bytes.TrimPrefix(buf.Bytes(), []byte("---\n"))
+	if err != nil {
+		results = []byte(fmt.Sprintf("failed to encode failures: %v\n", err))
+	}
 	msg := fmt.Sprintf("\n\nresource %s was blocked due to the following policies \n\n%s", resourceName, results)
 	return msg
 }
