@@ -26,15 +26,16 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	registryOptions := []registryclient.Option{
 		registryclient.WithTracing(),
 	}
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
+	secrets := splitAndTrim(imagePullSecrets)
+	if len(secrets) > 0 {
 		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(secretLister, config.KyvernoNamespace(), secrets...))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 	}
-	if len(registryCredentialHelpers) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithCredentialProviders(strings.Split(registryCredentialHelpers, ",")...))
+	providers := splitAndTrim(registryCredentialHelpers)
+	if len(providers) > 0 {
+		registryOptions = append(registryOptions, registryclient.WithCredentialProviders(providers...))
 	}
 	registryClient, err := registryclient.New(registryOptions...)
 	checkError(logger, err, "failed to create registry client")
@@ -50,10 +51,6 @@ func imageLoaderOptions() []imagedataloader.Option {
 }
 
 func splitAndTrim(value string) []string {
-	if value == "" {
-		return nil
-	}
-
 	parts := strings.Split(value, ",")
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
@@ -62,5 +59,10 @@ func splitAndTrim(value string) []string {
 			out = append(out, part)
 		}
 	}
+
+	if len(out) == 0 {
+		return nil
+	}
+
 	return out
 }

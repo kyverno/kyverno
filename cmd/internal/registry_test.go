@@ -22,6 +22,16 @@ func TestSplitAndTrim(t *testing.T) {
 			want: []string{"secret"},
 		},
 		{
+			name: "whitespace only",
+			in:   "   ",
+			want: nil,
+		},
+		{
+			name: "only separators",
+			in:   ",,,",
+			want: nil,
+		},
+		{
 			name: "trims whitespace and drops empty values",
 			in:   "secret-a, secret-b,, secret-c , ",
 			want: []string{"secret-a", "secret-b", "secret-c"},
