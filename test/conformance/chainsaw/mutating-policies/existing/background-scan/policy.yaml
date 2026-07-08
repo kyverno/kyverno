@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-background-scan
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE" ]
+      resources: [ "configmaps" ]
+      resourceNames: [ "test-mpol-background-scan-cm" ]
+  matchConditions:
+  - name: target-namespace
+    expression: object.metadata.namespace == 'test-mpol-background-scan-ns'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              background: "scan"
+            }
+          }
+        }
