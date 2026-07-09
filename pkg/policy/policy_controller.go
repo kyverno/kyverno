@@ -65,9 +65,12 @@ type policyController struct {
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
 
-	pInformer    kyvernov1informers.ClusterPolicyInformer
-	npInformer   kyvernov1informers.PolicyInformer
-	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer
+	pInformer     kyvernov1informers.ClusterPolicyInformer
+	npInformer    kyvernov1informers.PolicyInformer
+	gpolInformer  policiesv1beta1informers.GeneratingPolicyInformer
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer
+	mpolInformer  policiesv1beta1informers.MutatingPolicyInformer
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder events.EventRecorder
@@ -83,6 +86,15 @@ type policyController struct {
 
 	// gpolLister can list/get generating policy from the shared informer's store
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister
+
+	// ngpolLister can list/get namespaced generating policy from the shared informer's store
+	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
+
+	// mpolLister can list/get mutating policy from the shared informer's store
+	mpolLister policiesv1beta1listers.MutatingPolicyLister
+
+	// nmpolLister can list/get namespaced mutating policy from the shared informer's store
+	nmpolLister policiesv1beta1listers.NamespacedMutatingPolicyLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov2listers.UpdateRequestLister
@@ -122,6 +134,9 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
+	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
+	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
@@ -153,6 +168,9 @@ func NewPolicyController(
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		gpolInformer:  gpolInformer,
+		ngpolInformer: ngpolInformer,
+		mpolInformer:  mpolInformer,
+		nmpolInformer: nmpolInformer,
 		eventGen:      eventGen,
 		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -177,8 +195,11 @@ func NewPolicyController(
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
 	pc.gpolLister = gpolInformer.Lister()
+	pc.ngpolLister = ngpolInformer.Lister()
+	pc.mpolLister = mpolInformer.Lister()
+	pc.nmpolLister = nmpolInformer.Lister()
 
-	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, gpolInformer.Informer().HasSynced, ngpolInformer.Informer().HasSynced, mpolInformer.Informer().HasSynced, nmpolInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 
 	return &pc, nil
 }
@@ -264,6 +285,36 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		}
 	}
 
+	oldngpol := oldPolicy.AsNamespacedGeneratingPolicy()
+	newngpol := newPolicy.AsNamespacedGeneratingPolicy()
+	if oldngpol != nil && newngpol != nil {
+		if datautils.DeepEqual(oldngpol.Spec, newngpol.Spec) {
+			return
+		}
+		// If the policy is updated to disable synchronization, we need to remove the watchers.
+		policyKey := oldngpol.GetNamespace() + "/" + oldngpol.GetName()
+		if oldngpol.Spec.SynchronizationEnabled() && !newngpol.Spec.SynchronizationEnabled() {
+			logger.V(2).Info("removing watchers for namespaced generating policy", "name", policyKey)
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, false)
+		}
+	}
+
+	oldmpol := oldPolicy.AsMutatingPolicy()
+	newmpol := newPolicy.AsMutatingPolicy()
+	if oldmpol != nil && newmpol != nil {
+		if datautils.DeepEqual(oldmpol.Spec, newmpol.Spec) {
+			return
+		}
+	}
+
+	oldnmpol := oldPolicy.AsNamespacedMutatingPolicy()
+	newnmpol := newPolicy.AsNamespacedMutatingPolicy()
+	if oldnmpol != nil && newnmpol != nil {
+		if datautils.DeepEqual(oldnmpol.Spec, newnmpol.Spec) {
+			return
+		}
+	}
+
 	logger.V(2).Info("updating policy", "name", oldPolicy.GetName())
 	pc.enqueuePolicy(newPolicy)
 }
@@ -295,6 +346,21 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 			pc.watchManager.RemoveWatchersForPolicy(gpol.GetName(), true)
 		}
 		p = engineapi.NewGeneratingPolicy(gpol)
+	case *policiesv1beta1.NamespacedGeneratingPolicy:
+		ngpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.NamespacedGeneratingPolicy)
+		policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
+		if ngpol.Spec.OrphanDownstreamOnPolicyDeleteEnabled() {
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, false)
+		} else {
+			pc.watchManager.RemoveWatchersForPolicy(policyKey, true)
+		}
+		p = engineapi.NewNamespacedGeneratingPolicy(ngpol)
+	case *policiesv1beta1.MutatingPolicy:
+		mpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.MutatingPolicy)
+		p = engineapi.NewMutatingPolicy(mpol)
+	case *policiesv1beta1.NamespacedMutatingPolicy:
+		nmpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.NamespacedMutatingPolicy)
+		p = engineapi.NewNamespacedMutatingPolicy(nmpol)
 	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
@@ -314,6 +380,12 @@ func (pc *policyController) enqueuePolicy(policy engineapi.GenericPolicy) {
 		pc.queue.Add("kpol/" + key)
 	} else if policy.AsGeneratingPolicy() != nil {
 		pc.queue.Add("gpol/" + key)
+	} else if policy.AsNamespacedGeneratingPolicy() != nil {
+		pc.queue.Add("ngpol/" + key)
+	} else if policy.AsMutatingPolicy() != nil {
+		pc.queue.Add("mpol/" + key)
+	} else if policy.AsNamespacedMutatingPolicy() != nil {
+		pc.queue.Add("nmpol/" + key)
 	}
 }
 
@@ -350,6 +422,33 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 	}
 
 	if _, err := pc.gpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
+
+	if _, err := pc.ngpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
+
+	if _, err := pc.mpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	}); err != nil {
+		logger.Error(err, "failed to register event handler")
+		return
+	}
+
+	if _, err := pc.nmpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
@@ -459,6 +558,73 @@ func (pc *policyController) syncPolicy(key string) error {
 				errs = append(errs, err)
 			}
 		}
+	case "ngpol":
+		// polName for ngpol is "namespace/name"
+		ns, name, err := cache.SplitMetaNamespaceKey(polName)
+		if err != nil {
+			return err
+		}
+		ngpol, err := pc.ngpolLister.NamespacedGeneratingPolicies(ns).Get(name)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
+		// create UR on policy events to update/generate downstream resources
+		if ngpol.Spec.SynchronizationEnabled() {
+			logger.V(4).Info("creating UR on namespaced generating policy events", "name", policyKey)
+			if err := pc.createURForNamespacedGeneratingPolicy(ngpol); err != nil {
+				logger.Error(err, "failed to create UR on namespaced generating policy events", "name", policyKey)
+				errs = append(errs, err)
+			}
+		}
+		// generate resources for existing triggers
+		if ngpol.Spec.GenerateExistingEnabled() {
+			logger.V(4).Info("generating resources for existing triggers for namespacedgeneratingpolicy", "name", policyKey)
+			if err := pc.handleNamespacedGenerateExisting(ngpol); err != nil {
+				logger.Error(err, "failed to create UR for namespaced generating policy", "name", policyKey)
+				errs = append(errs, err)
+			}
+		}
+	case "mpol":
+		mpol, err := pc.mpolLister.Get(polName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		if mpol.Spec.MutateExistingEnabled() && mpol.Spec.BackgroundEnabled() &&
+			(mpol.Spec.TargetMatchConstraints == nil || mpol.Spec.TargetMatchConstraints.Expression == "") {
+			logger.V(4).Info("creating UR for mutating policy background scan", "name", mpol.GetName())
+			if err := pc.createURForMutatingPolicy(mpol); err != nil {
+				logger.Error(err, "failed to create UR for mutating policy", "name", mpol.GetName())
+				errs = append(errs, err)
+			}
+		}
+	case "nmpol":
+		ns, name, err := cache.SplitMetaNamespaceKey(polName)
+		if err != nil {
+			return err
+		}
+		nmpol, err := pc.nmpolLister.NamespacedMutatingPolicies(ns).Get(name)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		if nmpol.Spec.MutateExistingEnabled() && nmpol.Spec.BackgroundEnabled() &&
+			(nmpol.Spec.TargetMatchConstraints == nil || nmpol.Spec.TargetMatchConstraints.Expression == "") {
+			policyKey := nmpol.GetNamespace() + "/" + nmpol.GetName()
+			logger.V(4).Info("creating UR for namespaced mutating policy background scan", "name", policyKey)
+			if err := pc.createURForNamespacedMutatingPolicy(nmpol); err != nil {
+				logger.Error(err, "failed to create UR for namespaced mutating policy", "name", policyKey)
+				errs = append(errs, err)
+			}
+		}
 	}
 	return multierr.Combine(errs...)
 }
@@ -521,6 +687,33 @@ func (pc *policyController) requeuePolicies() {
 		}
 	} else {
 		logger.Error(err, "unable to list GeneratingPolicies")
+	}
+	if ngpols, err := pc.ngpolLister.List(labels.Everything()); err == nil {
+		for _, ngpol := range ngpols {
+			pc.enqueuePolicy(engineapi.NewNamespacedGeneratingPolicy(ngpol))
+		}
+	} else {
+		logger.Error(err, "unable to list NamespacedGeneratingPolicies")
+	}
+	if mpols, err := pc.mpolLister.List(labels.Everything()); err == nil {
+		for _, mpol := range mpols {
+			if mpol.Spec.MutateExistingEnabled() && mpol.Spec.BackgroundEnabled() &&
+				(mpol.Spec.TargetMatchConstraints == nil || mpol.Spec.TargetMatchConstraints.Expression == "") {
+				pc.enqueuePolicy(engineapi.NewMutatingPolicy(mpol))
+			}
+		}
+	} else {
+		logger.Error(err, "unable to list MutatingPolicies")
+	}
+	if nmpols, err := pc.nmpolLister.List(labels.Everything()); err == nil {
+		for _, nmpol := range nmpols {
+			if nmpol.Spec.MutateExistingEnabled() && nmpol.Spec.BackgroundEnabled() &&
+				(nmpol.Spec.TargetMatchConstraints == nil || nmpol.Spec.TargetMatchConstraints.Expression == "") {
+				pc.enqueuePolicy(engineapi.NewNamespacedMutatingPolicy(nmpol))
+			}
+		}
+	} else {
+		logger.Error(err, "unable to list NamespacedMutatingPolicies")
 	}
 }
 
