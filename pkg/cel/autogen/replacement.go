@@ -6,11 +6,13 @@ import (
 
 // protectedSuffixes lists field paths that must remain anchored to the
 // workload object's own metadata and must never be rewritten into a pod
-// template path. For example, `object.metadata.namespace` must stay as-is
-// because pod templates (e.g. on Deployments) usually do not carry a
-// `metadata.namespace` field, which would otherwise break match conditions.
+// template path. For example, `object.metadata.namespace` and
+// `object.metadata.name` must stay as-is because pod templates (e.g. on
+// Deployments) usually do not carry those fields, which would otherwise
+// break match conditions and message expressions.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte(".name"),
 }
 
 type Replacement struct {
@@ -25,7 +27,8 @@ func (r *Replacement) Apply(data []byte) []byte {
 }
 
 // replace rewrites every occurrence of from with to, except occurrences that
-// are immediately followed by a protected suffix (e.g. `.namespace`). Unlike a
+// are immediately followed by a protected suffix (e.g. `.namespace`, `.name`).
+// Unlike a
 // sentinel/placeholder swap, this never injects synthetic markers into the
 // data, so it cannot collide with or corrupt user-provided content such as CEL
 // expressions.
