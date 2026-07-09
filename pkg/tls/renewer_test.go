@@ -283,13 +283,13 @@ func TestDecodeTLSSecret_AllCAs(t *testing.T) {
 	}}
 
 	renewer := newTestRenewer(mc)
-	secret, _, cert, err := renewer.decodeTLSSecret(context.Background())
+	secret, key, cert, err := renewer.decodeTLSSecret(context.Background())
 	require.NoError(t, err, "should not error when all certs are CAs")
 	assert.NotNil(t, secret)
 	assert.NotNil(t, cert, "should fall back to first cert")
 	assert.True(t, cert.IsCA, "returned cert should be a CA since all certs are CAs")
-	assert.Equal(t, caCert.SerialNumber, cert.SerialNumber, "should return first cert as fallback")
-}
+	assert.Equal(t, caCert.Raw, cert.Raw, "should return first cert as fallback")
+	assertKeyMatchesCert(t, key, cert)
 
 func TestDecodeTLSSecret_NoCerts(t *testing.T) {
 	caKey, _ := generateTestCACert(t)
