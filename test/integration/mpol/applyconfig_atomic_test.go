@@ -31,7 +31,7 @@ import (
 // source native MutatingAdmissionPolicy uses), so it reproduces the admission-time
 // behavior faithfully.
 
-// applyConfigMutation builds an mpol whose single mutation is the given ApplyConfiguration
+// applyConfigPolicy builds a MutatingPolicy whose single mutation is the given ApplyConfiguration
 // expression, matched on annotated pods.
 func applyConfigPolicy(name, expression string) *policiesv1beta1.MutatingPolicy {
 	return &policiesv1beta1.MutatingPolicy{
@@ -111,9 +111,10 @@ func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 	}`))
 	waitForPolicyReady(t, 1)
 
-	allowed, patched, _ := mutateAnnotatedPod(t, "env-fieldref", "pod-env")
+	allowed, patched, patch := mutateAnnotatedPod(t, "env-fieldref", "pod-env")
 	assert.True(t, allowed, "#15094: injecting env valueFrom.fieldRef (atomic struct) must be allowed")
 	require.True(t, patched, "#15094: mutation must produce a patch, got none (atomic fieldRef rejection)")
+	assert.Contains(t, string(patch), "POD_NAME", "the patch must actually inject the POD_NAME env var, not some unrelated change")
 }
 
 // anders-elastisys: inject a projected volume whose downwardAPI items carry an atomic fieldRef struct.
