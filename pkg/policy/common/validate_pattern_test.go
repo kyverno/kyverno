@@ -103,10 +103,11 @@ func TestValidatePattern(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path, err := ValidatePattern(tt.pattern, "root", tt.isSupported)
 			if tt.wantErr {
-				assert.Error(t, err)
-				assert.NotEmpty(t, path, "an error result should carry the offending path")
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
+				if assert.Error(t, err) {
+					assert.NotEmpty(t, path, "an error result should carry the offending path")
+					if tt.errContains != "" {
+						assert.Contains(t, err.Error(), tt.errContains)
+					}
 				}
 			} else {
 				assert.NoError(t, err)
