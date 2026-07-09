@@ -1,11 +1,12 @@
 package processor
 
 import (
+	"slices"
+
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"slices"
 )
 
 type ResultCounts struct {
