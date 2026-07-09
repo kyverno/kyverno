@@ -8,14 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"golang.org/x/exp/maps"
@@ -48,7 +51,7 @@ type engineImpl struct {
 	nsResolver   NamespaceResolver
 	matcher      matching.Matcher
 	lister       k8scorev1.SecretInterface
-	registryOpts []imagedataloader.Option
+	registryOpts []remote.Option
 }
 
 func NewEngine(
@@ -56,7 +59,7 @@ func NewEngine(
 	nsResolver NamespaceResolver,
 	matcher matching.Matcher,
 	lister k8scorev1.SecretInterface,
-	registryOpts []imagedataloader.Option,
+	registryOpts []remote.Option,
 ) Engine {
 	return &engineImpl{
 		provider:     provider,
@@ -237,7 +240,8 @@ func (e *engineImpl) handleMutation(
 			}
 		}
 	}
-	ictx, err := imagedataloader.NewImageContext(e.lister, e.registryOpts...)
+	secretLister := registryclient.SecretListerFromInterface(e.lister, config.KyvernoNamespace())
+	ictx, err := imagedataloader.NewImageContext(secretLister, e.registryOpts, nil)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -22,8 +25,9 @@ type CompiledImageValidatingPolicy struct {
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
-func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
-	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
+func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...remote.Option) (map[string]*EvaluationResult, error) {
+	secretLister := registryclient.SecretListerFromInterface(lister, config.KyvernoNamespace())
+	ictx, err := imagedataloader.NewImageContext(secretLister, registryOpts, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -11,17 +11,23 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/regcreds"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/release-utils/version"
 )
 
 var (
-	defaultKeychain  = imagedataloader.AnonymousKeychain
-	defaultTransport = imagedataloader.DefaultTransport
+	defaultKeychain  = anonymousKeyChain{}
+	defaultTransport = regcreds.DefaultTransport
 	userAgent        = fmt.Sprintf("Kyverno/%s (%s; %s)", version.GetVersionInfo().GitVersion, runtime.GOOS, runtime.GOARCH)
 )
+
+type anonymousKeyChain struct{}
+
+func (anonymousKeyChain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+	return authn.Anonymous, nil
+}
 
 // Client provides registry related objects.
 type Client interface {
@@ -96,10 +102,7 @@ func NewOrDie(options ...Option) Client {
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
 func WithKeychainPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) Option {
 	return func(c *config) error {
-		kc, err := NewAutoRefreshSecretsKeychain(lister, defaultNamespace, imagePullSecrets...)
-		if err != nil {
-			return err
-		}
+		kc := regcreds.NewSecretsKeychain(lister, defaultNamespace, imagePullSecrets...)
 		c.keychain = append(c.keychain, kc)
 		return nil
 	}
@@ -108,7 +111,7 @@ func WithKeychainPullSecrets(lister corev1listers.SecretLister, defaultNamespace
 // WithCredentialProviders initialize registry client option by using registries credentials
 func WithCredentialProviders(credentialProviders ...string) Option {
 	return func(c *config) error {
-		chains := imagedataloader.KeychainsForProviders(credentialProviders...)
+		chains := regcreds.KeychainsForProviders(credentialProviders...)
 		c.keychain = append(c.keychain, chains...)
 		return nil
 	}
