@@ -266,6 +266,53 @@ func TestBuildMutatingAdmissionPolicyBeta_MutationTypeConversion(t *testing.T) {
 	assert.Equal(t, "[{'op': 'add', 'path': '/metadata/labels/app', 'value': 'test'}]", mapol2.Spec.Mutations[0].JSONPatch.Expression)
 }
 
+func TestBuildMutatingAdmissionPolicy_ReportingLabels(t *testing.T) {
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-mpol",
+			UID:  "test-uid",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("enabled when reporting not excluded", func(t *testing.T) {
+		mapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"},
+		}
+		BuildMutatingAdmissionPolicy(mapol, mp, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := mapol.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("disabled when source excludes reporting", func(t *testing.T) {
+		excluded := mp.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		mapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"},
+		}
+		BuildMutatingAdmissionPolicy(mapol, excluded, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := mapol.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
+}
+
 func TestBuildMutatingAdmissionPolicyBeta_ReportingLabels(t *testing.T) {
 	mp := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{

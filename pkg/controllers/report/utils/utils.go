@@ -462,11 +462,15 @@ func FetchCELPolicyExceptions(celexLister celengine.PolicyExceptionLister) ([]*p
 }
 
 func includeReportingSelector() (labels.Selector, error) {
-	r, err := getIncludeReportingLabelRequirement()
+	rInclude, err := getIncludeReportingLabelRequirement()
 	if err != nil {
 		return nil, err
 	}
-	return labels.NewSelector().Add(*r), nil
+	rNotDisabled, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	return labels.NewSelector().Add(*rInclude).Add(*rNotDisabled), nil
 }
 
 func kyvernoManagedReportingSelector() (labels.Selector, error) {
