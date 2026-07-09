@@ -72,7 +72,7 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// The fake client does not configure discovery automatically.
-    // Register both certificate versions so ListResource can find them.
+	// Register both certificate versions so ListResource can find them.
 	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
 		{Group: "acm.services.k8s.aws", Version: "v1alpha1", Resource: "certificates"},
 		{Group: "acm.services.k8s.aws", Version: "v1", Resource: "certificates"},
@@ -111,6 +111,14 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 
 	// both versions should resolve and both objects should be returned
 	assert.Len(t, triggers, 2)
+	got := make([]string, 0, len(triggers))
+	for _, tr := range triggers {
+		got = append(got, tr.GetAPIVersion())
+	}
+	assert.ElementsMatch(t, []string{
+		"acm.services.k8s.aws/v1alpha1",
+		"acm.services.k8s.aws/v1",
+	}, got)
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
