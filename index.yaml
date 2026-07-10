@@ -17,6 +17,69 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.18.2
+    created: "2026-07-10T01:50:43.965984886Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.8.2
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.8.2
+    - condition: crds.install
+      name: kyverno-api
+      repository: https://kyverno.github.io/api
+      version: 0.0.1-alpha.2
+    - condition: openreports.installCrds
+      name: openreports
+      repository: https://openreports.github.io/reports-api
+      version: 0.1.0
+    - condition: reportsServer.enabled
+      name: reports-server
+      repository: https://kyverno.github.io/reports-server/
+      version: 0.1.6
+    description: Kubernetes Native Policy Management
+    digest: f4fc787cf1d6781eefb9e9b45837edcddcfae984c872888289914e97207cc5de
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.8.2.tgz
+    version: 3.8.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: Ensure spec.template.metadata isn't null
+        - kind: removed
+          description: Remove the `delete` permission for policyexceptions in the admission controller
+        - kind: changed
+          description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
+        - kind: changed
+          description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.18.2-rc.2
     created: "2026-07-09T13:22:00.396478565Z"
     dependencies:
@@ -17678,4 +17741,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2026-07-10T01:38:42.83630596Z"
+generated: "2026-07-10T01:50:43.938509375Z"
