@@ -16,7 +16,7 @@ import (
 
 // newFakeRESTMapper builds APIGroupResources by hand instead of hitting a
 // live cluster's discovery API. It mimics how policyController builds
-// pc.restMapper in production (see policy_controller.go), letting the test
+// pc.restMapper in production, letting the test
 // register a resource under multiple concrete versions and exercise
 // KindsFor/KindFor exactly the way the real mapper would.
 func newFakeRESTMapper(t *testing.T) *restmapper.APIGroupResources {
