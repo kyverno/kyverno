@@ -15,7 +15,11 @@ type CustomNamespaceLister struct {
 }
 
 func (c *CustomNamespaceLister) List(selector labels.Selector) (ret []*corev1.Namespace, err error) {
-	namespace, err := c.dClient.GetKubeClient().CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	listOptions := metav1.ListOptions{}
+	if selector != nil {
+		listOptions.LabelSelector = selector.String()
+	}
+	namespace, err := c.dClient.GetKubeClient().CoreV1().Namespaces().List(context.Background(), listOptions)
 	if err != nil {
 		return nil, err
 	}
