@@ -6,7 +6,7 @@ import (
 	clusterephemeralreports "github.com/kyverno/kyverno/pkg/clients/kyverno/reportsv1/clusterephemeralreports"
 	ephemeralreports "github.com/kyverno/kyverno/pkg/clients/kyverno/reportsv1/ephemeralreports"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ReportsV1Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ReportsV1Interface {
@@ -27,7 +27,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
@@ -44,7 +44,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
@@ -59,7 +59,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) ClusterEphemeralReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_reports_v1.ClusterEphemeralReportInterface {
