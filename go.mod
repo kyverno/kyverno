@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.26.2
+go 1.26.4
 
 toolchain go1.26.5
 
