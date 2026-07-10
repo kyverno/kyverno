@@ -119,6 +119,11 @@ func TestQueryLogicalFallbacksBasic(t *testing.T) {
 			query:    "request.object.missing_items[?name == 'a||b'] || 'fallback'",
 			expected: "fallback",
 		},
+		{
+    		name:     "nested OR in right operand reaches string fallback",
+    		query:    "request.object.doesnotexist || (request.object.doesnotexist2 || 'x')",
+    		expected: "x",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
