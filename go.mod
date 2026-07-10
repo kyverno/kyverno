@@ -75,11 +75,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
+	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/crypto v0.53.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.81.1
 	gopkg.in/inf.v0 v0.9.1
-	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.35.4
 	k8s.io/apiextensions-apiserver v0.35.4
@@ -111,6 +111,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/streaming v0.36.0 // indirect
 )
 
@@ -392,7 +393,6 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
@@ -411,7 +411,7 @@ require (
 	gopkg.in/ini.v1 v1.67.2 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.35.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/kubectl v0.34.3 // indirect
