@@ -94,9 +94,9 @@ func TestQueryLogicalFallbacks(t *testing.T) {
 	ctx := createTestContext(mockJSON, `{}`)
 
 	testCases := []struct {
-		name     string
-		query    string
-		expected interface{}
+		name        string
+		query       string
+		expected    interface{}
 		expectError bool
 	}{
 		{
@@ -130,7 +130,7 @@ func TestQueryLogicalFallbacks(t *testing.T) {
 			expected: "x",
 		},
 		{
-			name:     "triple nested OR forces custom fallback recursively",
+			name:     "triple nested OR exercises nested fallback evaluation",
 			query:    "request.object.missing_items[?name == 'a'] || (request.object.missing_items2[?name == 'b'] || (request.object.missing_items3[?name == 'c'] || 'x'))",
 			expected: "x",
 		},
@@ -167,8 +167,8 @@ func TestQueryLogicalFallbacks(t *testing.T) {
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, result)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, result)
 			}
 		})
 	}

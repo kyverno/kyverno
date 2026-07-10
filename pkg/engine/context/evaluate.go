@@ -96,7 +96,8 @@ func isTruthy(v interface{}) bool {
 // Query the JSON context with a JMESPath search path.
 // Note: If the query contains a top-level logical OR ('||') and evaluation fails with a NotFoundError,
 // operands are evaluated left-to-right and missing keys are treated as null to allow fallbacks
-// to run according to standard JMESPath truthiness rules.
+// to run according to standard JMESPath truthiness rules. Nested '||' expressions inside an
+// operand (e.g. within parentheses) are evaluated recursively using the same fallback rules.
 func (ctx *context) Query(query string) (interface{}, error) {
 	if err := ctx.loadDeferred(query); err != nil {
 		return nil, err
@@ -106,6 +107,15 @@ func (ctx *context) Query(query string) (interface{}, error) {
 	if query == "" {
 		return nil, fmt.Errorf("invalid query (nil)")
 	}
+
+	return ctx.evaluateQuery(query)
+}
+
+// evaluateQuery compiles and searches a JMESPath query, applying logical OR
+// fallback handling on NotFoundError. It is safe to call recursively for
+// nested fallback operands because it never triggers loadDeferred — that
+// happens exactly once, in Query.
+func (ctx *context) evaluateQuery(query string) (interface{}, error) {
 	// compile the query
 	queryPath, err := ctx.jp.Query(query)
 	if err != nil {
@@ -128,28 +138,26 @@ func (ctx *context) Query(query string) (interface{}, error) {
 			if len(parts) > 1 {
 				var lastResult interface{}
 				for _, part := range parts {
-					partPath, partErr := ctx.jp.Query(part)
+					// Recursively evaluate each operand using the same fallback
+					// rules. This ensures a nested '||' inside an operand (e.g.
+					// "a || (b || 'x')") is not treated as a single opaque
+					// expression that returns nil on NotFoundError, but is itself
+					// resolved through its own fallback chain.
+					partResult, partErr := ctx.evaluateQuery(part)
 					if partErr != nil {
-						// Do not swallow compile errors in the fallback operand
-						return nil, fmt.Errorf("incorrect fallback query %q: %w", part, partErr)
-					}
-					partResult, partSearchErr := partPath.Search(ctx.jsonRaw)
-
-					if partSearchErr != nil {
 						var partNotFound gojmespath.NotFoundError
-						if errors.As(partSearchErr, &partNotFound) {
+						if errors.As(partErr, &partNotFound) {
 							// Missing key, treat as null
 							lastResult = nil
-						} else {
-							// Do not swallow other runtime errors
-							return nil, fmt.Errorf("fallback JMESPath query %q failed: %w", part, partSearchErr)
+							continue
 						}
-					} else {
-						lastResult = partResult
-						// Short-circuit on the first successful, truthy result
-						if isTruthy(partResult) {
-							return partResult, nil
-						}
+						// Do not swallow compile errors or other runtime errors
+						return nil, fmt.Errorf("fallback JMESPath query %q failed: %w", part, partErr)
+					}
+					lastResult = partResult
+					// Short-circuit on the first successful, truthy result
+					if isTruthy(partResult) {
+						return partResult, nil
 					}
 				}
 				// If all operands evaluate to a falsey value (or are missing), yield the last operand
