@@ -65,23 +65,35 @@ func runDeleteWebhooks() {
 		os.Exit(1)
 	}
 
-	mwCfgs, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	err = deleteWebhooks(context.Background(), clientset, label)
 	if err != nil {
-		fmt.Printf("Failed to fetch mutating webhook configurations: %v\n", err)
+		fmt.Printf("Failed to delete webhooks: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func deleteWebhooks(ctx context.Context, clientset kubernetes.Interface, label string) error {
+	mwCfgs, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		return fmt.Errorf("fetching mutating webhook configurations: %w", err)
 	}
 	for _, mw := range mwCfgs.Items {
-		_ = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mw.Name, metav1.DeleteOptions{})
+		if err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, mw.Name, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("deleting mutating webhook configuration %s: %w", mw.Name, err)
+		}
 	}
 
-	vwCfgs, err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	vwCfgs, err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{LabelSelector: label})
 	if err != nil {
-		fmt.Printf("Failed to fetch validating webhook configurations: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("fetching validating webhook configurations: %w", err)
 	}
 	for _, vw := range vwCfgs.Items {
-		_ = clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), vw.Name, metav1.DeleteOptions{})
+		if err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vw.Name, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("deleting validating webhook configuration %s: %w", vw.Name, err)
+		}
 	}
+
+	return nil
 }
 
 func runScaleDeploy() {
