@@ -188,6 +188,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		}
 		generations = append(generations, programs...)
 	}
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
@@ -204,6 +208,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		matchConditions:  matchConditions,
 		variables:        variables,
 		generations:      generations,
+		auditAnnotations: auditAnnotations,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, nil
