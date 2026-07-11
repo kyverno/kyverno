@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -70,23 +71,9 @@ func main() {
 				}
 				os.Exit(0)
 			}
-			var wg sync.WaitGroup
-			for i := 0; i < count; i++ {
-				num := strconv.Itoa(i)
-				wg.Add(1)
-				go func(num string, wg *sync.WaitGroup) {
-					pod := newPod(num)
-					_, err = client.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-					if err != nil {
-						fmt.Println("failed to create the pod: ", err)
-						// os.Exit(1)
-					}
-					wg.Done()
-				}(num, &wg)
-
-				fmt.Printf("created pod perf-testing-pod-%v\n", num)
+			for _, err := range createPods(context.TODO(), client, namespace, count) {
+				fmt.Println("failed to create the pod: ", err)
 			}
-			wg.Wait()
 		case "replicasets":
 			if delete {
 				if err := client.AppsV1().ReplicaSets(namespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
@@ -125,6 +112,37 @@ func main() {
 			}
 		}
 	}
+}
+
+func createPods(ctx context.Context, client kubernetes.Interface, namespace string, count int) []error {
+	var wg sync.WaitGroup
+	errCh := make(chan error, count)
+
+	for i := 0; i < count; i++ {
+		num := strconv.Itoa(i)
+		wg.Add(1)
+		go func(num string) {
+			defer wg.Done()
+			pod := newPod(num)
+			if _, err := client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
+				errCh <- fmt.Errorf("%s: %w", pod.Name, err)
+			}
+		}(num)
+
+		fmt.Printf("created pod perf-testing-pod-%v\n", num)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	errs := make([]error, 0, len(errCh))
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	sort.Slice(errs, func(i, j int) bool {
+		return errs[i].Error() < errs[j].Error()
+	})
+	return errs
 }
 
 func newPod(i string) *corev1.Pod {
