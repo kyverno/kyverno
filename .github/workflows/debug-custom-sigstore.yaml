@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Debug custom Sigstore
+
+permissions: {}
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  custom-sigstore:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - v1.33.x
+          - v1.34.x
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install tools
+        uses: ./.github/actions/tools/helm
+
+      - name: Install crane
+        uses: ./.github/actions/tools/crane
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        with:
+          cosign-release: v2.6.1
+
+      - name: Install chainsaw
+        uses: ./.github/actions/tools/chainsaw
+
+      - name: Create kind cluster and setup Sigstore Scaffolding
+        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
+        with:
+          version: main
+          k8s-version: ${{ matrix.k8s-version }}
+          knative-version: "1.10.0"
+
+      - name: Debug Sigstore setup
+        if: always()
+        shell: bash
+        run: |
+          echo "===== JOBS ====="
+          kubectl get jobs -A -o wide || true
+
+          echo "===== SIGN JOB ====="
+          kubectl get job sign-job -o yaml || true
+          kubectl describe job sign-job || true
+
+          echo "===== SIGN JOB PODS ====="
+          kubectl get pods -l job-name=sign-job -o wide || true
+          kubectl describe pods -l job-name=sign-job || true
+
+          echo "===== SIGN JOB LOGS ====="
+          kubectl logs job/sign-job --all-containers=true --prefix=true || true
+
+          echo "===== VERIFY JOB ====="
+          kubectl get job verify-job -o yaml || true
+          kubectl describe job verify-job || true
+          kubectl logs job/verify-job --all-containers=true --prefix=true || true
+
+          echo "===== SIGSTORE PODS ====="
+          kubectl get pods -A -o wide | grep -E 'sign-job|verify-job|rekor|fulcio|tuf|ctlog|trillian|knative' || true
+
+          echo "===== EVENTS ====="
+          kubectl get events -A --sort-by=.lastTimestamp | tail -200 || true
