@@ -136,8 +136,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	c.store.Set(name, entry)
-	return nil
+	return c.store.Set(name, entry)
 }
 
 func (c *controller) getEntry(name string) (*kyvernov2beta1.GlobalContextEntry, error) {

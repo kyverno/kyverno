@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -37,7 +39,7 @@ func (m *mockEntry) isStopped() bool {
 }
 
 func TestNew_CreatesEmptyStore(t *testing.T) {
-	s := New()
+	s := New(0)
 	assert.NotNil(t, s, "New() should return a non-nil store")
 
 	// Verify store is empty by checking a random key
@@ -47,11 +49,11 @@ func TestNew_CreatesEmptyStore(t *testing.T) {
 }
 
 func TestStore_SetAndGet_BasicOperations(t *testing.T) {
-	s := New()
+	s := New(0)
 	entry := newMockEntry(map[string]any{"foo": "bar"})
 
 	// Set an entry
-	s.Set("key1", entry)
+	assert.NoError(t, s.Set("key1", entry))
 
 	// Retrieve it
 	retrieved, exists := s.Get("key1")
@@ -65,15 +67,15 @@ func TestStore_SetAndGet_BasicOperations(t *testing.T) {
 }
 
 func TestStore_SetOverwrite_StopsOldEntry(t *testing.T) {
-	s := New()
+	s := New(0)
 	oldEntry := newMockEntry(map[string]any{"version": "old"})
 	newEntry := newMockEntry(map[string]any{"version": "new"})
 
 	// Set initial entry
-	s.Set("config", oldEntry)
+	assert.NoError(t, s.Set("config", oldEntry))
 
 	// Overwrite with new entry
-	s.Set("config", newEntry)
+	assert.NoError(t, s.Set("config", newEntry))
 
 	// Old entry should be stopped
 	assert.True(t, oldEntry.isStopped(), "old entry should be stopped when overwritten")
@@ -86,7 +88,7 @@ func TestStore_SetOverwrite_StopsOldEntry(t *testing.T) {
 }
 
 func TestStore_Get_ReturnsNilForMissingKey(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	entry, exists := s.Get("missing-key")
 	assert.False(t, exists, "exists should be false for missing key")
@@ -94,10 +96,10 @@ func TestStore_Get_ReturnsNilForMissingKey(t *testing.T) {
 }
 
 func TestStore_Delete_RemovesEntryAndStopsIt(t *testing.T) {
-	s := New()
+	s := New(0)
 	entry := newMockEntry(map[string]any{"data": "value"})
 
-	s.Set("to-delete", entry)
+	assert.NoError(t, s.Set("to-delete", entry))
 
 	// Verify it exists
 	_, exists := s.Get("to-delete")
@@ -115,7 +117,7 @@ func TestStore_Delete_RemovesEntryAndStopsIt(t *testing.T) {
 }
 
 func TestStore_Delete_HandlesNonexistentKey(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Should not panic when deleting nonexistent key
 	assert.NotPanics(t, func() {
@@ -124,7 +126,7 @@ func TestStore_Delete_HandlesNonexistentKey(t *testing.T) {
 }
 
 func TestStore_Delete_HandlesNilEntry(t *testing.T) {
-	s := New().(*store)
+	s := New(0).(*store)
 
 	// Manually set nil to simulate edge case
 	s.Lock()
@@ -138,7 +140,7 @@ func TestStore_Delete_HandlesNilEntry(t *testing.T) {
 }
 
 func TestStore_ConcurrentAccess(t *testing.T) {
-	s := New()
+	s := New(0)
 	var wg sync.WaitGroup
 	numGoroutines := 100
 
@@ -148,7 +150,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			entry := newMockEntry(map[string]any{"id": id})
-			s.Set("shared-key", entry)
+			_ = s.Set("shared-key", entry)
 		}(i)
 	}
 
@@ -171,7 +173,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			entry := newMockEntry(map[string]any{"id": id})
-			s.Set("shared-key", entry)
+			_ = s.Set("shared-key", entry)
 		}(i)
 	}
 
@@ -180,7 +182,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 }
 
 func TestStore_MultipleKeys(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	entries := make(map[string]*mockEntry)
 	keys := []string{"alpha", "beta", "gamma", "delta"}
@@ -189,7 +191,7 @@ func TestStore_MultipleKeys(t *testing.T) {
 	for _, key := range keys {
 		entry := newMockEntry(map[string]any{"name": key})
 		entries[key] = entry
-		s.Set(key, entry)
+		assert.NoError(t, s.Set(key, entry))
 	}
 
 	// Verify all entries exist and are correct
@@ -215,11 +217,11 @@ func TestStore_MultipleKeys(t *testing.T) {
 }
 
 func TestStore_SetNilEntry(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Setting nil should work without panic
 	assert.NotPanics(t, func() {
-		s.Set("nil-entry", nil)
+		_ = s.Set("nil-entry", nil)
 	}, "setting nil entry should not panic")
 
 	entry, exists := s.Get("nil-entry")
@@ -228,18 +230,66 @@ func TestStore_SetNilEntry(t *testing.T) {
 }
 
 func TestStore_OverwriteNilWithValue(t *testing.T) {
-	s := New()
+	s := New(0)
 
 	// Set nil first
-	s.Set("key", nil)
+	assert.NoError(t, s.Set("key", nil))
 
 	// Overwrite with real entry
 	entry := newMockEntry(map[string]any{"data": "test"})
 	assert.NotPanics(t, func() {
-		s.Set("key", entry)
+		_ = s.Set("key", entry)
 	}, "overwriting nil entry should not panic")
 
 	retrieved, exists := s.Get("key")
 	assert.True(t, exists)
 	assert.Same(t, entry, retrieved)
+}
+
+func TestNew_ZeroMaxEntries_Unbounded(t *testing.T) {
+	s := New(0)
+
+	for i := 0; i < 1000; i++ {
+		entry := newMockEntry(map[string]any{"i": i})
+		assert.NoError(t, s.Set(strconv.Itoa(i), entry))
+	}
+}
+
+func TestStore_Set_RejectsWhenAtCapacity(t *testing.T) {
+	s := New(3)
+
+	assert.NoError(t, s.Set("a", newMockEntry(nil)))
+	assert.NoError(t, s.Set("b", newMockEntry(nil)))
+	assert.NoError(t, s.Set("c", newMockEntry(nil)))
+
+	rejected := newMockEntry(nil)
+	err := s.Set("d", rejected)
+	assert.Error(t, err, "Set should reject when the store is at capacity")
+	assert.True(t, errors.Is(err, ErrStoreFull), "error should wrap ErrStoreFull")
+
+	_, exists := s.Get("d")
+	assert.False(t, exists, "rejected entry should not be stored")
+	assert.False(t, rejected.isStopped(), "rejected entry should not be stopped")
+
+	for _, key := range []string{"a", "b", "c"} {
+		_, exists := s.Get(key)
+		assert.True(t, exists, "existing entry %q should be preserved after a rejected Set", key)
+	}
+}
+
+func TestStore_Set_OverwriteAtCapacity_Allowed(t *testing.T) {
+	s := New(3)
+
+	oldEntry := newMockEntry(map[string]any{"v": "old"})
+	assert.NoError(t, s.Set("a", oldEntry))
+	assert.NoError(t, s.Set("b", newMockEntry(nil)))
+	assert.NoError(t, s.Set("c", newMockEntry(nil)))
+
+	newEntry := newMockEntry(map[string]any{"v": "new"})
+	assert.NoError(t, s.Set("a", newEntry), "overwriting an existing key should be allowed at capacity")
+
+	assert.True(t, oldEntry.isStopped(), "old entry should be stopped when overwritten")
+	retrieved, exists := s.Get("a")
+	assert.True(t, exists)
+	assert.Same(t, newEntry, retrieved)
 }

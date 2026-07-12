@@ -138,6 +138,7 @@ func main() {
 		maxAPICallResponseLength        int64
 		apiCallTimeout                  time.Duration
 		maxBackgroundReports            int
+		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
@@ -147,6 +148,7 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store before we stop creating new ones. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
@@ -219,7 +221,7 @@ func main() {
 			event.Workers,
 		)
 		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
