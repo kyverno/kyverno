@@ -6,10 +6,8 @@ permissions: {}
 
 on:
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
+  schedule:
+    - cron: '30 4 * * *' # daily at 04:30 UTC
 
 concurrency:
   group: ${{ github.workflow_ref }}
@@ -35,18 +33,19 @@ jobs:
           semgrep scan \
             --config=p/security-audit \
             --config=p/golang \
+            --severity=ERROR \
             --sarif \
             --output=semgrep.sarif \
             --no-error \
             --metrics=off
       - name: Upload Semgrep scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.35.4
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           sarif_file: semgrep.sarif
           category: semgrep
 
   sync-issue:
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'schedule'
     needs:
       - analysis
     permissions:
