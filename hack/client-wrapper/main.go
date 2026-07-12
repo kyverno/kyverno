@@ -212,7 +212,7 @@ package client
 import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
 	{{- end }}
@@ -238,7 +238,7 @@ type withMetrics struct {
 	metrics    metrics.MetricsConfigManager
 	clientType metrics.ClientType
 }
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 {{- range $method, $resource := .Target.Resources }}
@@ -258,7 +258,7 @@ type withTracing struct {
 	inner  {{ GoType .Target }}
 	client string
 }
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 {{- range $method, $resource := .Target.Resources }}
@@ -273,7 +273,7 @@ type withLogging struct {
 	inner  {{ GoType .Target }}
 	logger logr.Logger
 }
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 {{- range $method, $resource := .Target.Resources }}
@@ -362,6 +362,7 @@ package clientset
 import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	k8s_io_client_go_rest "k8s.io/client-go/rest"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
 	{{- end }}
@@ -407,7 +408,7 @@ func WithLogging(logger logr.Logger) NewOption {
 	}
 }
 
-func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
+func NewForConfig(c *k8s_io_client_go_rest.Config, opts ...NewOption) (Interface, error) {
 	inner, err := {{ Pkg .Target.Type.PkgPath }}.NewForConfig(c)
 	if err != nil {
 		return nil, err
@@ -415,7 +416,7 @@ func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
 	return From(inner, opts...), nil
 }
 
-func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
+func NewForConfigAndClient(c *k8s_io_client_go_rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
 	inner, err := {{ Pkg .Target.Type.PkgPath }}.NewForConfigAndClient(c, httpClient)
 	if err != nil {
 		return nil, err
@@ -423,7 +424,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewO
 	return From(inner, opts...), nil
 }
 
-func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
+func NewForConfigOrDie(c *k8s_io_client_go_rest.Config, opts ...NewOption) Interface {
 	return From({{ Pkg .Target.Type.PkgPath }}.NewForConfigOrDie(c), opts...)
 }
 
