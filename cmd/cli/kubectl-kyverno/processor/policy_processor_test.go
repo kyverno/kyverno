@@ -331,6 +331,7 @@ func Test_makePolicyContext_operation(t *testing.T) {
 		p := &PolicyProcessor{
 			Store:     &store.Store{},
 			Variables: vars,
+			Out:       os.Stdout,
 		}
 		pc, err := p.makePolicyContext(jp, cfg, res, policyArray[0], nil, schema.GroupVersionKind{Version: "v1", Kind: "Pod"}, "")
 		assert.NilError(t, err)
