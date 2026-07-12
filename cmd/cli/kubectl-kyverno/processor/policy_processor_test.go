@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
@@ -337,4 +338,42 @@ func Test_makePolicyContext_operation(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, tc.expected, pc.Operation(), "operation %s", tc.operation)
 	}
+}
+
+func Test_makePolicyContext_connectRefreshesResourceFromContext(t *testing.T) {
+	// Under CONNECT, an injected request.object must be reflected in
+	// NewResource(), matching CREATE. This guards the behavior so it holds even
+	// if the resource/context aliasing in makePolicyContext changes.
+	injected := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]interface{}{"name": "injected"},
+	}
+	res := unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]interface{}{"name": "original"},
+	}}
+	policyArray, _, _, _, _, _, _, _ := yamlutils.GetPolicy(policyNamespaceSelector)
+	assert.Assert(t, len(policyArray) > 0)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "CONNECT",
+			"request.object":    injected,
+		},
+	}
+	vars, err := variables.New(os.Stdout, nil, "", "", vals)
+	assert.NilError(t, err)
+	p := &PolicyProcessor{
+		Store:     &store.Store{},
+		Variables: vars,
+		Out:       os.Stdout,
+	}
+	pc, err := p.makePolicyContext(jp, cfg, res, policyArray[0], nil, schema.GroupVersionKind{Version: "v1", Kind: "Pod"}, "")
+	assert.NilError(t, err)
+	assert.Equal(t, kyvernov1.Connect, pc.Operation())
+	newResource := pc.NewResource()
+	assert.Equal(t, "injected", newResource.GetName(), "CONNECT should reflect injected request.object")
 }
