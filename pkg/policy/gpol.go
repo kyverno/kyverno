@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.GeneratingPolicy) error {
@@ -140,7 +139,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 				// RESTMapper does not support wildcard versions. Resolve all
 				// concrete versions for the given group/resource before processing.
 				if len(rule.APIVersions) == 1 && rule.APIVersions[0] == "*" {
-					gvks, err := pc.restMapper.KindsFor(
+					gvk, err := pc.restMapper.KindFor(
 						schema.GroupVersionResource{
 							Group:    group,
 							Resource: resource,
@@ -150,11 +149,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", resource)
 						continue
 					}
-					versionSet := sets.New[string]()
-					for _, gvk := range gvks {
-						versionSet.Insert(gvk.Version)
-					}
-					versions = sets.List(versionSet)
+					versions = []string{gvk.Version}
 				}
 				for _, version := range versions {
 					groupVersion := schema.GroupVersion{

@@ -51,24 +51,40 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 		{Group: "acm.services.k8s.aws", Version: "v1", Resource: "certificates"}:       "CertificateList",
 	}
 
-	cert1 := &unstructured.Unstructured{Object: map[string]interface{}{
+	certAV1alpha1 := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "acm.services.k8s.aws/v1alpha1",
 		"kind":       "Certificate",
 		"metadata": map[string]interface{}{
-			"name":      "cert-alpha",
+			"name":      "cert-a",
 			"namespace": "default",
 		},
 	}}
-	cert2 := &unstructured.Unstructured{Object: map[string]interface{}{
+	certAV1 := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "acm.services.k8s.aws/v1",
 		"kind":       "Certificate",
 		"metadata": map[string]interface{}{
-			"name":      "cert-stable",
+			"name":      "cert-a",
+			"namespace": "default",
+		},
+	}}
+	certBV1alpha1 := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "acm.services.k8s.aws/v1alpha1",
+		"kind":       "Certificate",
+		"metadata": map[string]interface{}{
+			"name":      "cert-b",
+			"namespace": "default",
+		},
+	}}
+	certBV1 := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "acm.services.k8s.aws/v1",
+		"kind":       "Certificate",
+		"metadata": map[string]interface{}{
+			"name":      "cert-b",
 			"namespace": "default",
 		},
 	}}
 
-	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, cert1, cert2)
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, certAV1alpha1, certAV1, certBV1alpha1, certBV1)
 	assert.NoError(t, err)
 
 	// The fake client does not configure discovery automatically.
@@ -109,16 +125,17 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 
 	triggers := pc.getGpolTriggers(match)
 
-	// both versions should resolve and both objects should be returned
+	// Wildcard must resolve to a single (preferred version) and list once,
+	// so each of the 2 distinct objects appears exactly once.
 	assert.Len(t, triggers, 2)
-	got := make([]string, 0, len(triggers))
-	for _, tr := range triggers {
-		got = append(got, tr.GetAPIVersion())
+
+	got := map[string]int{}
+	for _, trigger := range triggers {
+		got[trigger.GetName()]++
+		assert.Equal(t, "acm.services.k8s.aws/v1", trigger.GetAPIVersion())
 	}
-	assert.ElementsMatch(t, []string{
-		"acm.services.k8s.aws/v1alpha1",
-		"acm.services.k8s.aws/v1",
-	}, got)
+	assert.Equal(t, 1, got["cert-a"])
+	assert.Equal(t, 1, got["cert-b"])
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
