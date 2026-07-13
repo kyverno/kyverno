@@ -51,6 +51,24 @@ KYVERNO_VERSION=3.9.0 ssh root@<cluster-ip> 'bash -s' < docs/perf-testing/provis
 
 A load-testing workflow (`.github/workflows/tests-k6.yaml`) runs automated load tests as part of the release process against the `ClusterPolicy` (`kyverno.io/v1`) API. Results feed into the benchmarks published on the scaling page above.
 
+## Local Go Benchmarks
+
+The repository also includes targeted `go test -bench` coverage for a few representative hot paths. These benchmarks are intended to provide a fast local signal before running the larger external k6-based workflow.
+
+Run the initial benchmark suite with:
+
+```console
+go test ./pkg/admissionpolicy -run '^$' -bench BenchmarkCustomNamespaceListerList -benchmem
+go test ./pkg/cel/compiler -run '^$' -bench BenchmarkCompileValidation -benchmem
+go test ./pkg/engine/handlers/validation -run '^$' -bench BenchmarkValidateCELHandlerProcess -benchmem
+```
+
+Or run them together:
+
+```console
+go test ./pkg/admissionpolicy ./pkg/cel/compiler ./pkg/engine/handlers/validation -run '^$' -bench . -benchmem
+```
+
 ---
 
 ## Reports Controller Testing (legacy)
