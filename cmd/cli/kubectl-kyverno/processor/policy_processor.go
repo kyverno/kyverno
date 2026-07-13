@@ -49,8 +49,8 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
+	"go.yaml.in/yaml/v3"
 	"gomodules.xyz/jsonpatch/v2"
-	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -925,7 +925,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 }
 
 func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
-	yamlEncodedResource, err := yamlv2.Marshal(resource)
+	yamlEncodedResource, err := yaml.Marshal(resource)
 	if err != nil {
 		return fmt.Errorf("failed to marshal (%w)", err)
 	}
@@ -935,7 +935,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		patchedTarget, _, _ := ruleResponese.PatchedTarget()
 
 		if patchedTarget != nil {
-			yamlEncodedResource, err := yamlv2.Marshal(patchedTarget.Object)
+			yamlEncodedResource, err := yaml.Marshal(patchedTarget.Object)
 			if err != nil {
 				return fmt.Errorf("failed to marshal (%w)", err)
 			}

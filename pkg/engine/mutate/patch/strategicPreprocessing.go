@@ -39,7 +39,7 @@ func NewGlobalConditionError(err error) error {
 // 2> For Adding anchors remove anchor tags.
 
 // The whole yaml is structured as a pointer tree.
-// https://godoc.org/gopkg.in/yaml.v3#Node
+// https://godoc.org/go.yaml.in/yaml/v3#Node
 // A single Node contains Tag to identify it as MappingNode (map[string]interface{}), Sequence ([]interface{}), ScalarNode (string, int, float bool etc.)
 // A parent node having MappingNode keeps the data as <keyNode>, <ValueNode> inside it's Content field and Tag field as "!!map".
 // A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
