@@ -18,7 +18,7 @@ import (
 // live cluster's discovery API. It mimics how policyController builds
 // pc.restMapper in production, letting the test
 // register a resource under multiple concrete versions and exercise
-// KindsFor/KindFor exactly the way the real mapper would.
+// KindFor exactly the way the real mapper would.
 func newFakeRESTMapper(t *testing.T) *restmapper.APIGroupResources {
 	t.Helper()
 	return &restmapper.APIGroupResources{
