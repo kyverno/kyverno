@@ -12,6 +12,17 @@ const (
 	AnnotationApiVersion  = "io.kyverno.image.apiVersion"
 )
 
+func apiVersion(policy kyvernov1.PolicyInterface) string {
+	switch p := policy.(type) {
+	case *kyvernov1.Policy:
+		return p.APIVersion
+	case *kyvernov1.ClusterPolicy:
+		return p.APIVersion
+	default:
+		return ""
+	}
+}
+
 func Annotations(policy kyvernov1.PolicyInterface) map[string]string {
 	if policy == nil {
 		return nil
@@ -21,9 +32,8 @@ func Annotations(policy kyvernov1.PolicyInterface) map[string]string {
 		kind = "Policy"
 	}
 	return map[string]string{
-		AnnotationKind: kind,
-		AnnotationName: policy.GetName(),
-		// TODO: we need a way to get apiVersion
-		AnnotationApiVersion: "kyverno.io/v1",
+		AnnotationKind:       kind,
+		AnnotationName:       policy.GetName(),
+		AnnotationApiVersion: apiVersion(policy),
 	}
 }
