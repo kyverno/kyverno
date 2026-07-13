@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-service-registry
+spec:
+  rules:
+    - name: validate-allowed-registries
+      context:
+        - name: allowedRegistries
+          globalReference:
+            name: service-registry.allowedRegistries
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Audit
+        message: "Validation failed! The engine saw these allowed registries: {{ allowedRegistries }}"
+        deny:
+          conditions:
+            all:
+              - key: "{{ images.containers.*.registry }}"
+                operator: AnyNotIn
+                value: "{{ allowedRegistries }}"

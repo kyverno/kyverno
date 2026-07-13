@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -163,20 +164,47 @@ func (e *entry) listObjects() ([]interface{}, error) {
 }
 
 func (e *entry) recomputeProjections() {
-	list, err := e.listObjects()
-	if err != nil {
-		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-			APIVersion: e.gce.APIVersion,
-			Kind:       e.gce.Kind,
-			Name:       e.gce.Name,
-			Namespace:  e.gce.Namespace,
-			UID:        e.gce.UID,
-		}, err))
-		return
+	var name string
+	if e.gce.Spec.KubernetesResource != nil {
+		name = e.gce.Spec.KubernetesResource.Name
+	}
+	var data interface{}
+	if name != "" {
+		obj, err := e.getObject(e.gce.Spec.KubernetesResource.Namespace, name)
+		if err != nil {
+			e.projectedMu.Lock()
+			e.projected = make(map[string]interface{})
+			e.projectedMu.Unlock()
+			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+				APIVersion: e.gce.APIVersion,
+				Kind:       e.gce.Kind,
+				Name:       e.gce.Name,
+				Namespace:  e.gce.Namespace,
+				UID:        e.gce.UID,
+			}, err))
+			return
+		}
+		data = obj
+	} else {
+		list, err := e.listObjects()
+		if err != nil {
+			e.projectedMu.Lock()
+			e.projected = make(map[string]interface{})
+			e.projectedMu.Unlock()
+			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+				APIVersion: e.gce.APIVersion,
+				Kind:       e.gce.Kind,
+				Name:       e.gce.Name,
+				Namespace:  e.gce.Namespace,
+				UID:        e.gce.UID,
+			}, err))
+			return
+		}
+		data = list
 	}
 
 	for _, proj := range e.projections {
-		result, err := proj.JP.Search(list)
+		result, err := proj.JP.Search(data)
 		if err != nil {
 			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 				APIVersion: e.gce.APIVersion,
@@ -193,13 +221,58 @@ func (e *entry) recomputeProjections() {
 	}
 }
 
+func (e *entry) getObject(namespace, name string) (interface{}, error) {
+	var obj runtime.Object
+	var err error
+	if namespace != "" {
+		obj, err = e.lister.ByNamespace(namespace).Get(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get object %q in namespace %q: %w", name, namespace, err)
+		}
+	} else {
+		obj, err = e.lister.Get(name)
+		if err != nil {
+			// Fall back to scanning all namespaces
+			objs, listErr := e.lister.List(labels.Everything())
+			if listErr != nil {
+				return nil, fmt.Errorf("failed to list objects while looking up %q: %w", name, listErr)
+			}
+			var found map[string]interface{}
+			var foundNamespace string
+			for _, o := range objs {
+				u, ok := o.(*unstructured.Unstructured)
+				if !ok || u.GetName() != name {
+					continue
+				}
+				if found != nil {
+					return nil, fmt.Errorf("multiple objects named %q found across namespaces (%q and %q); set spec.kubernetesResource.namespace to disambiguate", name, foundNamespace, u.GetNamespace())
+				}
+				found = u.Object
+				foundNamespace = u.GetNamespace()
+			}
+			if found != nil {
+				return found, nil
+			}
+			return nil, fmt.Errorf("object %q not found: %w", name, err)
+		}
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u.Object, nil
+	}
+	return nil, fmt.Errorf("unexpected object type %T for %q (namespace %q)", obj, name, namespace)
+}
+
 func (e *entry) Get(projection string) (any, error) {
-	// If no projection specified, return all objects directly from lister
 	if projection == "" {
+		if e.gce.Spec.KubernetesResource != nil {
+			name := e.gce.Spec.KubernetesResource.Name
+			if name != "" {
+				return e.getObject(e.gce.Spec.KubernetesResource.Namespace, name)
+			}
+		}
 		return e.listObjects()
 	}
 
-	// Return pre-computed projection result
 	e.projectedMu.RLock()
 	defer e.projectedMu.RUnlock()
 

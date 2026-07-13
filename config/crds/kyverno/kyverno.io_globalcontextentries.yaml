@@ -160,6 +160,12 @@ spec:
                   group:
                     description: Group defines the group of the resource.
                     type: string
+                  name:
+                    description: |-
+                      Name defines the name of the resource. When specified, only that resource
+                      is returned as a single object instead of a list.
+                      Leave empty to return all cached resources of this type.
+                    type: string
                   namespace:
                     description: |-
                       Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
@@ -410,6 +416,12 @@ spec:
                 properties:
                   group:
                     description: Group defines the group of the resource.
+                    type: string
+                  name:
+                    description: |-
+                      Name defines the name of the resource. When specified, only that resource
+                      is returned as a single object instead of a list.
+                      Leave empty to return all cached resources of this type.
                     type: string
                   namespace:
                     description: |-
@@ -663,6 +675,12 @@ spec:
                 properties:
                   group:
                     description: Group defines the group of the resource.
+                    type: string
+                  name:
+                    description: |-
+                      Name defines the name of the resource. When specified, only that resource
+                      is returned as a single object instead of a list.
+                      Leave empty to return all cached resources of this type.
                     type: string
                   namespace:
                     description: |-
