@@ -206,6 +206,9 @@ func (e *entry) recomputeProjections() {
 	for _, proj := range e.projections {
 		result, err := proj.JP.Search(data)
 		if err != nil {
+			e.projectedMu.Lock()
+			delete(e.projected, proj.Name)
+			e.projectedMu.Unlock()
 			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 				APIVersion: e.gce.APIVersion,
 				Kind:       e.gce.Kind,
