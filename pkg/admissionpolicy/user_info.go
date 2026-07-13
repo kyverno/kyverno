@@ -35,14 +35,23 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 	}
 }
 
-// backgroundUsername identifies the reports controller when it evaluates ValidatingAdmissionPolicies
-// and MutatingAdmissionPolicies during background scans, where there is no admission user.
+// backgroundUsername is a sentinel used when a policy is evaluated with no admission user (for
+// example background scans of ValidatingAdmissionPolicies and MutatingAdmissionPolicies). It only
+// needs to be non-empty: authenticationv1.UserInfo.Username has the omitempty JSON tag, so an empty
+// value is dropped when the admission request is converted to the map the CEL engine reads, which
+// makes request.userInfo.username absent and fails any policy that references it.
 const backgroundUsername = "system:serviceaccount:kyverno:kyverno-background-controller"
 
-// NewBackgroundUser returns a user for background evaluation with a non-empty username. The username
-// must be non-empty because authenticationv1.UserInfo.Username has the omitempty JSON tag, so an
-// empty value is dropped when the admission request is converted to the map the CEL engine reads.
-// A missing username makes request.userInfo.username absent and fails any policy that references it.
-func NewBackgroundUser() UserInfo {
-	return NewUser(authenticationv1.UserInfo{Username: backgroundUsername})
+// ResolveUser returns a UserInfo for CEL evaluation. It keeps every field of the provided userInfo
+// and only fills in the sentinel username when none is set, so request.userInfo.username is always
+// present while any supplied username, groups, uid or extra are preserved.
+func ResolveUser(userInfo *authenticationv1.UserInfo) UserInfo {
+	u := authenticationv1.UserInfo{}
+	if userInfo != nil {
+		u = *userInfo
+	}
+	if u.Username == "" {
+		u.Username = backgroundUsername
+	}
+	return NewUser(u)
 }

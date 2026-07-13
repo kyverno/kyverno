@@ -159,10 +159,7 @@ func Validate(
 			},
 		}
 	}
-	user := NewBackgroundUser()
-	if userInfo != nil && userInfo.Username != "" {
-		user = NewUser(*userInfo)
-	}
+	user := ResolveUser(userInfo)
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
 	if len(bindings) == 0 {

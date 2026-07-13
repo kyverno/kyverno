@@ -89,6 +89,21 @@ func TestMutate_BackgroundScan_UserInfoUsernameIsAvailable(t *testing.T) {
 	assert.Assert(t, !hasUserInfoError(err, resp), "request.userInfo.username must be available for MAP background scan")
 }
 
+func TestResolveUser_PreservesProvidedFieldsWhenUsernameEmpty(t *testing.T) {
+	// A caller may supply groups/uid/extra without a username (the CLI accepts a userInfo with
+	// only groups). Those fields must be kept; only the username is defaulted.
+	provided := &authenticationv1.UserInfo{
+		Groups: []string{"system:masters"},
+		UID:    "uid-1",
+		Extra:  map[string]authenticationv1.ExtraValue{"scopes": {"a"}},
+	}
+	u := ResolveUser(provided)
+	assert.Assert(t, u.GetName() != "", "username must be defaulted")
+	assert.DeepEqual(t, []string{"system:masters"}, u.GetGroups())
+	assert.Equal(t, "uid-1", u.GetUID())
+	assert.DeepEqual(t, []string{"a"}, u.GetExtra()["scopes"])
+}
+
 func TestValidate_RealUserInfoIsPreserved(t *testing.T) {
 	resource, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion": "v1", "kind": "Node", "metadata": {"name": "node-1"}}`))
 	assert.NilError(t, err)
