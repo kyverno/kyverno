@@ -25,8 +25,8 @@ func newFakeRESTMapper(t *testing.T) *restmapper.APIGroupResources {
 		Group: metav1.APIGroup{
 			Name: "acm.services.k8s.aws",
 			Versions: []metav1.GroupVersionForDiscovery{
-				{GroupVersion: "acm.services.k8s.aws/v1alpha1",Version: "v1alpha1"},
-				{GroupVersion: "acm.services.k8s.aws/v1",Version: "v1"},
+				{GroupVersion: "acm.services.k8s.aws/v1alpha1", Version: "v1alpha1"},
+				{GroupVersion: "acm.services.k8s.aws/v1", Version: "v1"},
 			},
 			PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "acm.services.k8s.aws/v1", Version: "v1"},
 		},
