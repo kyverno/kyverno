@@ -40,7 +40,8 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 // needs to be non-empty: authenticationv1.UserInfo.Username has the omitempty JSON tag, so an empty
 // value is dropped when the admission request is converted to the map the CEL engine reads, which
 // makes request.userInfo.username absent and fails any policy that references it. It is deliberately
-// not a real serviceaccount username so it cannot match a principal a policy allowlists or denies.
+// not a valid serviceaccount username (no system:serviceaccount: prefix) so it does not collide with
+// policies that allowlist or deny real service accounts.
 const backgroundUsername = "system:kyverno:background-scan"
 
 // ResolveUser returns a UserInfo for CEL evaluation. It keeps every field of the provided userInfo
