@@ -34,3 +34,15 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 		userInfo: userInfo,
 	}
 }
+
+// backgroundUsername identifies the reports controller when it evaluates ValidatingAdmissionPolicies
+// and MutatingAdmissionPolicies during background scans, where there is no admission user.
+const backgroundUsername = "system:serviceaccount:kyverno:kyverno-background-controller"
+
+// NewBackgroundUser returns a user for background evaluation with a non-empty username. The username
+// must be non-empty because authenticationv1.UserInfo.Username has the omitempty JSON tag, so an
+// empty value is dropped when the admission request is converted to the map the CEL engine reads.
+// A missing username makes request.userInfo.username absent and fails any policy that references it.
+func NewBackgroundUser() UserInfo {
+	return NewUser(authenticationv1.UserInfo{Username: backgroundUsername})
+}

@@ -62,8 +62,8 @@ func Mutate(
 			},
 		}
 	}
-	var user UserInfo
-	if userInfo != nil {
+	user := NewBackgroundUser()
+	if userInfo != nil && userInfo.Username != "" {
 		user = NewUser(*userInfo)
 	}
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
