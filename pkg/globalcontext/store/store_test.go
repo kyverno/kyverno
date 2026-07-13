@@ -265,7 +265,7 @@ func TestStore_Set_RejectsWhenAtCapacity(t *testing.T) {
 	rejected := newMockEntry(nil)
 	err := s.Set("d", rejected)
 	assert.Error(t, err, "Set should reject when the store is at capacity")
-	assert.True(t, errors.Is(err, ErrStoreFull), "error should wrap ErrStoreFull")
+	assert.True(t, errors.Is(err, ErrStoreFull), "error should be ErrStoreFull")
 
 	_, exists := s.Get("d")
 	assert.False(t, exists, "rejected entry should not be stored")

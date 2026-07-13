@@ -2,6 +2,7 @@ package globalcontext
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,9 +29,10 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 1
-	ControllerName = "global-context"
-	maxRetries     = 10
+	Workers                  = 1
+	ControllerName           = "global-context"
+	maxRetries               = 10
+	storeFullRequeueInterval = time.Minute
 )
 
 type controller struct {
@@ -136,7 +138,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	return c.store.Set(name, entry)
+	if err := c.store.Set(name, entry); err != nil {
+		entry.Stop()
+		if errors.Is(err, store.ErrStoreFull) {
+			logger.V(3).Info("global context store is full, requeueing after delay", "key", key)
+			c.queue.AddAfter(key, storeFullRequeueInterval)
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *controller) getEntry(name string) (*kyvernov2beta1.GlobalContextEntry, error) {
