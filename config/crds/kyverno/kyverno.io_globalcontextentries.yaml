@@ -682,6 +682,7 @@ spec:
                     description: |-
                       Name defines the name of the resource. When specified, only that resource
                       is returned as a single object instead of a list.
+                      For namespaced resources, set Namespace when using Name to avoid ambiguous lookups.
                       Leave empty to return all cached resources of this type.
                     type: string
                   namespace:
