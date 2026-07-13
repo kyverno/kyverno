@@ -196,6 +196,45 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	}
 }
 
+func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("test-policy")
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+
+	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "policy evaluated successfully", nil)
+	assert.Empty(t, rule.GeneratedResources())
+
+	response := engineapi.NewEngineResponse(
+		resource,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	testResult := v1alpha1.TestResult{
+		TestResultBase: v1alpha1.TestResultBase{
+			Policy: "test-policy",
+			Rule:   "test-rule",
+			Result: openreportsv1alpha1.Result(openreports.StatusPass),
+		},
+	}
+
+	ok, _, reason := checkRuleResultOnly(testResult, response, rule)
+	assert.True(t, ok)
+	assert.Equal(t, "Ok", reason)
+}
+
 func TestResultCountsOnMismatch(t *testing.T) {
 	color.Init(true)
 
