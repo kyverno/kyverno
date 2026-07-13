@@ -7,10 +7,15 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	libs "github.com/kyverno/kyverno/pkg/cel/libs"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,7 +28,7 @@ func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.Ge
 	if len(downstreams) == 0 {
 		// create a UR to restore the dynamic watcher cache in case backgound controller is restarted
 		pc.log.V(4).Info("no downstream resources found for generating policy, creating UR to restore dynamic watcher cache")
-		triggers := pc.getGpolTriggers(gpol.Spec.MatchConstraints)
+		triggers := pc.getGpolTriggers(gpol)
 		for _, trigger := range triggers {
 			addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger), false, true)
 		}
@@ -60,7 +65,7 @@ func (pc *policyController) handleGenerateExisting(gpol *policiesv1beta1.Generat
 	var triggers []*unstructured.Unstructured
 
 	ur := newGenerateUR(engineapi.NewGeneratingPolicy(gpol))
-	triggers = pc.getGpolTriggers(gpol.Spec.MatchConstraints)
+	triggers = pc.getGpolTriggers(gpol)
 	for _, trigger := range triggers {
 		addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger), false, false)
 	}
@@ -81,10 +86,17 @@ func (pc *policyController) handleGenerateExisting(gpol *policiesv1beta1.Generat
 	return nil
 }
 
-func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []*unstructured.Unstructured {
+func (pc *policyController) getGpolTriggers(gpol *policiesv1beta1.GeneratingPolicy) []*unstructured.Unstructured {
 	var triggers []*unstructured.Unstructured
+	match := gpol.Spec.MatchConstraints
 	objectSelector := match.ObjectSelector
 	nsSelector := match.NamespaceSelector
+
+	var celPolicy gpolengine.Policy
+	var celFetchErr error
+	if pc.gpolEngine != nil && pc.gpolProvider != nil {
+		celPolicy, celFetchErr = pc.gpolProvider.Get(context.TODO(), gpol.GetName())
+	}
 
 	for _, rule := range match.ResourceRules {
 		for _, group := range rule.APIGroups {
@@ -108,6 +120,38 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					for i, res := range resources.Items {
 						if !pc.triggerMatches(res, gvr, rule.ResourceNames, match.ExcludeResourceRules, nsSelector) {
 							continue
+						}
+						if pc.gpolEngine != nil && pc.gpolProvider != nil && celFetchErr == nil {
+							workerCtx := libs.GetLibsCtx().Clone()
+							request := celengine.Request(
+								workerCtx,
+								res.GroupVersionKind(),
+								gvr,
+								"",
+								res.GetName(),
+								res.GetNamespace(),
+								admissionv1.Create,
+								authenticationv1.UserInfo{},
+								&res,
+								nil,
+								false,
+								nil,
+							)
+							gpolResponse, err := pc.gpolEngine.Handle(request, celPolicy, false)
+							if err != nil {
+								pc.log.Error(err, "failed to execute CEL engine match pre-check", "policy", gpol.GetName(), "trigger", res.GetName())
+								continue
+							}
+							matched := false
+							for _, resGpol := range gpolResponse.Policies {
+								if resGpol.Result != nil && resGpol.Result.Status() == engineapi.RuleStatusPass {
+									matched = true
+									break
+								}
+							}
+							if !matched {
+								continue
+							}
 						}
 						triggers = append(triggers, &resources.Items[i])
 					}
