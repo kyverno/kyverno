@@ -13,6 +13,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -205,6 +206,39 @@ func TestHandle(t *testing.T) {
 		assert.NotNil(t, resp)
 	})
 
+	t.Run("NamespacedGeneratingPolicy rejects namespace arg at compile time", func(t *testing.T) {
+		ngpol := &v1beta1.NamespacedGeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cross-ns-escalate",
+				Namespace: "tenant-ns",
+			},
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("kube-system", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap")}])`,
+					},
+				},
+			},
+		}
+		comp := compiler.NewCompiler()
+		_, errList := comp.Compile(ngpol, nil)
+		assert.NotNil(t, errList, "namespace arg must be rejected at compile time for namespaced policies")
+	})
+
 	t.Run("should evaluate compiled policy with variable expressions and policy exceptions", func(t *testing.T) {
 		obj.SetNamespace("default")
 		gpol := &v1beta1.GeneratingPolicy{
@@ -254,5 +288,34 @@ func TestHandle(t *testing.T) {
 		resp, err := eng.Handle(req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("should surface audit annotations as rule response properties", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "triggeredBy",
+						ValueExpression: "'ns/' + object.metadata.namespace",
+					},
+				},
+			},
+		}
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Nil(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+		eng := NewEngine(nsResolver, nil)
+		resp, err := eng.Handle(req, pol, false)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		result := resp.Policies[0].Result
+		assert.NotNil(t, result)
+		// Audit annotations are always surfaced on successful evaluation
+		assert.Equal(t, "ns/default", result.Properties()["triggeredBy"])
 	})
 }
