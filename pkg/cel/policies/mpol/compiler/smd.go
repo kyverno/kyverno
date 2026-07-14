@@ -9,20 +9,9 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
 )
 
-// applyStructuredMergeDiff applies an ApplyConfiguration patch onto the original object
-// using structured merge, the same way the upstream apiserver does for
-// MutatingAdmissionPolicy (k8s.io/apiserver .../plugin/policy/mutating/patch.ApplyStructuredMergeDiff),
-// with one deliberate difference: it does not run the upstream validatePatch guard that
-// rejects any atomic array/map/struct present in the patch.
-//
-// The upstream guard exists to stop a caller from accidentally dropping unset fields when
-// they only mean to change part of an atomic value. But it blocks legitimate mutations that
-// plain Server-Side Apply already allows, for example adding an init container with args,
-// an env var with valueFrom.fieldRef, or a projected volume (issue #15094). Users hit this
-// migrating ClusterPolicy mutate rules to MutatingPolicy, and `kubectl apply --server-side`
-// applies the exact same configuration without complaint. Kyverno mutations are authored by
-// cluster administrators as declarative desired state, so we match SSA semantics here rather
-// than the stricter MutatingAdmissionPolicy guard.
+// applyStructuredMergeDiff is a modified version of the upstream apiserver function
+// patch.ApplyStructuredMergeDiff that allows modifications to atomic fields, by dropping the
+// validatePatch guard. See https://github.com/kyverno/kyverno/issues/15094.
 func applyStructuredMergeDiff(
 	typeConverter managedfields.TypeConverter,
 	originalObject runtime.Object,

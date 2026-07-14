@@ -16,11 +16,15 @@ var applyConfigObjectType = celtypes.NewObjectType("Object")
 
 type applyConfigPatcher struct {
 	prog cel.Program
+	// useServerSideApply routes the merge through the local guard-free implementation when set,
+	// allowing atomic fields to be mutated. When false the upstream guarded implementation is used.
+	useServerSideApply bool
 }
 
-func newApplyConfigPatcher(prog cel.Program) Patcher {
+func newApplyConfigPatcher(prog cel.Program, useServerSideApply bool) Patcher {
 	return &applyConfigPatcher{
-		prog: prog,
+		prog:               prog,
+		useServerSideApply: useServerSideApply,
 	}
 }
 
@@ -49,10 +53,12 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any,
 
 	patchObject := unstructured.Unstructured{Object: value}
 	patchObject.SetGroupVersionKind(patchRequest.VersionedAttributes.VersionedObject.GetObjectKind().GroupVersionKind())
-	// applyStructuredMergeDiff mirrors upstream patch.ApplyStructuredMergeDiff but without the
-	// atomic-field guard, so ApplyConfiguration can set atomic arrays, maps, and structs (args,
-	// fieldRef, projected volumes) the same way Server-Side Apply does. See smd.go and issue #15094.
-	patched, err := applyStructuredMergeDiff(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
+
+	mergeFn := patch.ApplyStructuredMergeDiff
+	if a.useServerSideApply {
+		mergeFn = applyStructuredMergeDiff
+	}
+	patched, err := mergeFn(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
 	if err != nil {
 		return nil, fmt.Errorf("error applying patch: %w", err)
 	}

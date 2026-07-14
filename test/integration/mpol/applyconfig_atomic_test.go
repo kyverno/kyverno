@@ -19,21 +19,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// These tests cover issue #15094: a MutatingPolicy using ApplyConfiguration to set a
-// field that is an ATOMIC list/struct in the schema (initContainers[].args,
-// env[].valueFrom.fieldRef, projected volume sources) was rejected with
-// "invalid ApplyConfiguration: may not mutate atomic arrays, maps or structs".
-// Plain Server-Side Apply (kubectl apply --server-side) applies these fine
-// (ChristianCiach confirmed on the issue), so Kyverno's ApplyConfiguration should too.
-//
-// Each policy mirrors a real reporter on #15094. Each drives the real mpol handler +
-// engine against the envtest apiserver's live pod OpenAPI schema (the same schema
-// source native MutatingAdmissionPolicy uses), so it reproduces the admission-time
-// behavior faithfully.
+// These tests cover issue #15094: a MutatingPolicy using ApplyConfiguration to set an atomic
+// field (initContainers[].args, env[].valueFrom.fieldRef, projected volume sources) is rejected
+// with "may not mutate atomic arrays, maps or structs" under the default behaviour, and is
+// allowed when the policy opts into Server-Side Apply semantics via evaluation.useServerSideApply.
+// Each test drives the real mpol handler against the envtest apiserver's live OpenAPI schema.
 
 // applyConfigPolicy builds a MutatingPolicy whose single mutation is the given ApplyConfiguration
-// expression, matched on annotated pods.
-func applyConfigPolicy(name, expression string) *policiesv1beta1.MutatingPolicy {
+// expression, matched on annotated pods. useServerSideApply toggles the opt-in.
+func applyConfigPolicy(name, expression string, useServerSideApply bool) *policiesv1beta1.MutatingPolicy {
 	return &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -42,6 +36,9 @@ func applyConfigPolicy(name, expression string) *policiesv1beta1.MutatingPolicy 
 				Name:       "opt-in",
 				Expression: "object.metadata.annotations['inject'] == 'enabled'",
 			}},
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				UseServerSideApply: useServerSideApply,
+			},
 			Mutations: []admissionregistrationv1alpha1.Mutation{{
 				PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
 				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{Expression: expression},
@@ -49,6 +46,19 @@ func applyConfigPolicy(name, expression string) *policiesv1beta1.MutatingPolicy 
 		},
 	}
 }
+
+const sidecarArgsExpression = `Object{
+	spec: Object.spec{
+		initContainers: [
+			Object.spec.initContainers{
+				name: "mesh-proxy",
+				image: "mesh/proxy:v1.0.0",
+				args: ["proxy", "sidecar"],
+				restartPolicy: "Always"
+			}
+		]
+	}
+}`
 
 func mutateAnnotatedPod(t *testing.T, policyName, podName string) (allowed bool, patched bool, patchBytes []byte) {
 	t.Helper()
@@ -67,29 +77,29 @@ func mutateAnnotatedPod(t *testing.T, policyName, podName string) (allowed bool,
 	return resp.Allowed, resp.Patch != nil, resp.Patch
 }
 
-// Korel (issue author): inject a sidecar initContainer with args (atomic []string).
+// Inject a sidecar initContainer with args (an atomic []string) with the opt-in enabled.
 func TestMutate_ApplyConfiguration_InjectsSidecarInitContainerWithArgs(t *testing.T) {
-	createPolicyWithCleanup(t, applyConfigPolicy("sidecar-args", `Object{
-		spec: Object.spec{
-			initContainers: [
-				Object.spec.initContainers{
-					name: "mesh-proxy",
-					image: "mesh/proxy:v1.0.0",
-					args: ["proxy", "sidecar"],
-					restartPolicy: "Always"
-				}
-			]
-		}
-	}`))
+	createPolicyWithCleanup(t, applyConfigPolicy("sidecar-args", sidecarArgsExpression, true))
 	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "sidecar-args", "pod-args")
-	assert.True(t, allowed, "#15094: injecting initContainer args must be allowed (SSA allows it)")
+	assert.True(t, allowed, "#15094: injecting initContainer args must be allowed when useServerSideApply is set")
 	require.True(t, patched, "#15094: mutation must produce a patch, got none (atomic args rejection)")
 	require.NotNil(t, findPatch(decodePatches(t, patch), "/spec/initContainers"), "sidecar initContainer must be injected")
 }
 
-// asiyani: inject an env var whose valueFrom.fieldRef is an atomic struct (ObjectFieldSelector).
+// Default behaviour (useServerSideApply not set) keeps the upstream atomic guard, matching a
+// native MutatingAdmissionPolicy: the same atomic mutation is rejected and no patch is produced.
+func TestMutate_ApplyConfiguration_DefaultRejectsAtomic(t *testing.T) {
+	createPolicyWithCleanup(t, applyConfigPolicy("sidecar-args-default", sidecarArgsExpression, false))
+	waitForPolicyReady(t, 1)
+
+	allowed, patched, _ := mutateAnnotatedPod(t, "sidecar-args-default", "pod-args-default")
+	assert.False(t, allowed, "default: atomic args mutation must be rejected (no opt-in)")
+	assert.False(t, patched, "default: no patch should be produced when the atomic guard rejects")
+}
+
+// Inject an env var whose valueFrom.fieldRef is an atomic struct (ObjectFieldSelector).
 func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 	createPolicyWithCleanup(t, applyConfigPolicy("env-fieldref", `Object{
 		spec: Object.spec{
@@ -108,7 +118,7 @@ func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 				]
 			})
 		}
-	}`))
+	}`, true))
 	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "env-fieldref", "pod-env")
@@ -117,7 +127,7 @@ func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 	assert.Contains(t, string(patch), "POD_NAME", "the patch must actually inject the POD_NAME env var, not some unrelated change")
 }
 
-// anders-elastisys: inject a projected volume whose downwardAPI items carry an atomic fieldRef struct.
+// Inject a projected volume whose downwardAPI items carry an atomic fieldRef struct.
 func TestMutate_ApplyConfiguration_InjectsProjectedVolumeWithFieldRef(t *testing.T) {
 	createPolicyWithCleanup(t, applyConfigPolicy("projected-volume", `Object{
 		spec: Object.spec{
@@ -143,7 +153,7 @@ func TestMutate_ApplyConfiguration_InjectsProjectedVolumeWithFieldRef(t *testing
 				}
 			]
 		}
-	}`))
+	}`, true))
 	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "projected-volume", "pod-vol")
