@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"

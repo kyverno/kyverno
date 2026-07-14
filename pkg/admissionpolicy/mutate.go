@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	celutils "github.com/kyverno/sdk/cel/utils"
+	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -62,10 +62,7 @@ func Mutate(
 			},
 		}
 	}
-	var user UserInfo
-	if userInfo != nil {
-		user = NewUser(*userInfo)
-	}
+	user := ResolveUser(userInfo)
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
 	if len(bindings) == 0 {

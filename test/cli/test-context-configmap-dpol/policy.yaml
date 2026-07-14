@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: delete-via-env
+spec:
+  conditions:
+  - name: envValueCheck
+    expression: >-
+      type(resource.get("v1", "configmaps", "test-namespace", "env-config")) != type(null)
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      resources: ["deployments"]
+  schedule: '*/1 * * * *'

@@ -84,6 +84,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	if config.UsesCosign() {
 		setupSigstoreTUF(ctx, logger)
+		setupCosignLogging()
 	}
 	var leaderElectionClient kubeclient.UpstreamInterface
 	if config.UsesLeaderElection() {

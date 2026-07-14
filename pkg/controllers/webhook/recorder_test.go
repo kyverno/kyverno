@@ -7,6 +7,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestBuildRecorderKey_NamespacedMutatingPolicy(t *testing.T) {
+	t.Parallel()
+	key := BuildRecorderKey(NamespacedMutatingPolicyType, "my-policy", "my-namespace")
+	assert.Equal(t, "NamespacedMutatingPolicy/my-policy+my-namespace", key)
+}
+
+func TestBuildRecorderKey_ParseRoundTrip(t *testing.T) {
+	t.Parallel()
+	key := BuildRecorderKey(NamespacedMutatingPolicyType, "my-policy", "my-namespace")
+	polType, name, namespace := ParseRecorderKey(key)
+	assert.Equal(t, NamespacedMutatingPolicyType, polType)
+	assert.Equal(t, "my-policy", name)
+	assert.Equal(t, "my-namespace", namespace)
+}
+
 // TestRecordDoesNotBlockOtherMethods verifies that Ready and Reset do not
 // deadlock when Record is blocking on channel send. This is a regression test
 // for a bug where Record held the mutex while doing a blocking channel send.

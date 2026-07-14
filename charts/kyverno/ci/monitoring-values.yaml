@@ -29,3 +29,21 @@ reportsController:
 
 grafana:
   enabled: true
+
+prometheusRule:
+  enabled: true
+  additionalLabels:
+    release: prometheus
+  spec:
+    - name: kyverno.admission
+      rules:
+        - alert: KyvernoAdmissionHighLatency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(kyverno_admission_review_duration_seconds_bucket[5m])) by (le)
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kyverno admission review p99 latency is elevated

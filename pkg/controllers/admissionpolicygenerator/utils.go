@@ -118,6 +118,9 @@ func (c *controller) getCELExceptions(policyName string) ([]policiesv1beta1.Poli
 		return nil, err
 	}
 	for _, polex := range polexs {
+		if polex.IsExpired() {
+			continue
+		}
 		for _, policy := range polex.Spec.PolicyRefs {
 			if policy.Name == policyName {
 				exceptions = append(exceptions, *polex)

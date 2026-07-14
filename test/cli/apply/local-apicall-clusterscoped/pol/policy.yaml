@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-serviceaccount-approved
+  annotations:
+    policies.kyverno.io/title: Check ServiceAccount Is Approved
+    policies.kyverno.io/description: >-
+      Validates that the ServiceAccount a Deployment uses carries an
+      "approved: yes" label. The ServiceAccount name is read directly
+      from spec.template.spec.serviceAccountName.
+      Tests cross-resource GET apiCall resolution against local resources.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: serviceaccount-must-be-approved
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      context:
+        - name: sa_approved
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.object.metadata.namespace}}/serviceaccounts/{{request.object.spec.template.spec.serviceAccountName}}"
+            jmesPath: "metadata.labels.approved"
+      validate:
+        message: >-
+          Deployment {{ request.object.metadata.name }} uses ServiceAccount
+          {{ request.object.spec.template.spec.serviceAccountName }} which is
+          not approved (label approved must equal "yes").
+        deny:
+          conditions:
+            any:
+            - key: "{{ sa_approved }}"
+              operator: NotEquals
+              value: "yes"

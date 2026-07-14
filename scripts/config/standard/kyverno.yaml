@@ -43,6 +43,8 @@ backgroundController:
             - secrets
             - roles
             - rolebindings
+            - clusterroles
+            - clusterrolebindings
             - limitranges
             - namespaces
             - nodes
