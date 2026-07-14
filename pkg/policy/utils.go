@@ -61,6 +61,12 @@ func castPolicy(p interface{}) engineapi.GenericPolicy {
 		policy = engineapi.NewKyvernoPolicy(obj)
 	case *policiesv1beta1.GeneratingPolicy:
 		policy = engineapi.NewGeneratingPolicy(obj)
+	case *policiesv1beta1.NamespacedGeneratingPolicy:
+		policy = engineapi.NewNamespacedGeneratingPolicy(obj)
+	case *policiesv1beta1.MutatingPolicy:
+		policy = engineapi.NewMutatingPolicy(obj)
+	case *policiesv1beta1.NamespacedMutatingPolicy:
+		policy = engineapi.NewNamespacedMutatingPolicy(obj)
 	}
 	return policy
 }

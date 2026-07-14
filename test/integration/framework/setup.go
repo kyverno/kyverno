@@ -27,9 +27,19 @@ type TestEnv struct {
 	Client          client.Client
 	KubeClient      kubernetes.Interface
 	KyvernoClient   kyvernoclient.Interface
+	DClient         dclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
-	cancel          context.CancelFunc
+
+	// Per-policy-type setups, populated when the corresponding type is requested
+	// via NewTestEnvWithOptions. Nil for types that were not requested.
+	Vpol *VpolSetup
+	Mpol *MpolSetup
+	Gpol *GpolSetup
+	Dpol *DpolSetup
+
+	cancel    context.CancelFunc
+	optCancel context.CancelFunc
 }
 
 // NewTestEnv creates an envtest environment with Kyverno CEL policy CRDs installed.
@@ -109,6 +119,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
 		KyvernoClient:   kyvernoClient,
+		DClient:         dc,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil
@@ -136,6 +147,9 @@ func (te *TestEnv) Start() error {
 func (te *TestEnv) Stop() {
 	if te.cancel != nil {
 		te.cancel()
+	}
+	if te.optCancel != nil {
+		te.optCancel()
 	}
 	_ = te.Env.Stop()
 }

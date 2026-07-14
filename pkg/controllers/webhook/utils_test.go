@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -883,6 +886,110 @@ func TestSortedRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := sortedRules(tc.input)
 			assert.Equal(t, tc.expectedRules, result)
+		})
+	}
+}
+
+func TestIvpolsNeedingMutation(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name          string
+		ivpols        []engineapi.GenericPolicy
+		expectedCount int
+	}{
+		{
+			name:          "empty input",
+			ivpols:        []engineapi.GenericPolicy{},
+			expectedCount: 0,
+		},
+		{
+			name: "nil MutateDigest and nil VerifyDigest default to true -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: nil,
+							VerifyDigest: nil,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "MutateDigest true -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &trueVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "VerifyDigest true -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &trueVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			// Core regression: test C from the issue -- both false means no mutating
+			// webhook should be registered.
+			name: "both false -- does not need mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "mixed -- only policies needing mutation are kept",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &trueVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ivpolsNeedingMutation(tt.ivpols)
+			assert.Equal(t, tt.expectedCount, len(got))
 		})
 	}
 }

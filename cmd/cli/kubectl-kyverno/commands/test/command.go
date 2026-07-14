@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -223,7 +224,7 @@ func checkResult(
 			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
-	if test.GeneratedResource != "" {
+	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
 		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
 		if err != nil {
 			return false, err.Error(), "Resource error"
@@ -237,12 +238,58 @@ func checkResult(
 			}
 			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
+	} else if len(test.GeneratedResources) > 0 {
+		matched := false
+		var lastDiff string
+		var lastErr error
+		for _, expectedRes := range test.GeneratedResources {
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if equals {
+				matched = true
+				break
+			}
+			lastDiff = diff
+		}
+		if !matched {
+			if lastDiff == "" && lastErr != nil {
+				return false, lastErr.Error(), "Resource error"
+			}
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				lastDiff = StripANSI(lastDiff)
+			}
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+		}
 	}
+	return compareExpectedRuleResult(expected, response, rule)
+}
+
+func compareExpectedRuleResult(
+	expected openreportsv1alpha1.Result,
+	response engineapi.EngineResponse,
+	rule engineapi.RuleResponse,
+) (bool, string, string) {
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
+}
+
+// checkRuleResultOnly validates the expected test result against the computed policy
+// report result without comparing resource manifests. Use this for Generation rules
+// that produced no generated resources (for example a CEL evaluation error, or a
+// pass due to policy exceptions with nothing generated): passing the trigger resource
+// into checkResult would compare it against generatedResource and fail with a
+// misleading resource diff instead of the status mismatch.
+func checkRuleResultOnly(test v1alpha1.TestResult, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+	return compareExpectedRuleResult(test.Result, response, rule)
 }
 
 func isRulelessPolicyKind(kind string) bool {

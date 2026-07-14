@@ -3,7 +3,7 @@ package compiler
 import (
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 )
 
 type MatchImageReference interface {

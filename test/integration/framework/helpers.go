@@ -164,9 +164,19 @@ func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissi
 }
 
 // CreateNamespace creates a namespace in the envtest cluster and registers cleanup.
+// Explicitly sets the well-known "kubernetes.io/metadata.name" label because envtest
+// does not always inject it (kube-controller-manager is not running), which breaks
+// any policy that relies on NamespaceSelector matching by namespace name.
 func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string) {
 	t.Helper()
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"kubernetes.io/metadata.name": name,
+			},
+		},
+	}
 	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("failed to create namespace %s: %v", name, err)
@@ -212,4 +222,20 @@ func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation,
 		req.Object = runtime.RawExtension{Raw: raw}
 	}
 	return req
+}
+
+// NamespaceAdmissionRequest builds a CREATE admission request for a cluster-scoped Namespace.
+// Mirrors the shape of PodAdmissionRequest for use as a trigger in gpol sync-clone tests.
+func NamespaceAdmissionRequest(name string, raw []byte) handlers.AdmissionRequest {
+	return handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID(uuid.New().String()),
+			Operation: admissionv1.Create,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			Name:      name,
+			Object:    runtime.RawExtension{Raw: raw},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
 }

@@ -275,6 +275,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
+| crds.migration.extraArgs | object | `{}` | Additional CLI flags passed to the migration job |
 | crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedgeneratingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
 | crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
@@ -626,6 +627,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.rbac.serviceAccount.projectedServiceAccountToken | object | `{"audience":"","expirationSeconds":3600}` | Projected service account token configuration (only used when automountServiceAccountToken is false) |
 | cleanupController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
 | cleanupController.rbac.serviceAccount.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
+| cleanupController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 Only used when createSelfSignedCert is false (Kyverno-managed certificates). |
@@ -914,6 +916,11 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
+| prometheusRule.enabled | bool | `false` | Enable PrometheusRule resource creation. Requires prometheus-operator (monitoring.coreos.com/v1 CRD) to be installed — the same prerequisite as serviceMonitor.enabled. The resource is only created when `enabled: true` and `spec` is non-empty. |
+| prometheusRule.namespace | string | `nil` | Namespace to create the PrometheusRule in. If not set, it will be created in the same namespace as the chart. |
+| prometheusRule.additionalAnnotations | object | `{}` | Additional annotations to add to the PrometheusRule. |
+| prometheusRule.additionalLabels | object | `{}` | Additional labels to add to the PrometheusRule. Must match the `ruleSelector` configured on your Prometheus instance (e.g. `release: prometheus` for kube-prometheus-stack). |
+| prometheusRule.spec | list | `[]` | Alert rule groups. Provide your own rules here; the examples below use Kyverno's histogram metrics and can serve as starting points. Thresholds MUST be tuned to your environment's measured baseline — see https://kyverno.io/docs/guides/monitoring/#alerting for guidance. |
 
 ## TLS Configuration
 

@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: deny-root-ca-enabled
+spec:
+  evaluation:
+    mode: JSON
+  matchConditions:
+  - expression: "object.resource_changes.exists(rc, rc.type == 'aws_acmpca_certificate_authority')"
+    name: has-acmpca-resources
+  validations:
+  - expression: "variables.acmpcaResources.all(rc, rc.change.after.?type.orValue('SUBORDINATE') != 'ROOT' || rc.change.after.?enabled.orValue(true) == false)"
+    message: "Root Certificate Authorities must not be enabled."
+  variables:
+  - expression: "object.resource_changes.filter(rc, rc.type == 'aws_acmpca_certificate_authority' && rc.change.actions.exists(a, a == 'create' || a == 'update'))"
+    name: acmpcaResources
