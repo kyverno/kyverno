@@ -1050,12 +1050,12 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 				if spec.CustomWebhookMatchConditions() {
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-						fineGrainedIgnore.namespaceSelector = mergeLabelSelectors(p.GetMatchConstraints().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
-						ready = c.mergeWebhook(fineGrainedIgnore, p, false)
-						fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
-					} else {
-						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-						fineGrainedFail.namespaceSelector = mergeLabelSelectors(p.GetMatchConstraints().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
+					fineGrainedIgnore.namespaceSelector = cfg.GetWebhook().NamespaceSelector
+					ready = c.mergeWebhook(fineGrainedIgnore, p, false)
+					fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
+				} else {
+					fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
+					fineGrainedFail.namespaceSelector = cfg.GetWebhook().NamespaceSelector
 						ready = c.mergeWebhook(fineGrainedFail, p, false)
 						fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 					}
@@ -1087,9 +1087,9 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 }
 
 // webhookNamespaceSelector returns the per-webhook namespaceSelector when set,
-// falling back to the global webhookCfg selector. This ensures that
-// NamespacedMutatingPolicy's namespaceSelector from matchConstraints is
-// enforced at the webhook level rather than silently dropped.
+// falling back to the global webhookCfg selector. This is used when building
+// Kyverno Policy/ClusterPolicy mutating webhooks to apply a per-webhook
+// namespace selector override, with the global selector as fallback.
 func webhookNamespaceSelector(wh *webhook, globalSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	if wh.namespaceSelector != nil {
 		return wh.namespaceSelector
