@@ -2322,6 +2322,9 @@ reportsController:
   # -- Resync period for informers
   resyncPeriod: 15m
 
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo

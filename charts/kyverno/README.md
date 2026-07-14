@@ -752,6 +752,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | reportsController.resyncPeriod | string | `"15m"` | Resync period for informers |
+| reportsController.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.labels | object | `{}` | Deployment labels. |
