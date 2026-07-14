@@ -62,10 +62,7 @@ func Mutate(
 			},
 		}
 	}
-	var user UserInfo
-	if userInfo != nil {
-		user = NewUser(*userInfo)
-	}
+	user := ResolveUser(userInfo)
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
 	if len(bindings) == 0 {
