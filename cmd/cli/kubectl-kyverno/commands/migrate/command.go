@@ -31,6 +31,9 @@ func Command() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if len(options.Resources) == 0 {
+				return errors.New("at least one resource must be specified with --resource")
+			}
 			clientConfig, err := config.CreateClientConfigWithContext(options.KubeConfig, options.Context)
 			if err != nil {
 				return err
