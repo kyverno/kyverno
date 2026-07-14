@@ -19,7 +19,7 @@ type webhook struct {
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
 	matchConditions   []admissionregistrationv1.MatchCondition
-	namespaceSelector *metav1.LabelSelector  
+	namespaceSelector *metav1.LabelSelector
 }
 
 type ruleEntry struct {
