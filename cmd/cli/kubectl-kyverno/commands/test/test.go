@@ -360,12 +360,15 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
-				polParts := strings.Split(res.Policy, "/")
-				resPolicyNamespace, resPolicyName := "", polParts[len(polParts)-1]
-				if len(polParts) == 2 {
-					resPolicyNamespace = polParts[0]
+				resPolicyNamespace, resPolicyName := "", res.Policy
+				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
+					resPolicyNamespace, resPolicyName = ns, name
+					// Reject invalid forms like "ns/name/extra".
+					if strings.Contains(resPolicyName, "/") {
+						continue
+					}
 				}
-				if policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
+				if resPolicyName == "" || policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
 					continue
 				}
 
