@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -349,6 +350,107 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
+	fineGrainedSpec := func(resource string) policiesv1beta1.ValidatingPolicySpec {
+		return policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{resource},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "always-true", Expression: "true"},
+			},
+		}
+	}
+	buildWith := func(webhookName, queryPath string, generic []engineapi.GenericPolicy) []admissionregistrationv1.ValidatingWebhook {
+		cache := NewExpressionCache()
+		for _, p := range generic {
+			cache.AddPolicyExpressions(extractGenericPolicy(p).GetMatchConditions())
+		}
+		return buildWebhookRules(
+			config.NewDefaultConfiguration(false),
+			"", webhookName, queryPath,
+			0, nil, generic, cache,
+		)
+	}
+	vpolA := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-aardvark"},
+		Spec:       fineGrainedSpec("pods"),
+	})
+	vpolB := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-mango"},
+		Spec:       fineGrainedSpec("services"),
+	})
+	vpolC := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy-zebra"},
+		Spec:       fineGrainedSpec("configmaps"),
+	})
+	nvpolAlphaA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-alpha", Name: "policy-a"},
+		Spec:       fineGrainedSpec("pods"),
+	})
+	nvpolAlphaB := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-alpha", Name: "policy-b"},
+		Spec:       fineGrainedSpec("services"),
+	})
+	nvpolBetaA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns-beta", Name: "policy-a"},
+		Spec:       fineGrainedSpec("configmaps"),
+	})
+	tests := []struct {
+		name        string
+		webhookName string
+		queryPath   string
+		canonical   []engineapi.GenericPolicy
+		shuffled    []engineapi.GenericPolicy
+	}{
+		{
+			name:        "cluster-scoped CBA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolC, vpolB, vpolA},
+		},
+		{
+			name:        "cluster-scoped BCA order",
+			webhookName: config.ValidatingPolicyWebhookName,
+			queryPath:   "/vpol",
+			canonical:   []engineapi.GenericPolicy{vpolA, vpolB, vpolC},
+			shuffled:    []engineapi.GenericPolicy{vpolB, vpolC, vpolA},
+		},
+		{
+			name:        "namespaced beta-alphaB-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolBetaA, nvpolAlphaB, nvpolAlphaA},
+		},
+		{
+			name:        "namespaced alphaB-beta-alphaA order",
+			webhookName: config.NamespacedValidatingPolicyWebhookName,
+			queryPath:   "/nvpol",
+			canonical:   []engineapi.GenericPolicy{nvpolAlphaA, nvpolAlphaB, nvpolBetaA},
+			shuffled:    []engineapi.GenericPolicy{nvpolAlphaB, nvpolBetaA, nvpolAlphaA},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expected := buildWith(tt.webhookName, tt.queryPath, tt.canonical)
+			result := buildWith(tt.webhookName, tt.queryPath, tt.shuffled)
+			assert.Equal(t, expected, result)
+		})
+	}
+}
+
 func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -561,4 +663,171 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeLabelSelectors(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        *metav1.LabelSelector
+		b        *metav1.LabelSelector
+		expected *metav1.LabelSelector
+	}{
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: nil,
+		},
+		{
+			name: "a nil returns b",
+			a:    nil,
+			b: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+		{
+			name: "b nil returns a",
+			a: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			b: nil,
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+		{
+			// Core regression: both non-nil but no matchLabels -- API server strips
+			// empty matchLabels:{} on storage, so merged result must have nil
+			// MatchLabels and nil MatchExpressions to satisfy DeepEqual on re-read.
+			name:     "both non-nil with no labels or expressions produce nil fields",
+			a:        &metav1.LabelSelector{},
+			b:        &metav1.LabelSelector{},
+			expected: &metav1.LabelSelector{},
+		},
+		{
+			name: "labels from both inputs are merged",
+			a: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			b: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"team": "infra"},
+			},
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod", "team": "infra"},
+			},
+		},
+		{
+			name: "expressions from both inputs are merged",
+			a: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "env", Operator: metav1.LabelSelectorOpIn, Values: []string{"prod"}},
+				},
+			},
+			b: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "team", Operator: metav1.LabelSelectorOpExists},
+				},
+			},
+			expected: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "env", Operator: metav1.LabelSelectorOpIn, Values: []string{"prod"}},
+					{Key: "team", Operator: metav1.LabelSelectorOpExists},
+				},
+			},
+		},
+		{
+			// Regression: global config has only MatchExpressions (GKE Autopilot injects
+			// these); policy has no namespaceSelector. Result must not carry matchLabels:{}.
+			name: "expression-only selector produces nil MatchLabels",
+			a:    &metav1.LabelSelector{},
+			b: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"kube-system"}},
+				},
+			},
+			expected: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpNotIn, Values: []string{"kube-system"}},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mergeLabelSelectors(tt.a, tt.b)
+			assert.Equal(t, tt.expected, got)
+			// Verify nil fields explicitly -- the core invariant this fix protects.
+			if got != nil {
+				if len(got.MatchLabels) == 0 {
+					assert.Nil(t, got.MatchLabels, "MatchLabels must be nil when empty, not an empty map")
+				}
+				if len(got.MatchExpressions) == 0 {
+					assert.Nil(t, got.MatchExpressions, "MatchExpressions must be nil when empty, not an empty slice")
+				}
+			}
+		})
+	}
+}
+func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	makeRule := func() []admissionregistrationv1.NamedRuleWithOperations {
+		return []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+				},
+			},
+		}}
+	}
+
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpol-sample"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: makeRule(),
+			},
+		},
+	}
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ngpol-sample", Namespace: "default"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: makeRule(),
+			},
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	gpolWebhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+		expressionCache,
+	)
+	ngpolWebhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.NamespacedGeneratingPolicyWebhookName,
+		"/ngpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedGeneratingPolicy(ngpol)},
+		expressionCache,
+	)
+
+	assert.Len(t, gpolWebhooks, 1)
+	assert.Len(t, ngpolWebhooks, 1)
+	assert.True(t, strings.HasPrefix(gpolWebhooks[0].Name, config.GeneratingPolicyWebhookName+"-"))
+	assert.True(t, strings.HasPrefix(ngpolWebhooks[0].Name, config.NamespacedGeneratingPolicyWebhookName+"-"))
+	assert.NotEqual(t, gpolWebhooks[0].Name, ngpolWebhooks[0].Name)
 }
