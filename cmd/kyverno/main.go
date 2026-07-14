@@ -678,6 +678,7 @@ func main() {
 			setup.KyvernoDynamicClient,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
+			eventGenerator,
 		)
 
 		contextProvider, err := libs.NewContextProvider(
