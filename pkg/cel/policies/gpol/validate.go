@@ -49,7 +49,7 @@ func Validate(gpol v1beta1.GeneratingPolicyLike) ([]string, error) {
 }
 
 func gpolExpressions(spec *v1beta1.GeneratingPolicySpec) []string {
-	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Generation))
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Generation)+len(spec.AuditAnnotations))
 	for _, v := range spec.Variables {
 		exprs = append(exprs, v.Expression)
 	}
@@ -58,6 +58,9 @@ func gpolExpressions(spec *v1beta1.GeneratingPolicySpec) []string {
 	}
 	for _, g := range spec.Generation {
 		exprs = append(exprs, g.Expression)
+	}
+	for _, a := range spec.AuditAnnotations {
+		exprs = append(exprs, a.ValueExpression)
 	}
 	return exprs
 }
