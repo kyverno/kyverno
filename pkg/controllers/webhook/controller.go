@@ -1061,10 +1061,8 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 						}
 				} else {
 					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-						ignoreWebhook.namespaceSelector = cfg.GetWebhook().NamespaceSelector
 						ready = c.mergeWebhook(ignoreWebhook, p, false)
 					} else {
-						failWebhook.namespaceSelector = cfg.GetWebhook().NamespaceSelector
 						ready = c.mergeWebhook(failWebhook, p, false)
 					}
 				}
