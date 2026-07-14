@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -317,4 +318,54 @@ func Test_Info_Resource_cluster_scoped(t *testing.T) {
 	out := info.Resource()
 
 	assert.Equal(t, "Namespace/kube-public", out)
+}
+
+func Test_NewPolicyAppliedEvent_MutatingPolicy(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "add-labels",
+			UID:  "mpol-uid-1",
+		},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetKind("ConfigMap")
+	resource.SetNamespace("default")
+	resource.SetName("foo")
+
+	er := engineapi.EngineResponse{
+		Resource: resource,
+	}
+	er = er.WithPolicy(engineapi.NewMutatingPolicy(mpol))
+
+	ev := NewPolicyAppliedEvent(AdmissionController, er)
+
+	assert.Equal(t, ResourceMutated, ev.Action)
+	assert.Contains(t, ev.Message, "ConfigMap default/foo is successfully mutated")
+	assert.Equal(t, PolicyApplied, ev.Reason)
+	assert.Equal(t, "add-labels", ev.Regarding.Name)
+}
+
+func Test_NewPolicyAppliedEvent_NamespacedMutatingPolicy(t *testing.T) {
+	mpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "add-labels",
+			Namespace: "team-a",
+			UID:       "nmpol-uid-1",
+		},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetKind("Secret")
+	resource.SetNamespace("team-a")
+	resource.SetName("credentials")
+
+	er := engineapi.EngineResponse{
+		Resource: resource,
+	}
+	er = er.WithPolicy(engineapi.NewNamespacedMutatingPolicy(mpol))
+
+	ev := NewPolicyAppliedEvent(AdmissionController, er)
+
+	assert.Equal(t, ResourceMutated, ev.Action)
+	assert.Contains(t, ev.Message, "Secret team-a/credentials is successfully mutated")
+	assert.Equal(t, "team-a", ev.Regarding.Namespace)
 }

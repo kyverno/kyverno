@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-env-config
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["deployments"]
+  variables:
+  - name: envConfig
+    expression: >-
+      resource.get("v1", "configmaps", object.metadata.namespace, "env-config")
+  - name: envValue
+    expression: >-
+      has(variables.envConfig.data) && 'env' in variables.envConfig.data ? variables.envConfig.data['env'] : 'unknown'
+  - name: generatedConfig
+    expression: >-
+      [
+        {
+          "kind": dyn("ConfigMap"),
+          "apiVersion": dyn("v1"),
+          "metadata": dyn({
+            "name": "generated-config",
+            "namespace": "test-namespace",
+          }),
+          "data": dyn({
+            "environment": variables.envValue
+          })
+        }
+      ]
+  generate:
+    - expression: generator.apply(object.metadata.namespace, variables.generatedConfig)

@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
@@ -60,6 +61,8 @@ const (
 	NamespacedValidatingPolicyWebhookName = "nvpol.validate.kyverno.svc"
 	// GeneratingPolicyWebhookName defines default webhook name for generatingpolicies
 	GeneratingPolicyWebhookName = "gpol.validate.kyverno.svc"
+	// NamespacedGeneratingPolicyWebhookName defines default webhook name for namespacedgeneratingpolicies
+	NamespacedGeneratingPolicyWebhookName = "ngpol.validate.kyverno.svc"
 	// MutatingPolicyWebhookName defines default webhook name for mutatingpolicies
 	MutatingPolicyWebhookName = "mpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default validating webhook name for imagevalidatingpolicies
@@ -110,6 +113,7 @@ const (
 	excludeRoles                  = "excludeRoles"
 	excludeClusterRoles           = "excludeClusterRoles"
 	generateSuccessEvents         = "generateSuccessEvents"
+	successEventActions           = "successEventActions"
 	webhooks                      = "webhooks"
 	webhookAnnotations            = "webhookAnnotations"
 	webhookLabels                 = "webhookLabels"
@@ -196,6 +200,8 @@ type Configuration interface {
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
+	// GetSuccessEventActions returns the set of event actions for which success events should be generated
+	GetSuccessEventActions() sets.Set[string]
 	// GetWebhook returns the webhook config
 	GetWebhook() WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
@@ -223,6 +229,7 @@ type configuration struct {
 	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
+	successEventActions           sets.Set[string]
 	webhook                       WebhookConfig
 	webhookAnnotations            map[string]string
 	webhookLabels                 map[string]string
@@ -337,6 +344,12 @@ func (cd *configuration) GetGenerateSuccessEvents() bool {
 	return cd.generateSuccessEvents
 }
 
+func (cd *configuration) GetSuccessEventActions() sets.Set[string] {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.successEventActions
+}
+
 func (cd *configuration) GetWebhook() WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -397,6 +410,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.successEventActions = sets.New[string]()
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
@@ -478,6 +492,22 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.generateSuccessEvents = generateSuccessEvents
 			logger.V(2).Info("generateSuccessEvents configured")
 		}
+	}
+	// load successEventActions
+	successEventActions, ok := data[successEventActions]
+	if !ok {
+		logger.V(2).Info("successEventActions not set")
+	} else {
+		logger := logger.WithValues("successEventActions", successEventActions)
+		actions := sets.New[string]()
+		for _, action := range strings.Split(successEventActions, ",") {
+			action = strings.TrimSpace(action)
+			if action != "" {
+				actions.Insert(action)
+			}
+		}
+		cd.successEventActions = actions
+		logger.V(2).Info("successEventActions configured")
 	}
 	// load webhooks
 	webhooks, ok := data[webhooks]
@@ -574,6 +604,7 @@ func (cd *configuration) unload() {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
+	cd.successEventActions = sets.New[string]()
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil

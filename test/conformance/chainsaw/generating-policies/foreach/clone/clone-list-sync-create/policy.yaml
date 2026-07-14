@@ -19,4 +19,4 @@ spec:
       expression: resource.List("v1", "secrets", "default")
   generate:
     - expression: >
-        variables.nsList.all(ns, generator.Apply(ns, [variables.sources]))
+        variables.nsList.all(ns, generator.apply(ns, [variables.sources]))

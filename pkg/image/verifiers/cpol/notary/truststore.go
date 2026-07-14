@@ -14,7 +14,7 @@ type simpleTrustStore struct {
 	certs     []*x509.Certificate
 }
 
-func NewTrustStore(name string, certs []*x509.Certificate) truststore.X509TrustStore {
+func newTrustStore(name string, certs []*x509.Certificate) truststore.X509TrustStore {
 	return &simpleTrustStore{
 		name:      name,
 		storeType: truststore.TypeCA,

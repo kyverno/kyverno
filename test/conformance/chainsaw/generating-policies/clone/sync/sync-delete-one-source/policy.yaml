@@ -18,4 +18,4 @@ spec:
     - name: source
       expression: resource.List("v1", "secrets", "default")
   generate:
-    - expression: generator.Apply(variables.nsName, [variables.source])
+    - expression: generator.apply(variables.nsName, [variables.source])

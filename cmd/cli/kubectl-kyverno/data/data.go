@@ -17,6 +17,7 @@ var crdsFs embed.FS
 //go:embed api-group-resources.json
 var apiGroupResources []byte
 
+// APIGroupResource for --crd flag
 var _apiGroupResources = sync.OnceValues(func() ([]*restmapper.APIGroupResources, error) {
 	var out []*restmapper.APIGroupResources
 	err := json.Unmarshal(apiGroupResources, &out)
@@ -29,4 +30,30 @@ func Crds() (fs.FS, error) {
 
 func APIGroupResources() ([]*restmapper.APIGroupResources, error) {
 	return _apiGroupResources()
+}
+
+type crdProcessor struct {
+	apiGroupResources []*restmapper.APIGroupResources
+	mutex             sync.RWMutex
+}
+
+func NewCRDProcessor(resources []*restmapper.APIGroupResources) *crdProcessor {
+	return &crdProcessor{
+		apiGroupResources: resources,
+	}
+}
+
+func (p *crdProcessor) UpdateResourceGroups(resources []*restmapper.APIGroupResources) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.apiGroupResources = resources
+}
+
+func (p *crdProcessor) GetResourceGroups() []*restmapper.APIGroupResources {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if p.apiGroupResources == nil {
+		return nil
+	}
+	return p.apiGroupResources
 }

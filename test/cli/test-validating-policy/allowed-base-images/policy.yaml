@@ -9,7 +9,7 @@ spec:
   validationActions: ["Warn", "Audit"]
   variables:
     - name: baseImageConfigMap
-      expression: 'resource.Get("v1", "configmaps", "platform", "baseimages")'
+      expression: 'resource.get("v1", "configmaps", "platform", "baseimages")'
     - name: allowedBaseImages
       expression: 'variables.baseImageConfigMap.data.?allowedbaseimages.orValue("").split(",").filter(img, img.trim() != "")'
     - name: allContainers
@@ -22,9 +22,9 @@ spec:
         apiVersions: ["v1"]
   validations:
     - expression: |
-        variables.allContainers.all(container, 
-          has(image.GetMetadata(container.image).manifest.annotations) && 
-          image.GetMetadata(container.image).manifest.annotations != null && 
-          'org.opencontainers.image.base.name' in image.GetMetadata(container.image).manifest.annotations && 
+        variables.allContainers.all(container,
+          has(image.GetMetadata(container.image).manifest.annotations) &&
+          image.GetMetadata(container.image).manifest.annotations != null &&
+          'org.opencontainers.image.base.name' in image.GetMetadata(container.image).manifest.annotations &&
           image.GetMetadata(container.image).manifest.annotations['org.opencontainers.image.base.name'] in variables.allowedBaseImages
         )

@@ -75,10 +75,11 @@ func (m *policyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyv
 		}
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			ruleType := ParseRuleType(rule)
-			ruleAttributes := []attribute.KeyValue{
+			ruleAttributes := make([]attribute.KeyValue, 0, 2+len(policyAttributes))
+			ruleAttributes = append(ruleAttributes,
 				attribute.String("rule_name", rule.Name),
 				attribute.String("rule_type", string(ruleType)),
-			}
+			)
 			observer.ObserveFloat64(m.infoMetric, 1, metric.WithAttributes(append(ruleAttributes, policyAttributes...)...))
 		}
 	}

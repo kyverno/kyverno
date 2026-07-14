@@ -57,7 +57,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.admissionController.priorityClassName }}
+      {{- with .Values.admissionController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.admissionController.hostNetwork }}
@@ -293,6 +293,9 @@ spec:
               subPath: ca-certificates.crt
               {{- end }}
             {{- end }}
+            - name: apicall-token
+              mountPath: /var/run/secrets/kyverno/apicall
+              readOnly: true
             {{- if not $automountSAToken }}
             - name: serviceaccount-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
@@ -317,6 +320,16 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- end }}
+      - name: apicall-token
+        projected:
+          defaultMode: 0444
+          sources:
+            - serviceAccountToken:
+                path: token
+                expirationSeconds: {{ .Values.apiCallToken.expirationSeconds | default 3600 }}
+                {{- with .Values.apiCallToken.audience }}
+                audience: {{ . }}
+                {{- end }}
       {{- if not $automountSAToken }}
       - name: serviceaccount-token
         projected:

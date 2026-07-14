@@ -3567,3 +3567,34 @@ func Test_Shallow_Variable_Substitution(t *testing.T) {
 	err = ValidateVariables(policy, true)
 	assert.Nil(t, err)
 }
+
+func Test_validateGlobalReference_EmptyName_Rejected(t *testing.T) {
+	entry := kyverno.ContextEntry{
+		Name:            "gctx",
+		GlobalReference: &kyverno.GlobalContextEntryReference{Name: ""},
+	}
+	err := validateGlobalReference(entry)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "a name is required for globalReference context entry")
+}
+
+func Test_validateGlobalReference_WithName_Allowed(t *testing.T) {
+	entry := kyverno.ContextEntry{
+		Name:            "gctx",
+		GlobalReference: &kyverno.GlobalContextEntryReference{Name: "my-global-entry"},
+	}
+	err := validateGlobalReference(entry)
+	assert.Nil(t, err)
+}
+
+func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
+	entry := kyverno.ContextEntry{
+		Name: "gctx",
+		GlobalReference: &kyverno.GlobalContextEntryReference{
+			Name:     "my-global-entry",
+			JMESPath: "items[0].metadata.name",
+		},
+	}
+	err := validateGlobalReference(entry)
+	assert.Nil(t, err)
+}

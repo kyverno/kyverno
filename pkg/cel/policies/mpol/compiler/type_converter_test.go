@@ -34,6 +34,7 @@ type fakeOpenApiGroupVersion struct {
 func (f *fakeOpenApiGroupVersion) Schema(contentType string) ([]byte, error) {
 	return f.schemaBytes, f.schemaErr
 }
+
 func (f *fakeOpenApiGroupVersion) ServerRelativeURL() string {
 	return f.serverRelativeURL
 }

@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: uses-requestobject
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE"]
+      resources: [ "secrets" ]
+  matchConditions:
+  - name: needs-configmapName
+    expression: |
+      has(request.object.metadata.labels) && has(request.object.metadata.labels.configmapName)
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              foo: resource.get("v1", "configmaps", request.object.metadata.namespace, request.object.metadata.labels["configmapName"]).data["foo"]
+            }
+          }
+        }

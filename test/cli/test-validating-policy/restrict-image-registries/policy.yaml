@@ -3,7 +3,7 @@ kind: ValidatingPolicy
 metadata:
   name: advanced-restrict-image-registries
 spec:
-  validationActions: 
+  validationActions:
     - Audit
   evaluation:
     background:
@@ -17,7 +17,7 @@ spec:
   variables:
     - name: cm
       expression: >-
-        resource.Get("v1", "configmaps", "default", "clusterregistries")
+        resource.get("v1", "configmaps", "default", "clusterregistries")
     - name: allContainers
       expression: "object.spec.containers + object.spec.?initContainers.orValue([]) + object.spec.?ephemeralContainers.orValue([])"
     - name: nsRegistries
@@ -29,7 +29,7 @@ spec:
         variables.cm.data[?'registries'].orValue("").split(",").filter(reg, reg != "")
   validations:
     - expression: >-
-        variables.allContainers.all(container, 
+        variables.allContainers.all(container,
           (
             variables.cmRegistries.exists(cmRegistry,
               container.image.startsWith(cmRegistry.trim()))

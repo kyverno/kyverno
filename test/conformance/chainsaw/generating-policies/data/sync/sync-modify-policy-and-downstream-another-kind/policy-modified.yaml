@@ -32,4 +32,4 @@ spec:
           }
         ]
   generate:
-    - expression: generator.Apply(variables.nsName, variables.generatedresource)
+    - expression: generator.apply(variables.nsName, variables.generatedresource)

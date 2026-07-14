@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    corp.org/department: engineering
+  name: pod-with-valid-department
+  namespace: default
+spec:
+  containers:
+  - image: nginx:latest
+    name: nginx
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    app: web-server
+    corp.org/department: marketing
+    version: "1.0"
+  name: pod-with-multiple-annotations
+  namespace: default
+spec:
+  containers:
+  - image: httpd:2.4
+    name: apache
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    app: database
+    version: "2.1"
+  name: pod-missing-department-annotation
+  namespace: default
+spec:
+  containers:
+  - image: mysql:8.0
+    name: mysql
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    app: cache
+    corp.org/department: ""
+  name: pod-empty-department-value
+  namespace: default
+spec:
+  containers:
+  - image: redis:6.2
+    name: redis
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-no-annotations
+  namespace: default
+spec:
+  containers:
+  - image: busybox:latest
+    name: busybox
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    corp.org/department: '   '
+  name: pod-whitespace-department
+  namespace: production
+spec:
+  containers:
+  - image: nginx:alpine
+    name: web-app
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    corp.org/department: human-resources
+  name: pod-valid-hr-department
+  namespace: production
+spec:
+  containers:
+  - image: node:16
+    name: hr-app
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    corp.org/dept: finance
+    department: accounting
+  name: pod-similar-annotation-name
+  namespace: test
+spec:
+  containers:
+  - image: python:3.9
+    name: finance-app

@@ -25,7 +25,7 @@ spec:
   variables:
     - name: app
       expression: >-
-        globalContext.Get("gctxentry-apicall-mpol", "app_label")
+        globalContext.get("gctxentry-apicall-mpol", "app_label")
     - name: value
       expression: variables.app[0]
   mutations:

@@ -6,10 +6,11 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -20,16 +21,17 @@ import (
 type reconciler struct {
 	client       client.Client
 	compiler     compiler.Compiler
+	libCxt       libs.Context
 	lock         *sync.RWMutex
 	policies     map[string][]Policy
-	polexLister  policiesv1beta1listers.PolicyExceptionLister
+	polexLister  engine.PolicyExceptionLister
 	polexEnabled bool
 }
 
 func newReconciler(
 	client client.Client,
 	compiler compiler.Compiler,
-	polexLister policiesv1beta1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) *reconciler {
 	return &reconciler{
@@ -44,12 +46,13 @@ func newReconciler(
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var policy policiesv1beta1.MutatingPolicyLike
-	mpol := &policiesv1beta1.MutatingPolicy{}
-	err := r.client.Get(ctx, req.NamespacedName, mpol)
-	if err == nil {
-		policy = mpol
-	} else if errors.IsNotFound(err) {
-		// Try NamespacedMutatingPolicy
+	var err error
+
+	if req.NamespacedName.Namespace != "" {
+		// Request has a namespace: this is always a NamespacedMutatingPolicy reconcile.
+		// Do NOT try MutatingPolicy first — for cluster-scoped resources, controller-runtime
+		// ignores the namespace in the request, so Get would silently find a same-named
+		// cluster-scoped policy instead of returning NotFound.
 		nmpol := &policiesv1beta1.NamespacedMutatingPolicy{}
 		err = r.client.Get(ctx, req.NamespacedName, nmpol)
 		if err == nil {
@@ -63,7 +66,19 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 	} else {
-		return ctrl.Result{}, err
+		// No namespace: this is a MutatingPolicy (cluster-scoped) reconcile.
+		mpol := &policiesv1beta1.MutatingPolicy{}
+		err = r.client.Get(ctx, req.NamespacedName, mpol)
+		if err == nil {
+			policy = mpol
+		} else if errors.IsNotFound(err) {
+			r.lock.Lock()
+			delete(r.policies, req.NamespacedName.String())
+			r.lock.Unlock()
+			return ctrl.Result{}, nil
+		} else {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if policy.GetStatus().Generated {
@@ -82,7 +97,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	compiled, errs := r.compiler.Compile(policy, exceptions)
 	if len(errs) > 0 {
-		return ctrl.Result{}, errs[0]
+		return ctrl.Result{}, errs.ToAggregate()
 	}
 	policies := []Policy{{
 		Policy:         policy,
@@ -100,7 +115,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 		compiled, errs := r.compiler.Compile(autogenPolicy, exceptions)
 		if len(errs) > 0 {
-			return ctrl.Result{}, errs[0]
+			return ctrl.Result{}, errs.ToAggregate()
 		}
 		policies = append(policies, Policy{
 			Policy:         autogenPolicy,
@@ -135,7 +150,7 @@ func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	return policies
 }
 
-func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -149,7 +164,7 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 			continue
 		}
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, r.libCxt) {
 				continue
 			}
 		}

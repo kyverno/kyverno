@@ -19,6 +19,6 @@ spec:
     - name: nsName
       expression: "object.metadata.namespace"
     - name: source
-      expression: resource.Get("v1", "configmaps", "default", "basic-generate-with-ns-selector")
+      expression: resource.get("v1", "configmaps", "default", "basic-generate-with-ns-selector")
   generate:
-    - expression: generator.Apply(variables.nsName, [variables.source])
+    - expression: generator.apply(variables.nsName, [variables.source])

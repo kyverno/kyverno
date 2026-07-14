@@ -24,7 +24,7 @@ import (
 
 func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
-	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTLSSecretName)
+	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTLSSecretName, "exemplarFilter", exemplarFilter)
 	metricsAddr := fmt.Sprintf("[%s]:%d", metricsHost, metricsPort)
 
 	var (
@@ -99,6 +99,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration 
 		metricsCASecretInformer,
 		metricsCASecretName,
 		metricsTLSSecretName,
+		exemplarFilter,
 		logging.WithName("metrics"),
 	)
 	checkError(logger, err, "failed to init metrics")

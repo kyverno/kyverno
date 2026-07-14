@@ -2,7 +2,6 @@ package aggregate
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -227,16 +226,18 @@ func NewController(
 					continue
 				}
 				for _, polNsName := range sets.List(policiesForReport) {
-					policyNameParts := strings.Split(polNsName, "/")
-					if o.GetNamespace() == "" { // if its a cluster policy the cache will contain the policy name only
-						if o.GetName() != policyNameParts[0] {
+					polNs, polName, err := cache.SplitMetaNamespaceKey(polNsName)
+					if err != nil {
+						continue
+					}
+					if o.GetNamespace() == "" {
+						// cluster-scoped policy event: only match cache entries without a namespace
+						if polNs != "" || o.GetName() != polName {
 							continue
 						}
 					} else {
-						if o.GetNamespace() != policyNameParts[0] {
-							continue
-						}
-						if o.GetName() != policyNameParts[1] {
+						// namespaced policy event: only match cache entries with a namespace
+						if polNs == "" || o.GetNamespace() != polNs || o.GetName() != polName {
 							continue
 						}
 					}

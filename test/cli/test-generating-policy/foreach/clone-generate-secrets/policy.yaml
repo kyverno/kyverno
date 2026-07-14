@@ -16,7 +16,7 @@ spec:
     - name: nsList
       expression: "object.data.namespaces.split(',')"
     - name: source
-      expression: resource.Get("v1", "secrets", "default", "foreach-clone-sync-create")
+      expression: resource.get("v1", "secrets", "default", "foreach-clone-sync-create")
   generate:
     - expression: >
-        variables.nsList.all(ns, generator.Apply(ns, [variables.source]))
+        variables.nsList.all(ns, generator.apply(ns, [variables.source]))

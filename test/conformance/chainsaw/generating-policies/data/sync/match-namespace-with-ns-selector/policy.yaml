@@ -21,6 +21,6 @@ spec:
     - name: targetNs
       expression: "object.metadata.name"
     - name: sourceSecret
-      expression: resource.Get("v1", "secrets", "source-namespace", "secret-name")
+      expression: resource.get("v1", "secrets", "source-namespace", "secret-name")
   generate:
-    - expression: generator.Apply(variables.targetNs, [variables.sourceSecret])
+    - expression: generator.apply(variables.targetNs, [variables.sourceSecret])

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+spec:
+  containers:
+  - name: container01
+    image: public.ecr.aws/docker/library/nginx:latest
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: container02
+    image: public.ecr.aws/docker/library/ubuntu:latest
+    securityContext:
+      allowPrivilegeEscalation: false

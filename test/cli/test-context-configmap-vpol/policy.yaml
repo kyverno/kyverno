@@ -55,7 +55,7 @@ spec:
         name: podSpec
       - expression: "has(variables.podSpec.nodeSelector) && 'cloud.google.com/compute-class' in variables.podSpec.nodeSelector ? variables.podSpec.nodeSelector['cloud.google.com/compute-class'] : 'default'"
         name: computeclassname
-      - expression: "resource.Get('v1', 'configmaps', 'default', 'computeclass-' + variables.computeclassname)"
+      - expression: "resource.get('v1', 'configmaps', 'default', 'computeclass-' + variables.computeclassname)"
         name: computeclassconfig
       - expression: "has(variables.computeclassconfig.data) && 'spot-values' in variables.computeclassconfig.data ? variables.computeclassconfig.data['spot-values'].split(',') : ['true', 'false', 'false']"
         name: spotvalues

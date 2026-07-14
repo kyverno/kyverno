@@ -7,13 +7,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"gotest.tools/assert"
 )
 
 func TestSigstoreBundleSignatureVerification(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		SigstoreBundle: true,
 		ImageRef:       "ghcr.io/vishal-chdhry/artifact-attestation-example:artifact-attestation",
 		Issuer:         "https://token.actions.githubusercontent.com",
@@ -24,7 +24,7 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
@@ -34,7 +34,7 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 }
 
 func TestSigstoreBundleSignatureResponse(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		SigstoreBundle: true,
 		ImageRef:       "ghcr.io/vishal-chdhry/artifact-attestation-example:artifact-attestation",
 		Issuer:         "https://token.actions.githubusercontent.com",
@@ -45,7 +45,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	response, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
@@ -60,7 +60,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 }
 
 func TestSigstoreBundleAttestation(t *testing.T) {
-	opts := images.Options{
+	opts := verifiers.Options{
 		SigstoreBundle: true,
 		ImageRef:       "ghcr.io/vishal-chdhry/artifact-attestation-example:artifact-attestation",
 		Issuer:         "https://token.actions.githubusercontent.com",
@@ -72,7 +72,7 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 	assert.NilError(t, err)
 	opts.Client = rc
 
-	verifier := &cosignVerifier{}
+	verifier := &verifier{}
 	response, err := verifier.FetchAttestations(context.TODO(), opts)
 	assert.NilError(t, err)
 
@@ -98,7 +98,7 @@ func TestIssue_StaticKeyWithSigstoreBundle(t *testing.T) {
 			Hex:       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		},
 	}
-	opts := images.Options{
+	opts := verifiers.Options{
 		SigstoreBundle: true,
 		ImageRef:       "myregistry/path/myimage:mytag",
 		Key:            "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----",
@@ -120,7 +120,7 @@ func TestIssue_StaticKeyNoTlogUpload(t *testing.T) {
 		},
 	}
 
-	opts := images.Options{
+	opts := verifiers.Options{
 		SigstoreBundle: true,
 		ImageRef:       "test/image:tag",
 		Key:            "some-public-key",
@@ -141,13 +141,13 @@ func TestIssue_AllVerificationTypes(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		opts        images.Options
+		opts        verifiers.Options
 		shouldWork  bool
 		description string
 	}{
 		{
 			name: "static_key_no_identity",
-			opts: images.Options{
+			opts: verifiers.Options{
 				SigstoreBundle: true,
 				ImageRef:       "test:1",
 				Key:            "key",
@@ -157,7 +157,7 @@ func TestIssue_AllVerificationTypes(t *testing.T) {
 		},
 		{
 			name: "keyless_with_issuer_and_subject",
-			opts: images.Options{
+			opts: verifiers.Options{
 				SigstoreBundle: true,
 				ImageRef:       "test:2",
 				Issuer:         "https://issuer.example.com",
@@ -168,7 +168,7 @@ func TestIssue_AllVerificationTypes(t *testing.T) {
 		},
 		{
 			name: "keyless_with_regexp",
-			opts: images.Options{
+			opts: verifiers.Options{
 				SigstoreBundle: true,
 				ImageRef:       "test:3",
 				IssuerRegExp:   "https://.*",
@@ -179,7 +179,7 @@ func TestIssue_AllVerificationTypes(t *testing.T) {
 		},
 		{
 			name: "mixed_issuer_subject_regexp",
-			opts: images.Options{
+			opts: verifiers.Options{
 				SigstoreBundle: true,
 				ImageRef:       "test:4",
 				Issuer:         "https://issuer.example.com",

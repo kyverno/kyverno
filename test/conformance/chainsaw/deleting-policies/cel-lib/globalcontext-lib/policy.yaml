@@ -11,4 +11,4 @@ spec:
         resources: ["pods"]
   conditions:
     - name: require-deployment
-      expression: globalContext.Get("gctxentry-apicall-correct", "") != 0
+      expression: globalContext.get("gctxentry-apicall-correct", "") != 0

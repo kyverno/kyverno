@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Tests
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: Build test images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Install Ko
+        uses: ./.github/actions/tools/ko
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: Upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          if-no-files-found: error
+
+  cli:
+    name: Build test CLI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: Upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          if-no-files-found: error
+
+  conformance-tests:
+    name: Conformance tests
+    needs:
+      - images
+      - cli
+    permissions:
+      packages: read
+    uses: ./.github/workflows/tests-conformance.yaml
+
+  conformance-policy-library-tests:
+    name: Conformance tests (policy library)
+    needs:
+      - images
+      - cli
+    uses: ./.github/workflows/tests-conformance-policy-library.yaml
+
+  k6-tests:
+    name: K6 tests
+    needs:
+      - images
+    uses: ./.github/workflows/tests-k6.yaml
+
+  sync-issue:
+    if: always() && github.event_name == 'push'
+    needs:
+      - images
+      - cli
+      - conformance-tests
+      - conformance-policy-library-tests
+      - k6-tests
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}

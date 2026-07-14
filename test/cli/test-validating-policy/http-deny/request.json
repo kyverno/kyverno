@@ -1,0 +1,7 @@
+{
+    "attributes": {
+      "method": "GET",
+      "path": "/forbidden",
+      "host": "example.com"
+    }
+  }

@@ -1,0 +1,15 @@
+policyType: ValidatingPolicy
+podSecurityStandard: restricted
+includeOtherPolicies:
+  - require-non-root-groups
+
+# Global default severity
+podSecuritySeverity: medium
+
+# Per-policy overrides
+podSecuritySeverityByPolicy:
+  disallow-host-path: high
+  disallow-privileged-containers: critical
+  require-run-as-nonroot: 1
+  # Empty string: suppresses severity annotation entirely for this policy
+  disallow-host-namespaces: ""

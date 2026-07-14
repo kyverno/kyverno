@@ -1,0 +1,34 @@
+# NamespacedValidatingPolicy that calls http.get() against the in-cluster
+# json-server and unconditionally denies admission (expression: false).
+#
+# Phase 1 (default, allowHTTPInNamespacedPolicies=false):
+#   The http.* identifier is not registered in the CEL environment for
+#   namespaced policies, so compilation fails and the policy is never
+#   installed into the webhook. ConfigMap creation succeeds.
+#
+# Phase 2 (allowHTTPInNamespacedPolicies=true):
+#   Compilation succeeds. The policy is active and every ConfigMap creation
+#   is denied. The denial message contains "statusCode=200", proving the
+#   http.get() call actually reached the json-server.
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: nvpol-cel-http-probe
+  namespace: test-cel-http
+spec:
+  validationActions:
+  - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [configmaps]
+  variables:
+  - name: probe
+    expression: >-
+      http.get("http://json-server.test-cel-http.svc.cluster.local:8080/")
+  validations:
+  - expression: "false"
+    messageExpression: >-
+      'cel-http-test: statusCode=' + string(variables.probe.statusCode)

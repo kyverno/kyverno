@@ -14,8 +14,8 @@ spec:
   variables:
     - name: missingData
       expression: >-
-        globalContext.Get("enforce-missing-entry", "data")
+        globalContext.get("enforce-missing-entry", "data")
   validations:
     - expression: >-
         variables.missingData == null || string(variables.missingData) != "forbidden"
-      message: "Pod allowed since global context entry is missing (graceful handling)" 
+      message: "Pod allowed since global context entry is missing (graceful handling)"

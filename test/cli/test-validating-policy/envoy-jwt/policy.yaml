@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-jwt-policy
+spec:
+  evaluation:
+    mode: Envoy
+  failurePolicy: Fail
+  variables:
+  - name: authorization
+    expression: object.attributes.request.http.headers[?"authorization"].orValue("").split(" ")
+  - name: token
+    expression: >
+      size(variables.authorization) == 2 && variables.authorization[0].lowerAscii() == "bearer"
+        ? jwt.Decode(variables.authorization[1], "secret")
+        : null
+  validations:
+  - expression: >
+      variables.token == null || !variables.token.Valid
+        ? envoy.Denied(401).Response()
+        : null
+  - expression: >
+      variables.token.Claims.?role.orValue("") != "admin"
+        ? envoy.Denied(403).Response()
+        : null
+  - expression: >
+      envoy.Allowed().Response()

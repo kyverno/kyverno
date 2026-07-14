@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-apicall-dpol
+policies:
+- policy.yaml
+resources:
+- resources/deployment-with-spot-computeclass.yaml
+- resources/deployment-with-non-spot-computeclass.yaml
+results:
+- isDeletingPolicy: true
+  kind: Deployment
+  policy: delete-spot-deployments
+  resources:
+  - deployment-with-non-spot-computeclass
+  result: fail
+- isDeletingPolicy: true
+  kind: Deployment
+  policy: delete-spot-deployments
+  resources:
+  - deployment-with-spot-computeclass
+  result: pass

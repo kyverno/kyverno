@@ -10,8 +10,8 @@ metadata:
     {{- end }}
     policies.kyverno.io/title: Disallow hostProcess
     policies.kyverno.io/category: Pod Security Standards (Baseline)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
@@ -21,7 +21,7 @@ metadata:
       access to the Windows node. Privileged access to the host is disallowed in the baseline
       policy. HostProcess pods are an alpha feature as of Kubernetes v1.22. This policy ensures
       the `hostProcess` field, if present, is set to `false`.
-    {{- include "kyverno-policies.customAnnotations" . | nindent 4 }}
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -73,7 +74,7 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 	// resolve namespace
 	var namespace runtime.Object
@@ -124,13 +125,21 @@ func (e *engineImpl) generate(
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "policy has not been compiled", errNilCompiledPolicy, nil)
 		return response
 	}
-	context.SetGenerateContext(policy.Policy.GetName(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore)
-	generatedResources, exceptions, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
+	context.SetGenerateContext(policy.Policy.GetName(), policy.Policy.GetNamespace(), request.Name, attr.GetNamespace(), request.Kind.Version, request.Kind.Group, request.Kind.Kind, triggerUID, cacheRestore, policy.Policy.GetSpec().UseServerSideApply)
+	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
 		return response
 	}
-	if len(exceptions) != 0 {
+	if result == nil {
+		// policy did not match
+		return response
+	}
+	// Always surface audit annotations on successful evaluation, even if no resources were generated.
+	// This aligns with other CEL policy types and allows users to track evaluation metadata
+	// (e.g., reasons, context, or conditions that applied) regardless of generation outcome.
+	if len(result.Exceptions) != 0 {
+		exceptions := result.Exceptions
 		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
 		keys := make([]string, 0, len(exceptions))
 
@@ -179,7 +188,7 @@ func (e *engineImpl) generate(
 		}
 		return response
 	}
-	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", nil).WithGeneratedResources(generatedResources)
+	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", result.AuditAnnotations).WithGeneratedResources(result.GeneratedResources)
 	return response
 }
 

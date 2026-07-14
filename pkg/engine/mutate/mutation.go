@@ -78,7 +78,8 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
-	patcher := NewPatcher(fe["patchStrategicMerge"], fe["patchesJson6902"].(string))
+	jsonPatch, _ := fe["patchesJson6902"].(string)
+	patcher := NewPatcher(fe["patchStrategicMerge"], jsonPatch)
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}

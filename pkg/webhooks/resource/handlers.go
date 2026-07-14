@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alitto/pond"
+	"github.com/alitto/pond/v2"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -64,7 +64,7 @@ type resourceHandlers struct {
 	admissionReports             bool
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
-	auditPool                    *pond.WorkerPool
+	auditPool                    pond.Pool
 	breaker.Breaker
 }
 
@@ -88,6 +88,12 @@ func NewHandlers(
 	maxAuditWorkers int,
 	maxAuditCapacity int,
 ) *resourceHandlers {
+	if maxAuditWorkers <= 0 {
+		maxAuditWorkers = 1
+	}
+	if maxAuditCapacity <= 0 {
+		maxAuditCapacity = 1
+	}
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
@@ -105,7 +111,7 @@ func NewHandlers(
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		reportsServiceAccountName:    reportsServiceAccountName,
-		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
+		auditPool:                    pond.NewPool(maxAuditWorkers, pond.WithQueueSize(maxAuditCapacity)),
 	}
 }
 
@@ -203,7 +209,11 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 	if len(verifyImagesPolicies) != 0 {
-		newRequest := patchRequest(patches, request.AdmissionRequest, logger)
+		newRequest, err := patchRequest(patches, request.AdmissionRequest, logger)
+		if err != nil {
+			logger.Error(err, "failed to patch request for image verification")
+			return admissionutils.Response(request.UID, err)
+		}
 		// rebuild context to process images updated via mutate policies
 		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 		if err != nil {

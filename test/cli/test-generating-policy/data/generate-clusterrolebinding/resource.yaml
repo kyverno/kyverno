@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: namespace-creator-sa
+  namespace: test1
+  labels:
+    xyz/namespace-creator: enabled

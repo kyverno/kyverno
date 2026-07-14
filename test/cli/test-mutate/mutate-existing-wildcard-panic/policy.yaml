@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: warn-context-ns-label
+spec:
+  rules:
+    - name: add-context-ns-label
+      match:
+        all:
+          - resources:
+              kinds:
+                - Namespace
+      mutate:
+        mutateExistingOnPolicyUpdate: true
+        patchStrategicMerge:
+          metadata:
+            labels:
+              context: "error"
+        targets:
+          - apiVersion: v1
+            kind: Namespace
+            name: "*"
+    - name: warn-on-invalid-or-missing-context-ns-label
+      match:
+        all:
+          - resources:
+              kinds:
+                - Namespace
+      validate:
+        message: "The `context` label is either missing or has an invalid value."
+        allowExistingViolations: false
+        failureAction: Audit
+        pattern:
+          metadata:
+            labels:
+              context: "app|infra|lab"

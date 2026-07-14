@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+httpPayloads:
+- ./request.json
+kind: Test
+metadata:
+  name: vpol-test-http-deny
+policies:
+- ./policy.yaml
+results:
+- kind: ""
+  policy: http-deny
+  result: fail

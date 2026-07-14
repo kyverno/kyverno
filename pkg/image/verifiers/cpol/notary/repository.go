@@ -19,7 +19,7 @@ type repositoryClient struct {
 	remoteOpts []remote.Option
 }
 
-func NewRepository(remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
+func newRepository(remoteOpts []remote.Option, ref name.Reference) notationregistry.Repository {
 	return &repositoryClient{
 		remoteOpts: remoteOpts,
 		ref:        ref,

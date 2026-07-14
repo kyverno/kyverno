@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: foreach-elementindex-stale-after-prepend
+spec:
+  description: |
+    When Policy A adds volumes via patchStrategicMerge and Policy B uses foreach
+    with elementIndex to patch emptyDir volumes via patchesJson6902, the
+    elementIndex should reflect the post-mutation array indices so that patches
+    target the correct volumes.
+  concurrent: false
+  steps:
+    - name: create-policy-prepend
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy-prepend.yaml
+    - name: wait-policy-prepend-ready
+      use:
+        template: ../../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: aaa-prepend-volume
+    - name: create-policy-sizelimit
+      use:
+        template: ../../../_step-templates/create-policy.yaml
+        with:
+          bindings:
+            - name: file
+              value: policy-sizelimit.yaml
+    - name: wait-policy-sizelimit-ready
+      use:
+        template: ../../../_step-templates/cluster-policy-ready.yaml
+        with:
+          bindings:
+            - name: name
+              value: zzz-emptydir-sizelimit
+    - name: create-pod-and-assert
+      try:
+        - apply:
+            file: pod.yaml
+        - assert:
+            file: pod-assert.yaml

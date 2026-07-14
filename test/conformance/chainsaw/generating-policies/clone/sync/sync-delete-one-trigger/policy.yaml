@@ -16,6 +16,6 @@ spec:
     - name: nsName
       expression: "object.metadata.namespace"
     - name: source
-      expression: resource.Get("v1", "secrets", "default", "clone-sync-delete-one-trigger")
+      expression: resource.get("v1", "secrets", "default", "clone-sync-delete-one-trigger")
   generate:
-    - expression: generator.Apply(variables.nsName, [variables.source])
+    - expression: generator.apply(variables.nsName, [variables.source])

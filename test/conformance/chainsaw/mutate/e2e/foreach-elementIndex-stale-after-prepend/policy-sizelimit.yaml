@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zzz-emptydir-sizelimit
+spec:
+  admission: true
+  background: false
+  rules:
+    - name: add-sizelimit
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              names:
+                - test-pod
+      preconditions:
+        all:
+          - key: "{{request.operation}}"
+            operator: AnyIn
+            value:
+              - CREATE
+      mutate:
+        foreach:
+          - list: "request.object.spec.volumes[]"
+            preconditions:
+              all:
+                - key: "{{ element.keys(@) }}"
+                  operator: AnyIn
+                  value: emptyDir
+                - key: "{{ element.emptyDir.sizeLimit || '' }}"
+                  operator: Equals
+                  value: ''
+            patchesJson6902: |-
+              - path: "/spec/volumes/{{elementIndex}}/emptyDir/sizeLimit"
+                op: add
+                value: "250Mi"

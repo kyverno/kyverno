@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Install Kind
+description: Install Kind (Kubernetes in Docker) CLI
+
+runs:
+  using: composite
+  steps:
+    - id: kind
+      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+      with:
+        install_only: true
+    - shell: bash
+      run: |
+        set -e
+        echo "KIND=$(which kind)" >> $GITHUB_ENV

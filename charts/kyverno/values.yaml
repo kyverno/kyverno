@@ -36,6 +36,9 @@ global:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
 
+  # -- Global priority class name for pod priority. Non-global values will override the global value.
+  priorityClassName: ''
+
   # -- Additional container environment variables to apply to all containers and init containers
   extraEnvVars: []
   # Example setting proxy
@@ -151,6 +154,9 @@ crds:
     # -- Enable CRDs migration using helm post upgrade hook
     enabled: true
 
+    # -- Additional CLI flags passed to the migration job
+    extraArgs: {}
+
     # -- Resources to migrate
     resources:
       - cleanuppolicies.kyverno.io
@@ -252,6 +258,21 @@ crds:
         # If not set, the token will have no audience restriction.
         audience: ""
 
+# -- Scoped token injected into outbound APICall and CEL http requests.
+# This token carries a custom audience so that if leaked to an external service
+# it cannot be replayed against the Kubernetes API server.
+apiCallToken:
+  # -- Audience for the projected token used in outbound requests.
+  # Set this to the audience your receiving service validates in the OIDC token's
+  # `aud` claim. The default is `kyverno-svc.kyverno.io`, which is a Kyverno-specific
+  # audience and prevents the token from being accepted by the Kubernetes API server.
+  audience: "kyverno-svc.kyverno.io"
+  # -- Token lifetime in seconds for the projected outbound API call token.
+  # The default is `3600` (1 hour). The kubelet requests a replacement before the
+  # token expires, so lowering this reduces token lifetime while increasing rotation
+  # frequency.
+  expirationSeconds: 3600
+
 # Configuration
 config:
 
@@ -289,6 +310,14 @@ config:
 
   # -- Generate success events.
   generateSuccessEvents: false
+
+  # -- Comma-separated list of event actions for which success events should be generated.
+  # When set, only success events matching the specified actions are emitted.
+  # Requires `generateSuccessEvents` to be `true`.
+  # Valid values: "Resource Mutated", "Resource Passed", "Resource Generated", "Resource Cleaned Up".
+  # Example: "Resource Mutated" or "Resource Mutated,Resource Generated".
+  # @default -- "" (empty, all success events are emitted when generateSuccessEvents is true)
+  successEventActions: ""
 
   # -- Maximum cumulative size of context data during policy evaluation.
   # Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152).
@@ -712,6 +741,78 @@ grafana:
     allowCrossNamespaceImport: true
     matchLabels:
       dashboards: "grafana"
+
+prometheusRule:
+  # -- Enable PrometheusRule resource creation.
+  # Requires prometheus-operator (monitoring.coreos.com/v1 CRD) to be installed —
+  # the same prerequisite as serviceMonitor.enabled.
+  # The resource is only created when `enabled: true` and `spec` is non-empty.
+  enabled: false
+
+  # -- (string) Namespace to create the PrometheusRule in.
+  # If not set, it will be created in the same namespace as the chart.
+  namespace: ~
+
+  # -- Additional annotations to add to the PrometheusRule.
+  additionalAnnotations: {}
+
+  # -- Additional labels to add to the PrometheusRule.
+  # Must match the `ruleSelector` configured on your Prometheus instance
+  # (e.g. `release: prometheus` for kube-prometheus-stack).
+  additionalLabels: {}
+
+  # -- Alert rule groups. Provide your own rules here; the examples below use
+  # Kyverno's histogram metrics and can serve as starting points.
+  # Thresholds MUST be tuned to your environment's measured baseline —
+  # see https://kyverno.io/docs/guides/monitoring/#alerting for guidance.
+  spec: []
+  # spec:
+  #   - name: kyverno.admission
+  #     rules:
+  #       - alert: KyvernoAdmissionHighLatency
+  #         expr: |
+  #           histogram_quantile(0.99,
+  #             sum(rate(kyverno_admission_review_duration_seconds_bucket[5m])) by (le)
+  #           ) > 1
+  #         for: 5m
+  #         labels:
+  #           severity: warning
+  #         annotations:
+  #           summary: Kyverno admission review p99 latency is elevated
+  #           description: >-
+  #             Admission review p99 latency is {{ $value | humanizeDuration }},
+  #             above the 1s threshold. Kubernetes webhooks hard-timeout at 10s.
+  #           runbook_url: https://kyverno.io/docs/guides/monitoring/#admission-latency-high
+  #       - alert: KyvernoAdmissionCriticalLatency
+  #         expr: |
+  #           histogram_quantile(0.99,
+  #             sum(rate(kyverno_admission_review_duration_seconds_bucket[5m])) by (le)
+  #           ) > 5
+  #         for: 5m
+  #         labels:
+  #           severity: critical
+  #         annotations:
+  #           summary: Kyverno admission review p99 latency is critically high
+  #           description: >-
+  #             Admission review p99 latency is {{ $value | humanizeDuration }},
+  #             above 5s. Kubernetes webhooks hard-timeout at 10s.
+  #           runbook_url: https://kyverno.io/docs/guides/monitoring/#admission-latency-high
+  #   - name: kyverno.policy
+  #     rules:
+  #       - alert: KyvernoPolicyExecutionHighLatency
+  #         expr: |
+  #           histogram_quantile(0.99,
+  #             sum(rate(kyverno_policy_execution_duration_seconds_bucket[5m])) by (le, rule_type)
+  #           ) > 0.5
+  #         for: 5m
+  #         labels:
+  #           severity: warning
+  #         annotations:
+  #           summary: Kyverno policy execution p99 latency is elevated
+  #           description: >-
+  #             {{ $labels.rule_type }} rule p99 execution latency is
+  #             {{ $value | humanizeDuration }}.
+  #           runbook_url: https://kyverno.io/docs/guides/monitoring/#policy-execution-latency-high
 
 # Features configuration
 features:

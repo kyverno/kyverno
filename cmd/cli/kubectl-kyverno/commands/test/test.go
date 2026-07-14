@@ -2,17 +2,22 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 	"reflect"
+	"strings"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -38,7 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/imageverification/evaluator"
+	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -46,6 +51,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -59,6 +65,9 @@ type TestResponse struct {
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
+
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -97,6 +106,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
+	if results != nil && results.NonFatalErrors != nil {
+		for _, e := range results.NonFatalErrors {
+			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+		}
+	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
 	for _, pol := range results.Policies {
 		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
@@ -126,13 +140,64 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	var json any
-	if testCase.Test.JSONPayload != "" {
-		fmt.Fprintln(out, "  Loading JSON payload", "...")
-		jsonFullPath := path.GetFullPaths([]string{testCase.Test.JSONPayload}, testDir, isGit)
-		json, err = payload.Load(jsonFullPath[0])
-		if err != nil {
-			return nil, fmt.Errorf("error: failed to load JSON payload (%s)", err)
+	type jsonPayloadEntry struct {
+		name string
+		data map[string]any
+	}
+	var jsonPayloads []jsonPayloadEntry
+	if len(testCase.Test.JSONPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading JSON payloads", "...")
+		jsonFullPaths := path.GetFullPaths(testCase.Test.JSONPayloads, testDir, isGit)
+		for i, jp := range jsonFullPaths {
+			var data any
+			var loadErr error
+
+			if isGit {
+				var fileBytes []byte
+				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
+				if loadErr == nil {
+					loadErr = json.Unmarshal(fileBytes, &data)
+				}
+			} else {
+				data, loadErr = payload.Load(jp)
+			}
+
+			if loadErr != nil {
+				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
+			}
+			if data == nil {
+				return nil, fmt.Errorf("error: JSON payload %s is empty or nil", testCase.Test.JSONPayloads[i])
+			}
+			dataMap, ok := data.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("error: JSON payload %s must be a top-level object (map)", testCase.Test.JSONPayloads[i])
+			}
+			jsonPayloads = append(jsonPayloads, jsonPayloadEntry{name: testCase.Test.JSONPayloads[i], data: dataMap})
+		}
+	}
+	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
+	if len(testCase.Test.HTTPPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading HTTP payloads", "...")
+		httpFullPaths := path.GetFullPaths(testCase.Test.HTTPPayloads, testDir, isGit)
+		for _, p := range httpFullPaths {
+			reqs, err := processor.LoadHTTPRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load HTTP payloads from path %s (%s)", p, err)
+			}
+			httpPayloads[p] = reqs
+		}
+	}
+
+	envoyPayloads := make(map[string]*authv3.CheckRequest, 0)
+	if len(testCase.Test.EnvoyPayloads) > 0 {
+		fmt.Fprintln(out, "  Loading Envoy payloads", "...")
+		envoyFullPaths := path.GetFullPaths(testCase.Test.EnvoyPayloads, testDir, isGit)
+		for _, p := range envoyFullPaths {
+			reqs, err := processor.LoadEnvoyRequests(p)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Envoy payloads from path %s (%s)", p, err)
+			}
+			envoyPayloads[p] = reqs
 		}
 	}
 
@@ -170,9 +235,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 
 	var cmResolver engineapi.ConfigmapResolver
+	var restMapper meta.RESTMapper
+	var crdPaths []string
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
+		allCRDs := []*apiextensionsv1.CustomResourceDefinition{}
 		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
 			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
 				return &v1alpha1.ClusterResource{}
@@ -180,16 +248,18 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			if err != nil {
 				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
 			}
-			crds := []*apiextensionsv1.CustomResourceDefinition{}
 			if len(src.Spec.CRDs) > 0 {
-				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
+				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
+				crdPaths = append(crdPaths, crdFullPaths...)
+
+				for _, crdFullPath := range crdFullPaths {
 					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
 						return &apiextensionsv1.CustomResourceDefinition{}
 					})
 					if err != nil {
 						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
 					}
-					crds = append(crds, crd)
+					allCRDs = append(allCRDs, crd)
 				}
 			}
 			if len(src.Spec.Resources) > 0 {
@@ -197,10 +267,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 					allObjects = append(allObjects, resource)
 				}
 			}
-			cl.RESTMapper(crds)
-			for _, crd := range crds {
-				allObjects = append(allObjects, crd)
-			}
+		}
+		restMapper = cl.RESTMapper(allCRDs)
+		for _, crd := range allCRDs {
+			allObjects = append(allObjects, crd)
 		}
 
 		dClient, err = cl.DClient(allObjects)
@@ -221,17 +291,52 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
-	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
 	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
-	// init store
+	if err := v1alpha1.ValidateAPICallResponses(testCase.Test.APICallResponses); err != nil {
+		return nil, err
+	}
+	// Validate the original entries first so mutual-exclusivity checks
+	// (data vs resources vs resourceFiles) run against the user's input.
+	if err := v1alpha1.ValidateGlobalContextEntries(testCase.Test.GlobalContextEntries); err != nil {
+		return nil, err
+	}
+	// Resolve resourceFiles → Resources so downstream only sees inline resources.
+	if len(testCase.Test.GlobalContextEntries) > 0 {
+		resolved, err := store.ResolveGCEResourceFiles(testCase.Fs, testDir, testCase.Test.GlobalContextEntries)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load globalContextEntries resource files: %w", err)
+		}
+		testCase.Test.GlobalContextEntries = resolved
+	}
+	resolveGlobalContextMock := store.ResolveGlobalContextMockData
 	var store store.Store
 	store.SetLocal(true)
 	store.SetRegistryAccess(registryAccess)
 	store.AllowApiCall(len(testCase.Test.ClusterResources) > 0)
+	store.SetAPICallResponses(testCase.Test.APICallResponses)
+	store.SetGlobalContextEntries(testCase.Test.GlobalContextEntries)
 	if vars != nil {
 		vars.SetInStore(&store)
+	}
+
+	httpMockIndex, err := buildHTTPMockIndex(testCase.Test.APICallResponses)
+	if err != nil {
+		return nil, err
+	}
+	store.SetHTTPMockIndex(httpMockIndex)
+
+	var gceMap map[string]interface{}
+	if len(testCase.Test.GlobalContextEntries) > 0 {
+		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
+		for _, entry := range testCase.Test.GlobalContextEntries {
+			data, err := resolveGlobalContextMock(entry)
+			if err != nil {
+				return nil, err
+			}
+			gceMap[entry.Name] = data
+		}
 	}
 
 	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
@@ -252,7 +357,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
-				if res.IsValidatingAdmissionPolicy || res.IsValidatingPolicy {
+				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
 				// TODO: what if two policies have a rule with the same name ?
@@ -333,6 +438,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -343,6 +449,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
+			RESTMapper:                        restMapper,
+			CrdPaths:                          crdPaths,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -363,6 +471,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				!(len(testCase.Test.ClusterResources) > 0),
+				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -381,7 +491,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				testCase.Fs,
 				contextPath,
-				true,
+				!(len(testCase.Test.ClusterResources) > 0),
+				restMapper,
+				gceMap,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -394,8 +506,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		testResponse.Trigger[resourceKey] = ers
 	}
 
-	if json != nil {
-		// the policy processor is for multiple policies at once
+	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
@@ -407,13 +518,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: json.(map[string]any)},
+			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
 			ContextFs:                         testCase.Fs,
 			ContextPath:                       contextPath,
+			GlobalContextEntries:              gceMap,
 			UserInfo:                          userInfo,
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
@@ -423,15 +535,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			CrdPaths:                          crdPaths,
+			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -443,9 +557,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				contextPath,
 				false,
 				true,
+				restMapper,
+				gceMap,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
 			}
 			ers = append(ers, ivpols...)
 		}
@@ -453,7 +569,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: json.(map[string]any)}},
+				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
 				vars.Namespace,
 				&resultCounts,
@@ -462,16 +578,41 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				testCase.Fs,
 				contextPath,
 				true,
+				restMapper,
+				gceMap,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", testCase.Test.JSONPayload, err)
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
 			}
 			ers = append(ers, dpols...)
 		}
 
-		testResponse.Trigger[testCase.Test.JSONPayload] = append(testResponse.Trigger[testCase.Test.JSONPayload], ers...)
+		testResponse.Trigger[jp.name] = append(testResponse.Trigger[jp.name], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
+
+	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	if len(httpPayloads) > 0 {
+		for file, payload := range httpPayloads {
+			ers, err := authProzessor.ApplyHTTPPolicies([]*authzhttp.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on HTTP payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+	if len(envoyPayloads) > 0 {
+		for file, payload := range envoyPayloads {
+			ers, err := authProzessor.ApplyEnvoyPolicies([]*authv3.CheckRequest{payload})
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply policies on Envoy payload (%w)", err)
+			}
+			testResponse.Trigger[file] = append(testResponse.Trigger[file], ers...)
+			engineResponses = append(engineResponses, ers...)
+		}
+	}
+
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
@@ -498,6 +639,8 @@ func applyImageValidatingPolicies(
 	contextPath string,
 	continueOnFail bool,
 	isFake bool,
+	restMapper meta.RESTMapper,
+	gceMap map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -514,11 +657,14 @@ func applyImageValidatingPolicies(
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 	)
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
+	if restMapper == nil {
+		var mapErr error
+		restMapper, mapErr = utils.GetRESTMapper(dclient)
+		if mapErr != nil {
+			return nil, mapErr
+		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -630,12 +776,17 @@ func applyDeletingPolicies(
 	f billy.Filesystem,
 	contextPath string,
 	isFake bool,
+	restMapper meta.RESTMapper,
+	gceMap map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
+	if restMapper == nil {
+		var mapErr error
+		restMapper, mapErr = utils.GetRESTMapper(dclient)
+		if mapErr != nil {
+			return nil, mapErr
+		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -735,4 +886,36 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 		res.Object = convertNumericValuesToFloat64(res.Object).(map[string]interface{})
 	}
 	return resources
+}
+
+func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
+	if len(mocks) == 0 {
+		return nil, nil
+	}
+	index := make(map[string]interface{}, len(mocks))
+	for _, m := range mocks {
+		body, err := v1alpha1.RawExtensionToObject(m.Response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("apiCallResponses %q: invalid body: %w", m.ResolvedURL(), err)
+		}
+		wrapped := wrapHTTPResponse(body, m.Response.StatusCode)
+		url := m.ResolvedURL()
+		method := strings.ToUpper(strings.TrimSpace(m.Method))
+		key := url
+		if method != "" {
+			key = method + ":" + url
+		}
+		index[key] = wrapped
+	}
+	return index, nil
+}
+
+func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
+	if statusCode == 0 {
+		statusCode = 200
+	}
+	return map[string]interface{}{
+		"body":       body,
+		"statusCode": statusCode,
+	}
 }

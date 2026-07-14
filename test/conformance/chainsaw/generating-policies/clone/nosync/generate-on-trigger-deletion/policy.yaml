@@ -13,6 +13,6 @@ spec:
     - name: nsName
       expression: "namespaceObject.metadata.name"
     - name: source
-      expression: resource.Get("v1", "secrets", "default", "clone-generate-on-trigger-deletion")
+      expression: resource.get("v1", "secrets", "default", "clone-generate-on-trigger-deletion")
   generate:
-    - expression: generator.Apply(variables.nsName, [variables.source])
+    - expression: generator.apply(variables.nsName, [variables.source])

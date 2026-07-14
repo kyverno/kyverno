@@ -124,6 +124,28 @@ func TestCompile(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "condition references variable",
+			policy: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "cond-refs-var"},
+				Spec: v1beta1.DeletingPolicySpec{
+					Schedule: "* * * * *",
+					Variables: []admissionv1.Variable{
+						{
+							Name:       "targetEnv",
+							Expression: "'test'",
+						},
+					},
+					Conditions: []admissionv1.MatchCondition{
+						{
+							Name:       "check-env",
+							Expression: "variables.targetEnv == 'test'",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid exception",
 			policy: &v1beta1.DeletingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "invalid-exception"},

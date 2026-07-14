@@ -8,6 +8,7 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -30,6 +31,7 @@ type Engine interface {
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
 type EngineResponse struct {
@@ -108,7 +110,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 					attr.GetOperation(),
 					nil,
 					attr.IsDryRun(),
-					nil,
+					attr.GetUserInfo(),
 				)
 			}
 		}
@@ -141,8 +143,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 
 	var namespace *corev1.Namespace
@@ -170,7 +171,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 				attr.GetOperation(),
 				nil,
 				attr.IsDryRun(),
-				nil,
+				attr.GetUserInfo(),
 			)
 		}
 	}
@@ -262,13 +263,35 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
-	pols := e.provider.Fetch(context.TODO(), true)
-	for _, p := range pols {
-		if p.Policy.GetName() == policyName {
-			return p, nil
-		}
+	policies := e.GetCompiledPolicies(policyName)
+	if policy, ok := policies[policyName]; ok {
+		return policy, nil
 	}
 	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
+}
+
+func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
+	expectedNames := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		expectedNames[name] = struct{}{}
+	}
+
+	policies := make(map[string]Policy, len(expectedNames))
+	for _, mutateExisting := range []bool{false, true} {
+		compiledPolicies := e.provider.Fetch(context.TODO(), mutateExisting)
+		for _, policy := range compiledPolicies {
+			name := policy.Policy.GetName()
+			if len(expectedNames) > 0 {
+				if _, ok := expectedNames[name]; !ok {
+					continue
+				}
+			}
+			if _, ok := policies[name]; !ok {
+				policies[name] = policy
+			}
+		}
+	}
+	return policies
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
@@ -292,8 +315,7 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		admission.Operation(request.Request.Operation),
 		nil,
 		dryRun,
-		// TODO
-		nil,
+		admissionpolicy.NewUser(request.Request.UserInfo),
 	)
 
 	var namespace *corev1.Namespace
@@ -301,5 +323,5 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		namespace = e.nsResolver(ns)
 	}
 
-	return e.provider.MatchesMutateExisting(ctx, attr, namespace)
+	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace)
 }

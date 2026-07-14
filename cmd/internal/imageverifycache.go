@@ -2,7 +2,7 @@ package internal
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 )
 
 func setupImageVerifyCache(logger logr.Logger) imageverifycache.Client {

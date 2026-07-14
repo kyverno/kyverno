@@ -44,9 +44,6 @@ type fakePolexLister struct {
 func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return f.exceptions, f.err
 }
-func (f *fakePolexLister) PolicyExceptions(namespace string) policiesv1beta1listers.PolicyExceptionNamespaceLister {
-	return nil
-}
 
 func TestGet(t *testing.T) {
 	t.Run("", func(t *testing.T) {

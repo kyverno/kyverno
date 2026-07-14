@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type generator struct {
@@ -180,6 +181,18 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
+				effectiveAPIVersion := targetMeta.GetAPIVersion()
+				if effectiveAPIVersion == "" {
+					effectiveAPIVersion = generatedObj.GetAPIVersion()
+					newResource.SetAPIVersion(effectiveAPIVersion)
+				}
+
+				effectiveNamespace := targetMeta.GetNamespace()
+				if effectiveNamespace == "" && g.isNamespacedResource(effectiveAPIVersion, targetMeta.GetKind()) {
+					effectiveNamespace = "default"
+				}
+				newResource.SetNamespace(effectiveNamespace)
+
 				if !g.rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
@@ -192,18 +205,11 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 
 				logger.V(4).Info("updating existing resource")
-				if targetMeta.GetAPIVersion() == "" {
-					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
-					newResource.SetAPIVersion(generatedResourceAPIVersion)
-				}
-				if targetMeta.GetNamespace() == "" {
-					newResource.SetNamespace("default")
-				}
 
 				if g.policy.GetSpec().UseServerSideApply {
-					_, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+					_, err = g.client.ApplyResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, targetMeta.GetName(), newResource, false, "generate")
 				} else {
-					_, err = g.client.UpdateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+					_, err = g.client.UpdateResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, newResource, false)
 				}
 				if err != nil {
 					logger.Error(err, "failed to update resource")
@@ -287,4 +293,24 @@ func (g *generator) loadContext(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (g *generator) isNamespacedResource(apiVersion, kind string) bool {
+	if apiVersion == "" || kind == "" {
+		return true
+	}
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		g.logger.V(4).Info("failed to parse apiVersion for generated resource scope lookup", "apiVersion", apiVersion, "kind", kind, "error", err.Error())
+		return true
+	}
+	resources, err := g.client.Discovery().FindResources(gv.Group, gv.Version, kind, "")
+	if err != nil {
+		g.logger.V(4).Info("failed to discover generated resource scope", "apiVersion", apiVersion, "kind", kind, "error", err.Error())
+		return true
+	}
+	for _, resource := range resources {
+		return resource.Namespaced
+	}
+	return true
 }

@@ -1,0 +1,7 @@
+{
+    "attributes": {
+      "method": "GET",
+      "path": "/api/v1/pods",
+      "host": "kubernetes.default.svc"
+    }
+  }

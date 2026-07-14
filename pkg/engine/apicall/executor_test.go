@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -118,6 +120,35 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 	data, err := executor.Execute(context.TODO(), call)
 	assert.NilError(t, err)
 	assert.Equal(t, string(data), "{}")
+}
+
+func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t *testing.T) {
+	missingTokenPath := scopedTokenPath + ".missing"
+	oldPath := scopedTokenPath
+	scopedTokenPath = missingTokenPath
+	t.Cleanup(func() {
+		scopedTokenPath = oldPath
+	})
+
+	var gotAuth string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.Equal(t, gotAuth, "")
 }
 
 // Helper function to check if string contains substring

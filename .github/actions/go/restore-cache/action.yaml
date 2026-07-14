@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: Restore Go cache
+description: Restore Go cache
+
+inputs:
+  path:
+    description: Cache path to restore
+    required: true
+  cache-prefix:
+    description: Prefix for cache key
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: variables
+      shell: bash
+      run: |
+        set -e
+        echo "GOVERSION=$(go env GOVERSION)" >> $GITHUB_OUTPUT
+        echo "CACHEDATE=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+        echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        echo "OS=${ImageOS:-Unknown}" >> $GITHUB_OUTPUT
+    - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-${{ steps.variables.outputs.CACHEDATE }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-${{ steps.variables.outputs.CACHEDATE }}-
+          ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-
