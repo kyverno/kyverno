@@ -176,6 +176,11 @@ func Command() *cobra.Command {
 								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
 							}
 						}
+						if rule.RuleType() == engineapi.Generation {
+							if rule.Status() == engineapi.RuleStatusError {
+								fmt.Fprintln(out, "\nerror while applying generate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror:", rule.Message())
+							}
+						}
 					}
 					if len(failedRules) > 0 {
 						auditWarn := false
