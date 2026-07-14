@@ -204,7 +204,12 @@ func (s *scanner) ScanResource(
 			engineResponse, err := engine.Handle(ctx, request, nil)
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
-				rules = append(rules, policy.Rules...)
+				for _, rule := range policy.Rules {
+					if rule.Status() == engineapi.RuleStatusSkip && rule.SkipReason() == engineapi.SkipReasonMatchConditions {
+						continue
+					}
+					rules = append(rules, rule)
+				}
 			}
 
 			response := engineapi.EngineResponse{
