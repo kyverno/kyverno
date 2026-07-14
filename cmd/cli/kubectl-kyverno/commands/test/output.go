@@ -285,24 +285,32 @@ func printTestResult(
 						}
 					}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
+					// if there are no RuleResponse, the resource has been excluded.
+					// This is only a pass if the test doesn't expect a specific failure.
 					if len(rows) == 0 && !resourceSkipped {
 						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 						resourceParts := strings.Split(resourceGVKAndName, "/")
 
 						row := table.Row{
 							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
+								ID:       testCount,
+								Policy:   color.Policy("", test.Policy),
+								Rule:     color.Rule(test.Rule),
+								Resource: color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
 							},
 							Message: color.Excluded(),
 						}
-						rc.Skip++
+						if test.Result == openreports.StatusFail || test.Result == openreports.StatusError {
+							row.Result = color.ResultFail()
+							row.Reason = fmt.Sprintf("Want %s, got excluded", test.Result)
+							row.IsFailure = true
+							rc.Fail++
+						} else {
+							row.Result = color.ResultPass()
+							row.Reason = color.Excluded()
+							row.IsFailure = false
+							rc.Skip++
+						}
 						testCount++
 						rows = append(rows, row)
 					}
