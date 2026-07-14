@@ -108,3 +108,25 @@ func TestWithValidationIndex(t *testing.T) {
 			"user-defined cel.validationIndex must not be clobbered by the engine")
 	})
 }
+func TestHandle_RuleNameIsSetFromPolicy(t *testing.T) {
+	// rule name in the response must match the policy name, consistent with
+	// ivpol and gpol engines.
+	policy := buildJSONPolicy("my-policy", []admissionregistrationv1.Validation{
+		{Expression: "object.name == 'forbidden'", Message: "name not allowed"},
+	})
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, nil, nil)
+	payload := &unstructured.Unstructured{Object: map[string]any{"name": "allowed"}}
+
+	resp, err := eng.Handle(context.Background(), celengine.RequestFromJSON(nil, payload), nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+
+	rule := resp.Policies[0].Rules[0]
+	assert.Equal(t, "my-policy", rule.Name(), "rule name must match the policy name")
+}
+

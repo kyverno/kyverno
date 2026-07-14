@@ -192,8 +192,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			)
 		}
 	} else {
-		// TODO: do we want to set a rule name?
-		ruleName := ""
+		ruleName := policy.Policy.GetName()
 		if result.Error != nil {
 			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
