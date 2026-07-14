@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: approved-sa
+  namespace: default
+  labels:
+    approved: "yes"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: regular-sa
+  namespace: default
+  labels:
+    approved: "no"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-using-approved-sa
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-using-approved-sa
+  template:
+    metadata:
+      labels:
+        app: deploy-using-approved-sa
+    spec:
+      serviceAccountName: approved-sa
+      containers:
+      - name: app
+        image: nginx:1.21
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-using-regular-sa
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-using-regular-sa
+  template:
+    metadata:
+      labels:
+        app: deploy-using-regular-sa
+    spec:
+      serviceAccountName: regular-sa
+      containers:
+      - name: app
+        image: nginx:1.21

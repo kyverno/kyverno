@@ -6,12 +6,15 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -94,15 +97,56 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.
 	}
 
 	compiler := NewCompiler(ictx, lister, nil)
-	_, err := compiler.Compile(ivpol, nil)
-	if err == nil {
+	_, errList := compiler.Compile(ivpol, nil)
+
+	errs := make(field.ErrorList, 0, len(errList))
+	if len(errList) > 0 {
+		errs = errList
+	}
+
+	if ivpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
+		if engine.ExpressionsUseHTTP(ivpolExpressions(ivpol)...) {
+			errs = append(errs, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
+		}
+	}
+
+	if len(errs) == 0 {
 		return nil, nil
 	}
 
-	warnings := make([]string, 0, len(err.ToAggregate().Errors()))
-	for _, e := range err.ToAggregate().Errors() {
+	warnings := make([]string, 0, len(errs.ToAggregate().Errors()))
+	for _, e := range errs.ToAggregate().Errors() {
 		warnings = append(warnings, e.Error())
 	}
 
-	return warnings, err.ToAggregate()
+	return warnings, errs.ToAggregate()
+}
+
+func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string {
+	spec := ivpol.GetSpec()
+	if spec == nil {
+		return nil
+	}
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Validations)*2+len(spec.AuditAnnotations)+len(spec.ImageExtractors)+len(spec.MatchImageReferences))
+	for _, v := range spec.Variables {
+		exprs = append(exprs, v.Expression)
+	}
+	for _, mc := range spec.MatchConditions {
+		exprs = append(exprs, mc.Expression)
+	}
+	for _, val := range spec.Validations {
+		exprs = append(exprs, val.Expression, val.MessageExpression)
+	}
+	for _, aa := range spec.AuditAnnotations {
+		exprs = append(exprs, aa.ValueExpression)
+	}
+	for _, ie := range spec.ImageExtractors {
+		exprs = append(exprs, ie.Expression)
+	}
+	for _, mir := range spec.MatchImageReferences {
+		if mir.Expression != "" {
+			exprs = append(exprs, mir.Expression)
+		}
+	}
+	return exprs
 }

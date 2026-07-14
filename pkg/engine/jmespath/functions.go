@@ -839,7 +839,7 @@ func jpLabelMatch(arguments []any) (any, error) {
 	}
 
 	for key, value := range labelMap {
-		if val, ok := matchMap[key]; !ok || val != value {
+		if val, ok := matchMap[key]; !ok || !reflect.DeepEqual(val, value) {
 			return false, nil
 		}
 	}

@@ -90,17 +90,22 @@ func load(content []byte) (*LoaderResults, error) {
 	return results, nil
 }
 
-func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2.PolicyException {
-	var exceptions []*kyvernov2.PolicyException
+func SelectFrom(resources []*unstructured.Unstructured) *LoaderResults {
+	results := &LoaderResults{}
 	for _, resource := range resources {
 		switch resource.GroupVersionKind() {
 		case exceptionV2beta1, exceptionV2:
 			exception, err := convert.To[kyvernov2.PolicyException](*resource)
 			if err == nil {
-				exceptions = append(exceptions, exception)
+				results.Exceptions = append(results.Exceptions, exception)
+			}
+		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+			celException, err := convert.To[policiesv1beta1.PolicyException](*resource)
+			if err == nil {
+				results.CELExceptions = append(results.CELExceptions, celException)
 			}
 		}
 	}
 
-	return exceptions
+	return results
 }

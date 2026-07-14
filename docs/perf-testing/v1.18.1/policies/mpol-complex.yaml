@@ -1,0 +1,79 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-complex
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  mutations:
+  # Inject labels + annotations
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.metadata.labels) ?
+        [
+          JSONPatch{op: "add", path: "/metadata/labels/managed-by",   value: "kyverno"},
+          JSONPatch{op: "add", path: "/metadata/labels/policy-check",  value: "passed"},
+          JSONPatch{op: "add", path: "/metadata/labels/inject-time",   value: "admission"}
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {
+              "managed-by":   "kyverno",
+              "policy-check": "passed",
+              "inject-time":  "admission"
+            }
+          }
+        ]
+  # Set pod-level securityContext defaults when absent
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: |
+        !has(object.spec.securityContext) ?
+        Object{
+          spec: Object.spec{
+            securityContext: Object.spec.securityContext{
+              runAsNonRoot: true,
+              runAsUser: 1000,
+              seccompProfile: Object.spec.securityContext.seccompProfile{
+                type: "RuntimeDefault"
+              }
+            }
+          }
+        }
+        :
+        Object{}
+  # Inject a log-forwarder sidecar when not already present
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        !object.spec.containers.exists(c, c.name == "log-forwarder") ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/spec/containers/-",
+            value: {
+              "name":    "log-forwarder",
+              "image":   "busybox:latest",
+              "command": ["sh", "-c", "tail -f /dev/null"],
+              "resources": {
+                "requests": {"cpu": "1m", "memory": "8Mi"},
+                "limits":   {"memory": "16Mi"}
+              },
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "readOnlyRootFilesystem":   true,
+                "runAsNonRoot":             true,
+                "capabilities":            {"drop": ["ALL"]}
+              }
+            }
+          }
+        ]
+        :
+        []

@@ -9,6 +9,7 @@ metadata:
   labels:
     app: json-server
 spec:
+  automountServiceAccountToken: false
   containers:
   - name: server
     image: public.ecr.aws/docker/library/python:3.9-slim

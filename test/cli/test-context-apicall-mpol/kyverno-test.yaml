@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-apicall-mpol
+policies:
+- policy.yaml
+resources:
+- resources/deployment-with-spot-computeclass.yaml
+- resources/deployment-with-non-spot-computeclass.yaml
+results:
+- isMutatingPolicy: true
+  kind: Deployment
+  patchedResources: patched/deployment-with-non-spot-computeclass.yaml
+  policy: label-computeclass-type-crd
+  resources:
+  - deployment-with-non-spot-computeclass
+  result: pass
+- isMutatingPolicy: true
+  kind: Deployment
+  patchedResources: patched/deployment-with-spot-computeclass.yaml
+  policy: label-computeclass-type-crd
+  resources:
+  - deployment-with-spot-computeclass
+  result: pass

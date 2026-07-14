@@ -320,6 +320,12 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlers(
+		ngpolInformer.Informer(),
+		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
+	); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(
 		ivpolInformer.Informer(),
 		c.handlePolicyCreate, c.handlePolicyUpdate, c.handlePolicyDelete,
 	); err != nil {
@@ -986,7 +992,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/ivpol/mutate",
 		c.servicePort,
 		caBundle,
-		ivpols,
+		ivpolsNeedingMutation(ivpols),
 		c.celExpressionCache)...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
@@ -1000,7 +1006,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
-		nivpols,
+		ivpolsNeedingMutation(nivpols),
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
@@ -1248,6 +1254,24 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	result.Webhooks = append(result.Webhooks, gpolWebhooks...)
 
+	ngpols, err := c.getNamespacedGeneratingPolicies()
+	if err != nil {
+		return err
+	}
+	ngpolWebhooks := buildWebhookRules(cfg,
+		c.server,
+		config.NamespacedGeneratingPolicyWebhookName,
+		"/ngpol",
+		c.servicePort,
+		caBundle,
+		ngpols,
+		c.celExpressionCache)
+
+	for i := range ngpolWebhooks {
+		ngpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ngpolWebhooks[i].Rules))
+	}
+	result.Webhooks = append(result.Webhooks, ngpolWebhooks...)
+
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
 		return err
@@ -1281,6 +1305,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 
 	policies := append(pols, nvpols...)
 	policies = append(policies, gpols...)
+	policies = append(policies, ngpols...)
 	policies = append(policies, ivpols...)
 	policies = append(policies, nivpols...)
 	c.recordPolicyState(policies...)
@@ -1444,6 +1469,20 @@ func (c *controller) getGeneratingPolicies() ([]engineapi.GenericPolicy, error) 
 	return gpols, nil
 }
 
+func (c *controller) getNamespacedGeneratingPolicies() ([]engineapi.GenericPolicy, error) {
+	namespacedgeneratingpolicies, err := c.ngpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	ngpols := make([]engineapi.GenericPolicy, 0)
+	for _, ngpol := range namespacedgeneratingpolicies {
+		if ngpol.Spec.AdmissionEnabled() {
+			ngpols = append(ngpols, engineapi.NewNamespacedGeneratingPolicy(ngpol))
+		}
+	}
+	return ngpols, nil
+}
+
 func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, error) {
 	policies, err := c.ivpolLister.List(labels.Everything())
 	if err != nil {
@@ -1470,6 +1509,26 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 		}
 	}
 	return nivpols, nil
+}
+
+// ivpolsNeedingMutation filters ivpol/nivpol policies to those that actually
+// require a mutating webhook (i.e. MutateDigest or VerifyDigest is enabled).
+// Both fields default to true when nil, so an unset spec always qualifies.
+func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.GenericPolicy {
+	result := make([]engineapi.GenericPolicy, 0, len(policies))
+	for _, p := range policies {
+		ivpol := p.AsImageValidatingPolicyLike()
+		if ivpol == nil {
+			continue
+		}
+		spec := ivpol.GetSpec()
+		mutateDigest := spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest
+		verifyDigest := spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest
+		if mutateDigest || verifyDigest {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {

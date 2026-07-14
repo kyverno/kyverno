@@ -98,7 +98,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 func Test_Eval_NonMatchingImage(t *testing.T) {
 	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(nonMatchingImage), nil, nil, nil)
 	assert.NoError(t, err)
-	assert.Nil(t, result[ivpol.Name])
+	assert.True(t, result[ivpol.Name].Result)
 }
 
 func Test_Eval(t *testing.T) {

@@ -274,7 +274,7 @@ func (s *scanner) ScanResource(
 	}
 
 	for i, policy := range ivpols {
-		if pol := policy.AsImageValidatingPolicy(); pol != nil {
+		if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
 			provider, err := ivpolengine.NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")

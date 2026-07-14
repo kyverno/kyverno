@@ -32,6 +32,7 @@ jobs:
         with:
           version: v2.11.4
           skip-cache: true
+          verify: false
 
   sync-issue:
     if: always() && github.event_name == 'push'
@@ -45,3 +46,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Sync issue
         uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}

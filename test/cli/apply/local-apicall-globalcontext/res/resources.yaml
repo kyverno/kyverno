@@ -1,0 +1,65 @@
+---
+# GlobalContextEntry that caches ConfigMaps in the "default" namespace
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: configmap-cache
+spec:
+  kubernetesResource:
+    group: ""
+    version: v1
+    resource: configmaps
+    namespace: default
+---
+# ConfigMap that satisfies the policy check
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default
+data:
+  environment: production
+---
+# Deployment that should PASS (app-config exists)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: default
+  labels:
+    app: web-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+---
+# Deployment that should also PASS (same ConfigMap exists)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: default
+  labels:
+    app: api-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      containers:
+      - name: api
+        image: node:18

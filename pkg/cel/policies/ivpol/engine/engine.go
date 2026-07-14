@@ -274,7 +274,7 @@ func (e *engineImpl) handleMutation(
 					if result.Error != nil {
 						response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
 					} else if result.Result {
-						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil)
+						response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 					} else {
 						response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 					}
