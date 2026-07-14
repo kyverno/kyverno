@@ -974,7 +974,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 
 	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
-		config.MutatingPolicyWebhookName,
+		config.NamespacedMutatingPolicyWebhookName,
 		"/nmpol",
 		c.servicePort,
 		caBundle,
