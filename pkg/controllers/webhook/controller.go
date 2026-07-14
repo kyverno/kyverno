@@ -1050,22 +1050,24 @@ func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Co
 					if spec.CustomWebhookMatchConditions() {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							fineGrainedIgnore.namespaceSelector = mergeLabelSelectors(p.GetSpec().GetWebhookConfiguration().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
+							fineGrainedIgnore.namespaceSelector = cfg.GetWebhook().NamespaceSelector
 							ready = c.mergeWebhook(fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							fineGrainedFail.namespaceSelector = mergeLabelSelectors(p.GetSpec().GetWebhookConfiguration().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
+							fineGrainedFail.namespaceSelector = cfg.GetWebhook().NamespaceSelector
 							ready = c.mergeWebhook(fineGrainedFail, p, false)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
+				} else {
+					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+						ignoreWebhook.namespaceSelector = cfg.GetWebhook().NamespaceSelector
+						ready = c.mergeWebhook(ignoreWebhook, p, false)
 					} else {
-						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							ready = c.mergeWebhook(ignoreWebhook, p, false)
-						} else {
-							ready = c.mergeWebhook(failWebhook, p, false)
-						}
+						failWebhook.namespaceSelector = cfg.GetWebhook().NamespaceSelector
+						ready = c.mergeWebhook(failWebhook, p, false)
 					}
+				}
 				}
 				if ready {
 					readyPolicies = append(readyPolicies, p)
