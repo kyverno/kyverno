@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -53,7 +54,7 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	if decodeErr == nil {
 		resource.SetGroupVersionKind(*metaData)
 	}
-	if resource.GetNamespace() == "" {
+	if resource.GetNamespace() == "" && !isClusterScopedKind(resource.GetAPIVersion(), resource.GetKind()) {
 		resource.SetNamespace("default")
 	}
 	// Normalize nil map fields to empty maps
@@ -169,4 +170,41 @@ func normalizeNilMaps(obj map[string]interface{}) {
 			}
 		}
 	}
+}
+
+func isClusterScopedKind(apiVersion, kind string) bool {
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return false
+	}
+
+	// Clone to avoid mutating the cached slice returned by data.APIGroupResources().
+	apiGroupResources = append(apiGroupResources[:0:0], apiGroupResources...)
+
+	if processor := data.GetProcessor(); processor != nil {
+		if extra := processor.GetResourceGroups(); len(extra) > 0 {
+			apiGroupResources = append(apiGroupResources, extra...)
+		}
+	}
+
+	groupName := ""
+	if parts := strings.Split(apiVersion, "/"); len(parts) == 2 {
+		groupName = parts[0]
+	}
+
+	for _, group := range apiGroupResources {
+		if group.Group.Name != groupName {
+			continue
+		}
+
+		for _, resources := range group.VersionedResources {
+			for _, resource := range resources {
+				if resource.Kind == kind {
+					return !resource.Namespaced
+				}
+			}
+		}
+	}
+
+	return false
 }
