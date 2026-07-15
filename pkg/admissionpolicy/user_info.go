@@ -34,3 +34,26 @@ func NewUser(userInfo authenticationv1.UserInfo) UserInfo {
 		userInfo: userInfo,
 	}
 }
+
+// backgroundUsername is a sentinel used when a policy is evaluated with no admission user (for
+// example background scans of ValidatingAdmissionPolicies and MutatingAdmissionPolicies). It only
+// needs to be non-empty: authenticationv1.UserInfo.Username has the omitempty JSON tag, so an empty
+// value is dropped when the admission request is converted to the map the CEL engine reads, which
+// makes request.userInfo.username absent and fails any policy that references it. It is deliberately
+// not a valid serviceaccount username (no system:serviceaccount: prefix) so it does not collide with
+// policies that allowlist or deny real service accounts.
+const backgroundUsername = "system:kyverno:background-scan"
+
+// ResolveUser returns a UserInfo for CEL evaluation. It keeps every field of the provided userInfo
+// and only fills in the sentinel username when none is set, so request.userInfo.username is always
+// present while any supplied username, groups, uid or extra are preserved.
+func ResolveUser(userInfo *authenticationv1.UserInfo) UserInfo {
+	u := authenticationv1.UserInfo{}
+	if userInfo != nil {
+		u = *userInfo
+	}
+	if u.Username == "" {
+		u.Username = backgroundUsername
+	}
+	return NewUser(u)
+}
