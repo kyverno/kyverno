@@ -636,6 +636,37 @@ Required.</p>
     
     
       <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+The results of evaluating the expressions are attached to the audit event as annotations with the key
+&quot;<!-- raw HTML omitted -->/<!-- raw HTML omitted -->&quot;.
+If the expression evaluates to an empty string or null the annotation will not be included in the audit event.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>useServerSideApply</code>
           
           </br>
@@ -4708,6 +4739,37 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
           <p>Generation defines a set of CEL expressions that will be evaluated to generate resources.
 Required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+The results of evaluating the expressions are attached to the audit event as annotations with the key
+&quot;<!-- raw HTML omitted -->/<!-- raw HTML omitted -->&quot;.
+If the expression evaluates to an empty string or null the annotation will not be included in the audit event.</p>
 
 
           

@@ -330,13 +330,13 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 	logger.V(2).Info("start watcher ...")
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		logger.V(3).Info("creating watcher...")
-		watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
+		watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, options)
 		if err != nil {
 			logger.Error(err, "failed to watch")
 		}
 		return watch, err
 	}
-	watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	watchInterface, err := watchTools.NewRetryWatcherWithContext(ctx, resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
 		logger.Error(err, "failed to create watcher")
 		return nil, err

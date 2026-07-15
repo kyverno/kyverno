@@ -12,13 +12,16 @@ import (
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
 
@@ -262,6 +265,132 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 			err := c.reconcile(ctx, logr.Discard(), tt.key, "", "")
 			require.NoError(t, err)
 			tt.checkFunc(t, client)
+		})
+	}
+}
+
+// boolPtr is a small helper for setting optional *bool spec fields.
+func boolPtr(b bool) *bool { return &b }
+
+// findCondition returns the condition of the given type, or nil.
+func findCondition(conds []metav1.Condition, condType policiesv1beta1.PolicyConditionType) *metav1.Condition {
+	for i := range conds {
+		if conds[i].Type == string(condType) {
+			return &conds[i]
+		}
+	}
+	return nil
+}
+
+// TestReconcileBeta1Conditions_RBACGatedOnBackground verifies that the
+// RBACPermissionsGranted condition (which reflects the reports controller's
+// ability to get/list/watch the matched resources for background scanning) is
+// only evaluated when background scanning is enabled. When background is
+// disabled the permission check must be skipped so an admission-only policy is
+// not marked not-ready for lacking reporting permissions.
+//
+// The controller is built with a non-empty reports service account and a
+// SubjectAccessReview reactor that denies every access review, so the RBAC
+// check — when it runs — always fails.
+func TestReconcileBeta1Conditions_RBACGatedOnBackground(t *testing.T) {
+	t.Parallel()
+
+	secretsRule := []admissionregistrationv1.NamedRuleWithOperations{
+		{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"secrets"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		spec          policiesv1beta1.ValidatingPolicySpec
+		wantRBAC      metav1.ConditionStatus
+		wantMsgSubstr string
+	}{
+		{
+			name: "background enabled with rules: permission check runs and fails",
+			spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{ResourceRules: secretsRule},
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Background: &policiesv1beta1.BackgroundConfiguration{Enabled: boolPtr(true)},
+				},
+			},
+			wantRBAC:      metav1.ConditionFalse,
+			wantMsgSubstr: "missing permissions",
+		},
+		{
+			name: "background disabled with rules: permission check skipped",
+			spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{ResourceRules: secretsRule},
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Background: &policiesv1beta1.BackgroundConfiguration{Enabled: boolPtr(false)},
+				},
+			},
+			wantRBAC:      metav1.ConditionTrue,
+			wantMsgSubstr: "Background scanning disabled",
+		},
+		{
+			name: "background unset defaults to enabled: permission check runs and fails",
+			spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{ResourceRules: secretsRule},
+			},
+			wantRBAC:      metav1.ConditionFalse,
+			wantMsgSubstr: "missing permissions",
+		},
+		{
+			name: "background disabled with no rules: permission check skipped",
+			spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: emptyMatchResources,
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Background: &policiesv1beta1.BackgroundConfiguration{Enabled: boolPtr(false)},
+				},
+			},
+			wantRBAC:      metav1.ConditionTrue,
+			wantMsgSubstr: "Background scanning disabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dc := dclient.NewEmptyFakeClient()
+			// Deny every SubjectAccessReview so the RBAC check fails whenever it runs.
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false, Reason: "denied by test"},
+				}, nil
+			})
+
+			c := controller{
+				dclient: dc,
+				client:  versionedfake.NewSimpleClientset(),
+				// Non-empty user so the SubjectChecker actually issues reviews
+				// (an empty user short-circuits with ErrNoServiceAccount).
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "system:serviceaccount:kyverno:reports-controller", nil),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			vpol := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vpol"},
+				Spec:       tt.spec,
+			}
+
+			status := c.reconcileBeta1Conditions(ctx, engineapi.NewValidatingPolicy(vpol))
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, tt.wantRBAC, cond.Status, "RBACPermissionsGranted status")
+			assert.Contains(t, cond.Message, tt.wantMsgSubstr, "RBACPermissionsGranted message")
 		})
 	}
 }
