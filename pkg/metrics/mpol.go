@@ -61,6 +61,7 @@ func (m *mutatingMetrics) RecordDuration(ctx context.Context, seconds float64, s
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
 		attribute.String("policy_background_mode", string(backgroundMode)),
 		attribute.String("policy_name", name),
+		attribute.String("policy_namespace", policy.GetNamespace()),
 		attribute.String("resource_kind", resource.GetKind()),
 		attribute.String("resource_namespace", resource.GetNamespace()),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
@@ -79,6 +80,7 @@ func (m *mutatingMetrics) RecordResult(ctx context.Context, status, ruleExecutio
 	m.resultCounter.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("policy_background_mode", string(backgroundMode)),
 		attribute.String("policy_name", name),
+		attribute.String("policy_namespace", policy.GetNamespace()),
 		attribute.String("resource_kind", resource.GetKind()),
 		attribute.String("resource_namespace", resource.GetNamespace()),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
