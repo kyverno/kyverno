@@ -120,7 +120,7 @@ func (ctx *context) evaluateQuery(query string) (interface{}, error) {
 	queryPath, err := ctx.jp.Query(query)
 	if err != nil {
 		logger.Error(err, "incorrect query", "query", query)
-		return nil, fmt.Errorf("incorrect query %s: %v", query, err)
+		return nil, fmt.Errorf("incorrect query %s: %w", query, err)
 	}
 
 	// search
