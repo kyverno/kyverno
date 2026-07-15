@@ -831,3 +831,66 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 	assert.True(t, strings.HasPrefix(ngpolWebhooks[0].Name, config.NamespacedGeneratingPolicyWebhookName+"-"))
 	assert.NotEqual(t, gpolWebhooks[0].Name, ngpolWebhooks[0].Name)
 }
+
+func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "proxy-registry",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "longhorn-instance-manager-termination-protection",
+			Namespace: "longhorn-system",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	cfg := config.NewDefaultConfiguration(false)
+
+	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
+		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
+	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
+
+	assert.Len(t, mpolWebhooks, 1)
+	assert.Len(t, nmpolWebhooks, 1)
+	assert.Equal(t, config.MutatingPolicyWebhookName+"-fail", mpolWebhooks[0].Name)
+	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail", nmpolWebhooks[0].Name)
+	assert.NotEqual(t, mpolWebhooks[0].Name, nmpolWebhooks[0].Name)
+}
