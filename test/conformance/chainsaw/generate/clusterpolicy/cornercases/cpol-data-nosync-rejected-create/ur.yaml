@@ -1,0 +1,55 @@
+apiVersion: kyverno.io/v2
+kind: UpdateRequest
+metadata:
+  name: ur-phantom-rejected-create
+  namespace: kyverno
+spec:
+  policy: cpol-rejected-create
+  rule: generate-configmap
+  requestType: generate
+  resource:
+    apiVersion: v1
+    kind: Namespace
+    name: cpol-rejected-create-ns
+    uid: live-uid-999
+  ruleContext:
+  - rule: generate-configmap
+    synchronize: false
+    trigger:
+      apiVersion: v1
+      kind: Namespace
+      name: cpol-rejected-create-ns
+      uid: phantom-uid-111
+  context:
+    admissionRequestInfo:
+      operation: Create
+      admissionRequest:
+        uid: ""
+        kind:
+          group: ""
+          version: v1
+          kind: Namespace
+        resource:
+          group: ""
+          version: v1
+          resource: namespaces
+        requestKind:
+          group: ""
+          version: v1
+          kind: Namespace
+        requestResource:
+          group: ""
+          version: v1
+          resource: namespaces
+        operation: CREATE
+        object:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: cpol-rejected-create-ns
+            uid: phantom-uid-111
+            labels:
+              layer: business
+        oldObject: {}
+        dryRun: false
+        options: {}

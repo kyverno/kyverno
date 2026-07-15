@@ -84,6 +84,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 	obj := resourceSpec
 	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
 		obj = urSpec.GetResource()
+		resourceSpec = obj
 	}
 
 	log.V(4).Info("fetching resource by UID",
@@ -103,6 +104,8 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 				return &trigger, nil
 			}
 		}
+
+		return nil, nil
 	} else if obj.GetName() != "" {
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
