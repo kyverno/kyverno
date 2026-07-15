@@ -19,12 +19,14 @@ func (w *metricWrapper) Handle(ctx context.Context, request EngineRequest, predi
 		return response, err
 	}
 
-	for _, policy := range response.Policies {
-		if len(policy.Rules) == 0 {
-			continue
-		}
+	if w.metrics != nil {
+		for _, policy := range response.Policies {
+			if len(policy.Rules) == 0 {
+				continue
+			}
 
-		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+			w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		}
 	}
 
 	return response, nil

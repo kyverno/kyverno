@@ -46,12 +46,13 @@ func newReconciler(
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var policy policiesv1beta1.MutatingPolicyLike
-	mpol := &policiesv1beta1.MutatingPolicy{}
-	err := r.client.Get(ctx, req.NamespacedName, mpol)
-	if err == nil {
-		policy = mpol
-	} else if errors.IsNotFound(err) {
-		// Try NamespacedMutatingPolicy
+	var err error
+
+	if req.NamespacedName.Namespace != "" {
+		// Request has a namespace: this is always a NamespacedMutatingPolicy reconcile.
+		// Do NOT try MutatingPolicy first — for cluster-scoped resources, controller-runtime
+		// ignores the namespace in the request, so Get would silently find a same-named
+		// cluster-scoped policy instead of returning NotFound.
 		nmpol := &policiesv1beta1.NamespacedMutatingPolicy{}
 		err = r.client.Get(ctx, req.NamespacedName, nmpol)
 		if err == nil {
@@ -65,7 +66,19 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 	} else {
-		return ctrl.Result{}, err
+		// No namespace: this is a MutatingPolicy (cluster-scoped) reconcile.
+		mpol := &policiesv1beta1.MutatingPolicy{}
+		err = r.client.Get(ctx, req.NamespacedName, mpol)
+		if err == nil {
+			policy = mpol
+		} else if errors.IsNotFound(err) {
+			r.lock.Lock()
+			delete(r.policies, req.NamespacedName.String())
+			r.lock.Unlock()
+			return ctrl.Result{}, nil
+		} else {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if policy.GetStatus().Generated {

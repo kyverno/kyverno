@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: report-background
+spec:
+  concurrent: false
+  steps:
+  - name: create deployment
+    try:
+    - create:
+        file: deployment.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-image-validating-policy-ready
+    use:
+      template: ../../_step-templates/namespaced-image-validating-policy-ready-background.yaml
+      with:
+        bindings:
+        - name: name
+          value: nivpol-report-background-sample
+  - name: check report
+    try:
+    - assert:
+        template: true
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: ($namespace)
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+            ownerReferences:
+            - apiVersion: apps/v1
+              kind: Deployment
+              name: test-deployment-nivpol-background
+          scope:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: test-deployment-nivpol-background
+          results:
+          - message: failed to verify image with notary cert
+            result: fail
+            scored: true
+            source: KyvernoImageValidatingPolicy
+          summary:
+            error: 0
+            fail: 1
+            pass: 0
+            skip: 0
+            warn: 0

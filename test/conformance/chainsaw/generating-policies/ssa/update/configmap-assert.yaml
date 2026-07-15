@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssa-update-config
+  namespace: ssa-update-ns
+data:
+  mode: ssa
+  key: original

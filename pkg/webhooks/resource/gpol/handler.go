@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -18,20 +19,23 @@ import (
 )
 
 type handler struct {
-	urGenerator updaterequest.Generator
-	gpolLister  policiesv1beta1listers.GeneratingPolicyLister
-	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister
+	urGenerator                  updaterequest.Generator
+	gpolLister                   policiesv1beta1listers.GeneratingPolicyLister
+	ngpolLister                  policiesv1beta1listers.NamespacedGeneratingPolicyLister
+	backgroundServiceAccountName string
 }
 
 func New(
 	urGenerator updaterequest.Generator,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
+	backgroundServiceAccountName string,
 ) *handler {
 	return &handler{
-		urGenerator: urGenerator,
-		gpolLister:  gpolLister,
-		ngpolLister: ngpolLister,
+		urGenerator:                  urGenerator,
+		gpolLister:                   gpolLister,
+		ngpolLister:                  ngpolLister,
+		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
 }
 
@@ -50,12 +54,27 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 
 	go func(policies []string, request handlers.AdmissionRequest, logger logr.Logger) {
 		admissionRequest := request.AdmissionRequest
+		isBackgroundRequest := h.backgroundServiceAccountName != "" && request.UserInfo.Username == h.backgroundServiceAccountName
 		userInfo := kyvernov2.RequestInfo{
 			AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 			Roles:             request.Roles,
 			ClusterRoles:      request.ClusterRoles,
 		}
 		for _, policy := range policies {
+			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
+			var gpol *policiesv1beta1.GeneratingPolicy
+			if needPolicy {
+				var err error
+				gpol, err = h.gpolLister.Get(policy)
+				if err != nil {
+					logger.Error(err, "failed to get generating policy", "policy", policy)
+					continue
+				}
+				if isBackgroundRequest && skipBackgroundRequests(gpol) {
+					logger.V(4).Info("skipping background request for generating policy", "policy", policy)
+					continue
+				}
+			}
 			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
 			if err != nil {
 				logger.Error(err, "failed to extract resources from admission request")
@@ -72,11 +91,6 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 				UID:        trigger.GetUID(),
 			}
 			if request.Operation == admissionv1.Delete {
-				gpol, err := h.gpolLister.Get(policy)
-				if err != nil {
-					logger.Error(err, "failed to get generating policy", "policy", policy)
-					continue
-				}
 				// in case of delete operation, if the policy matches the delete operation, we need to fire the generation
 				// otherwise, we need to delete the downstream resources
 				deleteDownstream := true
@@ -114,12 +128,7 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 			} else {
 				synchronize := false
 				if request.Operation == admissionv1.Update {
-					gpol, err := h.gpolLister.Get(policy)
-					if err != nil {
-						logger.Error(err, "failed to get generating policy", "policy", policy)
-					} else {
-						synchronize = gpol.Spec.SynchronizationEnabled()
-					}
+					synchronize = gpol.Spec.SynchronizationEnabled()
 				}
 				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "synchronize", synchronize)
 				urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false, synchronize)
@@ -153,12 +162,27 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 
 	go func(policies []string, request handlers.AdmissionRequest, logger logr.Logger, namespace string) {
 		admissionRequest := request.AdmissionRequest
+		isBackgroundRequest := h.backgroundServiceAccountName != "" && request.UserInfo.Username == h.backgroundServiceAccountName
 		userInfo := kyvernov2.RequestInfo{
 			AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 			Roles:             request.Roles,
 			ClusterRoles:      request.ClusterRoles,
 		}
 		for _, policy := range policies {
+			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
+			var ngpol *policiesv1beta1.NamespacedGeneratingPolicy
+			if needPolicy {
+				var err error
+				ngpol, err = h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
+				if err != nil {
+					logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
+					continue
+				}
+				if isBackgroundRequest && skipBackgroundRequests(ngpol) {
+					logger.V(4).Info("skipping background request for namespaced generating policy", "policy", policy, "namespace", namespace)
+					continue
+				}
+			}
 			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
 			if err != nil {
 				logger.Error(err, "failed to extract resources from admission request")
@@ -175,11 +199,6 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 				UID:        trigger.GetUID(),
 			}
 			if request.Operation == admissionv1.Delete {
-				ngpol, err := h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
-				if err != nil {
-					logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
-					continue
-				}
 				deleteDownstream := true
 				for _, rule := range ngpol.Spec.MatchConstraints.ResourceRules {
 					for _, op := range rule.Operations {
@@ -215,12 +234,7 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 			} else {
 				synchronize := false
 				if request.Operation == admissionv1.Update {
-					ngpol, err := h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
-					if err != nil {
-						logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
-					} else {
-						synchronize = ngpol.Spec.SynchronizationEnabled()
-					}
+					synchronize = ngpol.Spec.SynchronizationEnabled()
 				}
 				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "namespace", namespace)
 				policyKey := namespace + "/" + policy
@@ -236,4 +250,8 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 	}(policies, request, logger, request.Namespace)
 
 	return admissionutils.Response(request.UID, nil)
+}
+
+func skipBackgroundRequests(policy policiesv1beta1.GeneratingPolicyLike) bool {
+	return policy.GetSpec().SkipBackgroundRequestsEnabled()
 }
