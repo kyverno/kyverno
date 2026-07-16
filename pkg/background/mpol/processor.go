@@ -127,7 +127,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	} else {
 		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
 		if err != nil {
-			return err
+			return updateURStatus(p.statusControl, *ur, err, nil)
 		}
 	}
 
@@ -370,20 +370,31 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 }
 
 func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.UpdateRequest, mpol v1beta1.MutatingPolicyLike) (*unstructured.UnstructuredList, error) {
-	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil ||
-		ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw == nil {
+	ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	if ar == nil {
+		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
+	}
+
+	raw := ar.Object.Raw
+	if ar.Operation == admissionv1.Delete {
+		raw = ar.OldObject.Raw
+	}
+	if raw == nil {
 		return nil, fmt.Errorf("invalid update request passed, the fields needed to extract resource data are nil")
 	}
 
 	var urResource unstructured.Unstructured
-	err := json.Unmarshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw, &urResource)
+	err := json.Unmarshal(raw, &urResource)
 	if err != nil {
 		return nil, err
 	}
 
-	originalObj, err := p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
-	if err != nil {
-		return nil, err
+	originalObj := &urResource
+	if ar.Operation != admissionv1.Delete {
+		originalObj, err = p.client.GetResource(ctx, urResource.GetAPIVersion(), urResource.GetKind(), urResource.GetNamespace(), urResource.GetName())
+		if err != nil {
+			return nil, err
+		}
 	}
 	pol, err := p.engine.GetCompiledPolicy(mpol.GetName())
 	if err != nil {
