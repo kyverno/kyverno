@@ -891,7 +891,8 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	assert.Len(t, mpolWebhooks, 1)
 	assert.Len(t, nmpolWebhooks, 1)
 	assert.Equal(t, config.MutatingPolicyWebhookName+"-fail", mpolWebhooks[0].Name)
-	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail", nmpolWebhooks[0].Name)
+	// a namespaced policy gets its own webhook so its selector can be pinned to its namespace
+	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail-finegrained-longhorn-system-longhorn-instance-manager-termination-protection", nmpolWebhooks[0].Name)
 	assert.NotEqual(t, mpolWebhooks[0].Name, nmpolWebhooks[0].Name)
 }
 
@@ -931,4 +932,53 @@ func TestResolveNamespaceSelector(t *testing.T) {
 	}
 	clusterSel := resolveNamespaceSelector(clusterPol, cfg)
 	assert.Equal(t, "prod", clusterSel.MatchLabels["env"], "cluster-scoped policy keeps its namespaceSelector")
+}
+
+// Two namespaced policies in different namespaces must each get their own webhook pinned to their
+// own namespace. Aggregating them under a single webhook would leave one namespace selector, so
+// only the last policy's namespace would be admitted to Kyverno and the other policy would never run.
+func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T) {
+	spec := policiesv1beta1.ValidatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+					},
+				},
+			}},
+		},
+	}
+	teamA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "require-labels"},
+		Spec:       spec,
+	})
+	teamB := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-b", Name: "require-labels"},
+		Spec:       spec,
+	})
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
+		[]engineapi.GenericPolicy{teamA, teamB},
+		NewExpressionCache(),
+	)
+
+	assert.Len(t, webhooks, 2, "each namespaced policy needs its own webhook")
+	pinned := map[string]bool{}
+	for _, wh := range webhooks {
+		for _, e := range wh.NamespaceSelector.MatchExpressions {
+			if e.Key == "kubernetes.io/metadata.name" && e.Operator == metav1.LabelSelectorOpIn {
+				assert.Len(t, e.Values, 1)
+				pinned[e.Values[0]] = true
+			}
+		}
+	}
+	assert.True(t, pinned["team-a"], "the team-a policy must be pinned to team-a")
+	assert.True(t, pinned["team-b"], "the team-b policy must be pinned to team-b")
 }

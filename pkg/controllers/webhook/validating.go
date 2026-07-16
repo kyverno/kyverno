@@ -24,7 +24,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
-		if validConditions(expressionCache, p.GetMatchConditions()) != nil {
+		if p.GetNamespace() != "" {
+			// a namespaced policy is pinned to its own namespace, so it needs its own webhook; the
+			// basic path aggregates policies under one webhook with a single namespace selector,
+			// which cannot represent more than one namespace
+			fineGrained = append(fineGrained, policy)
+		} else if validConditions(expressionCache, p.GetMatchConditions()) != nil {
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 			fineGrained = append(fineGrained, policy)
