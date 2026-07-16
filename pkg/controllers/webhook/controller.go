@@ -1538,7 +1538,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if !mpol.GetStatus().Generated && (mpol.Spec.AdmissionEnabled() || (mpol.Spec.MutateExistingEnabled() && mpol.Spec.TargetMatchConstraints != nil && (len(mpol.Spec.TargetMatchConstraints.ResourceRules) != 0 || mpol.Spec.TargetMatchConstraints.Expression != ""))) {
+		if !mpol.GetStatus().Generated && (mpol.Spec.AdmissionEnabled() || mpol.Spec.MutateExistingEnabled()) {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}
