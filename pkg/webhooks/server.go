@@ -153,6 +153,36 @@ func NewServer(
 			WithAdmission(resourceLogger.WithName("mutate")).
 			ToHandlerFunc("IVPOL"),
 	)
+	// NamespacedImageValidatingPolicy shares the image-verification handlers with the cluster-scoped
+	// ImageValidatingPolicy; the webhook controller registers them under /nivpol (see controller.go),
+	// so the server must serve those paths too, otherwise the admission call gets a 404.
+	mux.HandlerFunc(
+		"POST",
+		"/nivpol/validate/*policies",
+		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
+			WithAdmission(ivpolLogger.WithName("validate")).
+			ToHandlerFunc("NIVPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/nivpol/mutate/*policies",
+		handlerFunc("NIVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithRoles(rbLister, crbLister).
+			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
+			WithTopLevelGVK(discovery).
+			WithAdmission(resourceLogger.WithName("mutate")).
+			ToHandlerFunc("NIVPOL"),
+	)
 	mux.HandlerFunc(
 		"POST",
 		"/gpol/*policies",
