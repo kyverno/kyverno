@@ -16,9 +16,44 @@ import (
 // you are building.
 var KyvernoVersion = version.MajorMinor(1, 18)
 
+// VersionedEnvOptions groups CEL environment options by compiler compatibility versions.
+// Options are enabled when `version` is >= IntroducedVersion and < RemovedVersion (if set).
+type VersionedEnvOptions struct {
+	IntroducedVersion *version.Version
+	RemovedVersion    *version.Version
+	EnvOptions        []cel.EnvOption
+}
+
+// EnvOptionsForVersion returns all CEL environment options applicable for the given
+// compiler compatibility version.
+func EnvOptionsForVersion(v *version.Version, options ...VersionedEnvOptions) []cel.EnvOption {
+	if v == nil {
+		return nil
+	}
+	result := make([]cel.EnvOption, 0)
+	for _, option := range options {
+		if option.IntroducedVersion == nil {
+			continue
+		}
+		if !v.AtLeast(option.IntroducedVersion) {
+			continue
+		}
+		if option.RemovedVersion != nil && !v.LessThan(option.RemovedVersion) {
+			continue
+		}
+		result = append(result, option.EnvOptions...)
+	}
+	return result
+}
+
 func DefaultEnvOptions() []cel.EnvOption {
-	return []cel.EnvOption{
-		cel.HomogeneousAggregateLiterals(),
+	return defaultEnvOptionsWithHomogeneousAggregateEnforcement(true)
+}
+
+// defaultEnvOptionsWithHomogeneousAggregateEnforcement returns CEL environment
+// options with optional homogeneous aggregate enforcement.
+func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.EnvOption {
+	opts := []cel.EnvOption{
 		cel.EagerlyValidateDeclarations(true),
 		cel.DefaultUTCTimeZone(true),
 		cel.CrossTypeNumericComparisons(true),
@@ -43,12 +78,29 @@ func DefaultEnvOptions() []cel.EnvOption {
 		library.Quantity(),
 		library.SemverLib(library.SemverVersion(1)),
 	}
+
+	if enforce {
+		opts = append([]cel.EnvOption{cel.HomogeneousAggregateLiterals()}, opts...)
+	}
+	return opts
+}
+
+// DynamicResourceEnvOptions returns CEL environment options suitable for
+// dynamic resource generation where mixed-type aggregate literals are allowed.
+func DynamicResourceEnvOptions() []cel.EnvOption {
+	return defaultEnvOptionsWithHomogeneousAggregateEnforcement(false)
 }
 
 // DefaultEnvOptionsWithCompat returns DefaultEnvOptions() extended with backward-compat
 // options for cel-go v0.28 behaviour changes (see OrValueCompatEnvOptions).
 func DefaultEnvOptionsWithCompat() []cel.EnvOption {
 	return append(DefaultEnvOptions(), OrValueCompatEnvOptions()...)
+}
+
+// DynamicResourceEnvOptionsWithCompat returns DynamicResourceEnvOptions()
+// extended with backward-compat options for cel-go v0.28 behaviour changes.
+func DynamicResourceEnvOptionsWithCompat() []cel.EnvOption {
+	return append(DynamicResourceEnvOptions(), OrValueCompatEnvOptions()...)
 }
 
 // OrValueCompatEnvOptions returns the EnvOptions that restore cel-go v0.27 behaviour
