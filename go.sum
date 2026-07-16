@@ -81,6 +81,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.7.0/go.mod h1:HKpQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/IGLOU-EU/go-wildcard v1.0.3 h1:r8T46+8/9V1STciXJomTWRpPEv4nGJATDbJkdU0Nou0=
 github.com/IGLOU-EU/go-wildcard v1.0.3/go.mod h1:/qeV4QLmydCbwH0UMQJmXDryrFKJknWi/jjO8IiuQfY=
+github.com/IGLOU-EU/go-wildcard/v2 v2.1.1 h1:ZrH6+wwNQoHvYVfAjaXNHSnAm9p13XwCB7d4LslY1eM=
+github.com/IGLOU-EU/go-wildcard/v2 v2.1.1/go.mod h1:+OfnvguiScTA1SE2N9nVfyL2B5Urwam/lrFdWcAgWNk=
 github.com/KimMachineGun/automemlimit v0.7.5 h1:RkbaC0MwhjL1ZuBKunGDjE/ggwAX43DwZrJqVwyveTk=
 github.com/KimMachineGun/automemlimit v0.7.5/go.mod h1:QZxpHaGOQoYvFhv/r4u3U0JTC2ZcOwbSr11UZF46UBM=
 github.com/Masterminds/goutils v1.1.1 h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=
