@@ -20,6 +20,7 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
@@ -433,15 +434,21 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 	return aggregateResults, nil
 }
 
+var remoteHTTPTimeout = utils.RemoteHTTPTimeout
+
 func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	// We accept here that a random URL might be called based on user provided input.
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), remoteHTTPTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	resp, err := utils.RemoteHTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -449,7 +456,7 @@ func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	}
 	fileBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
 	return loader(path, fileBytes)
 }
