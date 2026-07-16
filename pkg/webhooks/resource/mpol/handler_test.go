@@ -138,8 +138,9 @@ func TestMutate_NamespacedMutateExistingURUsesPolicyKey(t *testing.T) {
 }
 
 func TestMutate_SkipsAdmissionEvaluationForAdmissionDisabledMutateExistingPolicy(t *testing.T) {
-	engineMock := &mockEngine{}
-	h := New(nil, engineMock, nil, &mockReportsConfig{}, &mockURGenerator{}, "", nil)
+	urMock := &mockURGenerator{}
+	engineMock := &mockEngine{matchedPolicies: []string{"test-policy"}}
+	h := New(nil, engineMock, nil, &mockReportsConfig{}, urMock, "", nil)
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
@@ -158,7 +159,9 @@ func TestMutate_SkipsAdmissionEvaluationForAdmissionDisabledMutateExistingPolicy
 		mpolengine.NoTargetMatchConstraintPolicy(),
 	))
 
+	time.Sleep(200 * time.Millisecond)
 	assert.Zero(t, engineMock.handleCalls.Load())
+	assert.Equal(t, int32(1), urMock.called.Load(), "admission-disabled mutateExisting policy should still enqueue its async UR")
 }
 
 func TestMutate_DryRunDoesNotFireMutateExistingURs(t *testing.T) {
@@ -237,6 +240,7 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 					Spec: policiesv1beta1.MutatingPolicySpec{
 						EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+							Admission:              &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
 							SkipBackgroundRequests: ptr.To(false),
 						},
 					},
@@ -260,6 +264,6 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 	h.mutate(context.Background(), logr.Discard(), request, []string{"test-policy"}, mpolengine.MatchNames("test-policy"))
 
 	time.Sleep(200 * time.Millisecond)
-	assert.Equal(t, int32(1), engineMock.handleCalls.Load(), "background request should evaluate policy when explicitly disabled")
-	assert.Equal(t, int32(1), urMock.called.Load(), "background request should create UR when explicitly disabled")
+	assert.Equal(t, int32(0), engineMock.handleCalls.Load(), "background request should skip admission evaluation when admission is disabled")
+	assert.Equal(t, int32(1), urMock.called.Load(), "background request should still create UR when explicitly disabled")
 }
