@@ -62,11 +62,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	spec := policy.GetSpec()
 	path := field.NewPath("spec")
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
-	}
-
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
@@ -75,6 +70,36 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+	}
+
+	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
+	var targetExpression cel.Program
+	if expression := policy.GetTargetMatchConstraints().Expression; expression != "" {
+		ast, issues := extendedCompiler.Compile(expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
+		}
+		targetExpression, err = extendedCompiler.Program(ast)
+		if err != nil {
+			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
+		}
+	}
+
+	targetMatchConditions := make([]cel.Program, 0, len(spec.TargetMatchConditions))
+	{
+		path := path.Child("targetMatchConditions")
+		programs, errs := compiler.CompileMatchConditions(path, extendedCompiler, spec.TargetMatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		targetMatchConditions = append(targetMatchConditions, programs...)
 	}
 
 	// exceptions' match conditions
@@ -113,11 +138,13 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	return &Policy{
-		matchConditions:  matchConditions,
-		variables:        variables,
-		exceptions:       compiledExceptions,
-		matchConstraints: policy.GetSpec().MatchConstraints,
-		patchers:         patchers,
+		matchConditions:       matchConditions,
+		targetMatchConditions: targetMatchConditions,
+		targetExpression:      targetExpression,
+		variables:             variables,
+		exceptions:            compiledExceptions,
+		matchConstraints:      policy.GetSpec().MatchConstraints,
+		patchers:              patchers,
 	}, allErrs
 }
 
