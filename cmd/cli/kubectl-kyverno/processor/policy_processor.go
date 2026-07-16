@@ -1231,11 +1231,11 @@ func discoverCELTargets(
 	return result, nil
 }
 
-// admissionProvider serves every mutating policy that runs on admission, including the ones that
-// also enable mutateExisting. Enabling mutateExisting adds background mutation, it does not turn
-// admission off (admission and mutateExisting are separate settings, and admission defaults to
-// enabled), so the CLI has to evaluate those policies here too. Without this a test of a policy
-// with mutateExisting enabled reports no result at all for the admitted resource.
+// admissionProvider adds the mutating policies that enable mutateExisting to the admission path.
+// Enabling mutateExisting adds background mutation, it does not turn admission off (admission and
+// mutateExisting are separate settings, and admission defaults to enabled), so those policies still
+// apply to the resource being admitted and the CLI has to evaluate them here too. Without this a
+// test of a policy with mutateExisting enabled reports no result at all for the admitted resource.
 // Fetching mutateExisting policies keeps its usual meaning: only the ones that enable it.
 type admissionProvider struct {
 	mpolengine.Provider
