@@ -180,7 +180,7 @@ func NewServer(
 			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
-			WithAdmission(resourceLogger.WithName("mutate")).
+			WithAdmission(ivpolLogger.WithName("mutate")).
 			ToHandlerFunc("NIVPOL"),
 	)
 	mux.HandlerFunc(
