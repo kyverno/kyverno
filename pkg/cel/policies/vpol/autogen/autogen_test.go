@@ -217,6 +217,79 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "autogen preserves object.metadata.namespace in match conditions",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [
+								""
+							],
+							"apiVersions": [
+								"v1"
+							],
+							"operations": [
+								"CREATE",
+								"UPDATE"
+							],
+							"resources": [
+								"pods"
+							]
+						}
+					]
+				},
+				"matchConditions": [
+					{
+						"name": "skip system namespaces",
+						"expression": "!(object.metadata.namespace in ['opencost', 'kube-system']) && has(object.metadata.labels) && object.metadata.labels.prod == 'true'"
+					}
+				],
+				"validations": [
+					{
+						"expression": "object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "skip system namespaces",
+								Expression: "!(object.metadata.namespace in ['opencost', 'kube-system']) && has(object.spec.template.metadata.labels) && object.spec.template.metadata.labels.prod == 'true'",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

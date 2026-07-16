@@ -134,8 +134,25 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 
 	for _, rule := range match.ResourceRules {
 		for _, group := range rule.APIGroups {
-			for _, version := range rule.APIVersions {
-				for _, resource := range rule.Resources {
+			for _, resource := range rule.Resources {
+				versions := rule.APIVersions
+				// RESTMapper does not support wildcard versions ("*"). When a wildcard is used,
+				// resolve it to a concrete version (the RESTMapper will pick the preferred version)
+				// for the given group/resource before processing.
+				if len(rule.APIVersions) == 1 && rule.APIVersions[0] == "*" {
+					gvk, err := pc.restMapper.KindFor(
+						schema.GroupVersionResource{
+							Group:    group,
+							Resource: resource,
+						},
+					)
+					if err != nil {
+						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", resource)
+						continue
+					}
+					versions = []string{gvk.Version}
+				}
+				for _, version := range versions {
 					groupVersion := schema.GroupVersion{
 						Group:   group,
 						Version: version,

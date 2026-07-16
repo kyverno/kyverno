@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: example
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["example.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["myresources"]
+  generate:
+    - expression: >
+        generator.Apply(object.metadata.namespace, [{
+          "apiVersion": dyn("v1"),
+          "kind": dyn("ConfigMap"),
+          "metadata": dyn({
+            "name": dyn(object.metadata.name + "-generated"),
+            "ownerReferences": dyn([dyn({
+              "uid": dyn(object.metadata.uid)
+            })])
+          })
+        }])

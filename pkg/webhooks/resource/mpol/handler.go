@@ -73,15 +73,16 @@ func (h *handler) MutateNamespaced(ctx context.Context, logger logr.Logger, admi
 }
 
 func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, policies []string, predicate mpolengine.Predicate) handlers.AdmissionResponse {
-	if h.backgroundServiceAccountName == admissionRequest.UserInfo.Username {
-		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	isBackgroundRequest := h.backgroundServiceAccountName != "" && h.backgroundServiceAccountName == admissionRequest.UserInfo.Username
+	if isBackgroundRequest {
+		policies = h.filterBackgroundPolicies(logger, policies)
 	}
 	if len(policies) == 0 {
 		return admissionutils.ResponseSuccess(admissionRequest.UID)
 	}
 
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.Handle(ctx, request, predicate)
+	response, err := h.engine.Handle(ctx, request, mpolengine.And(mpolengine.MatchNames(policies...), predicate))
 	if err != nil {
 		logger.Error(err, "failed to handle mutating policy request")
 		return admissionutils.Response(admissionRequest.UID, err)
@@ -98,6 +99,9 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
 		go func() {
 			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
+			if isBackgroundRequest {
+				mpols = h.filterBackgroundPolicies(logger, mpols)
+			}
 			for _, p := range mpols {
 				logger.V(4).Info("creating a UR for mpol", "name", p)
 				if err := h.urGenerator.Apply(ctx, kyvernov2.UpdateRequestSpec{
@@ -127,6 +131,24 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 	return resp
+}
+
+func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string) []string {
+	compiledPolicies := h.engine.GetCompiledPolicies(policies...)
+	filtered := make([]string, 0, len(policies))
+	for _, name := range policies {
+		policy, ok := compiledPolicies[name]
+		if !ok {
+			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name, "error", fmt.Errorf("compiled policy %q not found", name))
+			continue
+		}
+		if policy.Policy.GetSpec().SkipBackgroundRequestsEnabled() {
+			logger.V(4).Info("skipping background request for policy", "policy", name)
+			continue
+		}
+		filtered = append(filtered, name)
+	}
+	return filtered
 }
 
 func (h *handler) audit(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {

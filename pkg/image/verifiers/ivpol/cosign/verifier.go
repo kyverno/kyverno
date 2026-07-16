@@ -80,7 +80,8 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		if !(attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT) {
+		ignoreTlog := attestor.Cosign.CTLog != nil && (attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT)
+		if !ignoreTlog {
 			err := fmt.Errorf("transparency log or timestamp verification failed")
 			logger.Error(err, "image verification failed")
 			return err
