@@ -146,10 +146,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = generateName(name+"-ignore-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
-				webhook.NamespaceSelector = mergeLabelSelectors(
-					p.GetMatchConstraints().NamespaceSelector,
-					cfg.GetWebhook().NamespaceSelector,
-				)
+				webhook.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 				webhook.ObjectSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().ObjectSelector,
 					cfg.GetWebhook().ObjectSelector,
@@ -159,10 +156,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = generateName(name+"-fail-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
-				webhook.NamespaceSelector = mergeLabelSelectors(
-					p.GetMatchConstraints().NamespaceSelector,
-					cfg.GetWebhook().NamespaceSelector,
-				)
+				webhook.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 				webhook.ObjectSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().ObjectSelector,
 					cfg.GetWebhook().ObjectSelector,
@@ -203,18 +197,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
-			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
+			webhookIgnore.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 			webhookIgnore.ObjectSelector = mergeLabelSelectors(
 				p.GetMatchConstraints().ObjectSelector,
 				cfg.GetWebhook().ObjectSelector,
 			)
-			webhookFail.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
+			webhookFail.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 			webhookFail.ObjectSelector = mergeLabelSelectors(
 				p.GetMatchConstraints().ObjectSelector,
 				cfg.GetWebhook().ObjectSelector,
@@ -306,6 +294,24 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	return webhooks
+}
+
+// resolveNamespaceSelector returns the namespace selector for a policy's webhook. A namespaced policy
+// only applies to resources in its own namespace, so its selector is pinned to that namespace via the
+// kubernetes.io/metadata.name label regardless of any namespaceSelector in its matchConstraints. A
+// cluster-scoped policy keeps its configured namespaceSelector.
+func resolveNamespaceSelector(p policiesv1beta1.GenericPolicy, cfg config.Configuration) *metav1.LabelSelector {
+	if ns := p.GetNamespace(); ns != "" {
+		nameSelector := &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "kubernetes.io/metadata.name",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{ns},
+			}},
+		}
+		return mergeLabelSelectors(nameSelector, cfg.GetWebhook().NamespaceSelector)
+	}
+	return mergeLabelSelectors(p.GetMatchConstraints().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
 }
 
 func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {

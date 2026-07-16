@@ -894,3 +894,41 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail", nmpolWebhooks[0].Name)
 	assert.NotEqual(t, mpolWebhooks[0].Name, nmpolWebhooks[0].Name)
 }
+
+func TestResolveNamespaceSelector(t *testing.T) {
+	cfg := config.NewDefaultConfiguration(false)
+
+	// A namespaced policy is pinned to its own namespace, regardless of the namespaceSelector set in
+	// its matchConstraints, so it only applies to resources in that namespace.
+	nsPol := &policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "p"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+			},
+		},
+	}
+	sel := resolveNamespaceSelector(nsPol, cfg)
+	pinned := false
+	for _, e := range sel.MatchExpressions {
+		if e.Key == "kubernetes.io/metadata.name" && e.Operator == metav1.LabelSelectorOpIn {
+			assert.Equal(t, []string{"team-a"}, e.Values)
+			pinned = true
+		}
+	}
+	assert.True(t, pinned, "namespaced policy must be pinned to its namespace via kubernetes.io/metadata.name")
+	_, leaked := sel.MatchLabels["env"]
+	assert.False(t, leaked, "namespaced policy must not honor its matchConstraints namespaceSelector")
+
+	// A cluster-scoped policy keeps its configured namespaceSelector.
+	clusterPol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+			},
+		},
+	}
+	clusterSel := resolveNamespaceSelector(clusterPol, cfg)
+	assert.Equal(t, "prod", clusterSel.MatchLabels["env"], "cluster-scoped policy keeps its namespaceSelector")
+}
