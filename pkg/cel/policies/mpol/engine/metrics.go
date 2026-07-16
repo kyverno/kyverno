@@ -61,6 +61,10 @@ func (w *metricWrapper) GetCompiledPolicy(policyName string) (Policy, error) {
 	return w.inner.GetCompiledPolicy(policyName)
 }
 
+func (w *metricWrapper) GetCompiledPolicies(names ...string) map[string]Policy {
+	return w.inner.GetCompiledPolicies(names...)
+}
+
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {
 	return &metricWrapper{
 		inner:              inner,
