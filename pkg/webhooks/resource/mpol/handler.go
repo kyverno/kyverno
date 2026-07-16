@@ -81,6 +81,10 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		return admissionutils.ResponseSuccess(admissionRequest.UID)
 	}
 
+	if !isBackgroundRequest {
+		predicate = mpolengine.And(predicate, mpolengine.AdmissionEnabledPolicy())
+	}
+
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
 	response, err := h.engine.Handle(ctx, request, mpolengine.And(mpolengine.MatchNames(policies...), predicate))
 	if err != nil {

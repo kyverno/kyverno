@@ -52,6 +52,12 @@ func NoTargetMatchConstraintPolicy() Predicate {
 	}
 }
 
+func AdmissionEnabledPolicy() Predicate {
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		return policy.GetSpec().AdmissionEnabled()
+	}
+}
+
 func And(conditions ...Predicate) Predicate {
 	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
 		for _, condition := range conditions {

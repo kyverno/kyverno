@@ -52,7 +52,21 @@ type mockEngine struct {
 	handleCalls     atomic.Int32
 }
 
-func (m *mockEngine) Handle(_ context.Context, _ celengine.EngineRequest, _ mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+func (m *mockEngine) Handle(_ context.Context, _ celengine.EngineRequest, predicate mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+	if predicate != nil {
+		policy := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					Admission:                   &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{Enabled: ptr.To(true)},
+				},
+			},
+		}
+		if !predicate(policy) {
+			return mpolengine.EngineResponse{}, nil
+		}
+	}
 	m.handleCalls.Add(1)
 	return mpolengine.EngineResponse{}, nil
 }
@@ -121,6 +135,30 @@ func TestMutate_NamespacedMutateExistingURUsesPolicyKey(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected mutate-existing UpdateRequest")
 	}
+}
+
+func TestMutate_SkipsAdmissionEvaluationForAdmissionDisabledMutateExistingPolicy(t *testing.T) {
+	engineMock := &mockEngine{}
+	h := New(nil, engineMock, nil, &mockReportsConfig{}, &mockURGenerator{}, "", nil)
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Operation: admissionv1.Update,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Object:    runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod","namespace":"default"}}`)},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+
+	h.mutate(context.Background(), logr.Discard(), request, []string{"test-policy"}, mpolengine.And(
+		mpolengine.MatchNames("test-policy"),
+		mpolengine.ClusteredPolicy(),
+		mpolengine.NoTargetMatchConstraintPolicy(),
+	))
+
+	assert.Zero(t, engineMock.handleCalls.Load())
 }
 
 func TestMutate_DryRunDoesNotFireMutateExistingURs(t *testing.T) {
