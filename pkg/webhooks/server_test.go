@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,17 +200,19 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		mwcClient, vwcClient, leaseClient, runtimeMock,
 		rbLister, crbLister, discoveryMock, "localhost", 8080,
 	)
-	router, ok := s.(*server).server.Handler.(*httprouter.Router)
-	assert.True(t, ok, "server handler must be an httprouter.Router")
+	srv, ok := s.(*server)
+	require.True(t, ok, "NewServer must return a *server")
+	router, ok := srv.server.Handler.(*httprouter.Router)
+	require.True(t, ok, "server handler must be an httprouter.Router")
 	return router
 }
 
-// TestServer_NamespacedImageValidatingPolicyRoutesAreServed reproduces #15286 / #16523.
-// The webhook controller registers NamespacedImageValidatingPolicy admission webhooks at
-// /nivpol/mutate and /nivpol/validate (pkg/controllers/webhook/controller.go), but the webhook
-// server only registers /ivpol/mutate and /ivpol/validate. The API server therefore posts to a
+// TestServer_NamespacedImageValidatingPolicyRoutesAreServed verifies the webhook server serves the
+// NamespacedImageValidatingPolicy admission paths. The webhook controller registers these policies'
+// webhooks at /nivpol/mutate and /nivpol/validate (pkg/controllers/webhook/controller.go), but the
+// webhook server only registered /ivpol/mutate and /ivpol/validate, so the API server posts to a
 // path the server does not serve and gets "the server could not find the requested resource"
-// (HTTP 404), so a NamespacedImageValidatingPolicy never runs at admission.
+// (HTTP 404), meaning a NamespacedImageValidatingPolicy never runs at admission.
 func TestServer_NamespacedImageValidatingPolicyRoutesAreServed(t *testing.T) {
 	router := buildTestServer(t)
 
