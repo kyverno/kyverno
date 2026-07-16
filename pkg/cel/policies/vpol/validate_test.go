@@ -219,7 +219,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "namespaced policy with http in validation" {
+			if _, ok := tt.pol.(*v1beta1.NamespacedValidatingPolicy); ok {
 				require.NoError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("false"))
 				t.Cleanup(func() { _ = toggle.AllowHTTPInNamespacedPolicies.Parse("false") })
 			}
