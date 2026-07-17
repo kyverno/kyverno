@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type VersionInfo struct {
+type versionInfo struct {
 	Version     string `json:"version" yaml:"version"`
 	Time        string `json:"time" yaml:"time"`
 	GitCommitID string `json:"gitCommitId" yaml:"gitCommitId"`
@@ -33,7 +33,7 @@ func Command() *cobra.Command {
 				return nil
 			}
 
-			info := VersionInfo{
+			info := versionInfo{
 				Version:     version.Version(),
 				Time:        version.Time(),
 				GitCommitID: version.Hash(),
