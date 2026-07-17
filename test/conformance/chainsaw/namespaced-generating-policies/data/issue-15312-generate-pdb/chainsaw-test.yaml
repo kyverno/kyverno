@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: issue-15312-generate-pdb
+spec:
+  concurrent: false
+  steps:
+  - name: create namespace and rbac
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: permissions.yaml
+  - name: create existing trigger deployment
+    try:
+    - apply:
+        file: deployment.yaml
+  - name: create namespaced generating policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-generating-policy-ready
+    use:
+      template: ../../../_step-templates/namespaced-generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-pdb-to-deployments
+        - name: namespace
+          value: test-15312
+  - name: wait-for-generate-existing
+    try:
+    - sleep:
+        duration: 10s
+  - name: assert generated pdb exists
+    try:
+    - assert:
+        file: generated-pdb.yaml
+  - name: update deployment to trigger admission path
+    try:
+    - apply:
+        file: deployment-update.yaml
+  - name: wait-after-update
+    try:
+    - sleep:
+        duration: 5s
+  - name: assert generated pdb still present after update
+    try:
+    - assert:
+        file: generated-pdb.yaml

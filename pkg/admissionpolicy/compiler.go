@@ -1,8 +1,10 @@
 package admissionpolicy
 
 import (
+	kyvernocompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
@@ -23,7 +25,15 @@ func NewCompiler(
 	matchConditions []admissionregistrationv1.MatchCondition,
 	variables []admissionregistrationv1.Variable,
 ) (*Compiler, error) {
-	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	baseEnv := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
+	extendedEnv, err := baseEnv.Extend(environment.VersionedOptions{
+		IntroducedVersion: version.MajorMinor(1, 0),
+		EnvOptions:        kyvernocompiler.OrValueCompatEnvOptions(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	compositedCompiler, err := cel.NewCompositedCompiler(extendedEnv)
 	if err != nil {
 		return nil, err
 	}

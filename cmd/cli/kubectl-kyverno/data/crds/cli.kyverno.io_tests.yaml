@@ -132,13 +132,14 @@ spec:
                 GlobalContextEntry.
               properties:
                 data:
-                  description: Data is the static JSON root for this mock entry (arbitrary
-                    object).
+                  description: |-
+                    Data is the static JSON root for this mock entry (arbitrary object).
+                    Mutually exclusive with Resources and ResourceFiles.
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 fieldPath:
                   description: FieldPath is an optional JMESPath applied to decoded
-                    Data to produce the root before projections.
+                    Data (or the resources list) to produce the root before projections.
                   type: string
                 name:
                   description: Name is the name of the GlobalContextEntry resource.
@@ -163,8 +164,23 @@ spec:
                     - path
                     type: object
                   type: array
+                resourceFiles:
+                  description: |-
+                    ResourceFiles is a list of YAML file paths (relative to the test directory)
+                    containing Kubernetes resource manifests. Supports multi-document YAML.
+                    Mutually exclusive with Data and Resources.
+                  items:
+                    type: string
+                  type: array
+                resources:
+                  description: |-
+                    Resources is a list of inline Kubernetes resource manifests.
+                    Mutually exclusive with Data and ResourceFiles.
+                  items:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  type: array
               required:
-              - data
               - name
               type: object
             type: array

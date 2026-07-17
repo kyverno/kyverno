@@ -941,7 +941,35 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
-<p>Data is the static JSON root for this mock entry (arbitrary object).</p>
+<p>Data is the static JSON root for this mock entry (arbitrary object).
+Mutually exclusive with Resources and ResourceFiles.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#rawextension-runtime-pkg">
+[]k8s.io/apimachinery/pkg/runtime.RawExtension
+</a>
+</em>
+</td>
+<td>
+<p>Resources is a list of inline Kubernetes resource manifests.
+Mutually exclusive with Data and ResourceFiles.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resourceFiles</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>ResourceFiles is a list of YAML file paths (relative to the test directory)
+containing Kubernetes resource manifests. Supports multi-document YAML.
+Mutually exclusive with Data and Resources.</p>
 </td>
 </tr>
 <tr>
@@ -952,7 +980,7 @@ string
 </em>
 </td>
 <td>
-<p>FieldPath is an optional JMESPath applied to decoded Data to produce the root before projections.</p>
+<p>FieldPath is an optional JMESPath applied to decoded Data (or the resources list) to produce the root before projections.</p>
 </td>
 </tr>
 <tr>
