@@ -3522,7 +3522,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_validating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_image_validating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "expr": "sum(increase(kyverno_validating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (result)",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -3663,7 +3663,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_validating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_image_validating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "expr": "sum(increase(kyverno_validating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (result)",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -3763,7 +3763,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_validating_policy_results{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "sum(increase(kyverno_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Validating Policy",
             "refId": "A"
@@ -3773,7 +3773,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_mutating_policy_results{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "sum(increase(kyverno_mutating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Mutating Policy",
             "refId": "B"
@@ -3783,20 +3783,22 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_generating_policy_results{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "",
             "interval": "",
             "legendFormat": "Generating Policy",
-            "refId": "C"
+            "refId": "C",
+            "hide": true
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_image_validating_policy_results{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "",
             "interval": "",
             "legendFormat": "Image Validating Policy",
-            "refId": "D"
+            "refId": "D",
+            "hide": true
           }
         ],
         "title": "Policy Failures by Type (CEL)",
@@ -3934,7 +3936,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(sum(increase(kyverno_validating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_image_validating_policy_results{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (policy_name, result)) by (result)",
+            "expr": "sum by (policy_name, result) (increase(kyverno_validating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -4075,7 +4077,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(sum(increase(kyverno_validating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_image_validating_policy_results{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (policy_name, result)) by (result)",
+            "expr": "sum by (policy_name, result) (increase(kyverno_validating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -4208,20 +4210,22 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "expr": "",
             "interval": "",
             "legendFormat": "Generating",
-            "refId": "C"
+            "refId": "C",
+            "hide": true
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "expr": "",
             "interval": "",
             "legendFormat": "Image Validating",
-            "refId": "D"
+            "refId": "D",
+            "hide": true
           }
         ],
         "title": "Avg Latency by Policy Type (CEL)",
@@ -4282,7 +4286,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "(sum(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"})) / (sum(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}))",
+            "expr": "(sum(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"})) / (sum(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}))",
             "interval": "",
             "legendFormat": "",
             "refId": "A"
@@ -4401,20 +4405,22 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "expr": "",
             "interval": "",
             "legendFormat": "{{policy_name}} (gpol)",
-            "refId": "C"
+            "refId": "C",
+            "hide": true
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "expr": "",
             "interval": "",
             "legendFormat": "{{policy_name}} (ivpol)",
-            "refId": "D"
+            "refId": "D",
+            "hide": true
           }
         ],
         "title": "Avg Latency per Policy Name (CEL)",
