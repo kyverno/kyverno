@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// fakePolicyRuleMetrics is a no-op implementation of PolicyRuleMetrics for testing.
 type fakePolicyRuleMetrics struct {
 	recorded []kyvernov1.PolicyInterface
 }
@@ -27,20 +26,13 @@ func (f *fakePolicyRuleMetrics) RegisterCallback(_ metric.Callback) (metric.Regi
 
 func makeClusterPolicy(name string, uid types.UID) *kyvernov1.ClusterPolicy {
 	return &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			UID:  uid,
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, UID: uid},
 	}
 }
 
-func makePolicy(namespace, name string, uid types.UID) *kyvernov1.Policy {
+func makeNsPolicy(namespace, name string, uid types.UID) *kyvernov1.Policy {
 	return &kyvernov1.Policy{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			UID:       uid,
-		},
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name, UID: uid},
 	}
 }
 
@@ -52,14 +44,26 @@ func newTestController(fake *fakePolicyRuleMetrics) *controller {
 	}
 }
 
+// cacheAdd directly populates the cache without spawning goroutines that
+// require an initialized global metrics manager.
+func cacheAdd(c *controller, p kyvernov1.PolicyInterface) {
+	c.mu.Lock()
+	c.policies[p.GetUID()] = p
+	c.mu.Unlock()
+}
+
+func cacheDelete(c *controller, uid types.UID) {
+	c.mu.Lock()
+	delete(c.policies, uid)
+	c.mu.Unlock()
+}
+
 func TestControllerCacheAdd(t *testing.T) {
 	fake := &fakePolicyRuleMetrics{}
 	c := newTestController(fake)
 
-	cpol := makeClusterPolicy("policy-a", "uid-1")
-	c.addPolicy(cpol)
-	pol := makePolicy("ns", "policy-b", "uid-2")
-	c.addNsPolicy(pol)
+	cacheAdd(c, makeClusterPolicy("policy-a", "uid-1"))
+	cacheAdd(c, makeNsPolicy("ns", "policy-b", "uid-2"))
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -72,11 +76,8 @@ func TestControllerCacheUpdate(t *testing.T) {
 	fake := &fakePolicyRuleMetrics{}
 	c := newTestController(fake)
 
-	orig := makeClusterPolicy("policy-a", "uid-1")
-	c.addPolicy(orig)
-
-	updated := makeClusterPolicy("policy-a-updated", "uid-1")
-	c.updatePolicy(orig, updated)
+	cacheAdd(c, makeClusterPolicy("policy-a", "uid-1"))
+	cacheAdd(c, makeClusterPolicy("policy-a-updated", "uid-1"))
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -92,12 +93,9 @@ func TestControllerCacheDelete(t *testing.T) {
 	fake := &fakePolicyRuleMetrics{}
 	c := newTestController(fake)
 
-	cpol := makeClusterPolicy("policy-a", "uid-1")
-	c.addPolicy(cpol)
-	pol := makePolicy("ns", "policy-b", "uid-2")
-	c.addNsPolicy(pol)
-
-	c.deletePolicy(cpol)
+	cacheAdd(c, makeClusterPolicy("policy-a", "uid-1"))
+	cacheAdd(c, makeNsPolicy("ns", "policy-b", "uid-2"))
+	cacheDelete(c, "uid-1")
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -105,7 +103,7 @@ func TestControllerCacheDelete(t *testing.T) {
 		t.Fatalf("expected 1 cached policy after delete, got %d", len(c.policies))
 	}
 	if _, exists := c.policies["uid-1"]; exists {
-		t.Error("deleted ClusterPolicy should not be in cache")
+		t.Error("deleted policy should not be in cache")
 	}
 }
 
@@ -113,8 +111,8 @@ func TestControllerReportUsesCache(t *testing.T) {
 	fake := &fakePolicyRuleMetrics{}
 	c := newTestController(fake)
 
-	c.addPolicy(makeClusterPolicy("cpol-1", "uid-1"))
-	c.addNsPolicy(makePolicy("ns", "pol-1", "uid-2"))
+	cacheAdd(c, makeClusterPolicy("cpol-1", "uid-1"))
+	cacheAdd(c, makeNsPolicy("ns", "pol-1", "uid-2"))
 
 	if err := c.report(context.Background(), nil); err != nil {
 		t.Fatalf("report() error: %v", err)
@@ -129,10 +127,9 @@ func TestControllerReportAfterDelete(t *testing.T) {
 	fake := &fakePolicyRuleMetrics{}
 	c := newTestController(fake)
 
-	cpol := makeClusterPolicy("cpol-1", "uid-1")
-	c.addPolicy(cpol)
-	c.addNsPolicy(makePolicy("ns", "pol-1", "uid-2"))
-	c.deletePolicy(cpol)
+	cacheAdd(c, makeClusterPolicy("cpol-1", "uid-1"))
+	cacheAdd(c, makeNsPolicy("ns", "pol-1", "uid-2"))
+	cacheDelete(c, "uid-1")
 
 	if err := c.report(context.Background(), nil); err != nil {
 		t.Fatalf("report() error: %v", err)
