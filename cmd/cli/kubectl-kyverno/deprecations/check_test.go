@@ -23,10 +23,10 @@ func TestCheckUserInfo(t *testing.T) {
 			wantMsg:  false,
 		},
 		{
-			name: "missing apiVersion and kind",
+			name:     "missing apiVersion and kind",
 			resource: &v1alpha1.UserInfo{},
-			want:    true,
-			wantMsg: true,
+			want:     true,
+			wantMsg:  true,
 		},
 		{
 			name: "missing kind only",
@@ -77,10 +77,10 @@ func TestCheckValues(t *testing.T) {
 			wantMsg:  false,
 		},
 		{
-			name:    "missing apiVersion and kind",
+			name:     "missing apiVersion and kind",
 			resource: &v1alpha1.Values{},
-			want:    true,
-			wantMsg: true,
+			want:     true,
+			wantMsg:  true,
 		},
 		{
 			name: "valid resource",
@@ -123,10 +123,10 @@ func TestCheckTest(t *testing.T) {
 			wantMsg:  false,
 		},
 		{
-			name:    "missing apiVersion and kind",
+			name:     "missing apiVersion and kind",
 			resource: &v1alpha1.Test{},
-			want:    true,
-			wantMsg: true,
+			want:     true,
+			wantMsg:  true,
 		},
 		{
 			name: "deprecated Name field set",
