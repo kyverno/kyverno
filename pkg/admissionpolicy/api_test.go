@@ -6,6 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -99,6 +100,21 @@ func TestCustomNamespaceListerList(t *testing.T) {
 		list, err := lister.List(labels.Everything())
 		assert.NoError(t, err)
 		assert.Len(t, list, 2)
+	})
+
+	t.Run("list namespaces honors selector", func(t *testing.T) {
+		k8sClient := fake.NewClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns1, Labels: map[string]string{"team": "a"}}},
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns2, Labels: map[string]string{"team": "b"}}},
+		)
+
+		mockDC := &mockDClient{kubeClient: k8sClient}
+		lister := NewCustomNamespaceLister(mockDC)
+
+		list, err := lister.List(labels.SelectorFromSet(map[string]string{"team": "a"}))
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+		assert.Equal(t, ns1, list[0].Name)
 	})
 
 	t.Run("list namespaces failure", func(t *testing.T) {
