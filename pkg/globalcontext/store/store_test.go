@@ -277,6 +277,42 @@ func TestStore_Set_RejectsWhenAtCapacity(t *testing.T) {
 	}
 }
 
+func TestNew_NegativeMaxEntries_Unbounded(t *testing.T) {
+	s := New(-1)
+
+	for i := 0; i < 1000; i++ {
+		entry := newMockEntry(map[string]any{"i": i})
+		assert.NoError(t, s.Set(strconv.Itoa(i), entry))
+	}
+
+	assert.NoError(t, s.CheckCapacity("new"), "a negative max should behave as unbounded")
+}
+
+func TestStore_CheckCapacity(t *testing.T) {
+	s := New(2)
+
+	assert.NoError(t, s.CheckCapacity("a"), "empty store should have capacity")
+
+	assert.NoError(t, s.Set("a", newMockEntry(nil)))
+	assert.NoError(t, s.Set("b", newMockEntry(nil)))
+
+	err := s.CheckCapacity("c")
+	assert.Error(t, err, "a new key should be rejected when the store is at capacity")
+	assert.True(t, errors.Is(err, ErrStoreFull), "error should be ErrStoreFull")
+
+	assert.NoError(t, s.CheckCapacity("a"), "an existing key should be allowed at capacity")
+}
+
+func TestStore_CheckCapacity_Unbounded(t *testing.T) {
+	s := New(0)
+
+	for i := 0; i < 100; i++ {
+		assert.NoError(t, s.Set(strconv.Itoa(i), newMockEntry(nil)))
+	}
+
+	assert.NoError(t, s.CheckCapacity("new"), "an unbounded store should never be full")
+}
+
 func TestStore_Set_OverwriteAtCapacity_Allowed(t *testing.T) {
 	s := New(3)
 

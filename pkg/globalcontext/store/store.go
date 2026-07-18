@@ -8,6 +8,7 @@ import (
 var ErrStoreFull = errors.New("global context store is full")
 
 type Store interface {
+	CheckCapacity(key string) error
 	Set(key string, val Entry) error
 	Get(key string) (Entry, bool)
 	Delete(key string)
@@ -20,10 +21,22 @@ type store struct {
 }
 
 func New(maxEntries int) Store {
+	if maxEntries < 0 {
+		maxEntries = 0
+	}
 	return &store{
 		store:      make(map[string]Entry),
 		maxEntries: maxEntries,
 	}
+}
+
+func (l *store) CheckCapacity(key string) error {
+	l.RLock()
+	defer l.RUnlock()
+	if _, exists := l.store[key]; !exists && l.maxEntries > 0 && len(l.store) >= l.maxEntries {
+		return ErrStoreFull
+	}
+	return nil
 }
 
 func (l *store) Set(key string, val Entry) error {
