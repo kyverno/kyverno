@@ -11,11 +11,11 @@ import (
 
 func TestCompileMatchConditionsWithKubernetesEnv(t *testing.T) {
 	tests := []struct {
-		name                  string
-		conditions            []admissionregistrationv1.MatchCondition
+		name                   string
+		conditions             []admissionregistrationv1.MatchCondition
 		preexistingExpressions map[string]bool
-		wantErrCount          int
-		wantErrTypes          []field.ErrorType
+		wantErrCount           int
+		wantErrTypes           []field.ErrorType
 	}{{
 		name:       "nil conditions",
 		conditions: nil,
