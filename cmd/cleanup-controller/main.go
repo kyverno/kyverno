@@ -112,7 +112,7 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
-	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store before we stop creating new ones. A value of 0 means unbounded.")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),

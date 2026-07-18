@@ -406,7 +406,7 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
-	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store before we stop creating new ones. A value of 0 means unbounded.")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
