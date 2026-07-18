@@ -104,6 +104,10 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
+			// NOTE: rule.Identifier requires a companion change to github.com/kyverno/api
+			// adding an Identifier field to the validation type used by
+			// ValidatingPolicySpec.Validations. It doesn't exist upstream yet.
+			program.Identifier = rule.Identifier
 			validations = append(validations, program)
 		}
 	}
@@ -181,6 +185,10 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
+			// NOTE: rule.Identifier requires a companion change to github.com/kyverno/api
+			// adding an Identifier field to the validation type used by
+			// ValidatingPolicySpec.Validations. It doesn't exist upstream yet.
+			program.Identifier = rule.Identifier
 			validations = append(validations, program)
 		}
 	}
