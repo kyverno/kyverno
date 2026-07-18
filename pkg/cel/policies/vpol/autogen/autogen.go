@@ -3,12 +3,14 @@ package autogen
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
@@ -26,6 +28,38 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
 	return generateRuleForControllers(*spec, actualControllers)
+}
+
+// RuleName returns the stable autogen rule name for a validation.
+// If identifier is set, it is used directly (autogen-{identifier}), giving a
+// name that survives reordering of spec.validations. Otherwise it falls back
+// to the position-based name (autogen-validate-{index}) for backward
+// compatibility with validations that don't set an identifier.
+func RuleName(identifier string, index int) string {
+	if identifier != "" {
+		return "autogen-" + identifier
+	}
+	return fmt.Sprintf("autogen-validate-%d", index)
+}
+
+// ValidateUniqueIdentifiers reports a Duplicate error for every non-empty
+// identifier (by index into identifiers) that repeats an identifier already
+// seen at an earlier index. Empty identifiers are ignored since they fall
+// back to positional naming in RuleName and never collide.
+func ValidateUniqueIdentifiers(path *field.Path, identifiers []string) field.ErrorList {
+	var allErrs field.ErrorList
+	seen := sets.New[string]()
+	for i, identifier := range identifiers {
+		if identifier == "" {
+			continue
+		}
+		if seen.Has(identifier) {
+			allErrs = append(allErrs, field.Duplicate(path.Index(i).Child("identifier"), identifier))
+			continue
+		}
+		seen.Insert(identifier)
+	}
+	return allErrs
 }
 
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {

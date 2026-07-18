@@ -3,6 +3,7 @@ package vpol
 import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,6 +34,10 @@ func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
+	if dupErrs := validateUniqueIdentifiers(spec); dupErrs != nil {
+		err = append(err, dupErrs...)
+	}
+
 	if vpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		if compiler.ExpressionsUseHTTP(vpolExpressions(spec)...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
@@ -48,6 +53,18 @@ func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 	}
 
 	return warnings, err.ToAggregate()
+}
+
+// validateUniqueIdentifiers ensures that, when set, spec.validations[*].identifier
+// is unique within the policy so autogen rule names don't collide.
+// NOTE: v.Identifier requires a companion change to github.com/kyverno/api adding
+// an Identifier field to the validation type used by ValidatingPolicySpec.Validations.
+func validateUniqueIdentifiers(spec *v1beta1.ValidatingPolicySpec) field.ErrorList {
+	identifiers := make([]string, len(spec.Validations))
+	for i, v := range spec.Validations {
+		identifiers[i] = v.Identifier
+	}
+	return autogen.ValidateUniqueIdentifiers(field.NewPath("spec").Child("validations"), identifiers)
 }
 
 func vpolExpressions(spec *v1beta1.ValidatingPolicySpec) []string {
