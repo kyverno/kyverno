@@ -16,6 +16,7 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -333,6 +334,99 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	msgs := []string{"validation error: A namespace is required. rule check-default-namespace[0] failed at path /metadata/namespace/ rule check-default-namespace[1] failed at path /metadata/namespace/"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message(), msgs[index])
+	}
+}
+
+// TestValidate_MixedFailureAction_HonorsPerRuleAction reproduces issue #16557: a single
+// policy that mixes Audit and Enforce validate rules must honor each rule's failureAction
+// independently, so the admission block decision no longer depends on rule order.
+func TestValidate_MixedFailureAction_HonorsPerRuleAction(t *testing.T) {
+	// buildPolicy returns a two-rule Pod policy where the team-label rule and owner-label
+	// rule carry the given failure actions, declared in the given order.
+	buildPolicy := func(firstName, firstAction, secondName, secondAction string) []byte {
+		return []byte(`
+		{
+			"apiVersion": "kyverno.io/v1",
+			"kind": "ClusterPolicy",
+			"metadata": { "name": "team-and-owner" },
+			"spec": {
+			   "rules": [
+				  {
+					 "name": "` + firstName + `",
+					 "match": { "any": [ { "resources": { "kinds": [ "Pod" ] } } ] },
+					 "validate": {
+						"failureAction": "` + firstAction + `",
+						"message": "` + firstName + ` failed",
+						"pattern": { "metadata": { "labels": { "` + firstName + `": "?*" } } }
+					 }
+				  },
+				  {
+					 "name": "` + secondName + `",
+					 "match": { "any": [ { "resources": { "kinds": [ "Pod" ] } } ] },
+					 "validate": {
+						"failureAction": "` + secondAction + `",
+						"message": "` + secondName + ` failed",
+						"pattern": { "metadata": { "labels": { "` + secondName + `": "?*" } } }
+					 }
+				  }
+			   ]
+			}
+		 }`)
+	}
+
+	// Pod carries the "team" label but not "owner", so it passes the team rule and fails
+	// the owner rule regardless of the order the rules are declared in.
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": { "name": "app", "labels": { "team": "payments" } },
+		"spec": { "containers": [ { "name": "app", "image": "nginx" } ] }
+	}`)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	tests := []struct {
+		name       string
+		rawPolicy  []byte
+		wantBlock  bool
+		wantFailed bool
+	}{{
+		// Audit rule first, failing Enforce rule second: the Enforce rule must block even
+		// though it is not the first validate rule. Before the fix the whole policy
+		// resolved to Audit (the first rule) and the request was wrongly admitted.
+		name:       "audit rule first, failing enforce rule blocks",
+		rawPolicy:  buildPolicy("team", "Audit", "owner", "Enforce"),
+		wantBlock:  true,
+		wantFailed: true,
+	}, {
+		// Enforce rule first (passes), failing Audit rule second: only an Audit rule fails,
+		// so the request must be admitted. Before the fix the policy resolved to Enforce
+		// (the first rule) and the Audit-only failure wrongly blocked the request.
+		name:       "enforce rule first, failing audit rule does not block",
+		rawPolicy:  buildPolicy("team", "Enforce", "owner", "Audit"),
+		wantBlock:  false,
+		wantFailed: true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var policy kyvernov1.ClusterPolicy
+			err := json.Unmarshal(tt.rawPolicy, &policy)
+			assert.NilError(t, err)
+
+			er := testValidate(
+				context.TODO(),
+				registryclient.NewOrDie(),
+				newPolicyContext(t, *resourceUnstructured, kyvernov1.Create, nil).WithPolicy(&policy),
+				cfg,
+				nil,
+			)
+
+			assert.Equal(t, er.IsFailed(), tt.wantFailed)
+			blocked := engineutils.BlockRequest(er, kyvernov1.Fail)
+			assert.Equal(t, blocked, tt.wantBlock)
+		})
 	}
 }
 

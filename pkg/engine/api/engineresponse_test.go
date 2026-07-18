@@ -1480,3 +1480,128 @@ func TestGetValidationFailureAction_RuleLevelOverride(t *testing.T) {
 		t.Errorf("expected rule-level %v, got %v", ruleAudit, action)
 	}
 }
+
+func TestResolveValidationFailureAction(t *testing.T) {
+	audit := kyvernov1.Audit
+	enforce := kyvernov1.Enforce
+	spec := &kyvernov1.Spec{
+		ValidationFailureAction: enforce,
+		ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+			Action:     audit,
+			Namespaces: []string{"audited-*"},
+		}},
+	}
+
+	tests := []struct {
+		name              string
+		validation        *kyvernov1.Validation
+		spec              *kyvernov1.Spec
+		namespaceLabels   map[string]string
+		resourceNamespace string
+		want              kyvernov1.ValidationFailureAction
+	}{{
+		name:       "rule-level action wins over spec-level",
+		validation: &kyvernov1.Validation{FailureAction: &audit},
+		spec:       spec,
+		want:       audit,
+	}, {
+		name:       "falls back to spec-level action when rule has none",
+		validation: &kyvernov1.Validation{},
+		spec:       spec,
+		want:       enforce,
+	}, {
+		name: "rule-level override matches namespace",
+		validation: &kyvernov1.Validation{
+			FailureAction: &enforce,
+			FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+				Action:     audit,
+				Namespaces: []string{"team-*"},
+			}},
+		},
+		spec:              spec,
+		resourceNamespace: "team-a",
+		want:              audit,
+	}, {
+		name:              "spec-level override matches namespace when rule has none",
+		validation:        &kyvernov1.Validation{},
+		spec:              spec,
+		resourceNamespace: "audited-ns",
+		want:              audit,
+	}, {
+		name:       "nil validation falls back to spec-level action",
+		validation: nil,
+		spec:       spec,
+		want:       enforce,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveValidationFailureAction(tt.validation, tt.spec, tt.namespaceLabels, tt.resourceNamespace)
+			if got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestEngineResponse_EnforcesFailedRules(t *testing.T) {
+	audit := kyvernov1.Audit
+	enforce := kyvernov1.Enforce
+	// policy with only the deprecated policy-level action, used to exercise the fallback
+	auditPolicy := NewKyvernoPolicy(&kyvernov1.ClusterPolicy{Spec: kyvernov1.Spec{ValidationFailureAction: audit}})
+	enforcePolicy := NewKyvernoPolicy(&kyvernov1.ClusterPolicy{Spec: kyvernov1.Spec{ValidationFailureAction: enforce}})
+
+	tests := []struct {
+		name   string
+		policy GenericPolicy
+		rules  []RuleResponse
+		want   bool
+	}{{
+		name: "failed Enforce rule after passing Audit rule blocks (issue #16557)",
+		rules: []RuleResponse{
+			*RulePass("require-team", Validation, "", nil).WithValidationFailureAction(audit),
+			*RuleFail("require-owner", Validation, "", nil).WithValidationFailureAction(enforce),
+		},
+		want: true,
+	}, {
+		name: "failed Audit rule after passing Enforce rule does not block (issue #16557)",
+		rules: []RuleResponse{
+			*RulePass("require-team", Validation, "", nil).WithValidationFailureAction(enforce),
+			*RuleFail("require-owner", Validation, "", nil).WithValidationFailureAction(audit),
+		},
+		want: false,
+	}, {
+		name: "both failing, one Enforce blocks",
+		rules: []RuleResponse{
+			*RuleFail("audit-rule", Validation, "", nil).WithValidationFailureAction(audit),
+			*RuleFail("enforce-rule", Validation, "", nil).WithValidationFailureAction(enforce),
+		},
+		want: true,
+	}, {
+		name:   "unstamped failed rule falls back to policy-level Enforce",
+		policy: enforcePolicy,
+		rules:  []RuleResponse{*RuleFail("legacy-rule", Validation, "", nil)},
+		want:   true,
+	}, {
+		name:   "unstamped failed rule falls back to policy-level Audit",
+		policy: auditPolicy,
+		rules:  []RuleResponse{*RuleFail("legacy-rule", Validation, "", nil)},
+		want:   false,
+	}, {
+		name:  "no failed rules never blocks",
+		rules: []RuleResponse{*RulePass("ok", Validation, "", nil).WithValidationFailureAction(enforce)},
+		want:  false,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := EngineResponse{PolicyResponse: PolicyResponse{Rules: tt.rules}}
+			if tt.policy != nil {
+				er = er.WithPolicy(tt.policy)
+			}
+			if got := er.EnforcesFailedRules(); got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
