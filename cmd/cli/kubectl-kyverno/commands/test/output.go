@@ -465,14 +465,19 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		output = append(output, rowMap)
 	}
 	var finalOutput []byte
-	if outputFormat == "markdown" {
+	switch outputFormat {
+	case "markdown":
 		var b strings.Builder
 		headers := []string{"ID", "POLICY", "RULE", "RESOURCE", "RESULT", "REASON"}
 		if detailedResults {
 			headers = append(headers, "MESSAGE")
 		}
-		b.WriteString("| " + strings.Join(headers, " | ") + " | \n")
-		b.WriteString("|" + strings.Repeat("----|", len(headers)) + "\n")
+		b.WriteString("| ")
+		b.WriteString(strings.Join(headers, " | "))
+		b.WriteString(" | \n")
+		b.WriteString("|")
+		b.WriteString(strings.Repeat("----|", len(headers)))
+		b.WriteString("\n")
 		for _, row := range resultTable.RawRows {
 			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %s |",
 				row.ID, row.Policy, row.Rule, row.Resource, row.Result, row.Reason))
@@ -485,7 +490,7 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, b.String())
 		fmt.Fprintln(out)
-	} else if outputFormat == "junit" {
+	case "junit":
 		var b strings.Builder
 		b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
 		b.WriteString(fmt.Sprintf("<testsuites tests=\"%d\" failures=\"%d\">\n", len(output), failedTests))
@@ -523,10 +528,11 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, b.String())
 		fmt.Fprintln(out)
-	} else {
-		if outputFormat == "json" {
+	default:
+		switch outputFormat {
+		case "json":
 			finalOutput, _ = json.MarshalIndent(output, "", "  ")
-		} else if outputFormat == "yaml" {
+		case "yaml":
 			finalOutput, _ = yaml.Marshal(output)
 		}
 		fmt.Fprintln(out)
