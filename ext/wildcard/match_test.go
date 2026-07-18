@@ -1,6 +1,7 @@
 package wildcard
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -348,9 +349,12 @@ func TestMatch(t *testing.T) {
 			matched: false,
 		},
 	}
-	// Iterating over the test cases, call the function under test and asert the output.
-	for _, testCase := range testCases {
-		actualResult := Match(testCase.pattern, testCase.text)
-		assert.Equal(t, testCase.matched, actualResult)
+	// Iterating over the test cases, call the function under test and assert the output.
+	for i, testCase := range testCases {
+		tc := testCase
+		t.Run(fmt.Sprintf("case-%d", i+1), func(t *testing.T) {
+			actualResult := Match(tc.pattern, tc.text)
+			assert.Equal(t, tc.matched, actualResult)
+		})
 	}
 }
