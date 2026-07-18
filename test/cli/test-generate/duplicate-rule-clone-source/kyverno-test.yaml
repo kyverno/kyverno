@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy-a.yaml
+- policy-b.yaml
+resources:
+- resource.yaml
+results:
+- cloneSourceResource: clone-source-a.yaml
+  generatedResource: generated-a.yaml
+  kind: Namespace
+  policy: sync-secrets-a
+  resources:
+  - namespace-a
+  result: pass
+  rule: sync-image-pull-secret
+- cloneSourceResource: clone-source-b.yaml
+  generatedResource: generated-b.yaml
+  kind: Namespace
+  policy: sync-secrets-b
+  resources:
+  - namespace-b
+  result: pass
+  rule: sync-image-pull-secret
