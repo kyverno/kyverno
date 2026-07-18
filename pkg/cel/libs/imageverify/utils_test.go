@@ -103,9 +103,9 @@ func TestAttestationMap(t *testing.T) {
 
 func TestGetRemoteOptsFromPolicy(t *testing.T) {
 	tests := []struct {
-		name          string
-		creds         *v1beta1.Credentials
-		wantNonEmpty  bool
+		name         string
+		creds        *v1beta1.Credentials
+		wantNonEmpty bool
 	}{{
 		name:         "nil credentials",
 		creds:        nil,
