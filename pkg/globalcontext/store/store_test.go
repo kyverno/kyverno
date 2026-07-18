@@ -40,7 +40,7 @@ func (m *mockEntry) isStopped() bool {
 
 func TestNew_CreatesEmptyStore(t *testing.T) {
 	s := New(0)
-	assert.NotNil(t, s, "New() should return a non-nil store")
+	assert.NotNil(t, s, "New(0) should return a non-nil store")
 
 	// Verify store is empty by checking a random key
 	entry, exists := s.Get("nonexistent")
