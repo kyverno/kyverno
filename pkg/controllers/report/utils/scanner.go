@@ -209,7 +209,7 @@ func (s *scanner) ScanResource(
 			engineResponse, err := engine.Handle(ctx, request, nil)
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
-				rules = append(rules, policy.Rules...)
+				rules = append(rules, filterMatchConditionSkips(policy.Rules)...)
 			}
 
 			response := engineapi.EngineResponse{
@@ -392,4 +392,18 @@ func (s *scanner) checkResourceFilters(resource unstructured.Unstructured, subre
 		}
 	}
 	return true
+}
+
+// filterMatchConditionSkips removes RuleResponses that were skipped solely
+// because matchConditions evaluated to false. These are internal routing
+// signals and should not appear in PolicyReports.
+func filterMatchConditionSkips(rules []engineapi.RuleResponse) []engineapi.RuleResponse {
+	result := make([]engineapi.RuleResponse, 0, len(rules))
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusSkip && r.SkipReason() == engineapi.SkipReasonMatchConditions {
+			continue
+		}
+		result = append(result, r)
+	}
+	return result
 }
