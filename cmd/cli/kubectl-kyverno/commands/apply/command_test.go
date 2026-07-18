@@ -1842,3 +1842,55 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 		})
 	}
 }
+
+func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "stdin later in policy and resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin first in policy paths and later in resource paths",
+			args: []string{
+				"-",
+				"policy.yaml",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin later in policy paths and first in resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"-,resource.yaml",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			assert.NotNil(t, cmd)
+
+			b := bytes.NewBufferString("")
+			cmd.SetErr(b)
+
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
+		})
+	}
+}
