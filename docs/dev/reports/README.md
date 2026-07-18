@@ -163,7 +163,7 @@ If we omit the short lived admission reports, this usually means 2 additional re
 - one background scan report
 
 Short lived admission reports are ephemeral in nature, as long as they are cleaned up correctly they shouldn't impact storage too much.
-If for some reason Kyverno fails to cleanup those reports fast enough it can become a severe issue though.
+If for some reason Kyverno fails to clean up those reports fast enough it can become a severe issue though.
 
 Of course not all resources will have background scan reports, some policies can have `background` disabled but you get the picture.
 One thing to note here is that it doesn't vary with the number of policies in the cluster. The number of policies will have an impact on the report size though, but not on the number of reports.
