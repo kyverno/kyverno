@@ -16,9 +16,7 @@ func IsResponseSuccessful(engineReponses []engineapi.EngineResponse) bool {
 }
 
 // BlockRequest returns true when:
-// 1. a policy fails (i.e. creates a violation) and the failing rule's failureAction is set to 'Enforce'
-// 2. a policy has a processing error and failurePolicy is set to 'Fail`
-//
+// 2. a policy has a processing error and failurePolicy is set to 'Fail'
 // The failure action is evaluated per failing rule so that an Enforce rule blocks the
 // request even when the same policy also contains Audit rules, regardless of rule order
 // (issue #16557).
