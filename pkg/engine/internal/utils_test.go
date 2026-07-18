@@ -19,9 +19,9 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExample2==
 
 func TestExpandStaticKeys(t *testing.T) {
 	tests := []struct {
-		name         string
-		attestorSet  kyvernov1.AttestorSet
-		wantEntries  int
+		name        string
+		attestorSet kyvernov1.AttestorSet
+		wantEntries int
 	}{
 		{
 			name: "no entries",
