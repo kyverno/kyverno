@@ -15,7 +15,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff/v7 v7.0.0
 	github.com/cyphar/filepath-securejoin v0.6.1
-	github.com/dgraph-io/ristretto/v2 v2.4.0
+	github.com/dgraph-io/ristretto/v2 v2.4.2
 	github.com/distribution/reference v0.6.0
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0
 	github.com/evanphx/json-patch/v5 v5.9.11
