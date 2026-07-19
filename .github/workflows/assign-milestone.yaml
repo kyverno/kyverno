@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Automatically assigns the release milestone (e.g. "Kyverno Release 1.19.0")
+# to every merged pull request included in a release, at the time the
+# release tag is pushed. Pull requests that already have a milestone set
+# (e.g. cherry-picks explicitly targeted at a patch release) are left as-is.
+#
+# This replaces the old approach of requiring a milestone to be set on every
+# pull request before merge.
+
+name: Assign milestone
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  assign-milestone:
+    # only run for final release tags (vX.Y.Z), skip pre-releases (e.g. v1.19.0-rc.1)
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Assign milestone to merged pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected tag format: $RELEASE_TAG"
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          milestone_title="Kyverno Release ${version}"
+          echo "Release tag: $RELEASE_TAG -> milestone: $milestone_title"
+
+          # find the previous final release tag (by semver), to build the commit range.
+          # this works for both tags on main (e.g. v1.19.0 -> v1.18.0) and tags on a
+          # release-* branch (e.g. v1.18.3 -> v1.18.2), since git tag --merged only
+          # lists tags reachable from the current tag's commit.
+          previous_tag=$(git tag --list 'v*' --merged "$RELEASE_TAG" \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
+            | grep -B1 -x "$RELEASE_TAG" \
+            | head -n1)
+
+          if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
+            echo "::error::Could not determine previous release tag for $RELEASE_TAG"
+            exit 1
+          fi
+          echo "Previous release tag: $previous_tag"
+
+          milestone_number=$(gh api "repos/${GITHUB_REPOSITORY}/milestones?state=all&per_page=100" \
+            --jq ".[] | select(.title == \"${milestone_title}\") | .number" | head -n1)
+
+          if [[ -z "$milestone_number" ]]; then
+            echo "::error::Milestone \"${milestone_title}\" does not exist. Create it before releasing, or the release notes will be missing pull requests."
+            exit 1
+          fi
+          echo "Milestone number: $milestone_number"
+
+          pr_numbers=$(git log "${previous_tag}..${RELEASE_TAG}" --format='%H' \
+            | xargs -I{} gh api "repos/${GITHUB_REPOSITORY}/commits/{}/pulls" --jq '.[].number' \
+            | sort -un)
+
+          if [[ -z "$pr_numbers" ]]; then
+            echo "No pull requests found between $previous_tag and $RELEASE_TAG."
+            exit 0
+          fi
+
+          for pr in $pr_numbers; do
+            current_milestone=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" --jq '.milestone.title // ""')
+            if [[ -n "$current_milestone" ]]; then
+              echo "PR #${pr} already has milestone \"${current_milestone}\", skipping."
+              continue
+            fi
+            echo "Assigning milestone \"${milestone_title}\" to PR #${pr}."
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" -X PATCH -f "milestone=${milestone_number}" > /dev/null
+          done
