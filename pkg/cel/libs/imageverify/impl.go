@@ -70,24 +70,26 @@ func ImageVerifyCELFuncs(
 }
 
 // signatureCacheKey builds a stable cache key for a signature verification
-// performed by a given attestor. Verification results are cached per
-// attestor since the same image can be checked against multiple attestors.
-func signatureCacheKey(attestor v1beta1.Attestor) string {
+// performed by a given attestor entry. Verification results are cached per
+// list entry so duplicate/empty attestor names do not collide.
+func signatureCacheKey(attestorIndex int, attestor v1beta1.Attestor) string {
 	name := attestor.Name
 	if name == "" {
 		name = "unnamed"
 	}
-	return "signature:" + name
+	return fmt.Sprintf("signature:%d:%s", attestorIndex, name)
 }
 
 // attestationCacheKey builds a stable cache key for an attestation
-// verification performed by a given attestor for a given attestation name.
-func attestationCacheKey(attestation string, attestor v1beta1.Attestor) string {
+// verification performed by a given attestor entry for a given attestation
+// name. The key includes the attestor index to prevent collisions for
+// duplicate/empty names.
+func attestationCacheKey(attestation string, attestorIndex int, attestor v1beta1.Attestor) string {
 	name := attestor.Name
 	if name == "" {
 		name = "unnamed"
 	}
-	return "attestation:" + attestation + ":" + name
+	return fmt.Sprintf("attestation:%s:%d:%s", attestation, attestorIndex, name)
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
@@ -103,8 +105,8 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		} else if !match {
 			return f.NativeToValue(count)
 		}
-		for _, attestor := range attestors {
-			cacheKey := signatureCacheKey(attestor)
+		for i, attestor := range attestors {
+			cacheKey := signatureCacheKey(i, attestor)
 			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
 				count += 1
 				continue
@@ -166,13 +168,13 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		} else if !match {
 			return f.NativeToValue(count)
 		}
-		for _, attestor := range attestors {
+		for i, attestor := range attestors {
 			attest, ok := f.attestationList[attestation]
 			if !ok {
 				return types.NewErr("attestation not found in policy: %s", attestation)
 			}
 
-			cacheKey := attestationCacheKey(attestation, attestor)
+			cacheKey := attestationCacheKey(attestation, i, attestor)
 			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
 				count += 1
 				continue

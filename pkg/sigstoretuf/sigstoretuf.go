@@ -74,7 +74,7 @@ func TrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
 	}
 	targetBytes, err := tufClient.GetTarget("trusted_root.json")
 	if err != nil {
-		return nil, fmt.Errorf("error getting targets: %w", err)
+		return nil, fmt.Errorf("error getting target trusted_root.json: %w", err)
 	}
 	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
 	if err != nil {
