@@ -2,8 +2,10 @@
 
 # Automatically assigns the release milestone (e.g. "Kyverno Release 1.19.0")
 # to every merged pull request included in a release, at the time the
-# release tag is pushed. Pull requests that already have a milestone set
-# (e.g. cherry-picks explicitly targeted at a patch release) are left as-is.
+# release tag is pushed. The milestone computed from the actual git history
+# of the release is authoritative, so it overrides any milestone a PR may
+# already have (e.g. a speculative/target milestone set before merge that
+# turned out to not match the release the PR actually shipped in).
 #
 # This replaces the old approach of requiring a milestone to be set on every
 # pull request before merge.
@@ -85,10 +87,14 @@ jobs:
 
           for pr in $pr_numbers; do
             current_milestone=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" --jq '.milestone.title // ""')
-            if [[ -n "$current_milestone" ]]; then
-              echo "PR #${pr} already has milestone \"${current_milestone}\", skipping."
+            if [[ "$current_milestone" == "$milestone_title" ]]; then
+              echo "PR #${pr} already correctly milestoned \"${milestone_title}\", skipping."
               continue
             fi
-            echo "Assigning milestone \"${milestone_title}\" to PR #${pr}."
+            if [[ -n "$current_milestone" ]]; then
+              echo "PR #${pr} has milestone \"${current_milestone}\", but actually shipped in \"${milestone_title}\". Correcting it."
+            else
+              echo "Assigning milestone \"${milestone_title}\" to PR #${pr}."
+            fi
             gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" -X PATCH -f "milestone=${milestone_number}" > /dev/null
           done
