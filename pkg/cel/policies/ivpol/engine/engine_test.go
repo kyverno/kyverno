@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -12,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -151,7 +149,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 `
 )
 
-func Test_ImageVerifyEngine(t *testing.T) {
+func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -168,24 +166,8 @@ func Test_ImageVerifyEngine(t *testing.T) {
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, len(resp.Policies), 1)
-
-	response := resp.Policies[0]
-	assert.Equal(t, response.Result.Name(), "ivpol-notary")
-	assert.Equal(t, response.Result.Status(), engineapi.RuleStatusPass)
-
-	assert.Equal(t, len(patches), 2)
-	outcomePatch := patches[1]
-	data, ok := outcomePatch.Value.(string)
-	assert.True(t, ok)
-
-	var outcomes map[string]eval.ImageVerificationOutcome
-	err = json.Unmarshal([]byte(data), &outcomes)
-	assert.NoError(t, err)
-
-	v, ok := outcomes["ivpol-notary"]
-	assert.True(t, ok)
-	assert.Equal(t, v.Status, engineapi.RuleStatusPass)
+	assert.Empty(t, resp.Policies)
+	assert.Empty(t, patches)
 }
 
 func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *testing.T) {
