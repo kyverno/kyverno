@@ -8,349 +8,330 @@ import (
 
 func TestMatch(t *testing.T) {
 	testCases := []struct {
+		name    string
 		pattern string
 		text    string
 		matched bool
 	}{
-		// Test case - 1.
-		// Test case with pattern "*". Expected to match any text.
 		{
+			name:    "star pattern matches any text",
 			pattern: "*",
 			text:    "s3:GetObject",
 			matched: true,
 		},
-		// Test case - 2.
-		// Test case with empty pattern. This only matches empty string.
 		{
+			name:    "empty pattern matches nothing on non-empty text",
 			pattern: "",
 			text:    "s3:GetObject",
 			matched: false,
 		},
-		// Test case - 3.
-		// Test case with empty pattern. This only matches empty string.
 		{
+			name:    "empty pattern matches empty text",
 			pattern: "",
 			text:    "",
 			matched: true,
 		},
-		// Test case - 4.
-		// Test case with single "*" at the end.
 		{
+			name:    "single star wildcard at suffix matches prefix",
 			pattern: "s3:*",
 			text:    "s3:ListMultipartUploadParts",
 			matched: true,
 		},
-		// Test case - 5.
-		// Test case with a no "*". In this case the pattern and text should be the same.
 		{
+			name:    "no wildcard exact mismatch on suffix",
 			pattern: "s3:ListBucketMultipartUploads",
 			text:    "s3:ListBucket",
 			matched: false,
 		},
-		// Test case - 6.
-		// Test case with a no "*". In this case the pattern and text should be the same.
 		{
+			name:    "no wildcard exact match succeeds",
 			pattern: "s3:ListBucket",
 			text:    "s3:ListBucket",
 			matched: true,
 		},
-		// Test case - 7.
-		// Test case with a no "*". In this case the pattern and text should be the same.
 		{
+			name:    "no wildcard exact match succeeds long suffix",
 			pattern: "s3:ListBucketMultipartUploads",
 			text:    "s3:ListBucketMultipartUploads",
 			matched: true,
 		},
-		// Test case - 8.
-		// Test case with pattern containing key name with a prefix. Should accept the same text without a "*".
 		{
+			name:    "prefix with wildcard matches prefix alone",
 			pattern: "my-bucket/oo*",
 			text:    "my-bucket/oo",
 			matched: true,
 		},
-		// Test case - 9.
-		// Test case with "*" at the end of the pattern.
 		{
+			name:    "star wildcard at suffix matches multiple subdirectories",
 			pattern: "my-bucket/In*",
 			text:    "my-bucket/India/Karnataka/",
 			matched: true,
 		},
-		// Test case - 10.
-		// Test case with prefixes shuffled.
-		// This should fail.
 		{
+			name:    "star wildcard at suffix fails when prefixes are shuffled",
 			pattern: "my-bucket/In*",
 			text:    "my-bucket/Karnataka/India/",
 			matched: false,
 		},
-		// Test case - 11.
-		// Test case with text expanded to the wildcards in the pattern.
 		{
+			name:    "multiple wildcards match correctly expanded path segments",
 			pattern: "my-bucket/In*/Ka*/Ban",
 			text:    "my-bucket/India/Karnataka/Ban",
 			matched: true,
 		},
-		// Test case - 12.
-		// Test case with the  keyname part is repeated as prefix several times.
-		// This is valid.
 		{
+			name:    "multiple wildcards match when path segments are repeated",
 			pattern: "my-bucket/In*/Ka*/Ban",
 			text:    "my-bucket/India/Karnataka/Ban/Ban/Ban/Ban/Ban",
 			matched: true,
 		},
-		// Test case - 13.
-		// Test case to validate that `*` can be expanded into multiple prefixes.
 		{
+			name:    "wildcard expands to match multiple intermediate subdirectories",
 			pattern: "my-bucket/In*/Ka*/Ban",
 			text:    "my-bucket/India/Karnataka/Area1/Area2/Area3/Ban",
 			matched: true,
 		},
-		// Test case - 14.
-		// Test case to validate that `*` can be expanded into multiple prefixes.
 		{
+			name:    "wildcard expands to match multiple subdirectories at multiple levels",
 			pattern: "my-bucket/In*/Ka*/Ban",
 			text:    "my-bucket/India/State1/State2/Karnataka/Area1/Area2/Area3/Ban",
 			matched: true,
 		},
-		// Test case - 15.
-		// Test case where the keyname part of the pattern is expanded in the text.
 		{
+			name:    "multiple wildcards fail when trailing segment is modified",
 			pattern: "my-bucket/In*/Ka*/Ban",
 			text:    "my-bucket/India/Karnataka/Bangalore",
 			matched: false,
 		},
-		// Test case - 16.
-		// Test case with prefixes and wildcard expanded for all "*".
 		{
+			name:    "multiple wildcards match when trailing segment contains wildcard",
 			pattern: "my-bucket/In*/Ka*/Ban*",
 			text:    "my-bucket/India/Karnataka/Bangalore",
 			matched: true,
 		},
-		// Test case - 17.
-		// Test case with keyname part being a wildcard in the pattern.
 		{
+			name:    "star wildcard matches single folder path suffix",
 			pattern: "my-bucket/*",
 			text:    "my-bucket/India",
 			matched: true,
 		},
-		// Test case - 18.
 		{
+			name:    "prefix wildcard fails on incorrect match prefix",
 			pattern: "my-bucket/oo*",
 			text:    "my-bucket/odo",
 			matched: false,
 		},
-		// Test case with pattern containing wildcard '?'.
-		// Test case - 19.
-		// "my-bucket?/" matches "my-bucket1/", "my-bucket2/", "my-bucket3" etc...
-		// doesn't match "mybucket/".
 		{
+			name:    "question mark wildcard fails on missing character",
 			pattern: "my-bucket?/abc*",
 			text:    "mybucket/abc",
 			matched: false,
 		},
-		// Test case - 20.
 		{
+			name:    "question mark wildcard matches single numeric character",
 			pattern: "my-bucket?/abc*",
 			text:    "my-bucket1/abc",
 			matched: true,
 		},
-		// Test case - 21.
 		{
+			name:    "question mark fails on missing middle character",
 			pattern: "my-?-bucket/abc*",
 			text:    "my--bucket/abc",
 			matched: false,
 		},
-		// Test case - 22.
 		{
+			name:    "question mark matches middle number",
 			pattern: "my-?-bucket/abc*",
 			text:    "my-1-bucket/abc",
 			matched: true,
 		},
-		// Test case - 23.
 		{
+			name:    "question mark matches middle character letter",
 			pattern: "my-?-bucket/abc*",
 			text:    "my-k-bucket/abc",
 			matched: true,
 		},
-		// Test case - 24.
 		{
+			name:    "two question marks fail on missing characters",
 			pattern: "my??bucket/abc*",
 			text:    "mybucket/abc",
 			matched: false,
 		},
-		// Test case - 25.
 		{
+			name:    "two question marks match two characters",
 			pattern: "my??bucket/abc*",
 			text:    "my4abucket/abc",
 			matched: true,
 		},
-		// Test case - 26.
 		{
+			name:    "question mark matches path separator slash",
 			pattern: "my-bucket?abc*",
 			text:    "my-bucket/abc",
 			matched: true,
 		},
-		// Test case 27-28.
-		// '?' matches '/' too. (works with s3).
-		// This is because the namespace is considered flat.
-		// "abc?efg" matches both "abcdefg" and "abc/efg".
 		{
+			name:    "question mark matches middle character in filename",
 			pattern: "my-bucket/abc?efg",
 			text:    "my-bucket/abcdefg",
 			matched: true,
 		},
 		{
+			name:    "question mark matches slash separator in middle",
 			pattern: "my-bucket/abc?efg",
 			text:    "my-bucket/abc/efg",
 			matched: true,
 		},
-		// Test case - 29.
 		{
+			name:    "four question marks fail on too short suffix",
 			pattern: "my-bucket/abc????",
 			text:    "my-bucket/abc",
 			matched: false,
 		},
-		// Test case - 30.
 		{
+			name:    "four question marks fail on two short characters suffix",
 			pattern: "my-bucket/abc????",
 			text:    "my-bucket/abcde",
 			matched: false,
 		},
-		// Test case - 31.
 		{
+			name:    "four question marks match exact character suffix length",
 			pattern: "my-bucket/abc????",
 			text:    "my-bucket/abcdefg",
 			matched: true,
 		},
-		// Test case 32-34.
-		// test case with no '*'.
 		{
+			name:    "single question mark fails on empty match character",
 			pattern: "my-bucket/abc?",
 			text:    "my-bucket/abc",
 			matched: false,
 		},
 		{
+			name:    "single question mark matches single character suffix",
 			pattern: "my-bucket/abc?",
 			text:    "my-bucket/abcd",
 			matched: true,
 		},
 		{
+			name:    "single question mark fails on too long suffix text",
 			pattern: "my-bucket/abc?",
 			text:    "my-bucket/abcde",
 			matched: false,
 		},
-		// Test case 35.
 		{
+			name:    "wildcard and question mark fails on missing single character",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnop",
 			matched: false,
 		},
-		// Test case 36.
 		{
+			name:    "wildcard and question mark matches multi segment text",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnopqrst/mnopqr",
 			matched: true,
 		},
-		// Test case 37.
 		{
+			name:    "wildcard and question mark matches multi segment text long",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnopqrst/mnopqrs",
 			matched: true,
 		},
-		// Test case 38.
 		{
+			name:    "wildcard and question mark fails on missing character duplicate case",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnop",
 			matched: false,
 		},
-		// Test case 39.
 		{
+			name:    "wildcard and question mark matches single character suffix",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnopq",
 			matched: true,
 		},
-		// Test case 40.
 		{
+			name:    "wildcard and question mark matches two character suffix",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnopqr",
 			matched: true,
 		},
-		// Test case 41.
 		{
+			name:    "wildcard and question mark with final suffix matches",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopqand",
 			matched: true,
 		},
-		// Test case 42.
 		{
+			name:    "wildcard and question mark with final suffix fails on missing character",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopand",
 			matched: false,
 		},
-		// Test case 43.
 		{
+			name:    "wildcard and question mark with final suffix matches duplicate case",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopqand",
 			matched: true,
 		},
-		// Test case 44.
 		{
+			name:    "wildcard and question mark fails on prefix mismatch",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mn",
 			matched: false,
 		},
-		// Test case 45.
 		{
+			name:    "wildcard and question mark matches duplicate long case",
 			pattern: "my-bucket/mnop*?",
 			text:    "my-bucket/mnopqrst/mnopqrs",
 			matched: true,
 		},
-		// Test case 46.
 		{
+			name:    "wildcard and two question marks match long text",
 			pattern: "my-bucket/mnop*??",
 			text:    "my-bucket/mnopqrst",
 			matched: true,
 		},
-		// Test case 47.
 		{
+			name:    "wildcard in middle matches correctly",
 			pattern: "my-bucket/mnop*qrst",
 			text:    "my-bucket/mnopabcdegqrst",
 			matched: true,
 		},
-		// Test case 48.
 		{
+			name:    "wildcard and question mark with final suffix matches duplicate case 3",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopqand",
 			matched: true,
 		},
-		// Test case 49.
 		{
+			name:    "wildcard and question mark with final suffix fails on missing character duplicate case 2",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopand",
 			matched: false,
 		},
-		// Test case 50.
 		{
+			name:    "wildcards and question marks match trailing pattern segment",
 			pattern: "my-bucket/mnop*?and?",
 			text:    "my-bucket/mnopqanda",
 			matched: true,
 		},
-		// Test case 51.
 		{
+			name:    "wildcard and question mark fail on extra trailing suffix characters",
 			pattern: "my-bucket/mnop*?and",
 			text:    "my-bucket/mnopqanda",
 			matched: false,
 		},
-		// Test case 52.
 		{
+			name:    "question mark and wildcard fail when prefix is incorrect",
 			pattern: "my-?-bucket/abc*",
 			text:    "my-bucket/mnopqanda",
 			matched: false,
 		},
 	}
-	// Iterating over the test cases, call the function under test and asert the output.
+
+	// Iterating over the test cases, call the function under test and assert the output.
 	for _, testCase := range testCases {
-		actualResult := Match(testCase.pattern, testCase.text)
-		assert.Equal(t, testCase.matched, actualResult)
+		t.Run(testCase.name, func(t *testing.T) {
+			actualResult := Match(testCase.pattern, testCase.text)
+			assert.Equal(t, testCase.matched, actualResult)
+		})
 	}
 }
