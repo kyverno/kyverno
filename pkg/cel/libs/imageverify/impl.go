@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/sdk/extensions/cel/utils"
@@ -23,11 +24,13 @@ type ivfuncs struct {
 
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
+	ivpol           v1beta1.ImageValidatingPolicyLike
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
+	cache           imageverifycache.Client
 }
 
 func ImageVerifyCELFuncs(
@@ -36,6 +39,7 @@ func ImageVerifyCELFuncs(
 	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister k8scorev1.SecretInterface,
 	adapter types.Adapter,
+	cache imageverifycache.Client,
 ) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
@@ -49,15 +53,41 @@ func ImageVerifyCELFuncs(
 	if errs != nil {
 		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
 	}
+	if cache == nil {
+		cache = imageverifycache.DisabledImageVerifyCache()
+	}
 	return &ivfuncs{
 		Adapter:         adapter,
 		imgCtx:          imgCtx,
+		ivpol:           ivpol,
 		creds:           spec.Credentials,
 		imgRules:        imgRules,
 		attestationList: attestationMap(ivpol),
 		cosignVerifier:  cosign.NewVerifier(lister, logger),
 		notaryVerifier:  notary.NewVerifier(logger),
+		cache:           cache,
 	}, nil
+}
+
+// signatureCacheKey builds a stable cache key for a signature verification
+// performed by a given attestor. Verification results are cached per
+// attestor since the same image can be checked against multiple attestors.
+func signatureCacheKey(attestor v1beta1.Attestor) string {
+	name := attestor.Name
+	if name == "" {
+		name = "unnamed"
+	}
+	return "signature:" + name
+}
+
+// attestationCacheKey builds a stable cache key for an attestation
+// verification performed by a given attestor for a given attestation name.
+func attestationCacheKey(attestation string, attestor v1beta1.Attestor) string {
+	name := attestor.Name
+	if name == "" {
+		name = "unnamed"
+	}
+	return "attestation:" + attestation + ":" + name
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
@@ -74,17 +104,24 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			return f.NativeToValue(count)
 		}
 		for _, attestor := range attestors {
+			cacheKey := signatureCacheKey(attestor)
+			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
+				count += 1
+				continue
+			}
+
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
 
+			verified := false
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
 					f.logger.Info("failed to verify image cosign", "error", err)
 				} else {
-					count += 1
+					verified = true
 				}
 			} else if attestor.IsNotary() {
 				var certs, tsaCerts string
@@ -97,7 +134,13 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify image notary", "error", err)
 				} else {
-					count += 1
+					verified = true
+				}
+			}
+			if verified {
+				count += 1
+				if _, err := f.cache.Set(ctx, f.ivpol, cacheKey, image, true); err != nil {
+					f.logger.V(4).Info("failed to update image signature verification cache", "error", err)
 				}
 			}
 		}
@@ -128,16 +171,24 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if !ok {
 				return types.NewErr("attestation not found in policy: %s", attestation)
 			}
+
+			cacheKey := attestationCacheKey(attestation, attestor)
+			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
+				count += 1
+				continue
+			}
+
 			opts := GetRemoteOptsFromPolicy(f.creds)
 			img, err := f.imgCtx.Get(ctx, image, opts...)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
+			verified := false
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
 					f.logger.Info("failed to verify attestation cosign", "error", err)
 				} else {
-					count += 1
+					verified = true
 				}
 			} else if attestor.IsNotary() {
 				if attest.Referrer == nil {
@@ -153,7 +204,13 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
 					f.logger.Info("failed to verify attestation notary", "error", err)
 				} else {
-					count += 1
+					verified = true
+				}
+			}
+			if verified {
+				count += 1
+				if _, err := f.cache.Set(ctx, f.ivpol, cacheKey, image, true); err != nil {
+					f.logger.V(4).Info("failed to update image attestation verification cache", "error", err)
 				}
 			}
 		}

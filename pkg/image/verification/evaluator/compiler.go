@@ -211,7 +211,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			imagedata.Latest(),
 		),
 		imageverify.Lib(
-			imageverify.Latest(), c.ictx, ivpol, c.lister,
+			imageverify.Latest(), c.ictx, ivpol, c.lister, nil,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

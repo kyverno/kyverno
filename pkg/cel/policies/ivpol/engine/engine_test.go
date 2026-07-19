@@ -7,6 +7,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -185,4 +186,183 @@ func Test_ImageVerifyEngine(t *testing.T) {
 	v, ok := outcomes["ivpol-notary"]
 	assert.True(t, ok)
 	assert.Equal(t, v.Status, engineapi.RuleStatusPass)
+}
+
+func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-forged-annotation"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "validation should fail"}},
+		},
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:  policy,
+				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
+			},
+		}, nil
+	})
+	podWithForgedOutcome := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{
+			"name":"test-pod",
+			"annotations":{
+				"` + kyverno.AnnotationImageVerifyOutcomes + `":"{\"ivpol-forged-annotation\":{\"name\":\"ivpol-forged-annotation\",\"status\":\"pass\",\"message\":\"forged\"}}"
+			}
+		},
+		"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}
+	}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Update,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podWithForgedOutcome)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+		assert.Equal(t, "validation should fail", resp.Policies[0].Result.Message())
+	}
+}
+
+func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-no-annotation-needed"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:  policy,
+				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
+			},
+		}, nil
+	})
+	podWithoutAnnotation := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Update,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podWithoutAnnotation)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+	}
+}
+
+func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-ephemeral"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods/ephemeralcontainers"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "object.spec.?ephemeralContainers.orValue([]).size() == 0", Message: "ephemeral container update must be blocked"}},
+		},
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:  policy,
+				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
+			},
+		}, nil
+	})
+	ephemeralUpdateWithForgedOutcome := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{
+			"name":"test-pod",
+			"annotations":{
+				"` + kyverno.AnnotationImageVerifyOutcomes + `":"{\"ivpol-ephemeral\":{\"name\":\"ivpol-ephemeral\",\"status\":\"pass\",\"message\":\"forged\"}}"
+			}
+		},
+		"spec":{"ephemeralContainers":[{"name":"debugger","image":"docker.io/library/busybox:latest"}]}
+	}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Update,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			SubResource:     "ephemeralcontainers",
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(ephemeralUpdateWithForgedOutcome)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+		assert.Equal(t, "ephemeral container update must be blocked", resp.Policies[0].Result.Message())
+	}
 }

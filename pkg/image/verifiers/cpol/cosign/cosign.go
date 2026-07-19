@@ -15,6 +15,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
@@ -23,7 +24,6 @@ import (
 	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/sigstore/sigstore/pkg/tuf"
@@ -133,7 +133,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				roots, err := fulcioroots.Get()
+				roots, _, err := sigstoretuf.FulcioRoots()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get roots from fulcio: %w", err)
 				}
@@ -564,7 +564,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if rekorPubKey == "" {
-		return cosign.GetRekorPubs(ctx)
+		return sigstoretuf.RekorPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
@@ -576,7 +576,7 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if ctlogPubKey == "" {
-		return cosign.GetCTLogPubs(ctx)
+		return sigstoretuf.CTLogPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
