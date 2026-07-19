@@ -11,7 +11,8 @@ import (
 
 // SplitDocuments reads the YAML bytes per-document, unmarshals the TypeMeta information from each document
 // and returns a map between the GroupVersionKind of the document and the document bytes
-func SplitDocuments(yamlBytes document) (documents []document, error error) {
+func SplitDocuments(yamlBytes document) ([]document, error) {
+	var documents []document
 	buf := bytes.NewBuffer(yamlBytes)
 	reader := yaml.NewYAMLReader(bufio.NewReader(buf))
 	for {
