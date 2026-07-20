@@ -66,9 +66,13 @@ jobs:
           IFS='.' read -r major minor patch <<< "$version"
 
           if [[ "$patch" == "0" ]]; then
-            previous_tag="v${major}.$((minor - 1)).0"
-            if ! git rev-parse -q --verify "refs/tags/${previous_tag}" >/dev/null; then
-              echo "::error::Could not determine previous release tag for $RELEASE_TAG: ${previous_tag} does not exist"
+            previous_tag=$(git tag --list 'v*' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | grep -B1 -x "$RELEASE_TAG" \
+              | head -n1)
+            if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
+              echo "::error::Could not determine previous release tag for $RELEASE_TAG"
               exit 1
             fi
             range_start=$(git merge-base "$previous_tag" "$RELEASE_TAG")
