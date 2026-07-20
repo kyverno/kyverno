@@ -3,6 +3,10 @@ package webhook
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"maps"
 	"path"
 	"slices"
@@ -176,8 +180,13 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhooks = append(webhooks, fineGrainedIgnoreList...)
 		}
 	}
-	// process basic policies
-	if len(basic) != 0 {
+	// process basic policies, grouped by the selectors they resolve to. A webhook carries a single
+	// namespaceSelector/objectSelector pair, so policies resolving to different selectors cannot
+	// share one: the last one processed would overwrite the selector and the others would silently
+	// stop being called for their own namespaces. Policies that share selectors (the common case,
+	// including everything that sets no selector at all) still share a webhook.
+	for _, group := range groupBySelectors(basic, cfg) {
+		basic := group.policies
 		names := make([]string, 0, len(basic))
 		for _, policy := range basic {
 			names = append(names, policy.GetName())
@@ -185,33 +194,26 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		slices.Sort(names)
 		dynamicPath := path.Join(names...)
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-ignore",
+			Name:                    name + "-ignore" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
+			NamespaceSelector:       group.namespaceSelector,
+			ObjectSelector:          group.objectSelector,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-fail",
+			Name:                    name + "-fail" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
+			NamespaceSelector:       group.namespaceSelector,
+			ObjectSelector:          group.objectSelector,
 		}
-		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
 
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
-			webhookIgnore.NamespaceSelector = resolveNamespaceSelector(p, cfg)
-			webhookIgnore.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
-			webhookFail.NamespaceSelector = resolveNamespaceSelector(p, cfg)
-			webhookFail.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
@@ -299,6 +301,61 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	return webhooks
+}
+
+// selectorGroup is a set of policies that resolve to the same namespace and object selectors and
+// can therefore share a webhook.
+type selectorGroup struct {
+	namespaceSelector *metav1.LabelSelector
+	objectSelector    *metav1.LabelSelector
+	policies          []engineapi.GenericPolicy
+	// suffix disambiguates webhook names when the policies do not all resolve to the same
+	// selectors. It is empty when there is a single group, so the common case (policies that set
+	// no selector at all) keeps its webhook name.
+	suffix string
+}
+
+// groupBySelectors buckets policies by the selectors their webhook would carry, so policies with
+// different selectors get their own webhook instead of overwriting each other's.
+func groupBySelectors(policies []engineapi.GenericPolicy, cfg config.Configuration) []*selectorGroup {
+	groups := map[string]*selectorGroup{}
+	var keys []string
+	for _, policy := range policies {
+		p := extractGenericPolicy(policy)
+		namespaceSelector := resolveNamespaceSelector(p, cfg)
+		objectSelector := mergeLabelSelectors(p.GetMatchConstraints().ObjectSelector, cfg.GetWebhook().ObjectSelector)
+		key := selectorKey(namespaceSelector, objectSelector)
+		group, ok := groups[key]
+		if !ok {
+			group = &selectorGroup{namespaceSelector: namespaceSelector, objectSelector: objectSelector}
+			groups[key] = group
+			keys = append(keys, key)
+		}
+		group.policies = append(group.policies, policy)
+	}
+	slices.Sort(keys)
+	result := make([]*selectorGroup, 0, len(keys))
+	for _, key := range keys {
+		group := groups[key]
+		if len(keys) > 1 {
+			group.suffix = "-" + key
+		}
+		result = append(result, group)
+	}
+	return result
+}
+
+// selectorKey returns a short stable identifier for a pair of selectors. It is derived from the
+// selectors alone so a webhook name does not change when policies are added to or removed from
+// its group, and it is bounded so long policy or namespace names cannot push the webhook name
+// past the 253 character limit the API server enforces.
+func selectorKey(namespaceSelector, objectSelector *metav1.LabelSelector) string {
+	serialized, err := json.Marshal([]*metav1.LabelSelector{namespaceSelector, objectSelector})
+	if err != nil {
+		serialized = []byte(fmt.Sprintf("%v%v", namespaceSelector, objectSelector))
+	}
+	sum := sha256.Sum256(serialized)
+	return hex.EncodeToString(sum[:])[:8]
 }
 
 // resolveNamespaceSelector returns the namespace selector for a policy's webhook. A namespaced policy

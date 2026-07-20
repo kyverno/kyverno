@@ -982,3 +982,115 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 	assert.True(t, pinned["team-a"], "the team-a policy must be pinned to team-a")
 	assert.True(t, pinned["team-b"], "the team-b policy must be pinned to team-b")
 }
+
+func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *testing.T) {
+	// A webhook carries a single namespaceSelector/objectSelector pair. Two policies that resolve
+	// to different selectors cannot share one: the last one processed would overwrite the selector
+	// and the other policy would silently stop being called for its own namespaces.
+	newPolicy := func(name, environment string) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"environment": environment},
+					},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewValidatingPolicy(newPolicy("policy-staging", "staging")),
+		engineapi.NewValidatingPolicy(newPolicy("policy-production", "production")),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	assert.Len(t, webhooks, 2, "policies with different selectors need their own webhook")
+	environments := make([]string, 0, len(webhooks))
+	for _, webhook := range webhooks {
+		environments = append(environments, webhook.NamespaceSelector.MatchLabels["environment"])
+	}
+	assert.ElementsMatch(t, []string{"staging", "production"}, environments,
+		"each policy's namespaceSelector must survive")
+}
+
+func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
+	// Policies are grouped by the selectors they resolve to, so a realistic mix (most policies set
+	// no selector at all, the rest reuse a handful of the same selectors) stays on a small number
+	// of webhooks instead of one per policy.
+	newPolicy := func(name string, namespaceSelector *metav1.LabelSelector) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: namespaceSelector,
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	prod := &metav1.LabelSelector{MatchLabels: map[string]string{"environment": "production"}}
+	team := &metav1.LabelSelector{MatchLabels: map[string]string{"team": "payments"}}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-a", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-b", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-c", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("prod-a", prod)),
+		engineapi.NewValidatingPolicy(newPolicy("prod-b", prod)),
+		engineapi.NewValidatingPolicy(newPolicy("team-a", team)),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	// three distinct selectors (none, production, payments) means three webhooks, not six.
+	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
+	for _, webhook := range webhooks {
+		assert.NotEmpty(t, webhook.Rules, "every webhook should carry the rules of its group")
+	}
+}
