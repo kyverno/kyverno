@@ -572,6 +572,20 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
 		},
 		{
+			name:   "whitespace between Object and brace",
+			config: "deployments",
+			input: `Object {
+  spec: Object.spec {
+    automountServiceAccountToken: false,
+  }
+}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{
+  spec: Object.spec.template.spec{
+    automountServiceAccountToken: false,
+  }
+}}}`,
+		},
+		{
 			name:   "complex nested expression",
 			config: "cronjobs",
 			input: `Object{
