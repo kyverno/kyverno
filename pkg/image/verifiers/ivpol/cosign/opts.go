@@ -237,21 +237,21 @@ func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
 		if t.Root.Path != "" {
 			rootBytes, err = blob.LoadFileOrURL(t.Root.Path)
 			if err != nil {
-				return fmt.Errorf("Failed to read alternate TUF root file %v : %w", t, err)
+				return fmt.Errorf("failed to read alternate TUF root file %q: %w", t.Root.Path, err)
 			}
 		} else if t.Root.Data != "" {
 			rootBytes, err = base64.StdEncoding.DecodeString(t.Root.Data)
 			if err != nil {
-				return fmt.Errorf("Failed to base64 decode TUF root  %v : %w", t, err)
+				return fmt.Errorf("failed to base64-decode inline TUF root data: %w", err)
 			}
 		}
 
 		if err := sigstoretuf.Initialize(ctx, t.Mirror, rootBytes); err != nil {
-			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
+			return fmt.Errorf("failed to initialize TUF client (mirror=%q): %w", t.Mirror, err)
 		}
 	} else {
 		if err := sigstoretuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil); err != nil {
-			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
+			return fmt.Errorf("failed to initialize TUF client (mirror=%q): %w", tuf.DefaultRemoteRoot, err)
 		}
 	}
 	return nil
@@ -282,7 +282,7 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 		}
 		ctlogPubKey, err := sigstoretuf.CTLogPublicKeys(ctx)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("getting Rekor public keys: %w", err)
+			return nil, nil, nil, fmt.Errorf("getting CTLog public keys: %w", err)
 		}
 		return nil, rekorPubKeys, ctlogPubKey, nil
 	}
