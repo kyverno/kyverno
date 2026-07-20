@@ -62,6 +62,11 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	spec := policy.GetSpec()
 	path := field.NewPath("spec")
 
+	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
 		path := path.Child("matchConditions")
@@ -70,11 +75,6 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
-	}
-
-	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
 	}
 
 	var targetExpression cel.Program

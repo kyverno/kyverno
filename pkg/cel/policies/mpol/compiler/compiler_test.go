@@ -121,7 +121,7 @@ func TestCompile(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "variables unavailable in matchCondition",
+			name: "variables available in matchCondition",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
 					MatchConditions: []admissionregistrationv1.MatchCondition{{
@@ -134,7 +134,7 @@ func TestCompile(t *testing.T) {
 					}},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "variables available in targetMatchConditions",

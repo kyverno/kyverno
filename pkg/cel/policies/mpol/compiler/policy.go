@@ -93,6 +93,8 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 		return false
 	}
 
+	p.appendVariables(ctx, data)
+
 	result, err := p.match(ctx, data, p.matchConditions)
 	if err != nil {
 		return false
@@ -194,6 +196,9 @@ func (p *Policy) evaluate(
 			return nil
 		}
 	} else {
+		// variables are lazily bound and remain visible to trigger match conditions
+		// for backward compatibility with existing policies
+		p.appendVariables(ctx, data)
 		match, err := p.match(ctx, data, p.matchConditions)
 		if err != nil {
 			return &EvaluationResult{Error: err}
@@ -201,9 +206,6 @@ func (p *Policy) evaluate(
 		if !match {
 			return nil
 		}
-
-		// Variables are evaluated only after trigger match conditions pass.
-		p.appendVariables(ctx, data)
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
