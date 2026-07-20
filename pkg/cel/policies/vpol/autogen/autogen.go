@@ -3,14 +3,12 @@ package autogen
 import (
 	"cmp"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"slices"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
@@ -28,29 +26,6 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
 	return generateRuleForControllers(*spec, actualControllers)
-}
-
-func RuleName(identifier string, index int) string {
-	if identifier != "" {
-		return "autogen-" + identifier
-	}
-	return fmt.Sprintf("autogen-validate-%d", index)
-}
-
-func ValidateUniqueIdentifiers(path *field.Path, identifiers []string) field.ErrorList {
-	var allErrs field.ErrorList
-	seen := sets.New[string]()
-	for i, identifier := range identifiers {
-		if identifier == "" {
-			continue
-		}
-		if seen.Has(identifier) {
-			allErrs = append(allErrs, field.Duplicate(path.Index(i).Child("identifier"), identifier))
-			continue
-		}
-		seen.Insert(identifier)
-	}
-	return allErrs
 }
 
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {

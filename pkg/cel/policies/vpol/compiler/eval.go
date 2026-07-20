@@ -17,7 +17,6 @@ type EvaluationResult struct {
 	Error            error
 	Message          string
 	Index            int
-	Identifier       string
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
