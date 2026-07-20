@@ -273,7 +273,7 @@ func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretIn
 // not fail policy evaluation. Similarly, when ctlog.InsecureIgnoreSCT is set,
 // fetching CT log public keys is skipped.
 func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
-	// In keyless, if no TrustRoot was defined and CTLog is nil, then default to rekor pub keys as done in cosign
+	// In keyless, if no TrustedRoot was defined and CTLog is nil, then default to rekor pub keys as done in cosign
 	if ctlog == nil {
 		rekorPubKeys, err := cosign.GetRekorPubs(ctx)
 		if err != nil {
