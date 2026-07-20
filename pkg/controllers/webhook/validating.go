@@ -28,12 +28,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
-		if p.GetNamespace() != "" {
-			// a namespaced policy is pinned to its own namespace, so it needs its own webhook; the
-			// basic path aggregates policies under one webhook with a single namespace selector,
-			// which cannot represent more than one namespace
-			fineGrained = append(fineGrained, policy)
-		} else if validConditions(expressionCache, p.GetMatchConditions()) != nil {
+		if validConditions(expressionCache, p.GetMatchConditions()) != nil {
 			fineGrained = append(fineGrained, policy)
 		} else if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 			fineGrained = append(fineGrained, policy)
@@ -324,6 +319,8 @@ func groupBySelectors(policies []engineapi.GenericPolicy, cfg config.Configurati
 		p := extractGenericPolicy(policy)
 		namespaceSelector := resolveNamespaceSelector(p, cfg)
 		objectSelector := mergeLabelSelectors(p.GetMatchConstraints().ObjectSelector, cfg.GetWebhook().ObjectSelector)
+		// the full digest is the group key: a truncated one could collide and merge two different
+		// selectors into a single webhook, applying the wrong filter to some policies
 		key := selectorKey(namespaceSelector, objectSelector)
 		group, ok := groups[key]
 		if !ok {
@@ -338,24 +335,25 @@ func groupBySelectors(policies []engineapi.GenericPolicy, cfg config.Configurati
 	for _, key := range keys {
 		group := groups[key]
 		if len(keys) > 1 {
-			group.suffix = "-" + key
+			group.suffix = "-" + key[:8]
 		}
 		result = append(result, group)
 	}
 	return result
 }
 
-// selectorKey returns a short stable identifier for a pair of selectors. It is derived from the
-// selectors alone so a webhook name does not change when policies are added to or removed from
-// its group, and it is bounded so long policy or namespace names cannot push the webhook name
-// past the 253 character limit the API server enforces.
+// selectorKey returns a stable identifier for a pair of selectors. It is the full digest so two
+// different selectors can never be grouped together, and it is derived from the selectors alone so
+// a webhook name does not change when policies are added to or removed from its group. The name
+// only carries a prefix of it, which keeps the webhook name well inside the 253 character limit
+// the API server enforces no matter how long the policy or namespace names are.
 func selectorKey(namespaceSelector, objectSelector *metav1.LabelSelector) string {
 	serialized, err := json.Marshal([]*metav1.LabelSelector{namespaceSelector, objectSelector})
 	if err != nil {
 		serialized = []byte(fmt.Sprintf("%v%v", namespaceSelector, objectSelector))
 	}
 	sum := sha256.Sum256(serialized)
-	return hex.EncodeToString(sum[:])[:8]
+	return hex.EncodeToString(sum[:])
 }
 
 // resolveNamespaceSelector returns the namespace selector for a policy's webhook. A namespaced policy

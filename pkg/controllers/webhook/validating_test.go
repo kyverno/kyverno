@@ -891,9 +891,11 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	assert.Len(t, mpolWebhooks, 1)
 	assert.Len(t, nmpolWebhooks, 1)
 	assert.Equal(t, config.MutatingPolicyWebhookName+"-fail", mpolWebhooks[0].Name)
-	// a namespaced policy gets its own webhook so its selector can be pinned to its namespace
-	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail-finegrained-longhorn-system-longhorn-instance-manager-termination-protection", nmpolWebhooks[0].Name)
+	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail", nmpolWebhooks[0].Name)
+	// the point of this test: the cluster scoped and namespaced webhooks must not share a name
 	assert.NotEqual(t, mpolWebhooks[0].Name, nmpolWebhooks[0].Name)
+	// the namespaced one is still pinned to its own namespace
+	assert.Equal(t, []string{"longhorn-system"}, nmpolWebhooks[0].NamespaceSelector.MatchExpressions[0].Values)
 }
 
 func TestResolveNamespaceSelector(t *testing.T) {
@@ -1092,5 +1094,61 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
 	for _, webhook := range webhooks {
 		assert.NotEmpty(t, webhook.Rules, "every webhook should carry the rules of its group")
+	}
+}
+
+func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *testing.T) {
+	// Namespaced policies in the same namespace resolve to the same pinned selector, so they belong
+	// on one webhook. A webhook per policy would mean one admission round trip per policy, and
+	// mutating webhooks are called sequentially, so that is latency on every request.
+	newPolicy := func(name, namespace string) *policiesv1beta1.NamespacedValidatingPolicy {
+		return &policiesv1beta1.NamespacedValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-a", "team-a")),
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-b", "team-a")),
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-c", "team-b")),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.NamespacedValidatingPolicyWebhookName,
+		"/nvpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	// two namespaces means two webhooks, not three
+	assert.Len(t, webhooks, 2, "policies in the same namespace should share a webhook")
+	for _, webhook := range webhooks {
+		namespaces := webhook.NamespaceSelector.MatchExpressions[0].Values
+		if assert.Len(t, namespaces, 1) && namespaces[0] == "team-a" {
+			// both team-a policies must be reachable through the shared webhook path
+			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-a")
+			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-b")
+		}
 	}
 }
