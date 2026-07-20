@@ -15,6 +15,7 @@ import (
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -41,6 +42,7 @@ type CELGenerateController struct {
 	watchManager *WatchManager
 
 	statusControl common.StatusControlInterface
+	configuration config.Configuration
 
 	breaker.Breaker
 
@@ -60,10 +62,11 @@ func NewCELGenerateController(
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
 	log logr.Logger,
+	configuration ...config.Configuration,
 ) *CELGenerateController {
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-	return &CELGenerateController{
+	ctrl := &CELGenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		restMapper:    restMapper,
@@ -75,6 +78,10 @@ func NewCELGenerateController(
 		eventGen:      eventGen,
 		log:           log,
 	}
+	if len(configuration) > 0 {
+		ctrl.configuration = configuration[0]
+	}
+	return ctrl
 }
 
 func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
@@ -95,6 +102,10 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		if c.configuration != nil && c.configuration.ToFilter(trigger.GroupVersionKind(), "", trigger.GetNamespace(), trigger.GetName()) {
+			logger.V(4).Info("trigger resource is filtered out by resource filters", "kind", trigger.GetKind(), "namespace", trigger.GetNamespace(), "name", trigger.GetName())
 			continue
 		}
 		workerCtx := c.context.Clone()
