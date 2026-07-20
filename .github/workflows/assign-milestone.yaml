@@ -51,19 +51,39 @@ jobs:
           milestone_title="Kyverno Release ${version}"
           echo "Release tag: $RELEASE_TAG -> milestone: $milestone_title"
 
-          # find the previous final release tag (by semver), to build the commit range.
-          # this works for both tags on main (e.g. v1.19.0 -> v1.18.0) and tags on a
-          # release-* branch (e.g. v1.18.3 -> v1.18.2), since git tag --merged only
-          # lists tags reachable from the current tag's commit.
-          previous_tag=$(git tag --list 'v*' --merged "$RELEASE_TAG" \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V \
-            | grep -B1 -x "$RELEASE_TAG" \
-            | head -n1)
+          # find the previous release tag to build the commit range from.
+          #
+          # patch releases (vX.Y.Z, Z>0) live on a release-* branch together with
+          # their predecessor, so `git tag --merged` can walk the branch history
+          # to find the previous patch tag directly.
+          #
+          # minor releases (vX.Y.0) are tagged on main, but the previous minor's
+          # final tag (vX.(Y-1).0) was cut on its own release-* branch and is not
+          # an ancestor of main, so `git tag --merged` can't find it. Instead,
+          # derive it via version math and use the merge-base of the two tags as
+          # the start of the commit range, so we only pick up commits that
+          # actually landed on main since the two release lines diverged.
+          IFS='.' read -r major minor patch <<< "$version"
 
-          if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
-            echo "::error::Could not determine previous release tag for $RELEASE_TAG"
-            exit 1
+          if [[ "$patch" == "0" ]]; then
+            previous_tag="v${major}.$((minor - 1)).0"
+            if ! git rev-parse -q --verify "refs/tags/${previous_tag}" >/dev/null; then
+              echo "::error::Could not determine previous release tag for $RELEASE_TAG: ${previous_tag} does not exist"
+              exit 1
+            fi
+            range_start=$(git merge-base "$previous_tag" "$RELEASE_TAG")
+          else
+            previous_tag=$(git tag --list 'v*' --merged "$RELEASE_TAG" \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | grep -B1 -x "$RELEASE_TAG" \
+              | head -n1)
+
+            if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
+              echo "::error::Could not determine previous release tag for $RELEASE_TAG"
+              exit 1
+            fi
+            range_start="$previous_tag"
           fi
           echo "Previous release tag: $previous_tag"
 
@@ -76,7 +96,7 @@ jobs:
           fi
           echo "Milestone number: $milestone_number"
 
-          pr_numbers=$(git log "${previous_tag}..${RELEASE_TAG}" --format='%H' \
+          pr_numbers=$(git log "${range_start}..${RELEASE_TAG}" --format='%H' \
             | xargs -I{} gh api "repos/${GITHUB_REPOSITORY}/commits/{}/pulls" --jq '.[].number' \
             | sort -un)
 
