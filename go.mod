@@ -33,7 +33,7 @@ require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/kyverno/api v0.0.1-alpha.3.0.20260714055333-49b70fd48689
+	github.com/kyverno/api v0.0.1-alpha.3.0.20260716135252-8729d40080d9
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
@@ -43,7 +43,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.40.0
+	github.com/onsi/gomega v1.42.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/openreports/reports-api v0.2.1
