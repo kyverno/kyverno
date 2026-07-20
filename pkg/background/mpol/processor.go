@@ -463,7 +463,6 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if mapping, err := p.mapper.RESTMapping(originalObj.GroupVersionKind().GroupKind(), originalObj.GroupVersionKind().Version); err == nil {
 		triggerResource = mapping.Resource
 	}
-	request := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	attr := admission.NewAttributesRecord(
 		originalObj,
 		nil,
@@ -471,16 +470,16 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 		originalObj.GetNamespace(),
 		originalObj.GetName(),
 		triggerResource,
-		request.SubResource,
-		admission.Operation(request.Operation),
+		ar.SubResource,
+		admission.Operation(ar.Operation),
 		nil,
 		false,
-		admissionpolicy.NewUser(request.UserInfo),
+		admissionpolicy.NewUser(ar.UserInfo),
 	)
-	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, request, nil, p.context) {
+	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, p.context) {
 		return nil, nil
 	}
-	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, request, nil)
+	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)
 	if err != nil {
 		return nil, err
 	}
