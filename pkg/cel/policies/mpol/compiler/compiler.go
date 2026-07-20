@@ -90,6 +90,11 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		})
 	}
 
+	useServerSideApply := false
+	if ec := spec.EvaluationConfiguration; ec != nil {
+		useServerSideApply = ec.UseServerSideApply
+	}
+
 	var patchers []Patcher
 	for i, m := range policy.GetSpec().Mutations {
 		switch m.PatchType {
@@ -107,7 +112,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newApplyConfigPatcher(prog))
+				patchers = append(patchers, newApplyConfigPatcher(prog, useServerSideApply))
 			}
 		}
 	}
