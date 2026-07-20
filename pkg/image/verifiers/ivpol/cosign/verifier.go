@@ -40,6 +40,23 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
 	if len(newBundles) == 0 || err != nil {
 		cOpts.NewBundleFormat = false
+	} else if cOpts.IgnoreTlog && !cOpts.UseSignedTimestamps && cOpts.TrustedMaterial != nil {
+		// Sigstore bundles (format v0.3, used e.g. by GitHub Actions) carry an
+		// RFC 3161 timestamp proving the signing time. When the transparency
+		// log is ignored, cosign falls back to verifying the short-lived
+		// Fulcio leaf certificate against the current time
+		// (verificationOptions() -> WithCurrentTime()), which rejects any
+		// certificate outside its ~10 minute validity window and makes
+		// historical attestations unverifiable. Using the bundle's signed
+		// timestamp instead (verified against the TSAs in the trusted root)
+		// allows verifying the certificate was valid at signing time.
+		//
+		// TrustedMaterial must be populated (it is nil when checkOptions took
+		// the skipSigstoreInfra fast path for key/cert attestors), since
+		// signed-timestamp verification needs the trusted root's timestamp
+		// authorities; without it cosign/sigstore-go panics on a nil
+		// TrustedMaterial rather than returning an error.
+		cOpts.UseSignedTimestamps = true
 	}
 
 	return cOpts, nil

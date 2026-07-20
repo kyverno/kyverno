@@ -96,11 +96,11 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 		}
 
-		trustedRoot, err := getTrustedRootFromTUF(ctx)
+		trustedMaterial, err := resolveTrustedMaterial(ctx, att)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get trusted root for bundle verification: %w", err)
+			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
 		}
-		opts.TrustedMaterial = trustedRoot
+		opts.TrustedMaterial = trustedMaterial
 	}
 
 	if att.CTLog != nil {
@@ -263,6 +263,15 @@ func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretIn
 	return opts, nil
 }
 
+// getRekor resolves the Rekor client and the Rekor/CTLog transparency log
+// public keys used to verify signed entry timestamps (SET) and signed
+// certificate timestamps (SCT).
+//
+// When ctlog.InsecureIgnoreTlog is set, no Rekor URL or client is required:
+// the transparency log verification will be skipped entirely by cosign, so
+// building a Rekor client (which requires a URL) is unnecessary and should
+// not fail policy evaluation. Similarly, when ctlog.InsecureIgnoreSCT is set,
+// fetching CT log public keys is skipped.
 func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
 	// In keyless, if no TrustRoot was defined and CTLog is nil, then default to rekor pub keys as done in cosign
 	if ctlog == nil {
@@ -277,38 +286,46 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 		return nil, rekorPubKeys, ctlogPubKey, nil
 	}
 
-	if len(ctlog.URL) == 0 {
-		return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
-	}
-	rekorClient, err := rekor.GetRekorClient(ctlog.URL)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
+	var (
+		rekorClient *client.Rekor
+		rekorPubKey *cosign.TrustedTransparencyLogPubKeys
+		ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
+		err         error
+	)
+
+	if !ctlog.InsecureIgnoreTlog {
+		if len(ctlog.URL) == 0 {
+			return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
+		}
+		rekorClient, err = rekor.GetRekorClient(ctlog.URL)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
+		}
+		if ctlog.RekorPubKey == "" {
+			if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+			}
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
+			}
+			rekorPubKey = &key
+		}
 	}
 
-	var rekorPubKey *cosign.TrustedTransparencyLogPubKeys
-	var ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
-	if ctlog.RekorPubKey == "" {
-		if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+	if !ctlog.InsecureIgnoreSCT {
+		if ctlog.CTLogPubKey == "" {
+			if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
+			}
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
+			}
+			ctlogPubKey = &key
 		}
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
-		}
-		rekorPubKey = &key
-	}
-
-	if ctlog.CTLogPubKey == "" {
-		if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
-		}
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
-		}
-		ctlogPubKey = &key
 	}
 
 	return rekorClient, rekorPubKey, ctlogPubKey, nil
@@ -324,6 +341,24 @@ func getFulcio(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
 		return nil, nil, fmt.Errorf("failed to fetch Fulcio intermediates: %w", err)
 	}
 	return roots, intermediates, nil
+}
+
+// resolveTrustedMaterial returns the sigstore-go TrustedMaterial used to
+// verify Sigstore bundles. When att.TrustedRoot carries an inline JSON value
+// (typically resolved from a CEL expression reading a ConfigMap, see
+// variables.CompiledAttestor), it is parsed and used directly instead of
+// fetching trusted_root.json from the Sigstore TUF repository. This allows
+// verifying attestations signed by Sigstore deployments that do not operate a
+// TUF server, such as GitHub Actions' private Fulcio/TSA instance.
+func resolveTrustedMaterial(ctx context.Context, att *v1beta1.Cosign) (root.TrustedMaterial, error) {
+	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
+		tr, err := root.NewTrustedRootFromJSON([]byte(att.TrustedRoot.Value))
+		if err != nil {
+			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
+		}
+		return tr, nil
+	}
+	return getTrustedRootFromTUF(ctx)
 }
 
 func getTrustedRootFromTUF(ctx context.Context) (*root.TrustedRoot, error) {
