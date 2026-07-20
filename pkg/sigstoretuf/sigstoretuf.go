@@ -115,3 +115,17 @@ func FulcioRoots() (*x509.CertPool, *x509.CertPool, error) {
 	}
 	return roots, intermediates, nil
 }
+
+// WithLock holds the process-wide TUF mutex for the duration of fn.
+// fn MUST NOT call any exported sigstoretuf function (Initialize,
+// TrustedRoot, RekorPublicKeys, CTLogPublicKeys, FulcioRoots) as those
+// all acquire the same non-reentrant mutex, which would deadlock.
+// Use WithLock when a sequence of TUF operations must be atomic — for
+// example, initializing a custom mirror and immediately reading trust
+// material from it, with no risk of another goroutine reinitializing the
+// singleton in between.
+func WithLock(fn func() error) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return fn()
+}

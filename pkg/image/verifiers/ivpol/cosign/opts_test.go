@@ -267,20 +267,26 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 	assert.False(t, opts.Offline)
 }
 
-func TestInitializeTuf_Default(t *testing.T) {
+func TestInitTUFAndFetch_Default(t *testing.T) {
 	ctx := context.TODO()
-	err := initializeTuf(ctx, nil)
-	assert.NoError(t, err)
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, trust)
+	assert.NotNil(t, trust.rekorPubKeys)
+	assert.NotNil(t, trust.ctlogPubKeys)
+	assert.NotNil(t, trust.trustedRoot)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
 }
 
-func TestInitializeTuf_WithCustomMirror(t *testing.T) {
+func TestInitTUFAndFetch_WithCustomMirror(t *testing.T) {
 	ctx := context.TODO()
 	tufCfg := &v1beta1.TUF{
 		Mirror: "https://custom-tuf.example.com",
 	}
 
-	err := initializeTuf(ctx, tufCfg)
-	if err != nil && err.Error() != "initializing TUF client from &TUF{}" {
+	_, err := initTUFAndFetch(ctx, tufCfg)
+	if err != nil {
 		t.Logf("Custom TUF mirror test (expected to fail in test env): %v", err)
 	}
 }
@@ -291,7 +297,11 @@ func TestGetRekor_WithURL(t *testing.T) {
 		URL: "https://rekor.sigstore.dev",
 	}
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	// Fetch default pubkeys first (as checkOptions does via initTUFAndFetch).
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.NotNil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
@@ -301,40 +311,41 @@ func TestGetRekor_WithURL(t *testing.T) {
 func TestGetRekor_NilCTLog(t *testing.T) {
 	ctx := context.TODO()
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil)
+	// When ctlog is nil, getRekor returns the pre-fetched defaults unchanged.
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.Nil(t, rekorClient)
-	assert.NotNil(t, rekorPubKeys)
-	assert.NotNil(t, ctlogPubKeys)
+	assert.Equal(t, trust.rekorPubKeys, rekorPubKeys)
+	assert.Equal(t, trust.ctlogPubKeys, ctlogPubKeys)
 }
 
 func TestGetRekor_MissingURL(t *testing.T) {
 	ctx := context.TODO()
 	ctlog := &v1beta1.CTLog{}
 
-	_, _, _, err := getRekor(ctx, ctlog)
+	_, _, _, err := getRekor(ctx, ctlog, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "rekor URL must be provided")
 }
 
-func TestGetFulcio(t *testing.T) {
+func TestInitTUFAndFetch_FulcioRoots(t *testing.T) {
 	ctx := context.TODO()
 
-	roots, intermediates, err := getFulcio(ctx)
+	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, roots)
-	assert.NotNil(t, intermediates)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
 }
 
-func TestGetTrustedRootFromTUF(t *testing.T) {
+func TestInitTUFAndFetch_TrustedRoot(t *testing.T) {
 	ctx := context.TODO()
 
-	err := initializeTuf(ctx, nil)
+	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
-
-	trustedRoot, err := getTrustedRootFromTUF(ctx)
-	require.NoError(t, err)
-	assert.NotNil(t, trustedRoot)
+	assert.NotNil(t, trust.trustedRoot)
 }
 
 func TestCheckOptions_CTLogConfiguration(t *testing.T) {

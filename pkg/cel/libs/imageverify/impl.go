@@ -105,17 +105,20 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		} else if !match {
 			return f.NativeToValue(count)
 		}
+
+		// Fetch image data once before the loop: the image reference and
+		// credentials are the same for every attestor.
+		opts := GetRemoteOptsFromPolicy(f.creds)
+		img, err := f.imgCtx.Get(ctx, image, opts...)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+
 		for i, attestor := range attestors {
 			cacheKey := signatureCacheKey(i, attestor)
 			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
 				count += 1
 				continue
-			}
-
-			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
 			}
 
 			verified := false
@@ -168,23 +171,26 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		} else if !match {
 			return f.NativeToValue(count)
 		}
-		for i, attestor := range attestors {
-			attest, ok := f.attestationList[attestation]
-			if !ok {
-				return types.NewErr("attestation not found in policy: %s", attestation)
-			}
 
+		// Hoist invariant lookups out of the loop: both the attestation
+		// definition and the image data are the same for every attestor.
+		attest, ok := f.attestationList[attestation]
+		if !ok {
+			return types.NewErr("attestation not found in policy: %s", attestation)
+		}
+		opts := GetRemoteOptsFromPolicy(f.creds)
+		img, err := f.imgCtx.Get(ctx, image, opts...)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+
+		for i, attestor := range attestors {
 			cacheKey := attestationCacheKey(attestation, i, attestor)
 			if cached, err := f.cache.Get(ctx, f.ivpol, cacheKey, image, true); err == nil && cached {
 				count += 1
 				continue
 			}
 
-			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
 			verified := false
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
