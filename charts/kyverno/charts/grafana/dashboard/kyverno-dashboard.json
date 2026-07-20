@@ -3522,7 +3522,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_validating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "expr": "sum(increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total\", execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (result)",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -3663,7 +3663,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum(increase(kyverno_validating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "expr": "sum(increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total\", execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (result)",
             "interval": "",
             "legendFormat": "{{result}}",
             "refId": "A"
@@ -3936,9 +3936,9 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum by (policy_name, result) (increase(kyverno_validating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "sum by (policy_name, result) (increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total\", execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
-            "legendFormat": "{{result}}",
+            "legendFormat": "{{policy_name}} - {{result}}",
             "refId": "A"
           }
         ],
@@ -4077,9 +4077,9 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "sum by (policy_name, result) (increase(kyverno_validating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]) or increase(kyverno_mutating_policy_results_total{execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]))",
+            "expr": "sum by (policy_name, result) (increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total\", execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
-            "legendFormat": "{{result}}",
+            "legendFormat": "{{policy_name}} - {{result}}",
             "refId": "A"
           }
         ],
