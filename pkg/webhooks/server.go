@@ -3,8 +3,10 @@ package webhooks
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -62,6 +64,7 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerHost string,
 	webhookServerPort int32,
+	verifyApiServerCert bool,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -300,32 +303,53 @@ func NewServer(
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
+
+	tlsConfig := &tls.Config{
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			certPem, keyPem, err := tlsProvider()
+			if err != nil {
+				return nil, err
+			}
+			pair, err := tls.X509KeyPair(certPem, keyPem)
+			if err != nil {
+				return nil, err
+			}
+			return &pair, nil
+		},
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			// AEADs w/ ECDHE
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+	}
+
+	if verifyApiServerCert {
+		caCertPEM, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+		if err != nil {
+			logger.Error(err, "failed to read Kubernetes CA certificate for webhook authentication")
+			panic(fmt.Errorf("failed to read Kubernetes CA certificate: %w", err))
+		}
+
+		clientCAs := x509.NewCertPool()
+		if ok := clientCAs.AppendCertsFromPEM(caCertPEM); !ok {
+			parseErr := fmt.Errorf("no certificates found in Kubernetes CA certificate PEM (/var/run/secrets/kubernetes.io/serviceaccount/ca.crt)")
+			logger.Error(parseErr, "failed to parse Kubernetes CA certificate")
+			panic(parseErr)
+		}
+
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConfig.ClientCAs = clientCAs
+	}
+
 	return &server{
 		server: &http.Server{
-			Addr: fmt.Sprintf("[%s]:%d", webhookServerHost, webhookServerPort),
-			TLSConfig: &tls.Config{
-				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-					certPem, keyPem, err := tlsProvider()
-					if err != nil {
-						return nil, err
-					}
-					pair, err := tls.X509KeyPair(certPem, keyPem)
-					if err != nil {
-						return nil, err
-					}
-					return &pair, nil
-				},
-				MinVersion: tls.VersionTLS12,
-				CipherSuites: []uint16{
-					// AEADs w/ ECDHE
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-				},
-			},
+			Addr:              fmt.Sprintf("[%s]:%d", webhookServerHost, webhookServerPort),
+			TLSConfig:         tlsConfig,
 			Handler:           mux,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,

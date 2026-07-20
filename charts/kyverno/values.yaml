@@ -929,6 +929,12 @@ features:
 
 # Admission controller configuration
 admissionController:
+  # -- Enable mutual TLS (mTLS) client certificate verification for inbound webhook requests.
+  # When enabled, Kyverno will require a client cert signed by the Kubernetes cluster root CA mounted at
+  # /var/run/secrets/kubernetes.io/serviceaccount/ca.crt (kube-root-ca.crt in the namespace).
+  # Note: Kubernetes HTTP(S) liveness/readiness probes do not present a client cert; consider switching probes to tcpSocket/exec when enabling this.
+  verifyApiServerCert: false
+
   autoscaling:
     # -- Enable horizontal pod autoscaling
     enabled: false

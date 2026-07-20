@@ -155,7 +155,7 @@ func TestNewServer(t *testing.T) {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, false,
 	)
 
 	assert.NotNil(t, s)
@@ -198,7 +198,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, false,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
