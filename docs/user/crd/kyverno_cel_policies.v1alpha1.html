@@ -1486,8 +1486,9 @@ image verification functions</p>
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+          <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Trigger constraints and MatchConditions are evaluated before Variables.
 Required.</p>
 
 
@@ -1651,7 +1652,36 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
         <td>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>TargetMatchConstraints resolves the resources to mutate after Variables are evaluated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+Target match conditions are evaluated after variables and target resolution. They can reference
+variables and use Object to refer to the target resource.</p>
 
 
           
@@ -7031,6 +7061,37 @@ The default value is set to &quot;true&quot;, it must be set to &quot;false&quot
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+which allows setting atomic fields (for example a container's args or a projected volume)
+that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+replaced as a whole, so any field the object owner set but the patch does not is dropped.
+The default is false, which keeps parity with a native MutatingAdmissionPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -7087,8 +7148,9 @@ The default value is set to &quot;true&quot;, it must be set to &quot;false&quot
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+          <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Trigger constraints and MatchConditions are evaluated before Variables.
 Required.</p>
 
 
@@ -7252,7 +7314,36 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
         <td>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>TargetMatchConstraints resolves the resources to mutate after Variables are evaluated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+Target match conditions are evaluated after variables and target resolution. They can reference
+variables and use Object to refer to the target resource.</p>
 
 
           
@@ -8818,7 +8909,9 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          
+          <p>Expression resolves one target object or a list of target objects. The expression can use
+variables computed from the trigger request.</p>
+
 
           
 
@@ -8846,7 +8939,8 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
             <p>(Members of <code>MatchResources</code> are embedded into this type.)</p>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>MatchResources constrains target resources and supplies their API route. When Expression is
+set, these rules still determine whether a target uses a subresource endpoint.</p>
 
 
           

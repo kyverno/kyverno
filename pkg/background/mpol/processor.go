@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -14,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -24,6 +27,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	utilsslices "github.com/kyverno/kyverno/pkg/utils/slices"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -33,7 +37,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 type processor struct {
@@ -451,9 +457,11 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if err != nil {
 		return nil, err
 	}
-	mapping, err := p.mapper.RESTMapping(originalObj.GroupVersionKind().GroupKind(), originalObj.GroupVersionKind().Version)
-	if err != nil {
-		return nil, err
+	// the trigger GVR is informational on the attributes record; tolerate
+	// environments where the trigger kind is not registered in the mapper
+	var triggerResource schema.GroupVersionResource
+	if mapping, err := p.mapper.RESTMapping(originalObj.GroupVersionKind().GroupKind(), originalObj.GroupVersionKind().Version); err == nil {
+		triggerResource = mapping.Resource
 	}
 	request := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	attr := admission.NewAttributesRecord(
@@ -462,7 +470,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 		originalObj.GroupVersionKind(),
 		originalObj.GetNamespace(),
 		originalObj.GetName(),
-		mapping.Resource,
+		triggerResource,
 		request.SubResource,
 		admission.Operation(request.Operation),
 		nil,
@@ -475,8 +483,34 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, request, nil)
 	if err != nil {
 		return nil, err
-	} else if unstructuredResources == nil {
-		return nil, nil
+	}
+	if unstructuredResources == nil {
+		// fall back to runtime compilation when the compiled policy does not carry
+		// a target expression program, preserving the previous evaluation behavior
+		if expr := mpol.GetTargetMatchConstraints().Expression; expr != "" {
+			data := map[string]any{compiler.ObjectKey: originalObj.Object}
+			vars := lazy.NewMapValue(compiler.VariablesType)
+			data[compiler.VariablesKey] = vars
+			for name, variable := range pol.CompiledPolicy.GetCompiledVariables() {
+				vars.Append(name, func(*lazy.MapValue) ref.Val {
+					out, _, err := variable.ContextEval(ctx, data)
+					if out != nil {
+						return out
+					}
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					return nil
+				})
+			}
+			unstructuredResources, err = p.getResourcesFromExpression(ctx, expr, mpol.GetNamespace(), data)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if unstructuredResources == nil {
+			return nil, nil
+		}
 	}
 
 	targets := &unstructured.UnstructuredList{}
@@ -499,4 +533,32 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 
 	targets.Items = append(targets.Items, unstructured.Unstructured{Object: unstructuredResources})
 	return targets, nil
+}
+
+func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
+	e, err := BuildMpolTargetEvalEnv(libs.GetLibsCtx(), policyNs)
+	if err != nil {
+		return nil, err
+	}
+
+	ast, issues := e.Compile(expr)
+	if err := issues.Err(); err != nil {
+		return nil, field.Invalid(nil, expr, err.Error())
+	}
+	if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
+		return nil, field.Invalid(nil, expr, "output type of the target selector expression must be a map")
+	}
+	prog, err := e.Program(ast)
+	if err != nil {
+		return nil, err
+	}
+	out, _, err := prog.ContextEval(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	unstructuredResources, err := utils.ConvertToNative[map[string]interface{}](out)
+	if err != nil {
+		return nil, err
+	}
+	return unstructuredResources, nil
 }
