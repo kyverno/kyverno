@@ -32,28 +32,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
-	panic("not implemented")
-}
-
 var (
 	kyvernoClient = versioned.Clientset{}
 	client        = dclient.NewEmptyFakeClient()
@@ -62,7 +40,6 @@ var (
 		Group:   "kyverno.io",
 		Version: "v1",
 	}})
-	ctx           = &fakeContext{}
 	statusControl = common.NewStatusControl(&kyvernoClient, nil)
 	reportsConfig = reportutils.NewReportingConfig([]string{})
 )

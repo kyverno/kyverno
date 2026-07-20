@@ -214,7 +214,7 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 	}
 
-	downstreams, err := common.FindDownstream(pc.client, pattern.GetAPIVersion(), pattern.GetKind(), labels)
+	downstreams, err := common.FindDownstream(context.TODO(), pc.client, pattern.GetAPIVersion(), pattern.GetKind(), labels)
 	if err != nil {
 		return ur, err
 	}
