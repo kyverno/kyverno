@@ -123,6 +123,14 @@ spec:
                       SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
                       The default value is set to "true", it must be set to "false" to apply mutateExisting rules to those requests.
                     type: boolean
+                  useServerSideApply:
+                    description: |-
+                      UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+                      which allows setting atomic fields (for example a container's args or a projected volume)
+                      that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+                      replaced as a whole, so any field the object owner set but the patch does not is dropped.
+                      The default is false, which keeps parity with a native MutatingAdmissionPolicy.
+                    type: boolean
                 type: object
               failurePolicy:
                 description: |-
@@ -194,8 +202,9 @@ spec:
                 x-kubernetes-list-type: map
               matchConstraints:
                 description: |-
-                  MatchConstraints specifies what resources this policy is designed to evaluate.
+                  MatchConstraints specifies the trigger resources this policy is designed to evaluate.
                   The AdmissionPolicy cares about a request if it matches _all_ Constraints.
+                  Trigger constraints and MatchConditions are evaluated before Variables.
                   Required.
                 properties:
                   excludeResourceRules:
@@ -674,9 +683,54 @@ spec:
                   reinvoked when mutations change the object after this mutation is invoked.
                   Required.
                 type: string
+              targetMatchConditions:
+                description: |-
+                  TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+                  Target match conditions are evaluated after variables and target resolution. They can reference
+                  variables and use Object to refer to the target resource.
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests.
+                        'oldObject' - The existing object. The value is null for CREATE requests.
+                        'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        as well as providing an identifier for logging purposes. A good name should be descriptive of
+                        the associated expression.
+                        Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                        must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                        '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                        optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               targetMatchConstraints:
-                description: TargetMatchConstraints specifies what target mutation
-                  resources this policy is designed to evaluate.
+                description: TargetMatchConstraints resolves the resources to mutate
+                  after Variables are evaluated.
                 properties:
                   excludeResourceRules:
                     description: |-
@@ -761,6 +815,9 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                   expression:
+                    description: |-
+                      Expression resolves one target object or a list of target objects. The expression can use
+                      variables computed from the trigger request.
                     type: string
                   matchPolicy:
                     description: |-
@@ -1141,6 +1198,14 @@ spec:
                                     SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
                                     The default value is set to "true", it must be set to "false" to apply mutateExisting rules to those requests.
                                   type: boolean
+                                useServerSideApply:
+                                  description: |-
+                                    UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+                                    which allows setting atomic fields (for example a container's args or a projected volume)
+                                    that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+                                    replaced as a whole, so any field the object owner set but the patch does not is dropped.
+                                    The default is false, which keeps parity with a native MutatingAdmissionPolicy.
+                                  type: boolean
                               type: object
                             failurePolicy:
                               description: |-
@@ -1213,8 +1278,9 @@ spec:
                               x-kubernetes-list-type: map
                             matchConstraints:
                               description: |-
-                                MatchConstraints specifies what resources this policy is designed to evaluate.
+                                MatchConstraints specifies the trigger resources this policy is designed to evaluate.
                                 The AdmissionPolicy cares about a request if it matches _all_ Constraints.
+                                Trigger constraints and MatchConditions are evaluated before Variables.
                                 Required.
                               properties:
                                 excludeResourceRules:
@@ -1721,9 +1787,55 @@ spec:
                                 reinvoked when mutations change the object after this mutation is invoked.
                                 Required.
                               type: string
+                            targetMatchConditions:
+                              description: |-
+                                TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+                                Target match conditions are evaluated after variables and target resolution. They can reference
+                                variables and use Object to refer to the target resource.
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: |-
+                                      Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                      CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                                      'object' - The object from the incoming request. The value is null for DELETE requests.
+                                      'oldObject' - The existing object. The value is null for CREATE requests.
+                                      'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                                        See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                                        request resource.
+                                      Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                                      Required.
+                                    type: string
+                                  name:
+                                    description: |-
+                                      Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging purposes. A good name should be descriptive of
+                                      the associated expression.
+                                      Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                                      must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                                      '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                                      optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                                      Required.
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             targetMatchConstraints:
-                              description: TargetMatchConstraints specifies what target
-                                mutation resources this policy is designed to evaluate.
+                              description: TargetMatchConstraints resolves the resources
+                                to mutate after Variables are evaluated.
                               properties:
                                 excludeResourceRules:
                                   description: |-
@@ -1809,6 +1921,9 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 expression:
+                                  description: |-
+                                    Expression resolves one target object or a list of target objects. The expression can use
+                                    variables computed from the trigger request.
                                   type: string
                                 matchPolicy:
                                   description: |-
@@ -2321,6 +2436,14 @@ spec:
                       SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
                       The default value is set to "true", it must be set to "false" to apply mutateExisting rules to those requests.
                     type: boolean
+                  useServerSideApply:
+                    description: |-
+                      UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+                      which allows setting atomic fields (for example a container's args or a projected volume)
+                      that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+                      replaced as a whole, so any field the object owner set but the patch does not is dropped.
+                      The default is false, which keeps parity with a native MutatingAdmissionPolicy.
+                    type: boolean
                 type: object
               failurePolicy:
                 description: |-
@@ -2392,8 +2515,9 @@ spec:
                 x-kubernetes-list-type: map
               matchConstraints:
                 description: |-
-                  MatchConstraints specifies what resources this policy is designed to evaluate.
+                  MatchConstraints specifies the trigger resources this policy is designed to evaluate.
                   The AdmissionPolicy cares about a request if it matches _all_ Constraints.
+                  Trigger constraints and MatchConditions are evaluated before Variables.
                   Required.
                 properties:
                   excludeResourceRules:
@@ -2872,9 +2996,54 @@ spec:
                   reinvoked when mutations change the object after this mutation is invoked.
                   Required.
                 type: string
+              targetMatchConditions:
+                description: |-
+                  TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+                  Target match conditions are evaluated after variables and target resolution. They can reference
+                  variables and use Object to refer to the target resource.
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests.
+                        'oldObject' - The existing object. The value is null for CREATE requests.
+                        'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        as well as providing an identifier for logging purposes. A good name should be descriptive of
+                        the associated expression.
+                        Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                        must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                        '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                        optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               targetMatchConstraints:
-                description: TargetMatchConstraints specifies what target mutation
-                  resources this policy is designed to evaluate.
+                description: TargetMatchConstraints resolves the resources to mutate
+                  after Variables are evaluated.
                 properties:
                   excludeResourceRules:
                     description: |-
@@ -2959,6 +3128,9 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                   expression:
+                    description: |-
+                      Expression resolves one target object or a list of target objects. The expression can use
+                      variables computed from the trigger request.
                     type: string
                   matchPolicy:
                     description: |-
@@ -3339,6 +3511,14 @@ spec:
                                     SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
                                     The default value is set to "true", it must be set to "false" to apply mutateExisting rules to those requests.
                                   type: boolean
+                                useServerSideApply:
+                                  description: |-
+                                    UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+                                    which allows setting atomic fields (for example a container's args or a projected volume)
+                                    that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+                                    replaced as a whole, so any field the object owner set but the patch does not is dropped.
+                                    The default is false, which keeps parity with a native MutatingAdmissionPolicy.
+                                  type: boolean
                               type: object
                             failurePolicy:
                               description: |-
@@ -3411,8 +3591,9 @@ spec:
                               x-kubernetes-list-type: map
                             matchConstraints:
                               description: |-
-                                MatchConstraints specifies what resources this policy is designed to evaluate.
+                                MatchConstraints specifies the trigger resources this policy is designed to evaluate.
                                 The AdmissionPolicy cares about a request if it matches _all_ Constraints.
+                                Trigger constraints and MatchConditions are evaluated before Variables.
                                 Required.
                               properties:
                                 excludeResourceRules:
@@ -3919,9 +4100,55 @@ spec:
                                 reinvoked when mutations change the object after this mutation is invoked.
                                 Required.
                               type: string
+                            targetMatchConditions:
+                              description: |-
+                                TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+                                Target match conditions are evaluated after variables and target resolution. They can reference
+                                variables and use Object to refer to the target resource.
+                              items:
+                                description: MatchCondition represents a condition
+                                  which must by fulfilled for a request to be sent
+                                  to a webhook.
+                                properties:
+                                  expression:
+                                    description: |-
+                                      Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                                      CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                                      'object' - The object from the incoming request. The value is null for DELETE requests.
+                                      'oldObject' - The existing object. The value is null for CREATE requests.
+                                      'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                                      'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                                        See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                                      'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                                        request resource.
+                                      Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                                      Required.
+                                    type: string
+                                  name:
+                                    description: |-
+                                      Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                                      as well as providing an identifier for logging purposes. A good name should be descriptive of
+                                      the associated expression.
+                                      Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                                      must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                                      '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                                      optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                                      Required.
+                                    type: string
+                                required:
+                                - expression
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             targetMatchConstraints:
-                              description: TargetMatchConstraints specifies what target
-                                mutation resources this policy is designed to evaluate.
+                              description: TargetMatchConstraints resolves the resources
+                                to mutate after Variables are evaluated.
                               properties:
                                 excludeResourceRules:
                                   description: |-
@@ -4007,6 +4234,9 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 expression:
+                                  description: |-
+                                    Expression resolves one target object or a list of target objects. The expression can use
+                                    variables computed from the trigger request.
                                   type: string
                                 matchPolicy:
                                   description: |-
