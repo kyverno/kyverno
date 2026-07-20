@@ -10,7 +10,16 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+// GetResourceKindAndNamespace safely extracts the kind and namespace from a possibly nil resource.
+func GetResourceKindAndNamespace(resource *unstructured.Unstructured) (string, string) {
+	if resource == nil {
+		return "", ""
+	}
+	return resource.GetKind(), resource.GetNamespace()
+}
 
 type GenericPolicy interface {
 	metav1.Object

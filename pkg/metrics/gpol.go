@@ -56,11 +56,13 @@ func (m *generatingMetrics) RecordDuration(ctx context.Context, seconds float64,
 		return
 	}
 
+	resourceKind, resourceNamespace := GetResourceKindAndNamespace(resource)
+
 	m.durationHistogram.Record(ctx, seconds, metric.WithAttributes(
 		attribute.String("policy_name", policy.GetName()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
-		attribute.String("resource_kind", resource.GetKind()),
-		attribute.String("resource_namespace", resource.GetNamespace()),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
 		attribute.String("result", status),
 	))
@@ -71,11 +73,13 @@ func (m *generatingMetrics) RecordResult(ctx context.Context, status string, pol
 		return
 	}
 
+	resourceKind, resourceNamespace := GetResourceKindAndNamespace(resource)
+
 	m.resultCounter.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("policy_name", policy.GetName()),
 		attribute.String("policy_namespace", policy.GetNamespace()),
-		attribute.String("resource_kind", resource.GetKind()),
-		attribute.String("resource_namespace", resource.GetNamespace()),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
 		attribute.String("result", status),
 	))
