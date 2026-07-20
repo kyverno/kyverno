@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -54,8 +55,16 @@ type processor struct {
 }
 
 type gvkItem struct {
-	gvk           schema.GroupVersionKind
-	resourceNames []string
+	gvk            schema.GroupVersionKind
+	parentResource schema.GroupVersionResource
+	subresource    string
+	resourceNames  []string
+}
+
+type resolvedTarget struct {
+	object         unstructured.Unstructured
+	parentResource schema.GroupVersionResource
+	subresource    string
 }
 
 func NewProcessor(client dclient.Interface,
@@ -81,7 +90,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	var (
 		err      error
 		failures []error
-		targets  *unstructured.UnstructuredList
+		targets  []resolvedTarget
 	)
 
 	if ur.Spec.Policy == "" {
@@ -100,7 +109,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
 		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
-		list := make([]unstructured.Unstructured, 0)
+		list := make([]resolvedTarget, 0)
 		for ns, gvks := range results {
 			for r := range gvks {
 				if r.gvk.Kind == "Namespace" || ns == "*" {
@@ -118,20 +127,35 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 						return slices.Contains(r.resourceNames, u.GetName())
 					})
 				}
-				list = append(list, resources.Items...)
+				for _, resource := range resources.Items {
+					list = append(list, resolvedTarget{
+						object:         resource,
+						parentResource: r.parentResource,
+						subresource:    r.subresource,
+					})
+				}
 			}
 		}
-		if len(list) > 0 {
-			targets = &unstructured.UnstructuredList{Items: list}
-		}
+		targets = list
 	} else {
-		targets, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
+		var objects *unstructured.UnstructuredList
+		objects, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
 		if err != nil {
 			return updateURStatus(p.statusControl, *ur, err, nil)
 		}
+		if objects != nil {
+			for _, object := range objects.Items {
+				parentResource, subresource, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
+				if err != nil {
+					failures = append(failures, fmt.Errorf("failed to resolve target route for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+					continue
+				}
+				targets = append(targets, resolvedTarget{object: object, parentResource: parentResource, subresource: subresource})
+			}
+		}
 	}
 
-	if targets == nil {
+	if len(targets) == 0 {
 		return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 	}
 
@@ -145,13 +169,8 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	if ns := mpol.GetNamespace(); ns != "" {
 		scopePredicate = mpolengine.NamespacedPolicy(ns)
 	}
-	for _, target := range targets.Items {
-		object := &target
-		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
-		if err != nil {
-			failures = append(failures, fmt.Errorf("failed to get resource version for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
-			continue
-		}
+	for _, target := range targets {
+		object := &target.object
 
 		// Build the AdmissionRequest for this target. For background-only scans there is no
 		// real admission request, so we construct a synthetic one from the target resource.
@@ -174,13 +193,14 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 					Kind:    gvk.Kind,
 				},
 				Resource: metav1.GroupVersionResource{
-					Group:    mapping.Resource.Group,
-					Version:  mapping.Resource.Version,
-					Resource: mapping.Resource.Resource,
+					Group:    target.parentResource.Group,
+					Version:  target.parentResource.Version,
+					Resource: target.parentResource.Resource,
 				},
-				Namespace: object.GetNamespace(),
-				Name:      object.GetName(),
-				Object:    runtime.RawExtension{Raw: raw},
+				SubResource: target.subresource,
+				Namespace:   object.GetNamespace(),
+				Name:        object.GetName(),
+				Object:      runtime.RawExtension{Raw: raw},
 			}
 		}
 
@@ -190,8 +210,8 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			object.GroupVersionKind(),
 			object.GetNamespace(),
 			object.GetName(),
-			mapping.Resource,
-			"",
+			target.parentResource,
+			target.subresource,
 			admission.Operation(ar.Operation),
 			nil,
 			false,
@@ -211,7 +231,11 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			}
 			new := response.PatchedResource
 			new.SetResourceVersion(object.GetResourceVersion())
-			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, ""); err != nil {
+			subresources := []string{}
+			if target.subresource != "" {
+				subresources = append(subresources, target.subresource)
+			}
+			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, subresources...); err != nil {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
@@ -223,6 +247,35 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 	}
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
+}
+
+func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constraints admissionregistrationv1.MatchResources) (schema.GroupVersionResource, string, error) {
+	mapping, err := p.mapper.RESTMapping(object.GroupVersionKind().GroupKind(), object.GroupVersionKind().Version)
+	if err != nil {
+		return schema.GroupVersionResource{}, "", err
+	}
+	for _, rule := range constraints.ResourceRules {
+		for _, group := range rule.APIGroups {
+			if !wildcard.Match(group, mapping.Resource.Group) {
+				continue
+			}
+			for _, version := range rule.APIVersions {
+				if !wildcard.Match(version, mapping.Resource.Version) {
+					continue
+				}
+				for _, resource := range rule.Resources {
+					parts := strings.SplitN(resource, "/", 2)
+					if wildcard.Match(parts[0], mapping.Resource.Resource) {
+						if len(parts) == 2 {
+							return mapping.Resource, parts[1], nil
+						}
+						return mapping.Resource, "", nil
+					}
+				}
+			}
+		}
+	}
+	return mapping.Resource, "", nil
 }
 
 func (p *processor) audit(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
@@ -292,7 +345,11 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 					if err != nil {
 						continue
 					}
-					gvkSet.Insert(&gvkItem{gvk: gvk, resourceNames: rule.ResourceNames})
+					subresource := ""
+					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 {
+						subresource = parts[1]
+					}
+					gvkSet.Insert(&gvkItem{gvk: gvk, parentResource: gvr, subresource: subresource, resourceNames: rule.ResourceNames})
 				}
 			}
 		}
@@ -400,29 +457,59 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if err != nil {
 		return nil, err
 	}
-
-	compiledVars := pol.CompiledPolicy.GetCompiledVariables()
-	data := map[string]any{compiler.ObjectKey: originalObj.Object}
-	vars := lazy.NewMapValue(compiler.VariablesType)
-	data[compiler.VariablesKey] = vars
-	for name, variable := range compiledVars {
-		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.ContextEval(ctx, data)
-			if out != nil {
-				return out
-			}
-			if err != nil {
-				return types.WrapErr(err)
-			}
-			return nil
-		})
+	// the trigger GVR is informational on the attributes record; tolerate
+	// environments where the trigger kind is not registered in the mapper
+	var triggerResource schema.GroupVersionResource
+	if mapping, err := p.mapper.RESTMapping(originalObj.GroupVersionKind().GroupKind(), originalObj.GroupVersionKind().Version); err == nil {
+		triggerResource = mapping.Resource
 	}
-
-	unstructuredResources, err := p.getResourcesFromExpression(ctx, mpol.GetTargetMatchConstraints().Expression, mpol.GetNamespace(), data)
+	attr := admission.NewAttributesRecord(
+		originalObj,
+		nil,
+		originalObj.GroupVersionKind(),
+		originalObj.GetNamespace(),
+		originalObj.GetName(),
+		triggerResource,
+		ar.SubResource,
+		admission.Operation(ar.Operation),
+		nil,
+		false,
+		admissionpolicy.NewUser(ar.UserInfo),
+	)
+	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, p.context) {
+		return nil, nil
+	}
+	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)
 	if err != nil {
 		return nil, err
-	} else if unstructuredResources == nil {
-		return nil, nil
+	}
+	if unstructuredResources == nil {
+		// fall back to runtime compilation when the compiled policy does not carry
+		// a target expression program, preserving the previous evaluation behavior
+		if expr := mpol.GetTargetMatchConstraints().Expression; expr != "" {
+			data := map[string]any{compiler.ObjectKey: originalObj.Object}
+			vars := lazy.NewMapValue(compiler.VariablesType)
+			data[compiler.VariablesKey] = vars
+			for name, variable := range pol.CompiledPolicy.GetCompiledVariables() {
+				vars.Append(name, func(*lazy.MapValue) ref.Val {
+					out, _, err := variable.ContextEval(ctx, data)
+					if out != nil {
+						return out
+					}
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					return nil
+				})
+			}
+			unstructuredResources, err = p.getResourcesFromExpression(ctx, expr, mpol.GetNamespace(), data)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if unstructuredResources == nil {
+			return nil, nil
+		}
 	}
 
 	targets := &unstructured.UnstructuredList{}
