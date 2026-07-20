@@ -34,7 +34,7 @@ spec:
   - name: create ephemeral container
     try:
     - script:
-        content: if kubectl -n test-ivpol-subresource-namespace debug -it test-pod --image=busybox:1.35 --target=busybox; then exit 1; else exit 0; fi;
+        content: if kubectl -n test-ivpol-subresource-namespace debug test-pod --image=busybox:1.35 --target=busybox -- /bin/sh -c true; then exit 1; else exit 0; fi;
         # check:
         #   ($error): >-
         #     admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy block-ephemeral-containers failed: Ephemeral (debug) containers are not permitted.
