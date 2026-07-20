@@ -199,8 +199,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
-		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
 			webhookIgnore.NamespaceSelector = mergeLabelSelectors(

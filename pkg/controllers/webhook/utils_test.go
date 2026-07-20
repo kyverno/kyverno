@@ -993,3 +993,51 @@ func TestIvpolsNeedingMutation(t *testing.T) {
 		})
 	}
 }
+
+func TestWebhookNamespaceSelector(t *testing.T) {
+	globalSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"global": "true"},
+	}
+	perWebhookSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"per-webhook": "true"},
+	}
+
+	tests := []struct {
+		name           string
+		wh             *webhook
+		globalSelector *metav1.LabelSelector
+		want           *metav1.LabelSelector
+	}{
+		{
+			name:           "per-webhook selector takes precedence over global",
+			wh:             &webhook{namespaceSelector: perWebhookSelector},
+			globalSelector: globalSelector,
+			want:           perWebhookSelector,
+		},
+		{
+			name:           "falls back to global selector when per-webhook is nil",
+			wh:             &webhook{namespaceSelector: nil},
+			globalSelector: globalSelector,
+			want:           globalSelector,
+		},
+		{
+			name:           "both nil returns nil",
+			wh:             &webhook{namespaceSelector: nil},
+			globalSelector: nil,
+			want:           nil,
+		},
+		{
+			name:           "per-webhook selector used even when global is nil",
+			wh:             &webhook{namespaceSelector: perWebhookSelector},
+			globalSelector: nil,
+			want:           perWebhookSelector,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := webhookNamespaceSelector(tt.wh, tt.globalSelector)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

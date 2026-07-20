@@ -3,6 +3,7 @@ package webhook
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	objectmeta "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -18,6 +19,7 @@ type webhook struct {
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
 	matchConditions   []admissionregistrationv1.MatchCondition
+	namespaceSelector *metav1.LabelSelector
 }
 
 type ruleEntry struct {
