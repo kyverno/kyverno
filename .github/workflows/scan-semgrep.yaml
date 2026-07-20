@@ -1,15 +1,13 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Trivy
+name: Semgrep
 
 permissions: {}
 
 on:
   workflow_dispatch: {}
-  push:
-    branches:
-      - main
-      - release-*
+  schedule:
+    - cron: '30 4 * * *' # daily at 04:30 UTC
 
 concurrency:
   group: ${{ github.workflow_ref }}
@@ -17,41 +15,37 @@ concurrency:
 
 jobs:
   analysis:
-    name: Trivy analysis
+    name: Semgrep analysis
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
+    container:
+      image: semgrep/semgrep:1.168.0@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Build all
+      - name: Run Semgrep
         shell: bash
         run: |
-          set -e
-          make build-all
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: rootfs
-          scan-ref: ./cmd/kyverno/kyverno
-          format: sarif
-          output: kyverno.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          ignore-policy: .trivyignore.rego
-      - name: Upload Trivy scan results to GitHub Security
+          semgrep scan \
+            --config=p/security-audit \
+            --config=p/golang \
+            --severity=ERROR \
+            --sarif \
+            --output=semgrep.sarif \
+            --no-error \
+            --metrics=off
+      - name: Upload Semgrep scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
         with:
-          sarif_file: kyverno.sarif
-          category: kyverno
+          sarif_file: semgrep.sarif
+          category: semgrep
 
   sync-issue:
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'schedule'
     needs:
       - analysis
     permissions:

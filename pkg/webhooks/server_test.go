@@ -4,15 +4,19 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,6 +162,78 @@ func TestNewServer(t *testing.T) {
 	srvStruct, ok := s.(*server)
 	assert.True(t, ok)
 	assert.Equal(t, "[localhost]:8080", srvStruct.server.Addr)
+}
+
+// buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
+// underlying httprouter so route registration can be asserted against the real server.
+func buildTestServer(t *testing.T) *httprouter.Router {
+	t.Helper()
+	ctx := context.TODO()
+	dummyHandler := &mockHandler{}
+	cfg := config.NewDefaultConfiguration(false)
+	metricsMgr := &mockMetricsConfig{}
+	discoveryMock := &mockDiscovery{}
+	runtimeMock := &mockRuntime{isGoingDown: false}
+	mwcClient := &mockDeleteCollectionClient{}
+	vwcClient := &mockDeleteCollectionClient{}
+	leaseClient := &mockDeleteClient{}
+	rbLister := &mockRBLister{}
+	crbLister := &mockCRBLister{}
+
+	pHandlers := PolicyHandlers{Mutation: dummyHandler, Validation: dummyHandler}
+	rHandlers := ResourceHandlers{
+		MutatingPolicies: dummyHandler, NamespacedMutatingPolicies: dummyHandler,
+		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
+		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
+		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
+		Mutation: dummyHandler, Validation: dummyHandler,
+	}
+	eHandlers := ExceptionHandlers{Validation: dummyHandler}
+	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
+	gcHandlers := GlobalContextHandlers{Validation: dummyHandler}
+	debugOpts := DebugModeOptions{DumpPayload: false}
+	tlsProvider := func() ([]byte, []byte, error) { return []byte("cert"), []byte("key"), nil }
+
+	s := NewServer(
+		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
+		cfg, metricsMgr, debugOpts, tlsProvider,
+		mwcClient, vwcClient, leaseClient, runtimeMock,
+		rbLister, crbLister, discoveryMock, "localhost", 8080,
+	)
+	srv, ok := s.(*server)
+	require.True(t, ok, "NewServer must return a *server")
+	router, ok := srv.server.Handler.(*httprouter.Router)
+	require.True(t, ok, "server handler must be an httprouter.Router")
+	return router
+}
+
+// TestServer_NamespacedImageValidatingPolicyRoutesAreServed verifies the webhook server serves the
+// NamespacedImageValidatingPolicy admission paths. The webhook controller registers these policies'
+// webhooks at /nivpol/mutate and /nivpol/validate (pkg/controllers/webhook/controller.go), but the
+// webhook server only registered /ivpol/mutate and /ivpol/validate, so the API server posts to a
+// path the server does not serve and gets "the server could not find the requested resource"
+// (HTTP 404), meaning a NamespacedImageValidatingPolicy never runs at admission.
+func TestServer_NamespacedImageValidatingPolicyRoutesAreServed(t *testing.T) {
+	router := buildTestServer(t)
+
+	// All four image-validating-policy webhook paths registered by the webhook controller must be
+	// served by the webhook server, otherwise the API server's webhook call 404s.
+	for _, path := range []string{
+		"/ivpol/mutate/sample",    // ImageValidatingPolicy (cluster-scoped)
+		"/ivpol/validate/sample",  // ImageValidatingPolicy (cluster-scoped)
+		"/nivpol/mutate/sample",   // NamespacedImageValidatingPolicy
+		"/nivpol/validate/sample", // NamespacedImageValidatingPolicy
+	} {
+		handle, _, _ := router.Lookup(http.MethodPost, path)
+		assert.NotNilf(t, handle, "POST %s is not routed by the webhook server; the API server gets a 404 and the policy never runs", path)
+	}
+
+	// Concretely, this is the 404 the API server reports as "the server could not find the
+	// requested resource" for every NamespacedImageValidatingPolicy admission today.
+	req := httptest.NewRequest(http.MethodPost, "/nivpol/mutate/sample", strings.NewReader("{}"))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	assert.NotEqualf(t, http.StatusNotFound, rr.Code, "POST /nivpol/mutate returned %d (API server: the server could not find the requested resource)", rr.Code)
 }
 
 func TestServerStop(t *testing.T) {
