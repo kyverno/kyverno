@@ -5,5 +5,5 @@ See blog post [cosign Verification of npm Provenance, GitHub Artifact Attestatio
 To fetch the GitHub trusted roots run:
 
 ```sh
-gh attestation trusted-root | jq '.|select(.certificateAuthorities[0].uri=="fulcio.githubapp.com")' > github-trusted-root.json
+gh attestation trusted-root | jq '.|select(any(.certificateAuthorities[]; .uri=="fulcio.githubapp.com"))' > github-trusted-root.json
 ```
