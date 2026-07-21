@@ -19,16 +19,20 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	ms := &multiLister{
 		listersMap: make(map[string]corev1listers.SecretLister),
 	}
+	addListerForNamespace := func(ns string) {
+		factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(ns))
+		secretLister := factory.Core().V1().Secrets().Lister()
+		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
+			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		}
+		ms.listersMap[ns] = secretLister
+	}
+	addListerForNamespace(config.KyvernoNamespace())
 
 	for s := range strings.SplitSeq(imagePullSecrets, ",") {
 		namespace, _ := parseSecretReference(s, config.KyvernoNamespace())
 		if _, exists := ms.listersMap[namespace]; !exists {
-			factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(namespace))
-			secretLister := factory.Core().V1().Secrets().Lister()
-			if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
-				checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-			}
-			ms.listersMap[namespace] = secretLister
+			addListerForNamespace(namespace)
 		}
 	}
 
