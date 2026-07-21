@@ -121,6 +121,53 @@ func TestCompile(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "variables available in matchCondition",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConditions: []admissionregistrationv1.MatchCondition{{
+						Name:       "uses-variable",
+						Expression: `variables.targetName == "test"`,
+					}},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "targetName",
+						Expression: `"test"`,
+					}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "variables available in targetMatchConditions",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "targetName",
+						Expression: `"test"`,
+					}},
+					TargetMatchConditions: []admissionregistrationv1.MatchCondition{{
+						Name:       "uses-variable",
+						Expression: `variables.targetName == "test"`,
+					}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "variables available in target expression",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "target",
+						Expression: `resource.get("v1", "configmaps", "default", "test")`,
+					}},
+					TargetMatchConstraints: &v1beta1.TargetMatchConstraints{
+						Expression: `variables.target`,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid jsonPatch expression",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
