@@ -292,10 +292,20 @@ func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
 		compiledPolicies := e.provider.Fetch(context.TODO(), mutateExisting)
 		for _, policy := range compiledPolicies {
 			name := policy.Policy.GetName()
+			key := PolicyKey(policy.Policy)
 			if len(expectedNames) > 0 {
-				if _, ok := expectedNames[name]; !ok {
-					continue
+				// index by whichever identifier the caller used: the stable
+				// policy key (namespace/name) or the bare name.
+				if _, ok := expectedNames[key]; ok {
+					policies[key] = policy
 				}
+				if _, ok := expectedNames[name]; ok {
+					policies[name] = policy
+				}
+				continue
+			}
+			if _, ok := policies[key]; !ok {
+				policies[key] = policy
 			}
 			if _, ok := policies[name]; !ok {
 				policies[name] = policy

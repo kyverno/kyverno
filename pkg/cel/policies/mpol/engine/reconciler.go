@@ -168,7 +168,7 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 				continue
 			}
 		}
-		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+		matchedPolicies = append(matchedPolicies, PolicyKey(mpol.Policy))
 	}
 	return matchedPolicies
 }
