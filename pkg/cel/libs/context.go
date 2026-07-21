@@ -143,6 +143,9 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
 	// loader from those options.
+	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
+	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
+	// but the if the flag is set, the registry client opts will come with the name insecure option
 	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
