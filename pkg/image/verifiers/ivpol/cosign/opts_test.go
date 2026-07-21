@@ -397,6 +397,9 @@ func TestResolveTrustedMaterial(t *testing.T) {
 	})
 
 	t.Run("nil TrustedRoot falls back to TUF", func(t *testing.T) {
+		// Initialize the TUF client explicitly so this subtest doesn't
+		// depend on another test having already initialized it.
+		require.NoError(t, initializeTuf(context.Background(), nil))
 		att := &v1beta1.Cosign{}
 		tm, err := resolveTrustedMaterial(context.Background(), att)
 		require.NoError(t, err)
@@ -404,6 +407,9 @@ func TestResolveTrustedMaterial(t *testing.T) {
 	})
 
 	t.Run("TrustedRoot with empty Value falls back to TUF", func(t *testing.T) {
+		// Initialize the TUF client explicitly so this subtest doesn't
+		// depend on another test having already initialized it.
+		require.NoError(t, initializeTuf(context.Background(), nil))
 		att := &v1beta1.Cosign{
 			TrustedRoot: &v1beta1.StringOrExpression{Value: ""},
 		}
