@@ -4,13 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,24 +32,15 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 	}
 
 	policies := filterPolicies(ivpols, isAdmissionRequest)
+	// leave remote and name options blank, each compiled policy will provide
+	// its own credentials or the default global ones.
+	ictx, err := imagedataloader.NewImageContext(lister, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
-		allNameOpts := []name.Option{}
-		defaultAuthOpts := regcreds.DefaultOpts()
-		allAuthOpts := defaultAuthOpts[:]
-
-		if ivpol.Policy.GetSpec().Credentials != nil {
-			remoteOpts, nameOpts := regcreds.RemoteOptsFromIvpolCredentials(lister, *ivpol.Policy.GetSpec().Credentials, config.KyvernoNamespace())
-			allNameOpts = append(allNameOpts, nameOpts...)
-			allAuthOpts = append(allAuthOpts, remoteOpts...)
-		}
-
-		ictx, err := imagedataloader.NewImageContext(lister, allAuthOpts, allNameOpts)
-		if err != nil {
-			return nil, err
-		}
-
 		c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
 		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
 		if errList != nil {
