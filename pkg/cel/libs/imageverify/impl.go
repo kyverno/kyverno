@@ -2,6 +2,7 @@ package imageverify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -25,7 +26,8 @@ type ivfuncs struct {
 	imgCtx          imagedataloader.ImageContext
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestationList map[string]v1beta1.Attestation
+	attestationList map[string]v1beta1.Attestation						
+	[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 }
@@ -60,6 +62,11 @@ func ImageVerifyCELFuncs(
 	}, nil
 }
 
+func isTransientVerificationError(err error) bool {
+	return errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
@@ -82,6 +89,14 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 			if attestor.IsCosign() {
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					if isTransientVerificationError(err) {
+						f.logger.V(4).Info(
+							"transient image verification failure detected",
+							"image", image,
+							"error", err,
+						)
+					}
+
 					f.logger.Info("failed to verify image cosign", "error", err)
 				} else {
 					count += 1
