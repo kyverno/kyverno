@@ -154,6 +154,12 @@ func (r *reconciler) MatchesMutateExisting(ctx context.Context, attr admission.A
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		// admission-disabled policies opt out of the admission plane entirely:
+		// they are never triggered by admission requests, so exclude them from
+		// admission-driven mutate-existing UR creation.
+		if !mpol.Policy.GetSpec().AdmissionEnabled() {
+			continue
+		}
 		if !Or(ClusteredPolicy(), NamespacedPolicy(attr.GetNamespace()))(mpol.Policy) {
 			continue
 		}

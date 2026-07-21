@@ -181,40 +181,6 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 	assert.Equal(t, int32(1), urMock.called.Load(), "background request should create UR when explicitly disabled")
 }
 
-func TestMutate_AdmissionDisabledPolicyDoesNotFireMutateExistingURs(t *testing.T) {
-	urMock := &mockURGenerator{}
-	engineMock := &mockEngine{
-		matchedPolicies: []string{"mutate-existing-only"},
-		policies: map[string]mpolengine.Policy{
-			"mutate-existing-only": {
-				Policy: &policiesv1beta1.MutatingPolicy{
-					ObjectMeta: metav1.ObjectMeta{Name: "mutate-existing-only"},
-					Spec: policiesv1beta1.MutatingPolicySpec{
-						EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
-							Admission:                   &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
-							MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{Enabled: ptr.To(true)},
-						},
-					},
-				},
-			},
-		},
-	}
-	h := New(nil, engineMock, nil, &mockReportsConfig{}, urMock, "system:serviceaccount:kyverno:kyverno-background-controller", nil)
-
-	request := handlers.AdmissionRequest{
-		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       types.UID("test-uid"),
-			Operation: admissionv1.Update,
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"},
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
-			Object:    runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"test","namespace":"default"}}`)},
-			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
-		},
-	}
-
-	h.mutate(context.Background(), logr.Discard(), request, []string{"mutate-existing-only"}, mpolengine.MatchNames("mutate-existing-only"))
-
-	assert.Never(t, func() bool {
-		return urMock.called.Load() != 0
-	}, 200*time.Millisecond, 10*time.Millisecond, "admission-disabled policy must not create mutate-existing UpdateRequests from admission requests")
-}
+// Admission-disabled policies are excluded from admission-driven UR creation
+// inside the engine's MatchesMutateExisting (see the reconciler/provider tests);
+// the handler creates URs for whatever the engine returns.

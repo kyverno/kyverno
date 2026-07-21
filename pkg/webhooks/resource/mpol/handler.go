@@ -99,11 +99,10 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
 		go func() {
 			ctx := context.WithoutCancel(ctx)
+			// MatchedMutateExistingPolicies only returns admission-enabled policies:
+			// admission-disabled policies opt out of the admission plane entirely and
+			// are driven by policy events and the periodic background scan instead.
 			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
-			// admission-disabled policies opt out of the admission plane entirely:
-			// their mutate-existing evaluation is driven by policy events and the
-			// periodic background scan only, never by admission requests.
-			mpols = h.filterAdmissionDisabledPolicies(logger, mpols)
 			if isBackgroundRequest {
 				mpols = h.filterBackgroundPolicies(logger, mpols)
 			}
@@ -144,33 +143,11 @@ func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string
 	for _, name := range policies {
 		policy, ok := compiledPolicies[name]
 		if !ok {
-			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name, "error", fmt.Errorf("compiled policy %q not found", name))
+			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name)
 			continue
 		}
 		if policy.Policy.GetSpec().SkipBackgroundRequestsEnabled() {
 			logger.V(4).Info("skipping background request for policy", "policy", name)
-			continue
-		}
-		filtered = append(filtered, name)
-	}
-	return filtered
-}
-
-// filterAdmissionDisabledPolicies removes policies with admission evaluation
-// disabled. Such policies must not be triggered by admission requests at all;
-// mutate-existing work for them is enqueued by the policy controller on policy
-// events and by the periodic background scan.
-func (h *handler) filterAdmissionDisabledPolicies(logger logr.Logger, policies []string) []string {
-	compiledPolicies := h.engine.GetCompiledPolicies(policies...)
-	filtered := make([]string, 0, len(policies))
-	for _, name := range policies {
-		policy, ok := compiledPolicies[name]
-		if !ok {
-			logger.V(4).Info("skipping UR creation for policy because compiled policy is unavailable", "policy", name, "error", fmt.Errorf("compiled policy %q not found", name))
-			continue
-		}
-		if !policy.Policy.GetSpec().AdmissionEnabled() {
-			logger.V(4).Info("skipping UR creation for admission-disabled policy", "policy", name)
 			continue
 		}
 		filtered = append(filtered, name)
