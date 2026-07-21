@@ -227,8 +227,12 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 		if response.PatchedResource != nil {
 			// Skip no-op updates: policy events and periodic background scans re-evaluate
-			// targets that may already be in the desired state.
+			// targets that may already be in the desired state. Reports/events are still
+			// generated so the evaluation result remains observable.
 			if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
+				if err := p.audit(object, &response); err != nil {
+					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+				}
 				continue
 			}
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
@@ -248,6 +252,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				subresources = append(subresources, target.subresource)
 			}
 			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, subresources...); err != nil {
+				// The target may have been deleted between the re-fetch and the update; don't fail the UR.
+				if apierrors.IsNotFound(err) {
+					continue
+				}
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
 			}

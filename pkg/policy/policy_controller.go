@@ -599,7 +599,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// .background only controls background-scan reporting; it never gates
 		// mutate-existing execution (https://github.com/kyverno/kyverno/issues/16090).
 		if mpol.Spec.MutateExistingEnabled() {
-			logger.V(4).Info("creating UR for mutating policy background scan", "name", mpol.GetName())
+			logger.V(4).Info("creating UR for mutating policy on policy event or background scan", "name", mpol.GetName())
 			if err := pc.createURForMutatingPolicy(mpol); err != nil {
 				logger.Error(err, "failed to create UR for mutating policy", "name", mpol.GetName())
 				errs = append(errs, err)
@@ -619,7 +619,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		}
 		if nmpol.Spec.MutateExistingEnabled() {
 			policyKey := nmpol.GetNamespace() + "/" + nmpol.GetName()
-			logger.V(4).Info("creating UR for namespaced mutating policy background scan", "name", policyKey)
+			logger.V(4).Info("creating UR for namespaced mutating policy on policy event or background scan", "name", policyKey)
 			if err := pc.createURForNamespacedMutatingPolicy(nmpol); err != nil {
 				logger.Error(err, "failed to create UR for namespaced mutating policy", "name", policyKey)
 				errs = append(errs, err)

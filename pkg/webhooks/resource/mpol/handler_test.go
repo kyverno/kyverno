@@ -214,6 +214,7 @@ func TestMutate_AdmissionDisabledPolicyDoesNotFireMutateExistingURs(t *testing.T
 
 	h.mutate(context.Background(), logr.Discard(), request, []string{"mutate-existing-only"}, mpolengine.MatchNames("mutate-existing-only"))
 
-	time.Sleep(200 * time.Millisecond)
-	assert.Equal(t, int32(0), urMock.called.Load(), "admission-disabled policy must not create mutate-existing UpdateRequests from admission requests")
+	assert.Never(t, func() bool {
+		return urMock.called.Load() != 0
+	}, 200*time.Millisecond, 10*time.Millisecond, "admission-disabled policy must not create mutate-existing UpdateRequests from admission requests")
 }
