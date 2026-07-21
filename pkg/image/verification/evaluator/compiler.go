@@ -159,6 +159,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		attestors:            compiledAttestors,
 		attestationList:      getAttestations(spec.Attestations),
 		creds:                spec.Credentials,
+		lister:               c.lister,
 		exceptions:           compiledExceptions,
 		variables:            variables,
 	}, nil
@@ -210,6 +211,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
 			imagedata.Latest(),
+			nil,
 		),
 		imageverify.Lib(
 			imageverify.Latest(), c.ictx, ivpol, c.lister,

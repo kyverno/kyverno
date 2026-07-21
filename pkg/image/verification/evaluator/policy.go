@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type EvaluationResult struct {
@@ -50,6 +51,7 @@ type compiledPolicy struct {
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
 	creds                *policiesv1beta1.Credentials
+	lister               k8scorev1.SecretInterface
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
@@ -139,7 +141,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
+	authOpts, nameOpts := imageverify.GetRemoteOptsFromPolicy(c.lister, c.creds)
+	if err := ictx.AddImages(ctx, imgList, authOpts, nameOpts); err != nil {
 		return nil, err
 	}
 

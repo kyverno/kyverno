@@ -23,6 +23,7 @@ type ivfuncs struct {
 
 	logger          logr.Logger
 	imgCtx          imagedataloader.ImageContext
+	lister          k8scorev1.SecretInterface
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
@@ -53,6 +54,7 @@ func ImageVerifyCELFuncs(
 		Adapter:         adapter,
 		logger:          logger,
 		imgCtx:          imgCtx,
+		lister:          lister,
 		creds:           spec.Credentials,
 		imgRules:        imgRules,
 		attestationList: attestationMap(ivpol),
@@ -77,8 +79,8 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		}
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
 		for _, attestor := range attestors {
-			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
+			authOpts, nameOpts := GetRemoteOptsFromPolicy(f.lister, f.creds)
+			img, err := f.imgCtx.Get(ctx, image, authOpts, nameOpts)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
@@ -138,8 +140,8 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if !ok {
 				return types.NewErr("attestation not found in policy: %s", attestation)
 			}
-			opts := GetRemoteOptsFromPolicy(f.creds)
-			img, err := f.imgCtx.Get(ctx, image, opts...)
+			authOpts, nameOpts := GetRemoteOptsFromPolicy(f.lister, f.creds)
+			img, err := f.imgCtx.Get(ctx, image, authOpts, nameOpts)
 			if err != nil {
 				return types.NewErr("failed to get imagedata: %v", err)
 			}
@@ -187,8 +189,8 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		opts := GetRemoteOptsFromPolicy(f.creds)
-		img, err := f.imgCtx.Get(ctx, image, opts...)
+		authOpts, nameOpts := GetRemoteOptsFromPolicy(f.lister, f.creds)
+		img, err := f.imgCtx.Get(ctx, image, authOpts, nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -205,8 +207,8 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
-		opts := GetRemoteOptsFromPolicy(f.creds)
-		img, err := f.imgCtx.Get(ctx, image, opts...)
+		authOpts, nameOpts := GetRemoteOptsFromPolicy(f.lister, f.creds)
+		img, err := f.imgCtx.Get(ctx, image, authOpts, nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

@@ -33,10 +33,10 @@ const (
 
 // Test backward compatibility with existing images
 func Test_ImageSignatureVerificationKeyless(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
+	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage, nil, nil)
 	if err != nil {
 		t.Skipf("test image not accessible: %v", err)
 	}
@@ -65,10 +65,10 @@ func Test_ImageSignatureVerificationKeyless(t *testing.T) {
 }
 
 func Test_ImageSignatureVerificationFail(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
+	img, err := idf.FetchImageData(context.TODO(), v2KeylessImage, nil, nil)
 	if err != nil {
 		t.Skipf("test image not accessible: %v", err)
 	}
@@ -98,10 +98,10 @@ func Test_ImageSignatureVerificationFail(t *testing.T) {
 }
 
 func Test_ImageSignatureVerificationKeyed(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 	if err != nil {
 		t.Skipf("test image not accessible: %v", err)
 	}
@@ -126,10 +126,10 @@ func Test_ImageSignatureVerificationKeyed(t *testing.T) {
 }
 
 func Test_ImageSignatureVerificationKeyedFail(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
 
-	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 	if err != nil {
 		t.Skipf("test image not accessible: %v", err)
 	}
@@ -161,10 +161,10 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 
 func TestCosign_V3_KeyBased(t *testing.T) {
 	t.Run("v3 key-based signature verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -191,10 +191,10 @@ func TestCosign_V3_KeyBased(t *testing.T) {
 
 func TestCosign_V3_Keyless(t *testing.T) {
 	t.Run("v3 keyless OIDC signature verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
+		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -225,10 +225,10 @@ func TestCosign_V3_Keyless(t *testing.T) {
 
 func TestCosign_V3_MultiPlatform(t *testing.T) {
 	t.Run("v3 digest-based signature for multi-platform images", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v3BundleImage)
+		img, err := idf.FetchImageData(context.TODO(), v3BundleImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -255,7 +255,7 @@ func TestCosign_V3_MultiPlatform(t *testing.T) {
 
 func TestBackwardCompatibility_V2toV3(t *testing.T) {
 	t.Run("verify v2 and v3 traditional with same attestor", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		attestor := &v1beta1.Attestor{
@@ -275,7 +275,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 
 		// Test v2 image
-		imgV2, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		imgV2, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV2, attestor)
 			assert.NoError(t, err, "v2 image should verify with cosign v3 library")
@@ -284,7 +284,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		}
 
 		// Test v3 image
-		imgV3, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
+		imgV3, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage, nil, nil)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV3, attestor)
 			assert.NoError(t, err, "v3 image should verify with cosign v3 library")
@@ -294,7 +294,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 	})
 
 	t.Run("verify v2 and v3 keyless with same attestor", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		attestor := &v1beta1.Attestor{
@@ -318,7 +318,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 
 		// Test v2 keyless image
-		imgV2, err := idf.FetchImageData(context.TODO(), v2KeylessImage)
+		imgV2, err := idf.FetchImageData(context.TODO(), v2KeylessImage, nil, nil)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV2, attestor)
 			assert.NoError(t, err, "v2 keyless image should verify with cosign v3 library")
@@ -327,7 +327,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 		}
 
 		// Test v3 keyless image
-		imgV3, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
+		imgV3, err := idf.FetchImageData(context.TODO(), v3KeylessImage, nil, nil)
 		if err == nil {
 			err = v.VerifyImageSignature(context.TODO(), imgV3, attestor)
 			assert.NoError(t, err, "v3 keyless image should verify with cosign v3 library")
@@ -339,7 +339,7 @@ func TestBackwardCompatibility_V2toV3(t *testing.T) {
 
 func TestBundleAutoDetection(t *testing.T) {
 	t.Run("auto-detection should work for all image types", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		keyAttestor := &v1beta1.Attestor{
@@ -390,7 +390,7 @@ func TestBundleAutoDetection(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				img, err := idf.FetchImageData(context.TODO(), tc.image)
+				img, err := idf.FetchImageData(context.TODO(), tc.image, nil, nil)
 				if err != nil {
 					t.Skipf("image %s not accessible: %v", tc.image, err)
 				}
@@ -404,7 +404,7 @@ func TestBundleAutoDetection(t *testing.T) {
 
 func TestMultiPlatformImages(t *testing.T) {
 	t.Run("multi-platform manifest list verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		attestor := &v1beta1.Attestor{
@@ -423,7 +423,7 @@ func TestMultiPlatformImages(t *testing.T) {
 
 		v := Verifier{log: logr.Discard()}
 
-		img, err := idf.FetchImageData(context.TODO(), v3BundleImage)
+		img, err := idf.FetchImageData(context.TODO(), v3BundleImage, nil, nil)
 		if err != nil {
 			t.Skipf("v3-bundle image not accessible: %v", err)
 		}
@@ -435,10 +435,10 @@ func TestMultiPlatformImages(t *testing.T) {
 
 func TestNegative_UnsignedImage(t *testing.T) {
 	t.Run("unsigned image should fail verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), unsignedImage)
+		img, err := idf.FetchImageData(context.TODO(), unsignedImage, nil, nil)
 		if err != nil {
 			t.Skipf("unsigned image not accessible: %v", err)
 		}
@@ -465,10 +465,10 @@ func TestNegative_UnsignedImage(t *testing.T) {
 
 func TestNegative_WrongPublicKey(t *testing.T) {
 	t.Run("wrong public key should fail verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v3KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("v3-traditional image not accessible: %v", err)
 		}
@@ -500,10 +500,10 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 
 func TestNegative_WrongKeylessIdentity(t *testing.T) {
 	t.Run("wrong keyless identity should fail verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage)
+		img, err := idf.FetchImageData(context.TODO(), v3KeylessImage, nil, nil)
 		if err != nil {
 			t.Skipf("v3-keyless image not accessible: %v", err)
 		}
@@ -538,7 +538,7 @@ func TestConcurrentVerification(t *testing.T) {
 	}
 
 	t.Run("concurrent verification of multiple images", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		// Pre-check that all images are accessible before running concurrent tests
@@ -549,7 +549,7 @@ func TestConcurrentVerification(t *testing.T) {
 		}
 
 		for _, image := range images {
-			_, err := idf.FetchImageData(context.TODO(), image)
+			_, err := idf.FetchImageData(context.TODO(), image, nil, nil)
 			if err != nil {
 				t.Skipf("image %s not accessible: %v", image, err)
 			}
@@ -579,7 +579,7 @@ func TestConcurrentVerification(t *testing.T) {
 
 		for _, image := range images {
 			go func(img string) {
-				imgData, err := idf.FetchImageData(context.TODO(), img)
+				imgData, err := idf.FetchImageData(context.TODO(), img, nil, nil)
 				if err != nil {
 					results <- result{image: img, success: false, err: err}
 					return
@@ -614,10 +614,10 @@ func TestConcurrentVerification(t *testing.T) {
 
 func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 	t.Run("nil cosign attestor", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -634,10 +634,10 @@ func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 	})
 
 	t.Run("invalid key data in checkOptions", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -663,10 +663,10 @@ func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 	})
 
 	t.Run("empty key data", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -694,10 +694,10 @@ func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 
 func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
 	t.Run("nil cosign attestor", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -721,10 +721,10 @@ func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
 	})
 
 	t.Run("invalid key data in attestation verification", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
-		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage)
+		img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image not accessible: %v", err)
 		}
@@ -759,13 +759,13 @@ func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
 
 func Test_GitHubAttestationVerification(t *testing.T) {
 	t.Run("verify SLSA provenance attestation with GitHub Actions keyless", func(t *testing.T) {
-		idf, err := imagedataloader.New(nil)
+		idf, err := imagedataloader.New(nil, nil, nil)
 		require.NoError(t, err)
 
 		// Use an image that should have SLSA provenance attestations
 		// Based on the policy: ghcr.io/lucchmielowski/kyverno-cosign-testbed:*
 		// The image must have SLSA provenance attestations signed with GitHub Actions
-		img, err := idf.FetchImageData(context.TODO(), githubAttestationImage)
+		img, err := idf.FetchImageData(context.TODO(), githubAttestationImage, nil, nil)
 		if err != nil {
 			t.Skipf("test image %s not accessible: %v", githubAttestationImage, err)
 		}

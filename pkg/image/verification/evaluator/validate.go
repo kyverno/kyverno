@@ -7,7 +7,9 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"
@@ -91,7 +93,8 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) ([]string, error) {
-	ictx, er := imagedataloader.NewImageContext(lister)
+	secretLister := registryclient.SecretListerFromInterface(lister, config.KyvernoNamespace())
+	ictx, er := imagedataloader.NewImageContext(secretLister, nil, nil)
 	if er != nil {
 		return nil, nil
 	}

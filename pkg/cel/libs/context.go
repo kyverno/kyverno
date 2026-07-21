@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -80,12 +83,16 @@ type contextProvider struct {
 
 func NewContextProvider(
 	client dclient.Interface,
-	imageOpts []imagedataloader.Option,
+	imageOpts []remote.Option,
 	gctxStore gctxstore.Store,
 	restMapper meta.RESTMapper,
 	cliEvaluation bool,
 ) (Context, error) {
-	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+	if cliEvaluation {
+		imageOpts = append(imageOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	}
+	lister := registryclient.SecretListerFromInterface(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), config.KyvernoNamespace())
+	idl, err := imagedataloader.New(lister, imageOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -131,9 +138,9 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
+func (cp *contextProvider) GetImageData(image string, authOpts []remote.Option) (map[string]any, error) {
 	// TODO: get image credentials from image verification policies?
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image, authOpts, nil)
 	if err != nil {
 		return nil, err
 	}
