@@ -74,17 +74,29 @@ func ImageVerifyCELFuncs(
 	}, nil
 }
 
-// attestorCacheRule builds a cache rule key that is specific to the exact set of attestors
-// used in a call, so that different validations in the same policy version don't collide.
-// The names are sorted so the same attestor set produces the same key regardless of the
-// order the CEL expression passed them in.
-func attestorCacheRule(base string, attestors []v1beta1.Attestor) string {
+// attestorCacheRule builds a cache rule key that is specific to a function, an optional
+// qualifier (e.g. an attestation name), and the exact set of attestors used in a call, so
+// that different validations in the same policy version don't collide. Attestor names are
+// sorted so the same set produces the same key regardless of call order, and every part is
+// length-prefixed so a name containing a delimiter character can't be crafted to collide
+// with a different set of parts.
+func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) string {
 	names := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
 		names = append(names, attestor.GetKey())
 	}
 	sort.Strings(names)
-	return base + ":" + strings.Join(names, ",")
+	var b strings.Builder
+	writeCacheKeyPart(&b, fn)
+	writeCacheKeyPart(&b, qualifier)
+	for _, name := range names {
+		writeCacheKeyPart(&b, name)
+	}
+	return b.String()
+}
+
+func writeCacheKeyPart(b *strings.Builder, part string) {
+	fmt.Fprintf(b, "%d:%s|", len(part), part)
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
@@ -102,7 +114,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			return f.NativeToValue(count)
 		}
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
-		cacheRule := attestorCacheRule(signatureCacheRule, attestors)
+		cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
 		if f.ivCache != nil {
 			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
@@ -173,7 +185,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			return f.NativeToValue(count)
 		}
 		f.logger.V(4).Info("verifyAttestationSignatures called", "image", image, "attestation", attestation, "attestorCount", len(attestors))
-		cacheRule := attestorCacheRule(attestationCacheRule+":"+attestation, attestors)
+		cacheRule := attestorCacheRule(attestationCacheRule, attestation, attestors)
 		if f.ivCache != nil {
 			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)

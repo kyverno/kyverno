@@ -179,7 +179,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 		ivCache:        ivCache,
 	}
 
-	cacheRule := attestorCacheRule(signatureCacheRule, attestors)
+	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
 	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
 	assert.NoError(t, err)
 	assert.True(t, stored)
@@ -240,7 +240,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
 	assert.Less(t, count, int64(len(attestors)))
 
-	cacheRule := attestorCacheRule(signatureCacheRule, attestors)
+	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
 	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, true)
 	assert.NoError(t, err)
 	assert.False(t, found, "a partial or failed verification must never be cached")
