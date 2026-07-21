@@ -141,6 +141,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
+	// when we get here, we will be initialized with the global opts from the compiled policy
+	// or from the credentials configured on the policy itself. the latter replaces the first
 	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
 		return nil, err
 	}
