@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/policy/auth"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -301,6 +302,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
+	// shared across every rule so that identical SubjectAccessReview checks
+	// (e.g. multiple rules matching the same kind) aren't repeated against the API server
+	authCache := auth.NewCache()
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
 		if rule.Mutation != nil {
@@ -358,7 +362,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA, authCache)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {
