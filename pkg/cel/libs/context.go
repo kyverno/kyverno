@@ -143,8 +143,6 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
 	// loader from those options.
-	// but we don't actually build that option in the global registry client anymore ?
-	// in the image validating
 	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
 	if err != nil {
 		return nil, err

@@ -70,7 +70,6 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 
 	// get custom registry credentials from the policy, turn them to authentication options
 	// for the imagedata libray
-	// TODO: is us ignoring the name options a problem ? what name options are we using ?
 	authOpts := []remote.Option{}
 	nameOpts := []name.Option{}
 	if spec.Credentials != nil {
