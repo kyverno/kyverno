@@ -16,20 +16,20 @@ import (
 )
 
 type Verifier struct {
-	secretInterface corev1listers.SecretLister
-	log             logr.Logger
+	secretLister corev1listers.SecretLister
+	log          logr.Logger
 }
 
-func NewVerifier(secretInterface corev1listers.SecretLister, logger logr.Logger) *Verifier {
+func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
-		log:             logging.WithName("Cosign"),
-		secretInterface: secretInterface,
+		log:          logging.WithName("Cosign"),
+		secretLister: secretLister,
 	}
 }
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
+	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, err
 	}
