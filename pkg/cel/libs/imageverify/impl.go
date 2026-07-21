@@ -3,6 +3,7 @@ package imageverify
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -75,11 +76,14 @@ func ImageVerifyCELFuncs(
 
 // attestorCacheRule builds a cache rule key that is specific to the exact set of attestors
 // used in a call, so that different validations in the same policy version don't collide.
+// The names are sorted so the same attestor set produces the same key regardless of the
+// order the CEL expression passed them in.
 func attestorCacheRule(base string, attestors []v1beta1.Attestor) string {
 	names := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
 		names = append(names, attestor.GetKey())
 	}
+	sort.Strings(names)
 	return base + ":" + strings.Join(names, ",")
 }
 
