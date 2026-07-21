@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -191,16 +192,14 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 				).WithExceptions(exceptions),
 			)
 		}
+	} else if result.Error != nil {
+		ruleName := autogen.RuleName(result.Identifier, result.Index)
+		response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
+	} else if result.Result {
+		response.Rules = append(response.Rules, *engineapi.RulePass("", engineapi.Validation, "success", result.AuditAnnotations))
 	} else {
-		// TODO: do we want to set a rule name?
-		ruleName := ""
-		if result.Error != nil {
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
-		} else if result.Result {
-			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
-		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
-		}
+		ruleName := autogen.RuleName(result.Identifier, result.Index)
+		response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 	}
 	return response
 }
