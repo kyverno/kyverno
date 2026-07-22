@@ -263,3 +263,137 @@ func TestGetResource_MutateExisting_PhantomUID(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result, "mutate-existing must not evaluate a phantom trigger from a rejected admission request")
 }
+
+func deleteURSpec(oldObjectRaw string, trigger kyvernov1.ResourceSpec) kyvernov2.UpdateRequestSpec {
+	return kyvernov2.UpdateRequestSpec{
+		RuleContext: []kyvernov2.RuleContext{
+			{Trigger: trigger},
+		},
+		Context: kyvernov2.UpdateRequestSpecContext{
+			AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+				AdmissionRequest: &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Delete,
+					OldObject: runtime.RawExtension{
+						Raw: []byte(oldObjectRaw),
+					},
+				},
+				Operation: admissionv1.Delete,
+			},
+		},
+	}
+}
+
+// TestGetTrigger_DeleteOperation_RejectedDelete verifies the inverse consistency
+// check: if the live object still exists with the same UID and is not
+// terminating, the delete request was rejected downstream and generation must
+// not proceed.
+func TestGetTrigger_DeleteOperation_RejectedDelete(t *testing.T) {
+	client := newFakeClientWithNamespace("test-ns", "same-uid-111", map[string]string{"layer": "business"})
+	spec := makeNamespaceSpec("test-ns", "same-uid-111")
+	urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"same-uid-111","labels":{"layer":"business"}}}`, spec)
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.Error(t, err, "a rejected delete must not drive delete-triggered generation")
+	assert.ErrorContains(t, err, "still exists")
+	assert.Nil(t, result)
+}
+
+// TestGetTrigger_DeleteOperation_Terminating verifies that an object with a
+// deletionTimestamp (deletion accepted, finalizers pending) is treated as
+// deleted: the oldObject drives delete-triggered generation.
+func TestGetTrigger_DeleteOperation_Terminating(t *testing.T) {
+	ns := &unstructured.Unstructured{}
+	ns.SetAPIVersion("v1")
+	ns.SetKind("Namespace")
+	ns.SetName("test-ns")
+	ns.SetUID("same-uid-111")
+	now := metav1.Now()
+	ns.SetDeletionTimestamp(&now)
+	client := &fakeListClient{
+		Interface:  dclient.NewEmptyFakeClient(),
+		namespaces: []unstructured.Unstructured{*ns},
+	}
+	spec := makeNamespaceSpec("test-ns", "same-uid-111")
+	urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"same-uid-111"}}`, spec)
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result, "a terminating trigger must still drive delete-triggered generation")
+	assert.Equal(t, types.UID("same-uid-111"), result.GetUID())
+}
+
+// TestGetTrigger_DeleteOperation_Recreated verifies that a recreated object with
+// a different UID does not block delete-triggered generation for the old object.
+func TestGetTrigger_DeleteOperation_Recreated(t *testing.T) {
+	client := newFakeClientWithNamespace("test-ns", "new-uid-222", nil)
+	spec := makeNamespaceSpec("test-ns", "old-uid-111")
+	urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"old-uid-111"}}`, spec)
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, types.UID("old-uid-111"), result.GetUID(), "the oldObject must remain the trigger payload")
+}
+
+// TestGetTrigger_UpdateOperation_ResolvesLiveObject verifies that UPDATE
+// operations evaluate the live cluster state instead of the admission request
+// payload: a rejected UPDATE leaves the live object unchanged, and mutations
+// applied in the admission chain may never have been persisted.
+func TestGetTrigger_UpdateOperation_ResolvesLiveObject(t *testing.T) {
+	client := newFakeClientWithNamespace("test-ns", "same-uid-111", map[string]string{"layer": "operational"})
+	spec := makeNamespaceSpec("test-ns", "same-uid-111")
+	urSpec := kyvernov2.UpdateRequestSpec{
+		RuleContext: []kyvernov2.RuleContext{
+			{Trigger: spec},
+		},
+		Context: kyvernov2.UpdateRequestSpecContext{
+			AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+				AdmissionRequest: &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Object: runtime.RawExtension{
+						// phantom state from a rejected update, mutated in the admission chain
+						Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"same-uid-111","labels":{"layer":"business"}}}`),
+					},
+				},
+				Operation: admissionv1.Update,
+			},
+		},
+	}
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "operational", result.GetLabels()["layer"], "the live object state must drive evaluation, not the admission payload")
+}
+
+// TestGetTrigger_UpdateOperation_TriggerGone verifies that an UPDATE UR whose
+// trigger no longer exists fails instead of evaluating the admission payload.
+func TestGetTrigger_UpdateOperation_TriggerGone(t *testing.T) {
+	client := &fakeListClient{Interface: dclient.NewEmptyFakeClient()}
+	spec := makeNamespaceSpec("test-ns", "gone-uid-111")
+	urSpec := kyvernov2.UpdateRequestSpec{
+		RuleContext: []kyvernov2.RuleContext{
+			{Trigger: spec},
+		},
+		Context: kyvernov2.UpdateRequestSpecContext{
+			AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+				AdmissionRequest: &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Object: runtime.RawExtension{
+						Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"gone-uid-111"}}`),
+					},
+				},
+				Operation: admissionv1.Update,
+			},
+		},
+	}
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}

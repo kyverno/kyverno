@@ -28,6 +28,8 @@ func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i in
 			return getTriggerForDeleteOperation(client, spec, i, logger)
 		} else if operation == admissionv1.Create {
 			return getTriggerForCreateOperation(client, spec, i, logger)
+		} else if operation == admissionv1.Update {
+			return getTriggerForUpdateOperation(client, spec, i, logger)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -57,7 +59,27 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 		logger.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
 		return GetResource(client, resourceSpec, spec, logger)
 	}
+	// Verify the deletion was actually persisted: if the live object still exists
+	// with the same UID and is not terminating, the delete request was rejected
+	// downstream (e.g. by another webhook) and generation must not proceed.
+	// Any lookup error (including NotFound) is treated as "deletion persisted" so
+	// delete-triggered generation is never blocked by transient failures.
+	if live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName()); err == nil && live != nil {
+		if live.GetUID() == oldResource.GetUID() && live.GetDeletionTimestamp() == nil {
+			return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s still exists in the cluster, the delete request may have been rejected by the API server",
+				oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID())
+		}
+	}
 	return &oldResource, nil
+}
+
+func getTriggerForUpdateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+	// Resolve the trigger from the live cluster state rather than the admission
+	// request payload: a rejected UPDATE leaves the live object unchanged, and
+	// mutations applied in the admission chain may never have been persisted.
+	// Evaluating the live object guarantees generation reflects persisted state.
+	resourceSpec := spec.RuleContext[i].Trigger
+	return GetResource(client, resourceSpec, spec, logger)
 }
 
 func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
