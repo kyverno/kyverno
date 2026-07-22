@@ -126,7 +126,7 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 }
 
 // IsMutatingAdmissionPolicyRegistered checks if MutatingAdmissionPolicies are registered in the API Server.
-// It checks for v1beta1 first, then falls back to v1alpha1.
+// It checks supported versions in preference order: v1, then v1beta1, then v1alpha1.
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
 	_, err := PreferredMutatingAdmissionPolicyVersion(kubeClient)
 	if err != nil {
