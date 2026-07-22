@@ -24,13 +24,11 @@ import (
 )
 
 type Policy struct {
-	patchers              []Patcher
-	matchConditions       []cel.Program
-	targetMatchConditions []cel.Program
-	targetExpression      cel.Program
-	variables             map[string]cel.Program
-	exceptions            []compiler.Exception
-	matchConstraints      *admissionregistrationv1.MatchResources
+	patchers         []Patcher
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
+	exceptions       []compiler.Exception
+	matchConstraints *admissionregistrationv1.MatchResources
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -103,22 +101,6 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 	return result
 }
 
-func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) (map[string]interface{}, error) {
-	if p.targetExpression == nil {
-		return nil, nil
-	}
-	data, err := prepareData(attr, request, namespace)
-	if err != nil {
-		return nil, err
-	}
-	p.appendVariables(ctx, data)
-	out, _, err := p.targetExpression.ContextEval(ctx, data)
-	if err != nil {
-		return nil, err
-	}
-	return utils.ConvertToNative[map[string]interface{}](out)
-}
-
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
@@ -126,28 +108,6 @@ func (p *Policy) Evaluate(
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	contextProvider libs.Context,
-) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, false)
-}
-
-func (p *Policy) EvaluateTarget(
-	ctx context.Context,
-	attr admission.Attributes,
-	namespace *corev1.Namespace,
-	request admissionv1.AdmissionRequest,
-	tcm TypeConverterManager,
-	contextProvider libs.Context,
-) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, true)
-}
-
-func (p *Policy) evaluate(
-	ctx context.Context,
-	attr admission.Attributes,
-	namespace *corev1.Namespace,
-	request admissionv1.AdmissionRequest,
-	tcm TypeConverterManager,
-	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
 		Attributes:      attr,
@@ -186,26 +146,15 @@ func (p *Policy) evaluate(
 		AllowedValues: allowedValues,
 	}
 
-	if target {
-		p.appendVariables(ctx, data)
-		match, err := p.match(ctx, data, p.targetMatchConditions)
-		if err != nil {
-			return &EvaluationResult{Error: err}
-		}
-		if !match {
-			return nil
-		}
-	} else {
-		// variables are lazily bound and remain visible to trigger match conditions
-		// for backward compatibility with existing policies
-		p.appendVariables(ctx, data)
-		match, err := p.match(ctx, data, p.matchConditions)
-		if err != nil {
-			return &EvaluationResult{Error: err}
-		}
-		if !match {
-			return nil
-		}
+	// variables also get added to the input data map
+	p.appendVariables(ctx, data)
+
+	match, err := p.match(ctx, data, p.matchConditions)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+	if !match {
+		return nil
 	}
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())

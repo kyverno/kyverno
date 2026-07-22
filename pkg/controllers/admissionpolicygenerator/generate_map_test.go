@@ -11,7 +11,6 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/utils/ptr"
 )
 
 // TestPreferredMAPVersion tests that the controller selects the right API version
@@ -85,81 +84,6 @@ func TestHandleMAPGeneration_NoLister(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 	})
 	assert.NoError(t, err)
-}
-
-func mapGenEnabled() *policiesv1beta1.MutatingPolicyAutogenConfiguration {
-	return &policiesv1beta1.MutatingPolicyAutogenConfiguration{
-		MutatingAdmissionPolicy: &policiesv1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
-	}
-}
-
-// TestMapGenerationSkipReason covers the decision of whether a MutatingAdmissionPolicy may be
-// generated for a MutatingPolicy. A policy using useServerSideApply mutates atomic fields that a
-// native MutatingAdmissionPolicy rejects, so generation must be skipped, otherwise the generated MAP
-// becomes the sole admission path and the mutation breaks.
-func TestMapGenerationSkipReason(t *testing.T) {
-	tests := []struct {
-		name       string
-		policy     *policiesv1beta1.MutatingPolicy
-		wantSkip   bool
-		wantReason string
-	}{
-		{
-			name: "generation not enabled",
-			policy: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{},
-			},
-			wantSkip:   true,
-			wantReason: "skip generating MutatingAdmissionPolicy: not enabled.",
-		},
-		{
-			name: "generation enabled, plain mutation",
-			policy: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					AutogenConfiguration: mapGenEnabled(),
-				},
-			},
-			wantSkip: false,
-		},
-		{
-			name: "generation enabled with useServerSideApply",
-			policy: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					AutogenConfiguration: mapGenEnabled(),
-					EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
-						UseServerSideApply: true,
-					},
-				},
-			},
-			wantSkip:   true,
-			wantReason: "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.",
-		},
-		{
-			name: "generation enabled with pod controllers autogen",
-			policy: &policiesv1beta1.MutatingPolicy{
-				Spec: policiesv1beta1.MutatingPolicySpec{
-					AutogenConfiguration: mapGenEnabled(),
-				},
-				Status: policiesv1beta1.MutatingPolicyStatus{
-					Autogen: policiesv1beta1.MutatingPolicyAutogenStatus{
-						Configs: map[string]policiesv1beta1.MutatingPolicyAutogen{"deployments": {}},
-					},
-				},
-			},
-			wantSkip:   true,
-			wantReason: "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reason := mapGenerationSkipReason(tt.policy)
-			assert.Equal(t, tt.wantSkip, reason != "")
-			if tt.wantReason != "" {
-				assert.Equal(t, tt.wantReason, reason)
-			}
-		})
-	}
 }
 
 // Mock implementations for listers

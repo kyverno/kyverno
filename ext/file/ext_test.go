@@ -22,14 +22,6 @@ func TestIsYaml(t *testing.T) {
 		path: "something.yml",
 		want: true,
 	}, {
-		name: "yaml uppercase",
-		path: "something.YAML",
-		want: true,
-	}, {
-		name: "yml uppercase",
-		path: "something.YML",
-		want: true,
-	}, {
 		name: "json",
 		path: "something.json",
 		want: false,
@@ -69,10 +61,6 @@ func TestIsJson(t *testing.T) {
 		path: "something.json",
 		want: true,
 	}, {
-		name: "json uppercase",
-		path: "something.JSON",
-		want: true,
-	}, {
 		name: "pdf",
 		path: "something.pdf",
 		want: false,
@@ -106,18 +94,6 @@ func TestIsYamlOrJson(t *testing.T) {
 	}, {
 		name: "json",
 		path: "something.json",
-		want: true,
-	}, {
-		name: "yaml uppercase",
-		path: "something.YAML",
-		want: true,
-	}, {
-		name: "yml uppercase",
-		path: "something.YML",
-		want: true,
-	}, {
-		name: "json uppercase",
-		path: "something.JSON",
 		want: true,
 	}, {
 		name: "pdf",

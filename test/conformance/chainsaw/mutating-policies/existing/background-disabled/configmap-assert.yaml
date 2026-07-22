@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-mpol-background-disabled-cm
-  namespace: test-mpol-background-disabled-ns
-  labels:
-    mutated: existing

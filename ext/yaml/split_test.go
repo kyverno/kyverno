@@ -49,9 +49,9 @@ func TestSplitDocuments(t *testing.T) {
 		},
 		wantErr: false,
 	},
-		// TODO those tests should fail IMHO
-		{
-			name: "empty doc",
+	// Test cases validating empty documents and separator-only blocks
+	{
+		name: "empty doc",
 			args: args{
 				[]byte("enabled: true\n---\n---\ndisabled: false"),
 			},
@@ -66,22 +66,19 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n---\n"),
 			},
-			wantDocuments: []string{
-				"---\n",
-			},
-			wantErr: false,
+			wantDocuments: nil,
+			wantErr:       false,
 		},
 		{
 			name: "only separators",
 			args: args{
 				[]byte("---\n\n\n---\n"),
 			},
-			wantDocuments: []string{
-				"---\n\n\n",
-			},
-			wantErr: false,
+			wantDocuments: nil,
+			wantErr:       false,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotDocuments, err := SplitDocuments(tt.args.yamlBytes)

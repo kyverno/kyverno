@@ -47,7 +47,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
@@ -72,13 +71,8 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []PolicyDiagnostic
-	invalid []PolicyDiagnostic
-}
-
-type PolicyDiagnostic struct {
-	name   string
-	reason string
+	skipped []string
+	invalid []string
 }
 
 type ApplyCommandConfig struct {
@@ -550,9 +544,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
 			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
 			}
 			continue
 		}
@@ -684,7 +678,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
-		imageverifycache.DisabledImageVerifyCache(),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)

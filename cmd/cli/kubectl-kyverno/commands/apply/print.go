@@ -26,28 +26,20 @@ const divider = "---------------------------------------------------------------
 func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "Policies Skipped:")
-		for i, policy := range skipInvalidPolicies.skipped {
-			printPolicyDiagnostic(out, i+1, policy)
+		fmt.Fprintln(out, "Policies Skipped (as required variables are not provided by the user):")
+		for i, policyName := range skipInvalidPolicies.skipped {
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
 		}
 		fmt.Fprintln(out, divider)
 	}
 	if len(skipInvalidPolicies.invalid) > 0 {
 		fmt.Fprintln(out, divider)
 		fmt.Fprintln(out, "Invalid Policies:")
-		for i, policy := range skipInvalidPolicies.invalid {
-			printPolicyDiagnostic(out, i+1, policy)
+		for i, policyName := range skipInvalidPolicies.invalid {
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
 		}
 		fmt.Fprintln(out, divider)
 	}
-}
-
-func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
-	if policy.reason == "" {
-		fmt.Fprintf(out, "%d. %s\n", index, policy.name)
-		return
-	}
-	fmt.Fprintf(out, "%d. %s: %s\n", index, policy.name, policy.reason)
 }
 
 func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string) {

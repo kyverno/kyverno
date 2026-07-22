@@ -6,8 +6,8 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/utils/ptr"
 )
 
 func TestCompile(t *testing.T) {
@@ -21,12 +21,14 @@ func TestCompile(t *testing.T) {
 			name: "valid applyConfiguration mutation",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					Mutations: []admissionregistrationv1alpha1.Mutation{{
-						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-							Expression: `Object{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `Object{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							},
 						},
-					}},
+					},
 				},
 			},
 			polex:   nil,
@@ -37,23 +39,29 @@ func TestCompile(t *testing.T) {
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{},
 			},
-			polex: []*v1beta1.PolicyException{{
-				Spec: v1beta1.PolicyExceptionSpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{{Expression: "invalid && expression"}},
+			polex: []*v1beta1.PolicyException{
+				{
+					Spec: v1beta1.PolicyExceptionSpec{
+						MatchConditions: []admissionv1.MatchCondition{
+							{Expression: "invalid && expression"},
+						},
+					},
 				},
-			}},
+			},
 			wantErr: true,
 		},
 		{
 			name: "valid jsonpatch mutation",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					Mutations: []admissionregistrationv1alpha1.Mutation{{
-						PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
-						JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-							Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `[JSONPatch{op: "add", path: "/spec/restartPolicy", value: "Always"}]`,
+							},
 						},
-					}},
+					},
 				},
 			},
 			polex:   nil,
@@ -63,16 +71,20 @@ func TestCompile(t *testing.T) {
 			name: "policy with variables",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "foo",
-						Expression: "object.metadata.name",
-					}},
-					Mutations: []admissionregistrationv1alpha1.Mutation{{
-						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-							Expression: `Object{}`,
+					Variables: []admissionregistrationv1.Variable{
+						{
+							Name:       "foo",
+							Expression: "object.metadata.name",
 						},
-					}},
+					},
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `Object{}`,
+							},
+						},
+					},
 				},
 			},
 			polex:   nil,
@@ -82,10 +94,12 @@ func TestCompile(t *testing.T) {
 			name: "valid matchCondition expression",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "ns-is-test",
-						Expression: `true`,
-					}},
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "ns-is-test",
+							Expression: `true`,
+						},
+					},
 				},
 			},
 			polex:   nil,
@@ -95,107 +109,26 @@ func TestCompile(t *testing.T) {
 			name: "invalid matchCondition expression",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "ns-is-test",
-						Expression: `this is not a cel`,
-					}},
-				},
-			},
-			polex:   nil,
-			wantErr: true,
-		},
-		{
-			name: "variables allowed in matchConditions when MAP autogen disabled",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "uses-variable",
-						Expression: `variables.targetName == "test"`,
-					}},
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "targetName",
-						Expression: `"test"`,
-					}},
-				},
-			},
-			polex:   nil,
-			wantErr: false,
-		},
-		{
-			name: "variables forbidden in matchConditions when MAP autogen enabled",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "targetName",
-						Expression: `"test"`,
-					}},
-					MatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "uses-variable",
-						Expression: `variables.targetName == "test"`,
-					}},
-					AutogenConfiguration: &v1beta1.MutatingPolicyAutogenConfiguration{
-						MutatingAdmissionPolicy: &v1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "ns-is-test",
+							Expression: `this is not a cel`,
+						},
 					},
 				},
 			},
 			polex:   nil,
 			wantErr: true,
-		},
-		{
-			name: "string literals mentioning variables are allowed when MAP autogen enabled",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					MatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "string-literal",
-						Expression: `"variables.targetName" == "variables.targetName"`,
-					}},
-					AutogenConfiguration: &v1beta1.MutatingPolicyAutogenConfiguration{
-						MutatingAdmissionPolicy: &v1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
-					},
-				},
-			},
-			polex:   nil,
-			wantErr: false,
-		},
-		{
-			name: "variables available in targetMatchConditions",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "targetName",
-						Expression: `"test"`,
-					}},
-					TargetMatchConditions: []admissionregistrationv1.MatchCondition{{
-						Name:       "uses-variable",
-						Expression: `variables.targetName == "test"`,
-					}},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "variables available in target expression",
-			pol: &v1beta1.MutatingPolicy{
-				Spec: v1beta1.MutatingPolicySpec{
-					Variables: []admissionregistrationv1.Variable{{
-						Name:       "target",
-						Expression: `resource.get("v1", "configmaps", "default", "test")`,
-					}},
-					TargetMatchConstraints: &v1beta1.TargetMatchConstraints{
-						Expression: `variables.target`,
-					},
-				},
-			},
-			wantErr: false,
 		},
 		{
 			name: "invalid jsonPatch expression",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					Mutations: []admissionregistrationv1alpha1.Mutation{{
-						PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
-						JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
-							Expression: `contains(object.metadata.labels) ??
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+							JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+								Expression: `contains(object.metadata.labels) ??
 											[
 												JSONPatch{
 													op: "multiply",
@@ -209,8 +142,9 @@ func TestCompile(t *testing.T) {
 													value: {"managed": "true"}
 												}
 											]`,
+							},
 						},
-					}},
+					},
 				},
 			},
 			polex:   nil,
@@ -220,12 +154,14 @@ func TestCompile(t *testing.T) {
 			name: "invalid jsonPatch expression",
 			pol: &v1beta1.MutatingPolicy{
 				Spec: v1beta1.MutatingPolicySpec{
-					Mutations: []admissionregistrationv1alpha1.Mutation{{
-						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-							Expression: `invalid{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+					Mutations: []admissionregistrationv1alpha1.Mutation{
+						{
+							PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+								Expression: `invalid{spec: Object.spec{containers: [Object.spec.containers{name: "nginx"}]}}`,
+							},
 						},
-					}},
+					},
 				},
 			},
 			polex:   nil,

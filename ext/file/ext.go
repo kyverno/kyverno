@@ -2,16 +2,15 @@ package file
 
 import (
 	"path/filepath"
-	"strings"
 )
 
 func IsYaml(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
+	ext := filepath.Ext(path)
 	return ext == ".yml" || ext == ".yaml"
 }
 
 func IsJson(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
+	ext := filepath.Ext(path)
 	return ext == ".json"
 }
 
