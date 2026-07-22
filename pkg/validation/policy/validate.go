@@ -113,6 +113,41 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
+// checkWildcardMatchResources checks if any rule in the policy matches all resources
+// using wildcard kinds (e.g. kinds: ["*"]). Such policies cause the webhook to intercept
+// all API calls, which adds significant load to the API server.
+func checkWildcardMatchResources(spec *kyvernov1.Spec) string {
+	for _, rule := range spec.Rules {
+		if hasWildcardKinds(rule.MatchResources) {
+			return "Wildcard policy detected: this policy matches all resources which may add significant load to the API server"
+		}
+	}
+	return ""
+}
+
+// hasWildcardKinds returns true if the MatchResources block contains a wildcard kind.
+func hasWildcardKinds(match kyvernov1.MatchResources) bool {
+	if slices.Contains(match.ResourceDescription.Kinds, "*") {
+		return true
+	}
+	for _, filter := range match.Any {
+		if slices.Contains(filter.ResourceDescription.Kinds, "*") {
+			return true
+		}
+	}
+	for _, filter := range match.All {
+		if slices.Contains(filter.ResourceDescription.Kinds, "*") {
+			return true
+		}
+	}
+	return false
+}
+
+// HasWildcardResources returns true if the policy has any rule that matches wildcard kinds.
+func HasWildcardResources(policy kyvernov1.PolicyInterface) bool {
+	return checkWildcardMatchResources(policy.GetSpec()) != ""
+}
+
 func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFailureAction, validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
 	if validationFailureAction == "enforce" || validationFailureAction == "audit" {
@@ -148,6 +183,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 	}
+
+	if w := checkWildcardMatchResources(spec); w != "" {
+		warnings = append(warnings, w)
+	}
+
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 

@@ -12,23 +12,27 @@ import (
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/event"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type policyHandlers struct {
 	client                       dclient.Interface
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
+	eventGen                     event.Interface
 }
 
-func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string) *policyHandlers {
+func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string, eventGen event.Interface) *policyHandlers {
 	return &policyHandlers{
 		client:                       client,
 		backgroundServiceAccountName: backgroundSA,
 		reportsServiceAccountName:    reportsSA,
+		eventGen:                     eventGen,
 	}
 }
 
@@ -89,6 +93,23 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		if err != nil {
 			logger.Error(err, "policy validation errors")
 		}
+
+		if err == nil && h.eventGen != nil && policyvalidate.HasWildcardResources(pol) {
+			h.eventGen.Add(event.Info{
+				Regarding: corev1.ObjectReference{
+					APIVersion: "kyverno.io/v1",
+					Kind:       pol.GetKind(),
+					Name:       pol.GetName(),
+					Namespace:  pol.GetNamespace(),
+					UID:        pol.GetUID(),
+				},
+				Reason:  event.PolicyViolation,
+				Source:  event.AdmissionController,
+				Message: "Wildcard policy detected: this policy matches all resources which may add significant load to the API server",
+				Action:  event.None,
+			})
+		}
+
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
 
