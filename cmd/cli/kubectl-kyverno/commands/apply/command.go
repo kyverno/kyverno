@@ -47,6 +47,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
@@ -678,6 +679,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		imageverifycache.DisabledImageVerifyCache(),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)

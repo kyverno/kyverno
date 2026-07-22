@@ -780,6 +780,7 @@ func main() {
 				matching.NewMatcher(),
 				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				nil,
+				setup.ImageVerifyCacheClient,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
