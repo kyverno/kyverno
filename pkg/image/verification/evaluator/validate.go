@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"gomodules.xyz/jsonpatch/v2"
@@ -96,7 +97,7 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.
 		return nil, nil
 	}
 
-	compiler := NewCompiler(ictx, lister, nil)
+	compiler := NewCompiler(ictx, lister, nil, imageverifycache.DisabledImageVerifyCache())
 	_, errList := compiler.Compile(ivpol, nil)
 
 	errs := make(field.ErrorList, 0, len(errList))
