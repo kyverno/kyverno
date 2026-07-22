@@ -24,6 +24,14 @@ import (
 const divider = "----------------------------------------------------------------------"
 
 func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
+	if len(skipInvalidPolicies.loadErrors) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Policy files skipped due to load errors:")
+		for i, loadError := range skipInvalidPolicies.loadErrors {
+			fmt.Fprintf(out, "%d. %s: %v\n", i+1, loadError.path, loadError.err)
+		}
+		fmt.Fprintln(out, divider)
+	}
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)
 		fmt.Fprintln(out, "Policies Skipped (as required variables are not provided by the user):")
