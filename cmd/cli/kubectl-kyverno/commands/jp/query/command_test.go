@@ -59,14 +59,17 @@ func TestCommandHelp(t *testing.T) {
 
 func TestEvaluateInvalidExpression(t *testing.T) {
 	_, err := evaluate(map[string]interface{}{}, "invalid{{")
-	assert.Error(t, err)
-	// A syntax error should be reported cleanly, quoting the offending
-	// expression and highlighting the location (a caret under the bad token)
-	// rather than a cryptic message.
-	assert.Contains(t, err.Error(), `invalid JMESPath expression "invalid{{"`)
-	assert.Contains(t, err.Error(), "SyntaxError:")
-	assert.Contains(t, err.Error(), "invalid{{")
-	assert.Contains(t, err.Error(), "^")
+	// guard the message assertions so a nil error fails the test instead of
+	// panicking on err.Error()
+	if assert.Error(t, err) {
+		// A syntax error should be reported cleanly, quoting the offending
+		// expression and highlighting the location (a caret under the bad
+		// token) rather than a cryptic message.
+		assert.Contains(t, err.Error(), `invalid JMESPath expression "invalid{{"`)
+		assert.Contains(t, err.Error(), "SyntaxError:")
+		assert.Contains(t, err.Error(), "invalid{{")
+		assert.Contains(t, err.Error(), "^")
+	}
 }
 
 func TestEvaluateValidExpression(t *testing.T) {
