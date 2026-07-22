@@ -45,6 +45,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/local"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -107,6 +108,9 @@ type PolicyProcessor struct {
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
+	// LocalAttestations serves predicate files supplied to `kyverno test` so that
+	// verifyImages.attestations rules can be tested without fetching from a registry.
+	LocalAttestations *local.Provider
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -211,7 +215,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return responses, err
 		}
-		verifyImageResponse, verifiedImageData := eng.VerifyAndPatchImages(context.TODO(), policyContext)
+
+		imageVerifyCtx := context.TODO()
+		if p.LocalAttestations != nil {
+			imageVerifyCtx = local.WithProvider(imageVerifyCtx, p.LocalAttestations)
+		}
+		verifyImageResponse, verifiedImageData := eng.VerifyAndPatchImages(imageVerifyCtx, policyContext)
 		// update annotation to reflect verified images
 		var patches []jsonpatch.JsonPatchOperation
 		if !verifiedImageData.IsEmpty() {

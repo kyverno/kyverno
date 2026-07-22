@@ -1,0 +1,18 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "metadata": {
+    "component": {
+      "type": "application",
+      "name": "app",
+      "version": "1.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "example-lib",
+      "version": "1.0.0"
+    }
+  ]
+}

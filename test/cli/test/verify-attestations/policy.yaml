@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-sbom
+spec:
+  background: false
+  rules:
+  - name: check-sbom
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - "ghcr.io/example/*"
+      mutateDigest: false
+      verifyDigest: false
+      attestations:
+      - type: https://cyclonedx.org/schema/bom
+        conditions:
+        - all:
+          - key: "{{ bomFormat }}"
+            operator: Equals
+            value: CycloneDX

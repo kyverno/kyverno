@@ -474,6 +474,20 @@ string
 <p>GlobalContextEntries mocks GlobalContextEntry data for offline tests (v1 and CEL).</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>attestations</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.TestAttestation">
+[]TestAttestation
+</a>
+</em>
+</td>
+<td>
+<p>Attestations provides local attestation predicate files for verifyImages.attestations tests,
+allowing those rules to be tested without fetching attestations from an OCI registry.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1385,6 +1399,61 @@ Kubernetes meta/v1.APIResource
 </td>
 <td>
 <p>ParentResource declares the parent resource api</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.TestAttestation">TestAttestation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
+</p>
+<p>
+<p>TestAttestation provides a local attestation predicate file for verifyImages.attestations tests.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Image is the container image reference the attestation applies to (e.g. ghcr.io/example/app:1.0).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>predicateType</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PredicateType is the attestation predicate type (e.g. <a href="https://cyclonedx.org/schema/bom">https://cyclonedx.org/schema/bom</a>).
+It must match the type specified in the policy&rsquo;s verifyImages.attestations rule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>predicateFile</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PredicateFile is the path to the local JSON file containing the attestation predicate.
+The path is resolved relative to the test directory.</p>
 </td>
 </tr>
 </tbody>

@@ -1,0 +1,19 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: verify-attestations
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+attestations:
+- image: ghcr.io/example/app:1.0
+  predicateType: https://cyclonedx.org/schema/bom
+  predicateFile: sbom.json
+results:
+- policy: check-sbom
+  rule: check-sbom
+  kind: Pod
+  resources:
+  - test-pod
+  result: pass

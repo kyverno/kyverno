@@ -1015,6 +1015,38 @@ Deprecated: Use JSONPayloads instead.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>attestations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestAttestation">
+                <span style="font-family: monospace">[]TestAttestation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestations provides local attestation predicate files for verifyImages.attestations tests,
+allowing those rules to be tested without fetching attestations from an OCI registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -3029,6 +3061,131 @@ Mutually exclusive with Data and Resources.</p>
           
 
           <p>ParentResource declares the parent resource api</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestAttestation">TestAttestation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p><p>TestAttestation provides a local attestation predicate file for verifyImages.attestations tests.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>image</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Image is the container image reference the attestation applies to (e.g. ghcr.io/example/app:1.0).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>predicateType</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PredicateType is the attestation predicate type (e.g. https://cyclonedx.org/schema/bom).
+It must match the type specified in the policy's verifyImages.attestations rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>predicateFile</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PredicateFile is the path to the local JSON file containing the attestation predicate.
+The path is resolved relative to the test directory.</p>
 
 
           
