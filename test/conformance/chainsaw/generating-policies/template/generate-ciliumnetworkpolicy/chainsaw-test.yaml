@@ -2,10 +2,20 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: generate-cm-template
+  name: generate-ciliumnetworkpolicy-template
 spec:
   concurrent: false
   steps:
+  - name: install CiliumNetworkPolicy CRD
+    try:
+    - apply:
+        file: crd.yaml
+    - assert:
+        file: crd-assert.yaml
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -19,12 +29,12 @@ spec:
       with:
         bindings:
         - name: name
-          value: zk-kafka-address-template
+          value: generate-cilium-scrape-policy
   - name: create namespace
     try:
     - apply:
         file: namespace.yaml
-  - name: check that the configmap is generated
+  - name: check that the CiliumNetworkPolicy is generated
     try:
     - assert:
-        file: configmap-assert.yaml
+        file: cnp-assert.yaml
