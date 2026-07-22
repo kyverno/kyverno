@@ -3,6 +3,7 @@ package background
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -100,6 +101,7 @@ type controller struct {
 	// cache
 	metadataCache resource.MetadataCache
 	forceDelay    time.Duration
+	kindCache     sync.Map
 
 	// config
 	config             config.Configuration
@@ -291,6 +293,7 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	c.kindCache.Delete(obj.GetUID())
 	c.enqueueResources()
 }
 
@@ -478,22 +481,47 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-// policyAppliesToKind reports whether any rule of the policy could match resources of the given
-// kind. It only looks at match kinds, not namespace/label selectors, so it can return true for
+type policyKinds struct {
+	resourceVersion string
+	kinds           []string
+}
+
+// policyMatchKinds returns the match kinds of every rule of the policy (autogen rules included),
+// with a rule that has no kind restriction collapsed to a single "*" entry. The result is cached
+// per policy UID and refreshed only when the policy's resourceVersion changes, since computing it
+// calls autogen.Default.ComputeRules(), which does a spec.DeepCopy() and autogen expansion and is
+// too expensive to redo on every scanInterval() call on the reconcile hot path.
+func (c *controller) policyMatchKinds(policy kyvernov1.PolicyInterface) []string {
+	uid := policy.GetUID()
+	resourceVersion := policy.GetResourceVersion()
+	if cached, ok := c.kindCache.Load(uid); ok {
+		if entry := cached.(policyKinds); entry.resourceVersion == resourceVersion {
+			return entry.kinds
+		}
+	}
+	var kinds []string
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		ruleKinds := rule.MatchResources.GetKinds()
+		if len(ruleKinds) == 0 {
+			kinds = []string{"*"}
+			break
+		}
+		kinds = append(kinds, ruleKinds...)
+	}
+	c.kindCache.Store(uid, policyKinds{resourceVersion: resourceVersion, kinds: kinds})
+	return kinds
+}
+
+// policyAppliesToKind reports whether any of the policy's match kinds could match resources of
+// the given kind. It only looks at kinds, not namespace/label selectors, so it can return true for
 // policies that end up not matching a particular resource; that's fine here since it's only used
 // to decide which policies' backgroundScanInterval should influence a resource's rescan cadence.
-func policyAppliesToKind(policy kyvernov1.PolicyInterface, kind string) bool {
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
-		kinds := rule.MatchResources.GetKinds()
-		if len(kinds) == 0 {
+func policyAppliesToKind(kinds []string, kind string) bool {
+	for _, entry := range kinds {
+		_, k := kubeutils.GetKindFromGVK(entry)
+		k, _ = kubeutils.SplitSubresource(k)
+		if k == "*" || k == kind {
 			return true
-		}
-		for _, entry := range kinds {
-			_, k := kubeutils.GetKindFromGVK(entry)
-			k, _ = kubeutils.SplitSubresource(k)
-			if k == "*" || k == kind {
-				return true
-			}
 		}
 	}
 	return false
@@ -509,7 +537,7 @@ func (c *controller) scanInterval(kind string, policies ...engineapi.GenericPoli
 	found := false
 	for _, policy := range policies {
 		kyvernoPolicy := policy.AsKyvernoPolicy()
-		if kyvernoPolicy == nil || !policyAppliesToKind(kyvernoPolicy, kind) {
+		if kyvernoPolicy == nil || !policyAppliesToKind(c.policyMatchKinds(kyvernoPolicy), kind) {
 			continue
 		}
 		effective := c.forceDelay

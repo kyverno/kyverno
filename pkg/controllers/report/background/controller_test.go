@@ -8,6 +8,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func ptrDuration(d time.Duration) *time.Duration {
@@ -20,6 +21,8 @@ func Test_scanInterval(t *testing.T) {
 	clusterPolicy := func(name string, kinds []string, interval *time.Duration) engineapi.GenericPolicy {
 		cpol := &kyvernov1.ClusterPolicy{}
 		cpol.Name = name
+		cpol.UID = types.UID(name)
+		cpol.ResourceVersion = "1"
 		cpol.Spec.Rules = []kyvernov1.Rule{
 			{
 				Name: "rule",
@@ -109,4 +112,29 @@ func Test_scanInterval(t *testing.T) {
 			assert.Equal(t, tt.want, c.scanInterval(tt.kind, tt.policies...))
 		})
 	}
+}
+
+func Test_policyMatchKinds_cachesByResourceVersion(t *testing.T) {
+	c := &controller{}
+	cpol := &kyvernov1.ClusterPolicy{}
+	cpol.UID = "policy-1"
+	cpol.ResourceVersion = "1"
+	cpol.Spec.Rules = []kyvernov1.Rule{
+		{
+			Name: "rule",
+			MatchResources: kyvernov1.MatchResources{
+				ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}},
+			},
+		},
+	}
+
+	assert.Equal(t, []string{"Pod"}, c.policyMatchKinds(cpol))
+
+	// mutate the policy without bumping resourceVersion: the cached value must still be returned
+	cpol.Spec.Rules[0].MatchResources.ResourceDescription.Kinds = []string{"Secret"}
+	assert.Equal(t, []string{"Pod"}, c.policyMatchKinds(cpol), "cached kinds should not change until resourceVersion changes")
+
+	// bump resourceVersion: now it should recompute and pick up the mutation
+	cpol.ResourceVersion = "2"
+	assert.Equal(t, []string{"Secret"}, c.policyMatchKinds(cpol), "changing resourceVersion should invalidate the cache")
 }
