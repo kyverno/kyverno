@@ -10,6 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
@@ -31,6 +32,7 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -476,20 +478,42 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
+// policyAppliesToKind reports whether any rule of the policy could match resources of the given
+// kind. It only looks at match kinds, not namespace/label selectors, so it can return true for
+// policies that end up not matching a particular resource; that's fine here since it's only used
+// to decide which policies' backgroundScanInterval should influence a resource's rescan cadence.
+func policyAppliesToKind(policy kyvernov1.PolicyInterface, kind string) bool {
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		kinds := rule.MatchResources.GetKinds()
+		if len(kinds) == 0 {
+			return true
+		}
+		for _, entry := range kinds {
+			_, k := kubeutils.GetKindFromGVK(entry)
+			k, _ = kubeutils.SplitSubresource(k)
+			if k == "*" || k == kind {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // scanInterval returns the delay to use before the next background scan of a resource.
 // A policy can override the global interval with a shorter or longer one of its own; when
-// several policies apply to the same resource, the shortest override wins so that no policy
-// ends up scanned less often than it asked for.
-func (c *controller) scanInterval(policies ...engineapi.GenericPolicy) time.Duration {
+// several policies matching the resource's kind apply to it, the shortest override wins so
+// that no policy ends up scanned less often than it asked for. Policies that don't match the
+// resource's kind at all don't get a say in its cadence.
+func (c *controller) scanInterval(kind string, policies ...engineapi.GenericPolicy) time.Duration {
 	delay := c.forceDelay
 	found := false
 	for _, policy := range policies {
 		kyvernoPolicy := policy.AsKyvernoPolicy()
-		if kyvernoPolicy == nil {
+		if kyvernoPolicy == nil || !policyAppliesToKind(kyvernoPolicy, kind) {
 			continue
 		}
 		effective := c.forceDelay
-		if interval := kyvernoPolicy.GetSpec().GetBackgroundScanInterval(); interval != nil {
+		if interval := kyvernoPolicy.GetSpec().GetBackgroundScanInterval(); interval != nil && interval.Duration > 0 {
 			effective = interval.Duration
 		}
 		if !found || effective < delay {
@@ -503,6 +527,7 @@ func (c *controller) scanInterval(policies ...engineapi.GenericPolicy) time.Dura
 func (c *controller) needsReconcile(
 	namespace string,
 	name string,
+	kind string,
 	hash string,
 	exceptions []kyvernov2.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
@@ -531,7 +556,7 @@ func (c *controller) needsReconcile(
 			logger.Error(err, "failed to parse last scan time annotation", "namespace", namespace, "name", name, "hash", hash)
 			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
-		if time.Now().After(annTime.Add(c.scanInterval(policies...))) {
+		if time.Now().After(annTime.Add(c.scanInterval(kind, policies...))) {
 			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
 	}
@@ -930,11 +955,11 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
+	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, gvk.Kind, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
 		return err
 	} else {
 		defer func() {
-			c.queue.AddAfter(key, c.scanInterval(policies...))
+			c.queue.AddAfter(key, c.scanInterval(gvk.Kind, policies...))
 		}()
 		if needsReconcile {
 			// update the hash if we got a new one
