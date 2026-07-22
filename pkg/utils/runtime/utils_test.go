@@ -159,7 +159,7 @@ func TestIsGoingDown(t *testing.T) {
 			want:     false,
 		},
 		{
-			name: "deleted deployment reports going down",
+			name: "missing deployment reports going down",
 			want: true,
 		},
 		{
