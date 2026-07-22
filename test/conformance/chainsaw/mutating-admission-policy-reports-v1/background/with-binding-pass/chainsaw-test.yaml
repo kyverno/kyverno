@@ -26,7 +26,7 @@ spec:
     try:
     - sleep:
         duration: 20s
-  - name: step-04
+  - name: step-05
     try:
     - assert:
         file: report-assert.yaml

@@ -333,12 +333,12 @@ func BuildMutatingAdmissionPolicyV1(
 ) {
 	matchConditions := negateExceptionMatchConditions(exceptions)
 	for _, mc := range mp.Spec.MatchConditions {
-		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition(mc))
+		matchConditions = append(matchConditions, mc)
 	}
 
 	var fpt *admissionregistrationv1.FailurePolicyType
 	if mp.Spec.FailurePolicy != nil {
-		conv := admissionregistrationv1.FailurePolicyType(*mp.Spec.FailurePolicy)
+		conv := *mp.Spec.FailurePolicy
 		fpt = &conv
 	}
 
@@ -367,7 +367,7 @@ func BuildMutatingAdmissionPolicyV1(
 			return v
 		}),
 		FailurePolicy:      fpt,
-		ReinvocationPolicy: admissionregistrationv1.ReinvocationPolicyType(mp.Spec.GetReinvocationPolicy()),
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapol)
 	policyLabels := mp.GetLabels()

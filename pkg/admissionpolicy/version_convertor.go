@@ -3,6 +3,7 @@ package admissionpolicy
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ConvertMatchResources(in *admissionregistrationv1beta1.MatchResources) *admissionregistrationv1.MatchResources {
@@ -160,9 +161,11 @@ func ConvertMutatingAdmissionPolicy(policy *admissionregistrationv1beta1.Mutatin
 	if policy == nil {
 		return nil
 	}
-	reinvocationPolicy := admissionregistrationv1.ReinvocationPolicyType(policy.Spec.ReinvocationPolicy)
 	return &admissionregistrationv1.MutatingAdmissionPolicy{
-		TypeMeta:   policy.TypeMeta,
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1.SchemeGroupVersion.String(),
+			Kind:       "MutatingAdmissionPolicy",
+		},
 		ObjectMeta: policy.ObjectMeta,
 		Spec: admissionregistrationv1.MutatingAdmissionPolicySpec{
 			ParamKind:          convertParamKind(policy.Spec.ParamKind),
@@ -171,7 +174,7 @@ func ConvertMutatingAdmissionPolicy(policy *admissionregistrationv1beta1.Mutatin
 			Mutations:          convertMutations(policy.Spec.Mutations),
 			FailurePolicy:      (*admissionregistrationv1.FailurePolicyType)(policy.Spec.FailurePolicy),
 			MatchConditions:    convertMatchConditions(policy.Spec.MatchConditions),
-			ReinvocationPolicy: reinvocationPolicy,
+			ReinvocationPolicy: policy.Spec.ReinvocationPolicy,
 		},
 	}
 }
@@ -181,7 +184,10 @@ func ConvertMutatingAdmissionPolicyBinding(binding *admissionregistrationv1beta1
 		return nil
 	}
 	return &admissionregistrationv1.MutatingAdmissionPolicyBinding{
-		TypeMeta:   binding.TypeMeta,
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1.SchemeGroupVersion.String(),
+			Kind:       "MutatingAdmissionPolicyBinding",
+		},
 		ObjectMeta: binding.ObjectMeta,
 		Spec: admissionregistrationv1.MutatingAdmissionPolicyBindingSpec{
 			PolicyName:     binding.Spec.PolicyName,
@@ -214,7 +220,10 @@ func ConvertMutatingAdmissionPolicyToBeta(policy *admissionregistrationv1.Mutati
 		failurePolicy = &converted
 	}
 	return &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		TypeMeta:   policy.TypeMeta,
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.String(),
+			Kind:       "MutatingAdmissionPolicy",
+		},
 		ObjectMeta: policy.ObjectMeta,
 		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
 			ParamKind:          convertParamKindToBeta(policy.Spec.ParamKind),
@@ -223,7 +232,7 @@ func ConvertMutatingAdmissionPolicyToBeta(policy *admissionregistrationv1.Mutati
 			Mutations:          convertMutationsToBeta(policy.Spec.Mutations),
 			FailurePolicy:      failurePolicy,
 			MatchConditions:    convertMatchConditionsToBeta(policy.Spec.MatchConditions),
-			ReinvocationPolicy: admissionregistrationv1beta1.ReinvocationPolicyType(policy.Spec.ReinvocationPolicy),
+			ReinvocationPolicy: policy.Spec.ReinvocationPolicy,
 		},
 	}
 }
@@ -233,7 +242,10 @@ func ConvertMutatingAdmissionPolicyBindingToBeta(binding *admissionregistrationv
 		return nil
 	}
 	return &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
-		TypeMeta:   binding.TypeMeta,
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.String(),
+			Kind:       "MutatingAdmissionPolicyBinding",
+		},
 		ObjectMeta: binding.ObjectMeta,
 		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
 			PolicyName:     binding.Spec.PolicyName,
