@@ -1,6 +1,8 @@
 package registryclient
 
 import (
+	"context"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -20,7 +22,7 @@ func NewAutoRefreshSecretsKeychain(lister corev1listers.SecretLister, defaultNam
 }
 
 func (kc *autoRefreshSecrets) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	inner, err := generateKeychainForPullSecrets(kc.lister, kc.defaultNamespace, kc.imagePullSecrets...)
+	inner, err := generateKeychainForPullSecrets(context.Background(), kc.lister, kc.defaultNamespace, kc.imagePullSecrets...)
 	if err != nil {
 		return nil, err
 	}

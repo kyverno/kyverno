@@ -16,18 +16,18 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func GetTrigger(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	resourceSpec := spec.RuleContext[i].Trigger
 	logger.V(4).Info("fetching trigger", "trigger", resourceSpec.String())
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	if admissionRequest == nil {
-		return GetResource(client, resourceSpec, spec, logger)
+		return GetResource(ctx, client, resourceSpec, spec, logger)
 	} else {
 		operation := spec.Context.AdmissionRequestInfo.Operation
 		if operation == admissionv1.Delete {
-			return getTriggerForDeleteOperation(client, spec, i, logger)
+			return getTriggerForDeleteOperation(ctx, client, spec, i, logger)
 		} else if operation == admissionv1.Create {
-			return getTriggerForCreateOperation(client, spec, i, logger)
+			return getTriggerForCreateOperation(ctx, client, spec, i, logger)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -44,26 +44,26 @@ func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i in
 	}
 }
 
-func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func getTriggerForDeleteOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load resource from context: %w", err)
+		return nil, fmt.Errorf("failed to extract resources from admission request for delete operation: %w", err)
 	}
 	labels := oldResource.GetLabels()
 	resourceSpec := spec.RuleContext[i].Trigger
 	if labels[GeneratePolicyLabel] != "" {
 		// non-trigger deletion, get trigger from ur spec
 		logger.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-		return GetResource(client, resourceSpec, spec, logger)
+		return GetResource(ctx, client, resourceSpec, spec, logger)
 	}
 	return &oldResource, nil
 }
 
-func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func getTriggerForCreateOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	resourceSpec := spec.RuleContext[i].Trigger
-	trigger, err := GetResource(client, resourceSpec, spec, logger)
+	trigger, err := GetResource(ctx, client, resourceSpec, spec, logger)
 	if err != nil || trigger == nil {
 		if admissionRequest.SubResource == "" {
 			return nil, err
@@ -80,7 +80,7 @@ func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.Updat
 	return trigger, err
 }
 
-func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
+func GetResource(ctx context.Context, client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
 	obj := resourceSpec
 	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
 		obj = urSpec.GetResource()
@@ -93,9 +93,9 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		"kind", resourceSpec.GetKind(),
 		"apiVersion", resourceSpec.GetAPIVersion())
 	if obj.GetUID() != "" {
-		triggers, err := client.ListResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
+		triggers, err := client.ListResource(ctx, resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list trigger resources: %v", err)
+			return nil, fmt.Errorf("failed to list trigger resources for %s/%s: %w", resourceSpec.GetKind(), resourceSpec.GetNamespace(), err)
 		}
 
 		for _, trigger := range triggers.Items {
@@ -107,14 +107,14 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
 		}
-		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+		resource, err := client.GetResource(ctx, resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
 			if urSpec.GetRequestType() == kyvernov2.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
 				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
+			return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
 
 		return resource, nil
@@ -129,11 +129,11 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 
 		resource, err = kubeutils.BytesToUnstructured(raw)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert raw object to unstructured: %v", err)
+			return nil, fmt.Errorf("failed to convert admission request raw object to unstructured: %w", err)
 		} else {
 			return resource, nil
 		}
 	}
 
-	return nil, fmt.Errorf("resource not found")
+	return nil, fmt.Errorf("resource not found: %s/%s in namespace %s", resourceSpec.Kind, resourceSpec.Name, resourceSpec.Namespace)
 }
