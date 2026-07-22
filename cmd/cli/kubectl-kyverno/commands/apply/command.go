@@ -72,8 +72,13 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []string
-	invalid []string
+	skipped []PolicyDiagnostic
+	invalid []PolicyDiagnostic
+}
+
+type PolicyDiagnostic struct {
+	name   string
+	reason string
 }
 
 type ApplyCommandConfig struct {
@@ -545,9 +550,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			}
 			continue
 		}
