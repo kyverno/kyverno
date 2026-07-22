@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestValidate(t *testing.T) {
@@ -22,6 +23,60 @@ func TestValidate(t *testing.T) {
 					Name: "valid-mpol",
 				},
 				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "both admission and mutateExisting disabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "all-modes-disabled",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+						Admission:                   &v1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+						MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{Enabled: ptr.To(false)},
+					},
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "admission disabled with mutateExisting enabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mutate-existing-only",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+						Admission:                   &v1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+						MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{Enabled: ptr.To(true)},
+					},
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{
