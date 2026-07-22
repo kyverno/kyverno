@@ -482,13 +482,19 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 // ends up scanned less often than it asked for.
 func (c *controller) scanInterval(policies ...engineapi.GenericPolicy) time.Duration {
 	delay := c.forceDelay
+	found := false
 	for _, policy := range policies {
 		kyvernoPolicy := policy.AsKyvernoPolicy()
 		if kyvernoPolicy == nil {
 			continue
 		}
-		if interval := kyvernoPolicy.GetSpec().GetBackgroundScanInterval(); interval != nil && interval.Duration < delay {
-			delay = interval.Duration
+		effective := c.forceDelay
+		if interval := kyvernoPolicy.GetSpec().GetBackgroundScanInterval(); interval != nil {
+			effective = interval.Duration
+		}
+		if !found || effective < delay {
+			delay = effective
+			found = true
 		}
 	}
 	return delay

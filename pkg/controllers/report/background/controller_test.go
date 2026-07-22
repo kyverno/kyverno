@@ -46,9 +46,9 @@ func Test_scanInterval(t *testing.T) {
 			want:     fiveMinutes,
 		},
 		{
-			name:     "policy with a longer override does not relax the global interval",
+			name:     "policy with a longer override relaxes the global interval",
 			policies: []engineapi.GenericPolicy{clusterPolicy("slow", &twoHours)},
-			want:     globalInterval,
+			want:     twoHours,
 		},
 		{
 			name: "the shortest override among several policies wins",
