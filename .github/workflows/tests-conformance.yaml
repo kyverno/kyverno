@@ -309,6 +309,22 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
+  generate-mutating-admission-policy-v1:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.36.0]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,generate-mutating-admission-policy
+          quarantined-tests: applyconfiguration
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy-v1
+
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
     strategy:
@@ -441,6 +457,21 @@ jobs:
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
+
+  mutating-admission-policy-reports-v1:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.36.0]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,mutating-admission-policy-reports
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutating-admission-policy-reports-v1
 
   reports-exclude-result:
     runs-on: ubuntu-latest

@@ -93,6 +93,8 @@ func createReportControllers(
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+	var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+	var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 	var mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
 	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 	var mapBindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
@@ -107,6 +109,9 @@ func createReportControllers(
 			logging.GlobalLogger().V(2).Info("MutatingAdmissionPolicy API is not registered, skipping MAP report informers", "error", err)
 		} else {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
 				mapBindingBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
@@ -133,6 +138,7 @@ func createReportControllers(
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
+			mapV1Informer,
 			mapBetaInformer,
 			mapAlphaInformer,
 			metaClient,
@@ -164,6 +170,7 @@ func createReportControllers(
 					policiesV1beta1.MutatingPolicies(),
 					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
+					mapV1Informer,
 					mapBetaInformer,
 					mapAlphaInformer,
 				),
@@ -190,6 +197,8 @@ func createReportControllers(
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
+				mapV1Informer,
+				mapBindingV1Informer,
 				mapBetaInformer,
 				mapAlphaInformer,
 				mapBindingBetaInformer,

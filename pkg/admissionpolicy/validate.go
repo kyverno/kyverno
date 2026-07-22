@@ -381,6 +381,7 @@ func validateResource(
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
 		compiler.CompileMessageExpressions(optionalVars),
 		policy.Spec.FailurePolicy,
+		err,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, parameterResource, namespace, celconfig.RuntimeCELCostBudget, nil)
