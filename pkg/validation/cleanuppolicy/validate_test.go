@@ -66,27 +66,54 @@ func TestValidatePolicy(t *testing.T) {
 	})
 }
 
-// newAuthClient builds a dclient whose SubjectAccessReviews always answer with
-// the supplied verdict, so validateAuth can be exercised without a cluster.
-func newAuthClient(allowed bool) dclient.Interface {
+// authRecorder captures the SubjectAccessReviews validateAuth issues, so tests
+// can assert which access checks were actually performed, and answers each with
+// the supplied verdict.
+type authRecorder struct {
+	requests []*authorizationv1.SubjectAccessReview
+}
+
+// newAuthClient builds a dclient whose SubjectAccessReviews all answer with the
+// supplied verdict, recording each request on the returned recorder so the
+// test can verify the checks validateAuth performed.
+func newAuthClient(allowed bool) (dclient.Interface, *authRecorder) {
+	rec := &authRecorder{}
 	kube := kubefake.NewSimpleClientset()
 	kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		sar := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		rec.requests = append(rec.requests, sar)
 		return true, &authorizationv1.SubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: allowed},
 		}, nil
 	})
-	return dclient.NewFakeClientWithDisco(nil, kube, dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{{Version: "v1", Resource: "pods"}}))
+	client := dclient.NewFakeClientWithDisco(nil, kube, dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{{Version: "v1", Resource: "pods"}}))
+	return client, rec
+}
+
+// verbsFor returns the set of verbs checked for a given resource name.
+func (r *authRecorder) verbsFor(name string) sets.Set[string] {
+	verbs := sets.New[string]()
+	for _, sar := range r.requests {
+		if ra := sar.Spec.ResourceAttributes; ra != nil && ra.Name == name {
+			verbs.Insert(ra.Verb)
+		}
+	}
+	return verbs
 }
 
 func TestValidateAuth(t *testing.T) {
 	policy := newCleanupPolicy("cleanup-policy", nil)
 
 	t.Run("permitted deletion passes", func(t *testing.T) {
-		assert.NoError(t, validateAuth(context.Background(), newAuthClient(true), policy))
+		client, rec := newAuthClient(true)
+		require.NoError(t, validateAuth(context.Background(), client, policy))
+		// no Names means a single empty-name check, for both delete and list
+		assert.Equal(t, sets.New("delete", "list"), rec.verbsFor(""))
 	})
 
 	t.Run("denied deletion is reported", func(t *testing.T) {
-		err := validateAuth(context.Background(), newAuthClient(false), policy)
+		client, _ := newAuthClient(false)
+		err := validateAuth(context.Background(), client, policy)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no permission")
 	})
@@ -94,7 +121,13 @@ func TestValidateAuth(t *testing.T) {
 	t.Run("named resources are checked individually", func(t *testing.T) {
 		named := newCleanupPolicy("cleanup-policy", nil)
 		named.Spec.MatchResources.Any[0].ResourceDescription.Names = []string{"first", "second"}
-		assert.NoError(t, validateAuth(context.Background(), newAuthClient(true), named))
+		client, rec := newAuthClient(true)
+		require.NoError(t, validateAuth(context.Background(), client, named))
+		// each name must be checked for both delete and list; this fails if the
+		// per-name loop in validateAuth is removed
+		assert.Equal(t, sets.New("delete", "list"), rec.verbsFor("first"))
+		assert.Equal(t, sets.New("delete", "list"), rec.verbsFor("second"))
+		assert.Empty(t, rec.verbsFor(""), "no unnamed check when Names is set")
 	})
 }
 
