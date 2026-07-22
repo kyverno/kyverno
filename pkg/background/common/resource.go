@@ -62,13 +62,16 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 	// Verify the deletion was actually persisted: if the live object still exists
 	// with the same UID and is not terminating, the delete request was rejected
 	// downstream (e.g. by another webhook) and generation must not proceed.
-	// Any lookup error (including NotFound) is treated as "deletion persisted" so
-	// delete-triggered generation is never blocked by transient failures.
-	if live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName()); err == nil && live != nil {
-		if live.GetUID() == oldResource.GetUID() && live.GetDeletionTimestamp() == nil {
-			return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s still exists in the cluster, the delete request may have been rejected by the API server",
-				oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID())
-		}
+	// NotFound confirms the deletion; other lookup errors are retried so a transient
+	// API failure cannot make a rejected deletion appear persisted.
+	live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to verify deletion of trigger resource %s/%s %s/%s with uid %s: %w",
+			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID(), err)
+	}
+	if live != nil && live.GetUID() == oldResource.GetUID() && live.GetDeletionTimestamp() == nil {
+		return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s still exists in the cluster, the delete request may have been rejected by the API server",
+			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID())
 	}
 	return &oldResource, nil
 }

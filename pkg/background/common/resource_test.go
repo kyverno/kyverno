@@ -11,9 +11,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -22,7 +24,8 @@ import (
 // existing test helpers in pkg/background/generate/cleanup_test.go.
 type fakeListClient struct {
 	dclient.Interface
-	namespaces []unstructured.Unstructured
+	namespaces     []unstructured.Unstructured
+	getResourceErr error
 }
 
 func (f *fakeListClient) ListResource(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
@@ -30,12 +33,15 @@ func (f *fakeListClient) ListResource(_ context.Context, _, _, _ string, _ *meta
 }
 
 func (f *fakeListClient) GetResource(_ context.Context, _, _, _ string, name string, _ ...string) (*unstructured.Unstructured, error) {
+	if f.getResourceErr != nil {
+		return nil, f.getResourceErr
+	}
 	for i := range f.namespaces {
 		if f.namespaces[i].GetName() == name {
 			return &f.namespaces[i], nil
 		}
 	}
-	return nil, fmt.Errorf("resource not found: %s", name)
+	return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, name)
 }
 
 func newFakeClientWithNamespace(name string, uid types.UID, labels map[string]string) dclient.Interface {
@@ -296,6 +302,21 @@ func TestGetTrigger_DeleteOperation_RejectedDelete(t *testing.T) {
 
 	assert.Error(t, err, "a rejected delete must not drive delete-triggered generation")
 	assert.ErrorContains(t, err, "still exists")
+	assert.Nil(t, result)
+}
+
+func TestGetTrigger_DeleteOperation_TransientLookupError(t *testing.T) {
+	client := &fakeListClient{
+		Interface:      dclient.NewEmptyFakeClient(),
+		getResourceErr: fmt.Errorf("temporary API failure"),
+	}
+	spec := makeNamespaceSpec("test-ns", "same-uid-111")
+	urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"same-uid-111"}}`, spec)
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.Error(t, err, "a transient lookup failure must not be treated as a persisted deletion")
+	assert.ErrorContains(t, err, "failed to verify deletion")
 	assert.Nil(t, result)
 }
 
