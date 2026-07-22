@@ -626,3 +626,34 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestMetadataConversionCharacterization(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "object.metadata.name",
+			expected: "object.metadata.name",
+		},
+		{
+			input:    "object.metadata.labels.app",
+			expected: "object.spec.template.metadata.labels.app",
+		},
+		{
+			input:    "Object.metadata.labels.app",
+			expected: "Object.spec.template.metadata.labels.app",
+		},
+		{
+			input:    "oldObject.metadata.name",
+			expected: "oldObject.metadata.name",
+		},
+		{
+			input:    "oldObject.metadata.labels.app",
+			expected: "oldObject.spec.template.metadata.labels.app",
+		},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.expected, convertPodToTemplateExpression(tt.input, "deployments"))
+	}
+}

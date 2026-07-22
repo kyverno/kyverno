@@ -218,6 +218,58 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			},
 		},
 		{
+			name:        "autogen preserves object.metadata.name in validations",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [{
+						"apiGroups": [""],
+						"apiVersions": ["v1"],
+						"operations": ["CREATE", "UPDATE"],
+						"resources": ["pods"]
+					}]
+				},
+				"matchConditions": [{
+					"name": "in allowed namespace",
+					"expression": "resource.List('v1', 'configmaps', object.metadata.namespace).size() > 0"
+				}],
+				"validations": [{
+					"expression": "object.metadata.name != ''"
+				}]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+										admissionregistrationv1.Update,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{"apps"},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"deployments"},
+									},
+								},
+							}},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{{
+							Name:       "in allowed namespace",
+							Expression: "resource.List('v1', 'configmaps', object.metadata.namespace).size() > 0",
+						}},
+						Validations: []admissionregistrationv1.Validation{{
+							Expression: "object.metadata.name != ''",
+						}},
+					},
+				},
+			},
+		},
+		{
 			name:        "autogen preserves object.metadata.namespace in match conditions",
 			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
@@ -301,6 +353,53 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			assert.Equal(t, test.generatedRule, genRule)
 		})
 	}
+}
+
+func TestAutogenMetadataPathsSurviveJSONRoundTrip(t *testing.T) {
+	spec := policiesv1beta1.ValidatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}},
+		},
+		Variables: []admissionregistrationv1.Variable{{
+			Name:       "workloadName",
+			Expression: `object.metadata["name"]`,
+		}},
+		MatchConditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "workload metadata",
+			Expression: `resource.Get('v1', 'configmaps', object.metadata.namespace, object.metadata.name) != null && oldObject.metadata.?annotations[?'example.com/key'].orValue('') == object.metadata.?annotations[?'example.com/key'].orValue('')`,
+		}},
+		Validations: []admissionregistrationv1.Validation{{
+			Expression:        `object.metadata.?labels[?'app'].orValue('') == 'demo' && object.spec.containers.size() > 0`,
+			MessageExpression: `object.metadata.name + ':' + oldObject.metadata.uid`,
+		}},
+		AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+			Key:             "workload",
+			ValueExpression: `object.metadata.ownerReferences[0].uid + ':' + object.metadata.labels.app`,
+		}},
+	}
+
+	generated, err := generateRuleForControllers(spec, sets.New("deployments", "cronjobs"))
+	assert.NoError(t, err)
+
+	deployment := generated[autogen.AutogenDefaults].Spec
+	assert.Equal(t, `object.metadata["name"]`, deployment.Variables[0].Expression)
+	assert.Equal(t, `resource.Get('v1', 'configmaps', object.metadata.namespace, object.metadata.name) != null && oldObject.spec.template.metadata.?annotations[?'example.com/key'].orValue('') == object.spec.template.metadata.?annotations[?'example.com/key'].orValue('')`, deployment.MatchConditions[0].Expression)
+	assert.Equal(t, `object.spec.template.metadata.?labels[?'app'].orValue('') == 'demo' && object.spec.template.spec.containers.size() > 0`, deployment.Validations[0].Expression)
+	assert.Equal(t, `object.metadata.name + ':' + oldObject.metadata.uid`, deployment.Validations[0].MessageExpression)
+	assert.Equal(t, `object.metadata.ownerReferences[0].uid + ':' + object.spec.template.metadata.labels.app`, deployment.AuditAnnotations[0].ValueExpression)
+
+	cronjob := generated[autogen.AutogenCronjobs].Spec
+	assert.Equal(t, `object.spec.jobTemplate.spec.template.metadata.?labels[?'app'].orValue('') == 'demo' && object.spec.jobTemplate.spec.template.spec.containers.size() > 0`, cronjob.Validations[0].Expression)
+	assert.Equal(t, `object.metadata.ownerReferences[0].uid + ':' + object.spec.jobTemplate.spec.template.metadata.labels.app`, cronjob.AuditAnnotations[0].ValueExpression)
 }
 
 func TestGenerateCronJobRule(t *testing.T) {
