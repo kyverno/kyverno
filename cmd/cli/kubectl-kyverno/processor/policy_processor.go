@@ -319,7 +319,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 
-			eng := mpolengine.NewEngine(admissionProvider{provider}, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
+			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				if !p.Cluster {
@@ -1229,29 +1229,6 @@ func discoverCELTargets(
 		result[pol.Policy.GetName()] = targetKeys
 	}
 	return result, nil
-}
-
-// admissionProvider adds the mutating policies that enable mutateExisting to the admission path.
-// Enabling mutateExisting adds background mutation, it does not turn admission off (admission and
-// mutateExisting are separate settings, and admission defaults to enabled), so those policies still
-// apply to the resource being admitted and the CLI has to evaluate them here too. Without this a
-// test of a policy with mutateExisting enabled reports no result at all for the admitted resource.
-// Fetching mutateExisting policies keeps its usual meaning: only the ones that enable it.
-type admissionProvider struct {
-	mpolengine.Provider
-}
-
-func (p admissionProvider) Fetch(ctx context.Context, mutateExisting bool) []mpolengine.Policy {
-	if mutateExisting {
-		return p.Provider.Fetch(ctx, true)
-	}
-	policies := p.Provider.Fetch(ctx, false)
-	for _, policy := range p.Provider.Fetch(ctx, true) {
-		if policy.Policy.GetSpec().AdmissionEnabled() {
-			policies = append(policies, policy)
-		}
-	}
-	return policies
 }
 
 func hasSelector(match *admissionregistrationv1.MatchResources) bool {
