@@ -101,7 +101,9 @@ func TestValidatePattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, err := ValidatePattern(tt.pattern, "root", tt.isSupported)
+			// "/" is the base path every production call site passes
+			// (pkg/policy/validate, pkg/policy/generate).
+			path, err := ValidatePattern(tt.pattern, "/", tt.isSupported)
 			if tt.wantErr {
 				if assert.Error(t, err) {
 					assert.NotEmpty(t, path, "an error result should carry the offending path")
