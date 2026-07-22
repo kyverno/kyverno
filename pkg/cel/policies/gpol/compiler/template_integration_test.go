@@ -226,6 +226,33 @@ data:
 		assert.Equal(t, "(( not.evaluated ))", value)
 	})
 
+	t.Run("expression and template entries mix within one policy", func(t *testing.T) {
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				Generation: []v1beta1.Generation{{
+					Expression: `generator.Apply("expr-ns", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": dyn({"name": "from-expression"})}])`,
+				}, {
+					Template: &v1beta1.GenerationTemplate{
+						Value: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: from-template
+  namespace: tpl-ns
+`,
+					},
+				}},
+			},
+		}
+		result, err := evaluate(t, pol)
+		require.NoError(t, err)
+		require.Len(t, result.GeneratedResources, 2)
+		assert.Equal(t, "from-expression", result.GeneratedResources[0].GetName())
+		assert.Equal(t, "expr-ns", result.GeneratedResources[0].GetNamespace())
+		assert.Equal(t, "from-template", result.GeneratedResources[1].GetName())
+		assert.Equal(t, "tpl-ns", result.GeneratedResources[1].GetNamespace())
+	})
+
 	t.Run("namespaced policy denies cross-namespace template targets", func(t *testing.T) {
 		pol := &v1beta1.NamespacedGeneratingPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "tenant-pol", Namespace: "tenant-ns"},
