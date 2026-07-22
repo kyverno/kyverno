@@ -202,6 +202,38 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "variables in match conditions rejected when MAP autogen enabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "invalid-map-compatible-mpol",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{{
+							RuleWithOperations: v1.RuleWithOperations{
+								Rule: v1.Rule{
+									APIGroups: []string{""},
+									Resources: []string{"pods"},
+								},
+							},
+						}},
+					},
+					Variables: []v1.Variable{{
+						Name:       "targetName",
+						Expression: `"test"`,
+					}},
+					MatchConditions: []v1.MatchCondition{{
+						Name:       "uses-variable",
+						Expression: `variables.targetName == "test"`,
+					}},
+					AutogenConfiguration: &v1beta1.MutatingPolicyAutogenConfiguration{
+						MutatingAdmissionPolicy: &v1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
