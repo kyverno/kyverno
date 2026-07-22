@@ -218,6 +218,22 @@ uses variables that are only available in the admission review request (e.g. use
 </tr>
 <tr>
 <td>
+<code>backgroundScanInterval</code><br/>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BackgroundScanInterval overrides the global background scan interval for this policy.
+The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>schemaValidation</code><br/>
 <em>
 bool
@@ -489,6 +505,22 @@ bool
 <p>Background controls if rules are applied to existing resources during a background scan.
 Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>backgroundScanInterval</code><br/>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BackgroundScanInterval overrides the global background scan interval for this policy.
+The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -4419,6 +4451,22 @@ bool
 <p>Background controls if rules are applied to existing resources during a background scan.
 Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
 uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>backgroundScanInterval</code><br/>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>BackgroundScanInterval overrides the global background scan interval for this policy.
+The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
 </td>
 </tr>
 <tr>
