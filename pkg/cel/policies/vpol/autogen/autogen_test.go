@@ -8,7 +8,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 func TestGenerateRuleForControllers(t *testing.T) {
@@ -301,6 +303,94 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			assert.Equal(t, test.generatedRule, genRule)
 		})
 	}
+}
+
+func TestAutogenPodControllersEnabled(t *testing.T) {
+	basePolicy := func() *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test"},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+									admissionregistrationv1.Update,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{
+						Expression: "object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("enabled=false skips autogen entirely", func(t *testing.T) {
+		policy := basePolicy()
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+				Enabled: ptr.To(false),
+			},
+		}
+		rules, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Nil(t, rules)
+	})
+
+	t.Run("enabled=false takes precedence over a non-empty controllers list", func(t *testing.T) {
+		policy := basePolicy()
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+				Enabled:     ptr.To(false),
+				Controllers: []string{"deployments"},
+			},
+		}
+		rules, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Nil(t, rules)
+	})
+
+	t.Run("enabled=true generates for all default controllers", func(t *testing.T) {
+		policy := basePolicy()
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+				Enabled: ptr.To(true),
+			},
+		}
+		rules, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, rules)
+	})
+
+	t.Run("unset PodControllers still generates by default", func(t *testing.T) {
+		policy := basePolicy()
+		rules, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, rules)
+	})
+
+	t.Run("empty controllers list disables autogen, unchanged legacy behavior", func(t *testing.T) {
+		policy := basePolicy()
+		policy.Spec.AutogenConfiguration = &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+			PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+				Controllers: []string{},
+			},
+		}
+		rules, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Empty(t, rules)
+	})
 }
 
 func TestGenerateCronJobRule(t *testing.T) {

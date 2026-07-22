@@ -22,10 +22,14 @@ func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1be
 	}
 
 	actualControllers := autogen.AllConfigs
-	if policy.GetSpec().AutogenConfiguration != nil &&
-		policy.GetSpec().AutogenConfiguration.PodControllers != nil &&
-		policy.GetSpec().AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.GetSpec().AutogenConfiguration.PodControllers.Controllers...)
+	if policy.GetSpec().AutogenConfiguration != nil && policy.GetSpec().AutogenConfiguration.PodControllers != nil {
+		pc := policy.GetSpec().AutogenConfiguration.PodControllers
+		if pc.Enabled != nil && !*pc.Enabled {
+			return nil, nil
+		}
+		if pc.Controllers != nil {
+			actualControllers = sets.New(pc.Controllers...)
+		}
 	}
 	return generateRuleForControllers(policy.GetSpec(), actualControllers)
 }
