@@ -227,6 +227,19 @@ func TestRegistryClientFactory_GetClient(t *testing.T) {
 	}
 }
 
+func TestRegistryClientFactory_GetClient_IncludesGlobalKeychain(t *testing.T) {
+	globalClient := registryclient.NewOrDie(registryclient.WithCredentialProviders("default"))
+	factory := DefaultRegistryClientFactory(adapters.RegistryClient(globalClient), nil)
+
+	client, err := factory.GetClient(context.Background(), nil, "production", []string{"prod-secret"})
+	assert.NilError(t, err)
+	assert.Assert(t, client != nil)
+
+	_, isGlobal := client.(*mockRegistryClient)
+	assert.Assert(t, !isGlobal, "should build a derived client, not return the global instance")
+	assert.Assert(t, client.Keychain() != nil, "derived client should expose a composed keychain")
+}
+
 func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 	// This test specifically verifies the namespace prefixing logic
 	clientset := fake.NewSimpleClientset()

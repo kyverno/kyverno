@@ -93,6 +93,16 @@ func NewOrDie(options ...Option) Client {
 	return c
 }
 
+// WithKeychain appends an existing keychain (for example the admission controller global client).
+func WithKeychain(keychain authn.Keychain) Option {
+	return func(c *config) error {
+		if keychain != nil {
+			c.keychain = append(c.keychain, keychain)
+		}
+		return nil
+	}
+}
+
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
 func WithKeychainPullSecrets(lister corev1listers.SecretLister, defaultNamespace string, imagePullSecrets ...string) Option {
 	return func(c *config) error {
