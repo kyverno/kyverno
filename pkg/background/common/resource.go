@@ -105,7 +105,14 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 			}
 		}
 
-		return nil, nil
+		// The UID recorded in the UpdateRequest does not match any live resource.
+		// This means the originating admission request was rejected by the API server
+		// (e.g. AlreadyExists), or the resource was deleted (and possibly recreated)
+		// before this UpdateRequest was processed. Do NOT fall back to the admission
+		// request payload: it may carry mutated state that never got persisted and
+		// must not drive policy evaluation. See https://github.com/kyverno/kyverno/issues/16566.
+		return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s not found in the cluster, the corresponding admission request may have been rejected by the API server",
+			resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), obj.GetNamespace(), obj.GetName(), obj.GetUID())
 	} else if obj.GetName() != "" {
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""

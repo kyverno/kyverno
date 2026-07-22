@@ -22,7 +22,7 @@ spec:
       uid: phantom-uid-111
   context:
     admissionRequestInfo:
-      operation: Create
+      operation: CREATE
       admissionRequest:
         uid: ""
         kind:

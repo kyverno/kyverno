@@ -81,7 +81,8 @@ func TestGetResource_UIDMismatch_SameName(t *testing.T) {
 
 	result, err := GetResource(client, spec, urSpec, logr.Discard())
 
-	assert.NoError(t, err)
+	assert.Error(t, err, "GetResource should return an error when UID does not match any live object")
+	assert.ErrorContains(t, err, "phantom-uid-999")
 	assert.Nil(t, result, "GetResource should return nil when UID does not match any live object")
 }
 
@@ -92,7 +93,7 @@ func TestGetResource_UIDMismatch_DeletedRecreated(t *testing.T) {
 
 	result, err := GetResource(client, spec, urSpec, logr.Discard())
 
-	assert.NoError(t, err)
+	assert.Error(t, err, "GetResource should return an error when object was deleted and recreated with a new UID")
 	assert.Nil(t, result, "GetResource should return nil when object was deleted and recreated with a new UID")
 }
 
@@ -132,7 +133,7 @@ func TestGetResource_UIDNotFound_AdmissionRequestFallback(t *testing.T) {
 
 	result, err := GetResource(client, spec, urSpec, logr.Discard())
 
-	assert.NoError(t, err)
+	assert.Error(t, err, "GetResource should surface a descriptive error instead of falling back to admission request bytes")
 	assert.Nil(t, result, "GetResource should NOT fall back to admission request bytes when UID lookup fails")
 }
 
@@ -143,7 +144,7 @@ func TestGetResource_UIDNotFound_NoAdmissionRequest(t *testing.T) {
 
 	result, err := GetResource(client, spec, urSpec, logr.Discard())
 
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, result)
 }
 
@@ -199,4 +200,66 @@ func TestGetResource_EmptySpec_FallbackToURResource(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "test-ns", result.GetName())
 	assert.Equal(t, types.UID("fallback-uid-777"), result.GetUID())
+}
+
+// TestGetTrigger_DeleteOperation_ReturnsOldObject guards the delete-triggered
+// generation path: a generate rule that explicitly matches the DELETE operation
+// must still execute even though the trigger no longer exists in the cluster.
+// The trigger is sourced from the admission request's oldObject and must not be
+// subject to the UID liveness check applied to CREATE operations.
+func TestGetTrigger_DeleteOperation_ReturnsOldObject(t *testing.T) {
+	// no live namespace at all: the trigger was deleted
+	client := &fakeListClient{Interface: dclient.NewEmptyFakeClient()}
+	spec := makeNamespaceSpec("deleted-ns", "deleted-uid-123")
+	urSpec := kyvernov2.UpdateRequestSpec{
+		RuleContext: []kyvernov2.RuleContext{
+			{Trigger: spec},
+		},
+		Context: kyvernov2.UpdateRequestSpecContext{
+			AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+				AdmissionRequest: &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Delete,
+					OldObject: runtime.RawExtension{
+						Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"deleted-ns","uid":"deleted-uid-123","labels":{"layer":"business"}}}`),
+					},
+				},
+				Operation: admissionv1.Delete,
+			},
+		},
+	}
+
+	result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result, "delete-triggered generation must receive the oldObject as trigger")
+	assert.Equal(t, "deleted-ns", result.GetName())
+	assert.Equal(t, types.UID("deleted-uid-123"), result.GetUID())
+}
+
+// TestGetResource_MutateExisting_PhantomUID verifies that the mutate-existing
+// path (which resolves triggers through the same GetResource) also refuses to
+// fall back to admission request bytes when the trigger UID does not match any
+// live resource.
+func TestGetResource_MutateExisting_PhantomUID(t *testing.T) {
+	client := newFakeClientWithNamespace("test-ns", "live-uid-111", map[string]string{"layer": "operational"})
+	spec := makeNamespaceSpec("test-ns", "phantom-uid-999")
+	urSpec := kyvernov2.UpdateRequestSpec{
+		Type: kyvernov2.Mutate,
+		Context: kyvernov2.UpdateRequestSpecContext{
+			AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+				AdmissionRequest: &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns","uid":"phantom-uid-999","labels":{"layer":"business"}}}`),
+					},
+				},
+				Operation: admissionv1.Create,
+			},
+		},
+	}
+
+	result, err := GetResource(client, spec, urSpec, logr.Discard())
+
+	assert.Error(t, err)
+	assert.Nil(t, result, "mutate-existing must not evaluate a phantom trigger from a rejected admission request")
 }
