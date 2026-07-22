@@ -131,7 +131,7 @@ spec:
 			},
 		}},
 	}, {
-		name:        "structural splice of list",
+		name:        "structural splice of map and list",
 		interpolate: policiesv1beta1.InterpolationModeCEL,
 		value: `
 apiVersion: v1
@@ -139,13 +139,15 @@ kind: ConfigMap
 metadata:
   name: cm
   labels: (( variables.labels ))
+  finalizers: (( variables.nsList ))
 `,
 		want: []map[string]any{{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]any{
-				"name":   "cm",
-				"labels": map[string]any{"team": "dev", "env": "prod"},
+				"name":       "cm",
+				"labels":     map[string]any{"team": "dev", "env": "prod"},
+				"finalizers": []any{"a", "b"},
 			},
 		}},
 	}, {
@@ -369,6 +371,8 @@ metadata:
 data:
   static: value
 `
+	// malformed YAML yields no expressions, even if earlier documents parsed
+	assert.Empty(t, ExtractExpressions("metadata:\n  name: (( variables.a ))\n---\nkind: [unclosed"))
 	assert.Equal(t, []string{"variables.a", "variables.b", "variables.c"}, ExtractExpressions(value))
 	assert.Empty(t, ExtractExpressions("plain: yaml"))
 }

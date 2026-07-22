@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 
@@ -79,17 +80,18 @@ func Compile(path *field.Path, env *cel.Env, tpl *policiesv1beta1.GenerationTemp
 }
 
 // Render evaluates all placeholders against the given CEL activation and
-// returns one resource map per YAML document.
+// returns one resource map per YAML document. Documents are numbered starting
+// at 1 in error messages, consistent with YAML conventions.
 func (t *Template) Render(ctx context.Context, activation any) ([]map[string]any, error) {
 	resources := make([]map[string]any, 0, len(t.docs))
 	for i, doc := range t.docs {
 		v, err := doc.render(ctx, activation)
 		if err != nil {
-			return nil, fmt.Errorf("document %d: %w", i, err)
+			return nil, fmt.Errorf("document %d: %w", i+1, err)
 		}
 		resource, ok := v.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("document %d: expected a mapping describing a resource, got %T", i, v)
+			return nil, fmt.Errorf("document %d: expected a mapping describing a resource, got %T", i+1, v)
 		}
 		resources = append(resources, resource)
 	}
@@ -97,15 +99,19 @@ func (t *Template) Render(ctx context.Context, activation any) ([]map[string]any
 }
 
 // ExtractExpressions returns the CEL expressions of all placeholders found in
-// the given template value. It is best-effort: parse errors yield an empty
-// result (they are reported separately by Compile).
+// the given template value. Malformed YAML yields an empty result: parse
+// errors are reported separately by Compile, and partial extraction could
+// surface misleading validation errors for a template that is rejected anyway.
 func ExtractExpressions(value string) []string {
 	var expressions []string
 	decoder := yaml.NewDecoder(strings.NewReader(value))
 	for {
 		var doc yaml.Node
 		if err := decoder.Decode(&doc); err != nil {
-			break
+			if err == io.EOF {
+				break
+			}
+			return nil
 		}
 		collectExpressions(&doc, &expressions)
 	}
@@ -390,7 +396,11 @@ func celValueToNative(val ref.Val) (any, error) {
 	case types.IntType:
 		return val.Value().(int64), nil
 	case types.UintType:
-		return int64(val.Value().(uint64)), nil //nolint:gosec
+		v := val.Value().(uint64)
+		if v > math.MaxInt64 {
+			return nil, fmt.Errorf("uint value %d overflows the supported integer range", v)
+		}
+		return int64(v), nil
 	case types.DoubleType:
 		return val.Value().(float64), nil
 	}
