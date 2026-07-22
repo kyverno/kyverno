@@ -103,6 +103,13 @@ spec:
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
+              backgroundScanInterval:
+                description: |-
+                  BackgroundScanInterval overrides the global background scan interval for this policy.
+                  The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+                  such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+                format: duration
+                type: string
               emitWarning:
                 default: false
                 description: |-
@@ -10405,6 +10412,13 @@ spec:
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
+              backgroundScanInterval:
+                description: |-
+                  BackgroundScanInterval overrides the global background scan interval for this policy.
+                  The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+                  such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+                format: duration
+                type: string
               emitWarning:
                 default: false
                 description: |-

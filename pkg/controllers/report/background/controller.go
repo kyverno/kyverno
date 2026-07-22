@@ -476,6 +476,24 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
+// scanInterval returns the delay to use before the next background scan of a resource.
+// A policy can override the global interval with a shorter or longer one of its own; when
+// several policies apply to the same resource, the shortest override wins so that no policy
+// ends up scanned less often than it asked for.
+func (c *controller) scanInterval(policies ...engineapi.GenericPolicy) time.Duration {
+	delay := c.forceDelay
+	for _, policy := range policies {
+		kyvernoPolicy := policy.AsKyvernoPolicy()
+		if kyvernoPolicy == nil {
+			continue
+		}
+		if interval := kyvernoPolicy.GetSpec().GetBackgroundScanInterval(); interval != nil && interval.Duration < delay {
+			delay = interval.Duration
+		}
+	}
+	return delay
+}
+
 func (c *controller) needsReconcile(
 	namespace string,
 	name string,
@@ -507,7 +525,7 @@ func (c *controller) needsReconcile(
 			logger.Error(err, "failed to parse last scan time annotation", "namespace", namespace, "name", name, "hash", hash)
 			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
-		if time.Now().After(annTime.Add(c.forceDelay)) {
+		if time.Now().After(annTime.Add(c.scanInterval(policies...))) {
 			return reportutils.GetResourceHash(reportMetadata), true, true, nil
 		}
 	}
@@ -910,7 +928,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	} else {
 		defer func() {
-			c.queue.AddAfter(key, c.forceDelay)
+			c.queue.AddAfter(key, c.scanInterval(policies...))
 		}()
 		if needsReconcile {
 			// update the hash if we got a new one

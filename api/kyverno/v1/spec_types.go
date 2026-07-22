@@ -90,6 +90,13 @@ type Spec struct {
 	// +kubebuilder:default=true
 	Background *bool `json:"background,omitempty"`
 
+	// BackgroundScanInterval overrides the global background scan interval for this policy.
+	// The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+	// such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+	// +optional
+	// +kubebuilder:validation:Format=duration
+	BackgroundScanInterval *metav1.Duration `json:"backgroundScanInterval,omitempty"`
+
 	// Deprecated.
 	SchemaValidation *bool `json:"schemaValidation,omitempty"`
 
@@ -295,6 +302,11 @@ func (s *Spec) GetWebhookTimeoutSeconds() *int32 {
 	return nil
 }
 
+// GetBackgroundScanInterval returns the background scan interval override for this policy, if set.
+func (s *Spec) GetBackgroundScanInterval() *metav1.Duration {
+	return s.BackgroundScanInterval
+}
+
 // GetMatchConditions returns matchConditions in webhookConfiguration
 func (s *Spec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 	if s.WebhookConfiguration != nil {
@@ -383,6 +395,9 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	}
 	if s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil && (*s.WebhookConfiguration.TimeoutSeconds < 1 || *s.WebhookConfiguration.TimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookConfiguration.timeoutSeconds"), s.WebhookConfiguration.TimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
+	}
+	if s.BackgroundScanInterval != nil && s.BackgroundScanInterval.Duration <= 0 {
+		errs = append(errs, field.Invalid(path.Child("backgroundScanInterval"), s.BackgroundScanInterval, "the background scan interval must be greater than zero"))
 	}
 	warning, errors := s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)
 	warnings = append(warnings, warning...)
