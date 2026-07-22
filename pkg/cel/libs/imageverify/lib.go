@@ -5,6 +5,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -20,19 +21,22 @@ type lib struct {
 	imgCtx  imagedataloader.ImageContext
 	ivpol   policiesv1beta1.ImageValidatingPolicyLike
 	lister  k8scorev1.SecretInterface
+	ivCache imageverifycache.Client
 }
 
 func Latest() *version.Version {
 	return versions.KyvernoLatest
 }
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
+func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface, logger logr.Logger, ivCache imageverifycache.Client) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
+		logger:  logger,
 		version: v,
 		imgCtx:  imgCtx,
 		ivpol:   ivpol,
 		lister:  lister,
+		ivCache: ivCache,
 	})
 }
 
@@ -55,7 +59,7 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
+	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, c.ivCache, env.CELTypeAdapter())
 	if err != nil {
 		return nil, err
 	}
