@@ -246,7 +246,7 @@ func (e *engineImpl) handleMutation(
 	}
 
 	for _, ivpol := range filteredPolicies {
-		c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
+		c := eval.NewCompiler(ictx, e.lister, request.RequestResource, e.ivCache)
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,
 			Actions:    ivpol.Actions,
