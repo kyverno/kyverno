@@ -41,16 +41,16 @@ func (l *store) CheckCapacity(key string) error {
 
 func (l *store) Set(key string, val Entry) error {
 	l.Lock()
-	defer l.Unlock()
 	old, exists := l.store[key]
 	if !exists && l.maxEntries > 0 && len(l.store) >= l.maxEntries {
+		l.Unlock()
 		return ErrStoreFull
 	}
-	// If the key already exists, stop it before replacing it
+	l.store[key] = val
+	l.Unlock()
 	if old != nil {
 		old.Stop()
 	}
-	l.store[key] = val
 	return nil
 }
 
@@ -63,10 +63,10 @@ func (l *store) Get(key string) (Entry, bool) {
 
 func (l *store) Delete(key string) {
 	l.Lock()
-	defer l.Unlock()
 	entry := l.store[key]
+	delete(l.store, key)
+	l.Unlock()
 	if entry != nil {
 		entry.Stop()
 	}
-	delete(l.store, key)
 }
