@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -50,7 +49,6 @@ type engineImpl struct {
 	matcher      matching.Matcher
 	lister       k8scorev1.SecretInterface
 	registryOpts []imagedataloader.Option
-	ivCache      imageverifycache.Client
 }
 
 func NewEngine(
@@ -59,7 +57,6 @@ func NewEngine(
 	matcher matching.Matcher,
 	lister k8scorev1.SecretInterface,
 	registryOpts []imagedataloader.Option,
-	ivCache imageverifycache.Client,
 ) Engine {
 	return &engineImpl{
 		provider:     provider,
@@ -67,7 +64,6 @@ func NewEngine(
 		matcher:      matcher,
 		lister:       lister,
 		registryOpts: registryOpts,
-		ivCache:      ivCache,
 	}
 }
 
@@ -245,7 +241,7 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, e.ivCache)
+	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
 	for _, ivpol := range filteredPolicies {
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,

@@ -13,7 +13,7 @@ import (
 
 const (
 	// Test images from cosign test repository
-	testRegistry           = "ghcr.io/kyverno/test-images/cosign"
+	testRegistry           = "ghcr.io/lucchmielowski/kyverno-cosign-testbed"
 	unsignedImage          = testRegistry + ":unsigned"
 	githubAttestationImage = testRegistry + ":github-attestation"
 	v2KeyBasedImage        = testRegistry + ":v2-traditional"
@@ -23,7 +23,7 @@ const (
 	v3BundleImage          = testRegistry + ":v3-bundle"
 
 	// GitHub Actions OIDC configuration for keyless signing
-	githubWorkflowID = "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main"
+	githubWorkflowID = "https://github.com/lucchmielowski/kyverno-cosign-testbed/.github/workflows/ci.yml@refs/heads/main"
 )
 
 const (
@@ -763,7 +763,7 @@ func Test_GitHubAttestationVerification(t *testing.T) {
 		require.NoError(t, err)
 
 		// Use an image that should have SLSA provenance attestations
-		// Based on the policy: ghcr.io/kyverno/test-images/cosign:*
+		// Based on the policy: ghcr.io/lucchmielowski/kyverno-cosign-testbed:*
 		// The image must have SLSA provenance attestations signed with GitHub Actions
 		img, err := idf.FetchImageData(context.TODO(), githubAttestationImage)
 		if err != nil {

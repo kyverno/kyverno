@@ -180,7 +180,3 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 	assert.Equal(t, int32(1), engineMock.handleCalls.Load(), "background request should evaluate policy when explicitly disabled")
 	assert.Equal(t, int32(1), urMock.called.Load(), "background request should create UR when explicitly disabled")
 }
-
-// Admission-disabled policies are excluded from admission-driven UR creation
-// inside the engine's MatchesMutateExisting (see the reconciler/provider tests);
-// the handler creates URs for whatever the engine returns.

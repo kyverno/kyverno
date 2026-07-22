@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -267,51 +266,6 @@ func TestMatchesMutateExisting(t *testing.T) {
 						Policy: &policiesv1beta1.MutatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{Name: "policy3"},
 						},
-					},
-				},
-			},
-			expectedNames: []string{},
-		},
-		{
-			name: "namespaced policy returns stable policy key",
-			policies: map[string][]Policy{
-				"default/policy4": {
-					{
-						Policy: &policiesv1beta1.NamespacedMutatingPolicy{
-							ObjectMeta: metav1.ObjectMeta{Name: "policy4", Namespace: "default"},
-							Spec: policiesv1beta1.MutatingPolicySpec{
-								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
-									MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
-										Enabled: &trueBool,
-									},
-								},
-								MatchConstraints: &admissionregistrationv1.MatchResources{},
-							},
-						},
-						CompiledPolicy: &compiler.Policy{},
-					},
-				},
-			},
-			expectedNames: []string{"default/policy4"},
-		},
-		{
-			name: "admission-disabled policy is never matched by admission requests",
-			policies: map[string][]Policy{
-				"test/policy5": {
-					{
-						Policy: &policiesv1beta1.MutatingPolicy{
-							ObjectMeta: metav1.ObjectMeta{Name: "policy5"},
-							Spec: policiesv1beta1.MutatingPolicySpec{
-								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
-									Admission: &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
-									MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
-										Enabled: &trueBool,
-									},
-								},
-								MatchConstraints: &admissionregistrationv1.MatchResources{},
-							},
-						},
-						CompiledPolicy: &compiler.Policy{},
 					},
 				},
 			},

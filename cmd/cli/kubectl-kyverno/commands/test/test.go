@@ -43,7 +43,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -668,7 +667,6 @@ func applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
-		imageverifycache.DisabledImageVerifyCache(),
 	)
 	if restMapper == nil {
 		var mapErr error

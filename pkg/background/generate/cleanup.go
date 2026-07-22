@@ -115,7 +115,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 	if generatePattern.GetKind() != "" {
 		// Fetch downstream resources using trigger uid label
 		c.log.V(4).Info("fetching downstream resource by the UID", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-		dsList, err := common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+		dsList, err := common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			delete(selector, common.GenerateTriggerUIDLabel)
 			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-			dsList, err = common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
 			if err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			kindSelector[k] = v
 		}
 		c.log.V(4).Info("fetching downstream cloneList resources by the UID", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-		dsList, err := common.FindDownstream(context.TODO(), c.client, apiVersion, kind, kindSelector)
+		dsList, err := common.FindDownstream(c.client, apiVersion, kind, kindSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +152,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			delete(kindSelector, common.GenerateTriggerUIDLabel)
 			kindSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-			dsList, err = common.FindDownstream(context.TODO(), c.client, apiVersion, kind, kindSelector)
+			dsList, err = common.FindDownstream(c.client, apiVersion, kind, kindSelector)
 			if err != nil {
 				return nil, err
 			}

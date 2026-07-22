@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-nmpol-dtt-target
-  namespace: test-nmpol-dtt-ns
-  labels:
-    mutated: by-trigger

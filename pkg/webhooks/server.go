@@ -159,7 +159,7 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		"/nivpol/validate/*policies",
-		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.NamespacedImageVerificationPolicies, "").
+		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
@@ -172,7 +172,7 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		"/nivpol/mutate/*policies",
-		handlerFunc("NIVPOL-MUTATE", resourceHandlers.NamespacedImageVerificationPoliciesMutation, "").
+		handlerFunc("NIVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).

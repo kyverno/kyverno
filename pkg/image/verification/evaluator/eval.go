@@ -6,7 +6,6 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -38,7 +37,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 
 	policies := filterPolicies(ivpols, isAdmissionRequest)
 
-	c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
+	c := NewCompiler(ictx, lister, gvr)
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
 		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)

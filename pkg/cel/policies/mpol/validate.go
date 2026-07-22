@@ -33,10 +33,6 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if !spec.AdmissionEnabled() && !spec.MutateExistingEnabled() {
-		err = append(err, field.Forbidden(field.NewPath("spec").Child("evaluation"), "disabling both admission and mutateExisting evaluation modes is not allowed"))
-	}
-
 	if mpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
 		if compiler.ExpressionsUseHTTP(mpolExpressions(spec)...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))

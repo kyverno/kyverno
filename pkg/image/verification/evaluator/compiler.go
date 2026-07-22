@@ -10,9 +10,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -43,20 +41,18 @@ type Compiler interface {
 	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
 }
 
-func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource, ivCache imageverifycache.Client) Compiler {
+func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
 	return &compilerImpl{
-		ictx:    ictx,
-		lister:  lister,
-		reqGVR:  reqGVR,
-		ivCache: ivCache,
+		ictx:   ictx,
+		lister: lister,
+		reqGVR: reqGVR,
 	}
 }
 
 type compilerImpl struct {
-	ictx    imagedataloader.ImageContext
-	lister  k8scorev1.SecretInterface
-	reqGVR  *metav1.GroupVersionResource
-	ivCache imageverifycache.Client
+	ictx   imagedataloader.ImageContext
+	lister k8scorev1.SecretInterface
+	reqGVR *metav1.GroupVersionResource
 }
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
@@ -216,8 +212,6 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		),
 		imageverify.Lib(
 			imageverify.Latest(), c.ictx, ivpol, c.lister,
-			logging.WithName("ivpol/imageverify").WithValues("policy", ivpol.GetName(), "namespace", namespace),
-			c.ivCache,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
