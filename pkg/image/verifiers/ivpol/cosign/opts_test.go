@@ -13,9 +13,11 @@ import (
 )
 
 const (
+	// Public key matching the key used to sign the key-based test images, from
+	// cosign/examples/cosign.pub in kyverno/test-images.
 	testPublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIOJTQ992VBJyyx52p3s1W/lqwNxI
-rFxZI4BL3S6ZGyJFockpfppxOycEkUaGVTUvL0Tp7Yi0eYRJ4TtKxs1lXQ==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPEDZl3iOJwr77T2bS9vgonwzERmG
+PKd/xnmHKfvkbLquVC6NnH8dgPVq8p0H45H2H9CqzqGv+rn99xAWGLE30A==
 -----END PUBLIC KEY-----`
 
 	testIssuer  = "https://token.actions.githubusercontent.com"
