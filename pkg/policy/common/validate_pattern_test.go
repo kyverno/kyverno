@@ -17,6 +17,10 @@ func TestValidatePattern(t *testing.T) {
 		isSupported func(anchor.Anchor) bool
 		wantErr     bool
 		errContains string
+		// wantPath is the exact path the error should carry, so the test
+		// proves the path points at the offending key/index rather than
+		// merely being non-empty
+		wantPath string
 	}{
 		{name: "string scalar", pattern: "value", isSupported: allowAll},
 		{name: "float64 scalar", pattern: float64(1.5), isSupported: allowAll},
@@ -29,6 +33,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     struct{}{},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "/",
 			errContains: "unknown type",
 		},
 		{
@@ -41,6 +46,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     map[string]interface{}{"spec": struct{}{}},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "//spec",
 			errContains: "unknown type",
 		},
 		{
@@ -53,6 +59,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     map[string]interface{}{"^(containers)": "not-a-list"},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "//^(containers)",
 			errContains: "existence anchor should have value of type list",
 		},
 		{
@@ -60,6 +67,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     map[string]interface{}{"^(containers)": []interface{}{}},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "//^(containers)",
 			errContains: "should have at least one value",
 		},
 		{
@@ -67,6 +75,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     map[string]interface{}{"^(containers)": []interface{}{"nginx"}},
 			isSupported: allowNone,
 			wantErr:     true,
+			wantPath:    "//^(containers)",
 			errContains: "unsupported anchor",
 		},
 		{
@@ -74,6 +83,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     map[string]interface{}{"^(containers)": []interface{}{"nginx"}},
 			isSupported: nil,
 			wantErr:     true,
+			wantPath:    "//^(containers)",
 			errContains: "unsupported anchor",
 		},
 		{
@@ -86,6 +96,7 @@ func TestValidatePattern(t *testing.T) {
 			pattern:     []interface{}{struct{}{}},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "/0/",
 			errContains: "unknown type",
 		},
 		{
@@ -95,6 +106,7 @@ func TestValidatePattern(t *testing.T) {
 			},
 			isSupported: allowAll,
 			wantErr:     true,
+			wantPath:    "/0//^(containers)",
 			errContains: "should have at least one value",
 		},
 	}
@@ -106,7 +118,7 @@ func TestValidatePattern(t *testing.T) {
 			path, err := ValidatePattern(tt.pattern, "/", tt.isSupported)
 			if tt.wantErr {
 				if assert.Error(t, err) {
-					assert.NotEmpty(t, path, "an error result should carry the offending path")
+					assert.Equal(t, tt.wantPath, path, "the error should carry the path of the offending element")
 					if tt.errContains != "" {
 						assert.Contains(t, err.Error(), tt.errContains)
 					}
