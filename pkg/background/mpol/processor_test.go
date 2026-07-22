@@ -32,28 +32,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
-	panic("not implemented")
-}
-
 var (
 	kyvernoClient = versioned.Clientset{}
 	client        = dclient.NewEmptyFakeClient()
@@ -62,7 +40,6 @@ var (
 		Group:   "kyverno.io",
 		Version: "v1",
 	}})
-	ctx           = &fakeContext{}
 	statusControl = common.NewStatusControl(&kyvernoClient, nil)
 	reportsConfig = reportutils.NewReportingConfig([]string{})
 )
@@ -283,6 +260,57 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))
+}
+
+func TestCollectGVK_PreservesSubresourceRoute(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+
+	assert.Len(t, result["*"], 1)
+	for item := range result["*"] {
+		assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, item.parentResource)
+		assert.Equal(t, "resize", item.subresource)
+	}
+}
+
+func TestResolveTargetRoute_Subresource(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+	p := &processor{mapper: mapper}
+	pod := unstructured.Unstructured{}
+	pod.SetAPIVersion("v1")
+	pod.SetKind("Pod")
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	resource, subresource, err := p.resolveTargetRoute(pod, constraints)
+
+	assert.NoError(t, err)
+	assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, resource)
+	assert.Equal(t, "resize", subresource)
 }
 
 // TestGetPolicy_NamespacedMutatingPolicy verifies that GetPolicy resolves a
