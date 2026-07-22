@@ -91,12 +91,8 @@ func ImageVerifyCELFuncs(
 	}, nil
 }
 
-// attestorCacheRule builds a cache rule key that is specific to a function, an optional
-// qualifier (e.g. an attestation name), and the exact set of attestors used in a call, so
-// that different validations in the same policy version don't collide. Attestor names are
-// sorted so the same set produces the same key regardless of call order, and every part is
-// length-prefixed so a name containing a delimiter character can't be crafted to collide
-// with a different set of parts.
+// build a cache key from a CEL function name, a qualifier (attestation name in practice)
+// and the sorted group of attestors
 func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) string {
 	names := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
@@ -132,6 +128,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		}
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
 
+		// create a rule with the given attestors
 		cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
 		if f.ivCache != nil {
 			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
