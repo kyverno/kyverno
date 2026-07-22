@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
-	github.com/IGLOU-EU/go-wildcard v1.0.3
+	github.com/IGLOU-EU/go-wildcard/v2 v2.1.1
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alitto/pond/v2 v2.7.1
@@ -100,6 +100,7 @@ require (
 )
 
 require (
+	github.com/IGLOU-EU/go-wildcard v1.0.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.26 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
