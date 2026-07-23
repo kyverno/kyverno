@@ -8,7 +8,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 )
 
@@ -20,12 +20,11 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
 	opts.Subject = "invalid"
@@ -41,8 +40,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -68,8 +66,7 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 		Type:           "https://slsa.dev/provenance/v1",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}

@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/kyverno/kyverno/api/kyverno"
-	"github.com/kyverno/kyverno/pkg/background/common"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 )
 
 func generateTestRESTMapper() meta.RESTMapper {
