@@ -994,5 +994,8 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	}
 
 	assert.Equal(t, engineapi.RuleStatusPass, got["secret-delete"])
-	assert.Equal(t, engineapi.RuleStatusSkip, got["secret-skip"])
+	// Resources excluded by matchConstraints (here: objectSelector) must not
+	// produce any result row, matching vpol/mpol CLI behavior.
+	_, found := got["secret-skip"]
+	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
 }

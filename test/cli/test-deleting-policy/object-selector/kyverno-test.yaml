@@ -13,9 +13,3 @@ results:
   resources:
   - secret-delete
   result: pass
-- isDeletingPolicy: true
-  kind: Secret
-  policy: cleanup-invalidated-legacy-sa-tokens
-  resources:
-  - secret-skip
-  result: skip
