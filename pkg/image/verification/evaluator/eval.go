@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type CompiledImageValidatingPolicy struct {
@@ -23,12 +23,7 @@ type CompiledImageValidatingPolicy struct {
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 }
 
-func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister k8scorev1.SecretInterface, registryOpts ...imagedataloader.Option) (map[string]*EvaluationResult, error) {
-	ictx, err := imagedataloader.NewImageContext(lister, registryOpts...)
-	if err != nil {
-		return nil, err
-	}
-
+func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister corev1listers.SecretLister) (map[string]*EvaluationResult, error) {
 	isAdmissionRequest := false
 	var gvr *metav1.GroupVersionResource
 	if r, ok := request.(*admissionv1.AdmissionRequest); ok {
@@ -37,10 +32,16 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 	}
 
 	policies := filterPolicies(ivpols, isAdmissionRequest)
+	// leave remote and name options blank, each compiled policy will provide
+	// its own credentials or the default global ones.
+	ictx, err := imagedataloader.NewImageContext(lister, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 
-	c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
 	results := make(map[string]*EvaluationResult, len(policies))
 	for _, ivpol := range policies {
+		c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
 		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
