@@ -1,0 +1,50 @@
+# Mirrors the CiliumNetworkPolicy migration case from
+# https://github.com/kyverno/kyverno/issues/16331: a LabelSelector passed
+# through as a whole-value placeholder (structural splice), mixed
+# static/interpolated array elements in toPorts, and static egress rules.
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-cilium-scrape-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: targetNamespace
+      expression: "object.metadata.name"
+    - name: port
+      expression: "object.metadata.labels['scrape-port']"
+    - name: selector
+      expression: >-
+        {"matchLabels": {"kubernetes.io/metadata.name": object.metadata.name}}
+  generate:
+    - template:
+        interpolate: cel
+        value: |
+          apiVersion: cilium.io/v2
+          kind: CiliumNetworkPolicy
+          metadata:
+            name: (( variables.targetNamespace ))-victoria-scraping
+            namespace: (( variables.targetNamespace ))
+          spec:
+            endpointSelector: (( variables.selector ))
+            ingress:
+            - fromEndpoints:
+              - matchLabels:
+                  app.kubernetes.io/name: vmagent
+                  "k8s:io.kubernetes.pod.namespace": victoria
+              toPorts:
+              - ports:
+                - port: (( string(variables.port) ))
+                  protocol: TCP
+            egress:
+            - toEntities:
+              - kube-apiserver
+              toPorts:
+              - ports:
+                - port: "443"
+                  protocol: TCP
