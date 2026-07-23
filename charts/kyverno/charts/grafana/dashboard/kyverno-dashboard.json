@@ -3783,22 +3783,20 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(increase(kyverno_generating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Generating Policy",
-            "refId": "C",
-            "hide": true
+            "refId": "C"
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(increase(kyverno_image_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Image Validating Policy",
-            "refId": "D",
-            "hide": true
+            "refId": "D"
           }
         ],
         "title": "Policy Failures by Type (CEL)",
@@ -4210,22 +4208,20 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Generating",
-            "refId": "C",
-            "hide": true
+            "refId": "C"
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
             "interval": "",
             "legendFormat": "Image Validating",
-            "refId": "D",
-            "hide": true
+            "refId": "D"
           }
         ],
         "title": "Avg Latency by Policy Type (CEL)",
@@ -4405,22 +4401,20 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
             "interval": "",
             "legendFormat": "{{policy_name}} (gpol)",
-            "refId": "C",
-            "hide": true
+            "refId": "C"
           },
           {
             "datasource": {
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "",
+            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
             "interval": "",
             "legendFormat": "{{policy_name}} (ivpol)",
-            "refId": "D",
-            "hide": true
+            "refId": "D"
           }
         ],
         "title": "Avg Latency per Policy Name (CEL)",
