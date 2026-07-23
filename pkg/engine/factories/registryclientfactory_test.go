@@ -2,19 +2,17 @@ package factories
 
 import (
 	"context"
-	"testing"
-
 	"io"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -24,7 +22,7 @@ import (
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 
 	tests := []struct {
@@ -87,14 +85,6 @@ type trackingSecretLister struct {
 	accessed map[string]bool // tracks namespace/name pairs that were accessed
 }
 
-func (t *trackingSecretLister) Secrets(namespace string) corev1listers.SecretNamespaceLister {
-	return &trackingSecretNamespaceLister{
-		SecretNamespaceLister: t.SecretLister.Secrets(namespace),
-		accessed:              t.accessed,
-		namespace:             namespace,
-	}
-}
-
 type trackingSecretNamespaceLister struct {
 	corev1listers.SecretNamespaceLister
 	accessed  map[string]bool
@@ -104,6 +94,14 @@ type trackingSecretNamespaceLister struct {
 func (t *trackingSecretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	t.accessed[t.namespace+"/"+name] = true
 	return t.SecretNamespaceLister.Get(name)
+}
+
+func (t *trackingSecretLister) Secrets(namespace string) corev1listers.SecretNamespaceLister {
+	return &trackingSecretNamespaceLister{
+		SecretNamespaceLister: t.SecretLister.Secrets(namespace),
+		accessed:              t.accessed,
+		namespace:             namespace,
+	}
 }
 
 func TestRegistryClientFactory_GetClient(t *testing.T) {
@@ -320,8 +318,8 @@ func (m *mockRegistryClient) Keychain() authn.Keychain {
 	return authn.DefaultKeychain
 }
 
-func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, error) {
-	return []gcrremote.Option{}, nil
+func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, []name.Option, error) {
+	return []gcrremote.Option{}, []name.Option{}, nil
 }
 
 func (m *mockRegistryClient) NameOptions() []name.Option {

@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type ImageVerificationOutcome struct {
@@ -91,10 +91,11 @@ func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]Image
 	return patches, nil
 }
 
-func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) ([]string, error) {
-	ictx, er := imagedataloader.NewImageContext(lister)
-	if er != nil {
-		return nil, nil
+func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
+	// We just wanna validate that the policy compiles. No need to supply real authentication options to the context
+	ictx, err := imagedataloader.NewImageContext(lister, nil, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	compiler := NewCompiler(ictx, lister, nil, imageverifycache.DisabledImageVerifyCache())

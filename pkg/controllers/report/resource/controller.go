@@ -100,6 +100,7 @@ type controller struct {
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	metaClient     metaclient.UpstreamInterface
@@ -124,6 +125,7 @@ func NewController(
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	metaClient metaclient.UpstreamInterface,
@@ -178,6 +180,12 @@ func NewController(
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapV1Informer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -415,6 +423,20 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	}
 	if c.mapLister != nil {
 		mapPolicies, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mapPolicies {
+			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
+			kinds := admissionpolicy.GetKinds(converted, restMapper)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.mapV1Lister != nil {
+		mapPolicies, err := utils.FetchMutatingAdmissionPoliciesV1(c.mapV1Lister)
 		if err != nil {
 			return err
 		}
