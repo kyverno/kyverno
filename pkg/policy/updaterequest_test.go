@@ -183,7 +183,7 @@ func Test_newMutateUR(t *testing.T) {
 					t.Errorf("Labels[%q]: %q, want: %q", k, gotVal, wantLabel)
 				}
 			}
-		    if gotVal, ok := result.Labels[kyvernov2.URMutatePolicyLabel]; !ok {
+			if gotVal, ok := result.Labels[kyvernov2.URMutatePolicyLabel]; !ok {
 				t.Errorf("Labels missing key %q", kyvernov2.URMutatePolicyLabel)
 			} else if gotVal != tt.policy.GetName() {
 				t.Errorf("Labels[%q]: %q, want: %q", kyvernov2.URMutatePolicyLabel,
