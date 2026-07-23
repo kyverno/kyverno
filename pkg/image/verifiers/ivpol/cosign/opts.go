@@ -39,8 +39,8 @@ var (
 	getCTLogPubsFn = func(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
 		return cosign.GetCTLogPubs(ctx)
 	}
-	getFulcioRootsFn    = func() (*x509.CertPool, error) { return fulcioroots.Get() }
-	getFulcioIntermedFn = func() (*x509.CertPool, error) { return fulcioroots.GetIntermediates() }
+	getFulcioRootsFn        = func() (*x509.CertPool, error) { return fulcioroots.Get() }
+	getFulcioIntermedFn     = func() (*x509.CertPool, error) { return fulcioroots.GetIntermediates() }
 	getTrustedRootFromTUFFn = func(ctx context.Context, t *v1beta1.TUF) (*root.TrustedRoot, error) {
 		return getTrustedRootFromTUF(ctx, t)
 	}
@@ -332,8 +332,7 @@ func initTUFAndFetch(ctx context.Context, t *v1beta1.TUF) (*sigstoreTrustMateria
 		}
 
 		// Fetch Fulcio material — individual targets may be absent.
-		rootsErr := error(nil)
-		intermedErr := error(nil)
+		var rootsErr, intermedErr error
 		m.fulcioRoots, rootsErr = getFulcioRootsFn()
 		m.fulcioIntermediates, intermedErr = getFulcioIntermedFn()
 		if rootsErr != nil || intermedErr != nil {
