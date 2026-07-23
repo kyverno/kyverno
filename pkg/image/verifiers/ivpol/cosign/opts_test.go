@@ -20,8 +20,13 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPEDZl3iOJwr77T2bS9vgonwzERmG
 PKd/xnmHKfvkbLquVC6NnH8dgPVq8p0H45H2H9CqzqGv+rn99xAWGLE30A==
 -----END PUBLIC KEY-----`
 
-	testIssuer  = "https://token.actions.githubusercontent.com"
-	testSubject = "https://github.com/test/repo/.github/workflows/test.yml@refs/heads/main"
+	testIssuer               = "https://token.actions.githubusercontent.com"
+	testSubject              = "https://github.com/test/repo/.github/workflows/test.yml@refs/heads/main"
+	githubWorkflowName       = "workflow name"
+	githubWorkflowRepository = "my-org/my-project"
+	githubWorkflowRef        = "refs"
+	githubWorkflowSha        = "commit-sha"
+	githubWorkflowTrigger    = "trigger"
 
 	// FreeTSA root CA certificate, same as used in pkg/cosign/cosign_test.go.
 	testTSACertChain = `
@@ -157,6 +162,44 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 	assert.NotNil(t, opts)
 	assert.Equal(t, ".*token.actions.githubusercontent.com", opts.Identities[0].IssuerRegExp)
 	assert.Equal(t, ".*@refs/heads/main", opts.Identities[0].SubjectRegExp)
+}
+
+func TestCheckOptions_KeylessAdditionalExtensions(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer:  testIssuer,
+					Subject: testSubject,
+				},
+			},
+			AdditionalExtensions: v1beta1.AdditionalExtensions{
+				GithubWorkflowName:       githubWorkflowName,
+				GithubWorkflowRepository: githubWorkflowRepository,
+				GithubWorkflowRef:        githubWorkflowRef,
+				GithubWorkflowSha:        githubWorkflowSha,
+				GithubWorkflowTrigger:    githubWorkflowTrigger,
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.Equal(t, githubWorkflowName, opts.CertGithubWorkflowName)
+	assert.Equal(t, githubWorkflowRepository, opts.CertGithubWorkflowRepository)
+	assert.Equal(t, githubWorkflowRef, opts.CertGithubWorkflowRef)
+	assert.Equal(t, githubWorkflowSha, opts.CertGithubWorkflowSha)
+	assert.Equal(t, githubWorkflowTrigger, opts.CertGithubWorkflowTrigger)
+	assert.NotNil(t, opts.RootCerts)
+	assert.NotNil(t, opts.TrustedMaterial)
 }
 
 func TestCheckOptions_MultipleIdentities(t *testing.T) {

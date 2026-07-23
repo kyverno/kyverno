@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: check-keyless-extensions-fail
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 30
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [ "" ]
+        apiVersions: [ "v1" ]
+        operations: [ "CREATE" ]
+        resources: [ "pods" ]
+  matchImageReferences:
+    - glob: "ttl.sh/*"
+  attestors:
+    - name: cosign
+      cosign:
+        keyless:
+          identities:
+            - issuer: https://token.actions.githubusercontent.com
+              subjectRegExp: ".*"
+          additionalExtensions:
+            githubWorkflowRepository: "($CERT_GITHUB_WORKFLOW_REPOSITORY)"
+            githubWorkflowRef: "refs/heads/wrong-branch"
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image,
+        [attestors.cosign])).all(e, e > 0)
+      message: "failed to verify cosign keyless signature with additional extensions"
