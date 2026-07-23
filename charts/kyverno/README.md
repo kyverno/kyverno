@@ -284,7 +284,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | crds.migration.imagePullSecrets | list | `[]` | Image pull secrets |
 | crds.migration.podSecurityContext | object | `{}` | Security context for the pod |
-| crds.migration.nodeSelector | object | `{}` | Node labels for pod assignment |
+| crds.migration.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | crds.migration.tolerations | list | `[]` | List of node taints to tolerate |
 | crds.migration.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | crds.migration.podAffinity | object | `{}` | Pod affinity constraints. |
@@ -443,7 +443,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | admissionController.tolerations | list | `[]` | List of node taints to tolerate |
 | admissionController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | admissionController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -562,7 +562,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | backgroundController.tolerations | list | `[]` | List of node taints to tolerate |
 | backgroundController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | backgroundController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -672,7 +672,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | cleanupController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -767,7 +767,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| reportsController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | reportsController.tolerations | list | `[]` | List of node taints to tolerate |
 | reportsController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | reportsController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -844,7 +844,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
-| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
@@ -876,7 +876,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | test.projectedServiceAccountToken | object | `{"audience":"","expirationSeconds":3600}` | Projected service account token configuration (only used when automountServiceAccountToken is false) |
 | test.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
 | test.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
-| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | test.podAnnotations | object | `{}` | Additional Pod annotations |
 | test.tolerations | list | `[]` | List of node taints to tolerate |
 
@@ -898,7 +898,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.priorityClassName | string | `""` | Global priority class name for pod priority. Non-global values will override the global value. |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
-| global.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Global node labels for pod assignment. Non-global values will override the global value. |
+| global.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Global node labels for pod assignment, applied to all chart workloads including controller Deployments, hook Jobs, and Helm test Pods. Non-global (controller) values will override the global value when non-empty. The default `kubernetes.io/os: linux` key is always merged into any user-supplied value and cannot be unset by design, because Kyverno images only run on Linux nodes. |
 | global.tolerations | list | `[]` | Global List of node taints to tolerate. Non-global values will override the global value. |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |

@@ -46,7 +46,7 @@ global:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
 
-  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  # -- Global node labels for pod assignment, applied to all chart workloads including controller Deployments, hook Jobs, and Helm test Pods. Non-global (controller) values will override the global value when non-empty. The default `kubernetes.io/os: linux` key is always merged into any user-supplied value and cannot be unset by design, because Kyverno images only run on Linux nodes.
   nodeSelector:
     kubernetes.io/os: linux
 
@@ -199,7 +199,7 @@ crds:
     # -- Security context for the pod
     podSecurityContext: {}
 
-    # -- Node labels for pod assignment
+    # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
     nodeSelector: {}
 
     # -- List of node taints to tolerate
@@ -621,7 +621,7 @@ test:
     # If not set, the token will have no audience restriction.
     audience: ""
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
    # -- Additional Pod annotations
@@ -656,7 +656,7 @@ webhooksCleanup:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -1173,7 +1173,7 @@ admissionController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -1652,7 +1652,7 @@ backgroundController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -2065,7 +2065,7 @@ cleanupController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -2400,7 +2400,7 @@ reportsController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
