@@ -264,6 +264,88 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 	assert.Error(t, err, "restoreCache must not create resources that don't exist yet")
 }
 
+// Regression test for kyverno/kyverno#15444: a resource cloned from another
+// namespace (e.g. a Secret synced by External Secrets that carries an
+// ownerReference to an ExternalSecret CR) must have its ownerReferences
+// stripped, otherwise the owner does not exist in the target namespace and
+// the garbage collector deletes the generated resource almost immediately.
+func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "example",
+			"namespace": "kyverno",
+			"ownerReferences": []any{
+				map[string]any{
+					"apiVersion":         "external-secrets.io/v1",
+					"blockOwnerDeletion": true,
+					"controller":         true,
+					"kind":               "ExternalSecret",
+					"name":               "example",
+					"uid":                "16401acc-ab37-4b5d-b4e2-fbd6f952f602",
+				},
+			},
+		},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	generated := cp.GetGeneratedResources()[0]
+	assert.Equal(t, "tenant-ns", generated.GetNamespace())
+	assert.Empty(t, generated.GetOwnerReferences(), "cross-namespace generation must strip ownerReferences")
+}
+
+// Companion case: generating into the same namespace as the source must keep
+// the ownerReferences intact, as they remain valid there.
+func TestGenerateResources_SameNamespaceKeepsOwnerReferences(t *testing.T) {
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "example",
+			"namespace": "tenant-ns",
+			"ownerReferences": []any{
+				map[string]any{
+					"apiVersion": "external-secrets.io/v1",
+					"kind":       "ExternalSecret",
+					"name":       "example",
+					"uid":        "16401acc-ab37-4b5d-b4e2-fbd6f952f602",
+				},
+			},
+		},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	generated := cp.GetGeneratedResources()[0]
+	assert.Equal(t, "tenant-ns", generated.GetNamespace())
+	require.Len(t, generated.GetOwnerReferences(), 1, "same-namespace generation must keep ownerReferences")
+	assert.Equal(t, "ExternalSecret", generated.GetOwnerReferences()[0].Kind)
+}
+
 func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	original := &contextProvider{
 		generatedResources: []*unstructured.Unstructured{
