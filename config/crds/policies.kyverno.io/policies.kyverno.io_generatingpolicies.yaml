@@ -169,7 +169,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
@@ -849,7 +878,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
@@ -1528,7 +1586,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
