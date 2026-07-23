@@ -227,6 +227,17 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				targetNamespace = ""
 			}
 
+			// When generating a namespaced resource into a different namespace than
+			// its source (the typical cross-namespace clone case), inherited
+			// ownerReferences may point to a namespaced owner that does not exist in
+			// the target namespace, causing the garbage collector to delete the
+			// generated resource almost immediately. Mirror the legacy clone behavior
+			// (see pkg/background/generate/clone.go) by stripping all ownerReferences
+			// when the source namespace is set and differs from the target.
+			if srcNamespace := item.GetNamespace(); srcNamespace != "" && srcNamespace != targetNamespace && item.GetOwnerReferences() != nil {
+				item.SetOwnerReferences(nil)
+			}
+
 			// In CLI evaluation mode, we do not create the resource in the cluster
 			// but just store it in the generated resources list.
 			if cp.cliEvaluation {
@@ -240,8 +251,18 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				continue
 			}
 			cp.addGenerateLabels(item)
-			item.SetNamespace(targetNamespace)
+			// Clean up server-populated metadata that must not be copied to the
+			// generated resource, mirroring the legacy clone behavior
+			// (see pkg/background/generate/clone.go). In particular, a non-nil
+			// managedFields is rejected by server-side apply. This must run after
+			// addGenerateLabels, which reads the source UID and resourceVersion to
+			// set the generate.kyverno.io/source-uid label.
+			item.SetUID("")
+			item.SetSelfLink("")
+			item.SetCreationTimestamp(metav1.Time{})
+			item.SetManagedFields(nil)
 			item.SetResourceVersion("")
+			item.SetNamespace(targetNamespace)
 			// check if the resource already exists
 			existing, err := cp.client.GetResource(
 				context.TODO(),

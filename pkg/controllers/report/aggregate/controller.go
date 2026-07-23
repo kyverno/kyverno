@@ -73,6 +73,7 @@ type controller struct {
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
 	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
@@ -112,6 +113,7 @@ func NewController(
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) controllers.Controller {
@@ -393,6 +395,17 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mapV1Informer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if mapInformer != nil {
 		c.mapLister = mapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
@@ -506,6 +519,15 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 
 func (c *controller) createMappolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
+	if c.mapV1Lister != nil {
+		maps, err := utils.FetchMutatingAdmissionPoliciesV1(c.mapV1Lister)
+		if err != nil {
+			return nil, err
+		}
+		for _, pol := range maps {
+			results.Insert(cache.MetaObjectToName(&pol).String())
+		}
+	}
 	if c.mapLister != nil {
 		maps, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
 		if err != nil {
