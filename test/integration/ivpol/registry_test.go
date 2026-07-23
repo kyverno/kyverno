@@ -88,9 +88,9 @@ func applyOutcomePatch(t *testing.T, raw []byte, patch []byte) []byte {
 // outage) sees a skip instead of a spurious failure.
 func requireImageReachable(t *testing.T, image string) {
 	t.Helper()
-	loader, err := imagedataloader.New(nil)
+	loader, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
-	if _, err := loader.FetchImageData(context.Background(), image); err != nil {
+	if _, err := loader.FetchImageData(context.Background(), image, nil, nil); err != nil {
 		t.Skipf("test image %s not accessible: %v", image, err)
 	}
 }
