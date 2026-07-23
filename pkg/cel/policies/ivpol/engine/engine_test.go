@@ -186,3 +186,33 @@ func Test_ImageVerifyEngine(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, v.Status, engineapi.RuleStatusPass)
 }
+
+func Test_ImageVerifyEngine_Subresource(t *testing.T) {
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:   v1.Update,
+			Kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:    metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			SubResource: "ephemeralcontainers",
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	origResources := ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources
+	ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources = []string{"pods", "pods/ephemeralcontainers"}
+	t.Cleanup(func() {
+		ivpol.Spec.MatchConstraints.ResourceRules[0].Rule.Resources = origResources
+	})
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+
+	resp, err := engine.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, len(resp.Policies), 1)
+
+	response := resp.Policies[0]
+	assert.Equal(t, response.Result.Name(), "ivpol-notary")
+	assert.Equal(t, response.Result.Status(), engineapi.RuleStatusPass)
+}
