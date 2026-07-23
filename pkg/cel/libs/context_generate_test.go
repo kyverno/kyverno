@@ -284,8 +284,18 @@ func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
 		"metadata": map[string]any{
-			"name":      "example",
-			"namespace": "kyverno",
+			"name":              "example",
+			"namespace":         "kyverno",
+			"uid":               "5b7dc768-9a06-4b25-b3e1-02b0e7b8d02a",
+			"resourceVersion":   "12345",
+			"creationTimestamp": "2026-01-01T00:00:00Z",
+			"managedFields": []any{
+				map[string]any{
+					"apiVersion": "v1",
+					"manager":    "external-secrets",
+					"operation":  "Update",
+				},
+			},
 			"ownerReferences": []any{
 				map[string]any{
 					"apiVersion":         "external-secrets.io/v1",
@@ -305,6 +315,9 @@ func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
 	generated := cp.GetGeneratedResources()[0]
 	assert.Equal(t, "tenant-ns", generated.GetNamespace())
 	assert.Empty(t, generated.GetOwnerReferences(), "cross-namespace generation must strip ownerReferences")
+	assert.Nil(t, generated.GetManagedFields(), "server-populated managedFields must not be copied")
+	creationTimestamp := generated.GetCreationTimestamp()
+	assert.True(t, creationTimestamp.IsZero(), "server-populated creationTimestamp must not be copied")
 }
 
 // Companion case: generating into the same namespace as the source must keep
