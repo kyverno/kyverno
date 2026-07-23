@@ -28,17 +28,16 @@ require (
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-containerregistry v0.21.7
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260224031529-85f2bf5f7303
 	github.com/in-toto/in-toto-golang v0.11.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/api v0.0.1-alpha.3.0.20260722081051-79092dab2a27
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
-	github.com/kyverno/kyverno-authz v0.4.1-0.20260602072047-ea97befa33fd
+	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20260602081238-52b5869260a3
+	github.com/kyverno/sdk v0.0.0-20260703121625-e0dc6fb8661a
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
@@ -104,6 +103,7 @@ require (
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/go-openapi/runtime/server-middleware v0.30.0 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260224031529-85f2bf5f7303 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/mark3labs/mcp-go v0.49.0 // indirect

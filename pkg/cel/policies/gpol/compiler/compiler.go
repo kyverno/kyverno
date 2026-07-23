@@ -105,6 +105,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 				imagedata.Lib(
 					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
+					nil,
 				),
 				hash.Lib(
 					hash.Latest(),
@@ -142,7 +143,6 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 			},
 		},
 	)
-
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
 	finalOpts := append(baseOpts, libEnvOpts...)

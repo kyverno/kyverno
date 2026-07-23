@@ -47,7 +47,6 @@ import (
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +55,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type TestResponse struct {
@@ -658,18 +658,29 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		// this informer technically lives for the duration of the cli command..
+		// maybe we can tolerate the fact that we don't have proper closure of it ?
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
 		imageverifycache.DisabledImageVerifyCache(),
 	)
+
 	if restMapper == nil {
 		var mapErr error
 		restMapper, mapErr = utils.GetRESTMapper(dclient)
@@ -738,13 +749,15 @@ func applyImageValidatingPolicies(
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
