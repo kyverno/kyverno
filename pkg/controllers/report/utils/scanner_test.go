@@ -42,7 +42,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil)
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nil)
 }
 
 // nilTypeConverterManager is a no-op TypeConverterManager for tests that exercise
