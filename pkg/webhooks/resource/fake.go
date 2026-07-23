@@ -18,10 +18,10 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -43,7 +43,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 	urLister := kyvernoInformers.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	_ = reportutils.NewReportingConfig([]string{"pass", "fail", "warn", "error", "skip"}, "validate", "mutate", "mutateExisiting", "generate", "imageVerify")
 
 	return &resourceHandlers{
