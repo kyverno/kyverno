@@ -33,10 +33,11 @@ type TestEnv struct {
 
 	// Per-policy-type setups, populated when the corresponding type is requested
 	// via NewTestEnvWithOptions. Nil for types that were not requested.
-	Vpol *VpolSetup
-	Mpol *MpolSetup
-	Gpol *GpolSetup
-	Dpol *DpolSetup
+	Vpol  *VpolSetup
+	Mpol  *MpolSetup
+	Gpol  *GpolSetup
+	Dpol  *DpolSetup
+	Ivpol *IvpolSetup
 
 	cancel    context.CancelFunc
 	optCancel context.CancelFunc
