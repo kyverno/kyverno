@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -35,6 +36,12 @@ func Test_scanInterval(t *testing.T) {
 			cpol.Spec.BackgroundScanInterval = &metav1.Duration{Duration: *interval}
 		}
 		return engineapi.NewKyvernoPolicy(cpol)
+	}
+
+	nonKyvernoPolicy := func(name string) engineapi.GenericPolicy {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+		vap.Name = name
+		return engineapi.NewValidatingAdmissionPolicy(vap)
 	}
 
 	fiveMinutes := 5 * time.Minute
@@ -101,6 +108,15 @@ func Test_scanInterval(t *testing.T) {
 			kind: "Pod",
 			policies: []engineapi.GenericPolicy{
 				clusterPolicy("zero", []string{"Pod"}, ptrDuration(0)),
+			},
+			want: globalInterval,
+		},
+		{
+			name: "a non-kyverno background policy floors a longer override at the global interval",
+			kind: "Pod",
+			policies: []engineapi.GenericPolicy{
+				clusterPolicy("slow", []string{"Pod"}, &twoHours),
+				nonKyvernoPolicy("some-vap"),
 			},
 			want: globalInterval,
 		},
