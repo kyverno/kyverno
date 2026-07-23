@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type scanner struct {
@@ -44,6 +45,7 @@ type scanner struct {
 	config        config.Configuration
 	jp            jmespath.Interface
 	client        dclient.Interface
+	secretLister  corev1listers.SecretLister
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -76,6 +78,7 @@ func NewScanner(
 	client dclient.Interface,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
+	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
@@ -86,6 +89,7 @@ func NewScanner(
 		client:        client,
 		gctxStore:     gctxStore,
 		mapper:        mapper,
+		secretLister:  secretLister,
 		typeConverter: typeConverter,
 	}
 }
@@ -286,8 +290,7 @@ func (s *scanner) ScanResource(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-				s.client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()),
-				nil,
+				s.secretLister,
 				imageverifycache.DisabledImageVerifyCache(),
 			), metrics.BackgroundScan)
 			request := celengine.Request(
