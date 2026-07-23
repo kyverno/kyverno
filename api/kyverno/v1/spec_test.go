@@ -82,4 +82,3 @@ func Test_Validate_BackgroundScanInterval(t *testing.T) {
 	assert.Equal(t, errs[0].Field, "spec.backgroundScanInterval")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
 }
-
