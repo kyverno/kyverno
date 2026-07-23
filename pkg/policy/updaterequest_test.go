@@ -6,16 +6,13 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	common "github.com/kyverno/kyverno/pkg/background/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func makeClusterPolicy(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPolicy {
+func makeClusterPolicyForUR(name string, rules []kyvernov1.Rule) *kyvernov1.ClusterPolicy {
 	return &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -35,7 +32,7 @@ func Test_newMutateUR(t *testing.T) {
 	}{
 		{
 			name:     "Successfully creates a mutate UpdateRequest",
-			policy:   makeClusterPolicy("test-policy", nil),
+			policy:   makeClusterPolicyForUR("test-policy", nil),
 			ruleName: "check-pod-labels",
 			trigger: kyvernov1.ResourceSpec{
 				Kind:       "Pod",
@@ -47,7 +44,7 @@ func Test_newMutateUR(t *testing.T) {
 		},
 		{
 			name:     "empty trigger fields enforcing policy without panicking",
-			policy:   makeClusterPolicy("test-policy", nil),
+			policy:   makeClusterPolicyForUR("test-policy", nil),
 			ruleName: "check-empty-fields",
 			trigger:  kyvernov1.ResourceSpec{},
 		},
