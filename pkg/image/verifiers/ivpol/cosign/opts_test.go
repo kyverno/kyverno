@@ -2,14 +2,25 @@ package cosign
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"fmt"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore/pkg/tuf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +90,86 @@ func baseOpts() ([]remote.Option, []name.Option) {
 	return []remote.Option{}, []name.Option{}
 }
 
+func stubTufWithFixture(t *testing.T) {
+	t.Helper()
+	origTufInit := tufInitializeFn
+	origRoot := getTrustedRootFromTUFFn
+	origRekor := getRekorPubsFn
+	origCTLog := getCTLogPubsFn
+	origFulcioRoots := getFulcioRootsFn
+	origFulcioIntermed := getFulcioIntermedFn
+	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
+	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
+		return newTestTrustedRoot(t), nil
+	}
+	getRekorPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return nil, fmt.Errorf("stubbed Rekor TUF lookup")
+	}
+	getCTLogPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return nil, fmt.Errorf("stubbed CTLog TUF lookup")
+	}
+	getFulcioRootsFn = func() (*x509.CertPool, error) {
+		return nil, fmt.Errorf("stubbed Fulcio roots TUF lookup")
+	}
+	getFulcioIntermedFn = func() (*x509.CertPool, error) {
+		return nil, fmt.Errorf("stubbed Fulcio intermediates TUF lookup")
+	}
+	t.Cleanup(func() {
+		tufInitializeFn = origTufInit
+		getTrustedRootFromTUFFn = origRoot
+		getRekorPubsFn = origRekor
+		getCTLogPubsFn = origCTLog
+		getFulcioRootsFn = origFulcioRoots
+		getFulcioIntermedFn = origFulcioIntermed
+	})
+}
+
+func newTestTrustedRoot(t *testing.T) *root.TrustedRoot {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	now := time.Now()
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-root"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+	cert, err := x509.ParseCertificate(certDER)
+	require.NoError(t, err)
+
+	ca := &root.FulcioCertificateAuthority{
+		Root:                cert,
+		ValidityPeriodStart: now.Add(-time.Hour),
+		ValidityPeriodEnd:   now.Add(24 * time.Hour),
+	}
+	logID := []byte("test-log-id")
+	tlog := &root.TransparencyLog{
+		BaseURL:             "https://rekor.sigstore.dev",
+		ID:                  logID,
+		ValidityPeriodStart: now.Add(-time.Hour),
+		ValidityPeriodEnd:   now.Add(24 * time.Hour),
+		HashFunc:            crypto.SHA256,
+		PublicKey:           &key.PublicKey,
+		SignatureHashFunc:   crypto.SHA256,
+	}
+	tr, err := root.NewTrustedRoot(root.TrustedRootMediaType01,
+		[]root.CertificateAuthority{ca},
+		map[string]*root.TransparencyLog{"ctlog": tlog},
+		nil,
+		map[string]*root.TransparencyLog{"rekor": tlog},
+	)
+	require.NoError(t, err)
+	return tr
+}
+
 func TestCheckOptions_KeyBased(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -105,6 +195,7 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 }
 
 func TestCheckOptions_Keyless(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -134,6 +225,7 @@ func TestCheckOptions_Keyless(t *testing.T) {
 }
 
 func TestCheckOptions_KeylessWithRegex(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -162,6 +254,7 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 }
 
 func TestCheckOptions_MultipleIdentities(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -335,6 +428,33 @@ func TestGetRekor_MissingURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "rekor URL must be provided")
 }
 
+func TestRekorPubsFromTrustedRoot(t *testing.T) {
+	tr := newTestTrustedRoot(t)
+
+	keys, err := rekorPubsFromTrustedRoot(tr)
+	require.NoError(t, err)
+	assert.NotNil(t, keys)
+	assert.NotEmpty(t, keys.Keys)
+}
+
+func TestCTLogPubsFromTrustedRoot(t *testing.T) {
+	tr := newTestTrustedRoot(t)
+
+	keys, err := ctLogPubsFromTrustedRoot(tr)
+	require.NoError(t, err)
+	assert.NotNil(t, keys)
+	assert.NotEmpty(t, keys.Keys)
+}
+
+func TestFulcioRootsFromTrustedRoot(t *testing.T) {
+	tr := newTestTrustedRoot(t)
+
+	roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+	require.NoError(t, err)
+	assert.NotNil(t, roots)
+	assert.NotNil(t, intermediates)
+}
+
 // TestGetRekor_InsecureIgnoreTlog_NoURL covers the fix for private Sigstore
 // deployments (e.g. GitHub Actions' fulcio.githubapp.com) that set
 // insecureIgnoreTlog: true without providing a Rekor URL: getRekor must not
@@ -353,6 +473,21 @@ func TestGetRekor_InsecureIgnoreTlog_NoURL(t *testing.T) {
 	assert.Nil(t, rekorClient)
 	assert.Nil(t, rekorPubKeys)
 	assert.NotNil(t, ctlogPubKeys)
+}
+
+func TestRekorPubsFromTrustedRoot_Nil(t *testing.T) {
+	_, err := rekorPubsFromTrustedRoot(nil)
+	assert.Error(t, err)
+}
+
+func TestCTLogPubsFromTrustedRoot_Nil(t *testing.T) {
+	_, err := ctLogPubsFromTrustedRoot(nil)
+	assert.Error(t, err)
+}
+
+func TestFulcioRootsFromTrustedRoot_Nil(t *testing.T) {
+	_, _, err := fulcioRootsFromTrustedRoot(nil)
+	assert.Error(t, err)
 }
 
 // TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys ensures CT log public keys
@@ -390,6 +525,132 @@ func TestInitTUFAndFetch_TrustedRoot(t *testing.T) {
 	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, trust.trustedRoot)
+}
+
+// TestInitTUFAndFetch_FallbackToTrustedRoot verifies that when individual
+// TUF targets are missing, initTUFAndFetch falls back to trusted_root.json
+// for Rekor/CTLog/Fulcio material.
+func TestInitTUFAndFetch_FallbackToTrustedRoot(t *testing.T) {
+	origTufInit := tufInitializeFn
+	origRoot := getTrustedRootFromTUFFn
+	origRekor := getRekorPubsFn
+	origCTLog := getCTLogPubsFn
+	origFulcioRoots := getFulcioRootsFn
+	origFulcioIntermed := getFulcioIntermedFn
+	t.Cleanup(func() {
+		tufInitializeFn = origTufInit
+		getTrustedRootFromTUFFn = origRoot
+		getRekorPubsFn = origRekor
+		getCTLogPubsFn = origCTLog
+		getFulcioRootsFn = origFulcioRoots
+		getFulcioIntermedFn = origFulcioIntermed
+	})
+
+	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
+	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
+		return newTestTrustedRoot(t), nil
+	}
+	getRekorPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return nil, fmt.Errorf("simulated TUF target missing: rekor.pub")
+	}
+	getCTLogPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return nil, fmt.Errorf("simulated TUF target missing: ctfe.pub")
+	}
+	getFulcioRootsFn = func() (*x509.CertPool, error) {
+		return nil, fmt.Errorf("simulated TUF target missing: fulcio_v1.crt.pem")
+	}
+	getFulcioIntermedFn = func() (*x509.CertPool, error) {
+		return nil, fmt.Errorf("simulated TUF target missing: fulcio_v1.crt.pem")
+	}
+
+	trust, err := initTUFAndFetch(context.TODO(), nil)
+	require.NoError(t, err)
+	assert.NotNil(t, trust.rekorPubKeys)
+	assert.NotEmpty(t, trust.rekorPubKeys.Keys)
+	assert.NotNil(t, trust.ctlogPubKeys)
+	assert.NotEmpty(t, trust.ctlogPubKeys.Keys)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
+	assert.NotNil(t, trust.trustedRoot)
+}
+
+// TestInitTUFAndFetch_PartialFulcioFallback verifies that when only Fulcio
+// roots or intermediates fail individually, the fallback still succeeds.
+func TestInitTUFAndFetch_PartialFulcioFallback(t *testing.T) {
+	origTufInit := tufInitializeFn
+	origRoot := getTrustedRootFromTUFFn
+	origRekor := getRekorPubsFn
+	origCTLog := getCTLogPubsFn
+	origFulcioRoots := getFulcioRootsFn
+	origFulcioIntermed := getFulcioIntermedFn
+	t.Cleanup(func() {
+		tufInitializeFn = origTufInit
+		getTrustedRootFromTUFFn = origRoot
+		getRekorPubsFn = origRekor
+		getCTLogPubsFn = origCTLog
+		getFulcioRootsFn = origFulcioRoots
+		getFulcioIntermedFn = origFulcioIntermed
+	})
+
+	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
+	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
+		return newTestTrustedRoot(t), nil
+	}
+	getRekorPubsFn = func(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return cosign.GetRekorPubs(ctx)
+	}
+	getCTLogPubsFn = func(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		return cosign.GetCTLogPubs(ctx)
+	}
+	// Only intermediates fail; roots succeed
+	getFulcioRootsFn = func() (*x509.CertPool, error) {
+		return x509.NewCertPool(), nil
+	}
+	getFulcioIntermedFn = func() (*x509.CertPool, error) {
+		return nil, fmt.Errorf("simulated error fetching intermediates")
+	}
+
+	trust, err := initTUFAndFetch(context.TODO(), nil)
+	require.NoError(t, err)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
+}
+
+func TestPublicKeyToPEM(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	pemBytes, err := publicKeyToPEM(&key.PublicKey)
+	require.NoError(t, err)
+	assert.Contains(t, string(pemBytes), "-----BEGIN PUBLIC KEY-----")
+	assert.Contains(t, string(pemBytes), "-----END PUBLIC KEY-----")
+}
+
+func TestPublicKeyToPEM_UnsupportedType(t *testing.T) {
+	_, err := publicKeyToPEM("not-a-key")
+	assert.Error(t, err)
+}
+
+func TestLogKeyStatus(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name  string
+		start time.Time
+		end   time.Time
+		want  tuf.StatusKind
+	}{
+		{"both zero", time.Time{}, time.Time{}, tuf.Active},
+		{"valid window", now.Add(-time.Hour), now.Add(time.Hour), tuf.Active},
+		{"start in future", now.Add(time.Hour), now.Add(2 * time.Hour), tuf.Expired},
+		{"end in past", now.Add(-2 * time.Hour), now.Add(-time.Hour), tuf.Expired},
+		{"zero start, valid end", time.Time{}, now.Add(time.Hour), tuf.Active},
+		{"valid start, zero end", now.Add(-time.Hour), time.Time{}, tuf.Active},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, logKeyStatus(tt.start, tt.end))
+		})
+	}
 }
 
 // TestResolveTrustedMaterial covers loading the trusted material from an
@@ -454,6 +715,7 @@ func TestResolveTrustedMaterial(t *testing.T) {
 }
 
 func TestCheckOptions_CTLogConfiguration(t *testing.T) {
+	stubTufWithFixture(t)
 	tests := []struct {
 		name     string
 		ctlog    *v1beta1.CTLog
@@ -523,6 +785,7 @@ func TestCheckOptions_CTLogConfiguration(t *testing.T) {
 }
 
 func TestCheckOptions_VerifierTypes(t *testing.T) {
+	stubTufWithFixture(t)
 	tests := []struct {
 		name      string
 		cosignCfg *v1beta1.Cosign
@@ -673,6 +936,7 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 // without a Rekor URL must not fail policy evaluation before verification
 // can proceed.
 func TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -699,4 +963,35 @@ func TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL(t *testing.T) {
 	assert.Nil(t, opts.RekorClient)
 	assert.Nil(t, opts.RekorPubKeys)
 	assert.Nil(t, opts.CTLogPubKeys)
+}
+
+// TestCheckOptions_FallbackViaInitTUFAndFetch verifies that checkOptions
+// works end-to-end when individual TUF targets are missing, with fallback
+// to trusted_root.json through initTUFAndFetch.
+func TestCheckOptions_FallbackViaInitTUFAndFetch(t *testing.T) {
+	stubTufWithFixture(t)
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer:  testIssuer,
+					Subject: testSubject,
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:               "https://rekor.sigstore.dev",
+			InsecureIgnoreSCT: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.NotNil(t, opts.RootCerts)
+	assert.NotNil(t, opts.RekorPubKeys)
+	assert.NotNil(t, opts.TrustedMaterial)
 }
