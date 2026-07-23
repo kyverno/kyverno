@@ -2,6 +2,8 @@ package cosign
 
 import (
 	"context"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -13,9 +15,11 @@ import (
 )
 
 const (
+	// Public key matching the key used to sign the key-based test images, from
+	// cosign/examples/cosign.pub in kyverno/test-images.
 	testPublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIOJTQ992VBJyyx52p3s1W/lqwNxI
-rFxZI4BL3S6ZGyJFockpfppxOycEkUaGVTUvL0Tp7Yi0eYRJ4TtKxs1lXQ==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEPEDZl3iOJwr77T2bS9vgonwzERmG
+PKd/xnmHKfvkbLquVC6NnH8dgPVq8p0H45H2H9CqzqGv+rn99xAWGLE30A==
 -----END PUBLIC KEY-----`
 
 	testIssuer  = "https://token.actions.githubusercontent.com"
@@ -317,6 +321,40 @@ func TestGetRekor_MissingURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "rekor URL must be provided")
 }
 
+// TestGetRekor_InsecureIgnoreTlog_NoURL covers the fix for private Sigstore
+// deployments (e.g. GitHub Actions' fulcio.githubapp.com) that set
+// insecureIgnoreTlog: true without providing a Rekor URL: getRekor must not
+// require a Rekor client/URL in that case.
+func TestGetRekor_InsecureIgnoreTlog_NoURL(t *testing.T) {
+	ctx := context.TODO()
+	ctlog := &v1beta1.CTLog{
+		InsecureIgnoreTlog: true,
+	}
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	require.NoError(t, err)
+	assert.Nil(t, rekorClient)
+	assert.Nil(t, rekorPubKeys)
+	assert.NotNil(t, ctlogPubKeys)
+}
+
+// TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys ensures CT log public keys
+// are not fetched when insecureIgnoreSCT is set, mirroring the
+// insecureIgnoreTlog behavior for Rekor.
+func TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys(t *testing.T) {
+	ctx := context.TODO()
+	ctlog := &v1beta1.CTLog{
+		URL:               "https://rekor.sigstore.dev",
+		InsecureIgnoreSCT: true,
+	}
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	require.NoError(t, err)
+	assert.NotNil(t, rekorClient)
+	assert.NotNil(t, rekorPubKeys)
+	assert.Nil(t, ctlogPubKeys)
+}
+
 func TestGetFulcio(t *testing.T) {
 	ctx := context.TODO()
 
@@ -335,6 +373,64 @@ func TestGetTrustedRootFromTUF(t *testing.T) {
 	trustedRoot, err := getTrustedRootFromTUF(ctx)
 	require.NoError(t, err)
 	assert.NotNil(t, trustedRoot)
+}
+
+// TestResolveTrustedMaterial covers loading the trusted material from an
+// inline JSON value (att.TrustedRoot.Value), falling back to TUF when unset.
+func TestResolveTrustedMaterial(t *testing.T) {
+	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	t.Run("inline JSON used when TrustedRoot.Value is set", func(t *testing.T) {
+		att := &v1beta1.Cosign{
+			TrustedRoot: &v1beta1.StringOrExpression{Value: string(validJSON)},
+		}
+		tm, err := resolveTrustedMaterial(context.Background(), att)
+		require.NoError(t, err)
+		require.NotNil(t, tm)
+	})
+
+	t.Run("invalid JSON returns parsing error", func(t *testing.T) {
+		att := &v1beta1.Cosign{
+			TrustedRoot: &v1beta1.StringOrExpression{Value: "not-json"},
+		}
+		_, err := resolveTrustedMaterial(context.Background(), att)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
+	})
+
+	t.Run("nil TrustedRoot falls back to TUF", func(t *testing.T) {
+		// Initialize the TUF client explicitly so this subtest doesn't
+		// depend on another test having already initialized it.
+		require.NoError(t, initializeTuf(context.Background(), nil))
+		att := &v1beta1.Cosign{}
+		tm, err := resolveTrustedMaterial(context.Background(), att)
+		require.NoError(t, err)
+		require.NotNil(t, tm)
+	})
+
+	t.Run("TrustedRoot with empty Value falls back to TUF", func(t *testing.T) {
+		// Initialize the TUF client explicitly so this subtest doesn't
+		// depend on another test having already initialized it.
+		require.NoError(t, initializeTuf(context.Background(), nil))
+		att := &v1beta1.Cosign{
+			TrustedRoot: &v1beta1.StringOrExpression{Value: ""},
+		}
+		tm, err := resolveTrustedMaterial(context.Background(), att)
+		require.NoError(t, err)
+		require.NotNil(t, tm)
+	})
+
+	t.Run("oversized inline JSON is rejected before parsing", func(t *testing.T) {
+		att := &v1beta1.Cosign{
+			TrustedRoot: &v1beta1.StringOrExpression{
+				Value: strings.Repeat("a", maxTrustedRootJSONSize+1),
+			},
+		}
+		_, err := resolveTrustedMaterial(context.Background(), att)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "too large")
+	})
 }
 
 func TestCheckOptions_CTLogConfiguration(t *testing.T) {
@@ -549,4 +645,38 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	assert.Nil(t, opts.RekorPubKeys)
 	assert.Nil(t, opts.CTLogPubKeys)
 	assert.Nil(t, opts.TrustedMaterial)
+}
+
+// TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL reproduces the reported
+// bug: a keyless attestor backed by a private Sigstore deployment (e.g.
+// GitHub Actions' fulcio.githubapp.com) that sets insecureIgnoreTlog: true
+// without a Rekor URL must not fail policy evaluation before verification
+// can proceed.
+func TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer:  testIssuer,
+					Subject: testSubject,
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts)
+	assert.True(t, opts.IgnoreTlog)
+	assert.True(t, opts.IgnoreSCT)
+	assert.Nil(t, opts.RekorClient)
+	assert.Nil(t, opts.RekorPubKeys)
+	assert.Nil(t, opts.CTLogPubKeys)
 }
