@@ -892,5 +892,263 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	assert.Len(t, nmpolWebhooks, 1)
 	assert.Equal(t, config.MutatingPolicyWebhookName+"-fail", mpolWebhooks[0].Name)
 	assert.Equal(t, config.NamespacedMutatingPolicyWebhookName+"-fail", nmpolWebhooks[0].Name)
+	// the point of this test: the cluster scoped and namespaced webhooks must not share a name
 	assert.NotEqual(t, mpolWebhooks[0].Name, nmpolWebhooks[0].Name)
+	// the namespaced one is still pinned to its own namespace
+	assert.Equal(t, []string{"longhorn-system"}, nmpolWebhooks[0].NamespaceSelector.MatchExpressions[0].Values)
+}
+
+func TestResolveNamespaceSelector(t *testing.T) {
+	cfg := config.NewDefaultConfiguration(false)
+
+	// A namespaced policy is pinned to its own namespace, regardless of the namespaceSelector set in
+	// its matchConstraints, so it only applies to resources in that namespace.
+	nsPol := &policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "p"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+			},
+		},
+	}
+	sel := resolveNamespaceSelector(nsPol, cfg)
+	pinned := false
+	for _, e := range sel.MatchExpressions {
+		if e.Key == "kubernetes.io/metadata.name" && e.Operator == metav1.LabelSelectorOpIn {
+			assert.Equal(t, []string{"team-a"}, e.Values)
+			pinned = true
+		}
+	}
+	assert.True(t, pinned, "namespaced policy must be pinned to its namespace via kubernetes.io/metadata.name")
+	_, leaked := sel.MatchLabels["env"]
+	assert.False(t, leaked, "namespaced policy must not honor its matchConstraints namespaceSelector")
+
+	// A cluster-scoped policy keeps its configured namespaceSelector.
+	clusterPol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+			},
+		},
+	}
+	clusterSel := resolveNamespaceSelector(clusterPol, cfg)
+	assert.Equal(t, "prod", clusterSel.MatchLabels["env"], "cluster-scoped policy keeps its namespaceSelector")
+}
+
+// Two namespaced policies in different namespaces must each get their own webhook pinned to their
+// own namespace. Aggregating them under a single webhook would leave one namespace selector, so
+// only the last policy's namespace would be admitted to Kyverno and the other policy would never run.
+func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T) {
+	spec := policiesv1beta1.ValidatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+					},
+				},
+			}},
+		},
+	}
+	teamA := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "require-labels"},
+		Spec:       spec,
+	})
+	teamB := engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-b", Name: "require-labels"},
+		Spec:       spec,
+	})
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
+		[]engineapi.GenericPolicy{teamA, teamB},
+		NewExpressionCache(),
+	)
+
+	assert.Len(t, webhooks, 2, "each namespaced policy needs its own webhook")
+	pinned := map[string]bool{}
+	for _, wh := range webhooks {
+		for _, e := range wh.NamespaceSelector.MatchExpressions {
+			if e.Key == "kubernetes.io/metadata.name" && e.Operator == metav1.LabelSelectorOpIn {
+				assert.Len(t, e.Values, 1)
+				pinned[e.Values[0]] = true
+			}
+		}
+	}
+	assert.True(t, pinned["team-a"], "the team-a policy must be pinned to team-a")
+	assert.True(t, pinned["team-b"], "the team-b policy must be pinned to team-b")
+}
+
+func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *testing.T) {
+	// A webhook carries a single namespaceSelector/objectSelector pair. Two policies that resolve
+	// to different selectors cannot share one: the last one processed would overwrite the selector
+	// and the other policy would silently stop being called for its own namespaces.
+	newPolicy := func(name, environment string) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"environment": environment},
+					},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewValidatingPolicy(newPolicy("policy-staging", "staging")),
+		engineapi.NewValidatingPolicy(newPolicy("policy-production", "production")),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	assert.Len(t, webhooks, 2, "policies with different selectors need their own webhook")
+	environments := make([]string, 0, len(webhooks))
+	for _, webhook := range webhooks {
+		environments = append(environments, webhook.NamespaceSelector.MatchLabels["environment"])
+	}
+	assert.ElementsMatch(t, []string{"staging", "production"}, environments,
+		"each policy's namespaceSelector must survive")
+}
+
+func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
+	// Policies are grouped by the selectors they resolve to, so a realistic mix (most policies set
+	// no selector at all, the rest reuse a handful of the same selectors) stays on a small number
+	// of webhooks instead of one per policy.
+	newPolicy := func(name string, namespaceSelector *metav1.LabelSelector) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: namespaceSelector,
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	prod := &metav1.LabelSelector{MatchLabels: map[string]string{"environment": "production"}}
+	team := &metav1.LabelSelector{MatchLabels: map[string]string{"team": "payments"}}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-a", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-b", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("no-selector-c", nil)),
+		engineapi.NewValidatingPolicy(newPolicy("prod-a", prod)),
+		engineapi.NewValidatingPolicy(newPolicy("prod-b", prod)),
+		engineapi.NewValidatingPolicy(newPolicy("team-a", team)),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	// three distinct selectors (none, production, payments) means three webhooks, not six.
+	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
+	for _, webhook := range webhooks {
+		assert.NotEmpty(t, webhook.Rules, "every webhook should carry the rules of its group")
+	}
+}
+
+func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *testing.T) {
+	// Namespaced policies in the same namespace resolve to the same pinned selector, so they belong
+	// on one webhook. A webhook per policy would mean one admission round trip per policy, and
+	// mutating webhooks are called sequentially, so that is latency on every request.
+	newPolicy := func(name, namespace string) *policiesv1beta1.NamespacedValidatingPolicy {
+		return &policiesv1beta1.NamespacedValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-a", "team-a")),
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-b", "team-a")),
+		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-c", "team-b")),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.NamespacedValidatingPolicyWebhookName,
+		"/nvpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	// two namespaces means two webhooks, not three
+	assert.Len(t, webhooks, 2, "policies in the same namespace should share a webhook")
+	for _, webhook := range webhooks {
+		namespaces := webhook.NamespaceSelector.MatchExpressions[0].Values
+		if assert.Len(t, namespaces, 1) && namespaces[0] == "team-a" {
+			// both team-a policies must be reachable through the shared webhook path
+			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-a")
+			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-b")
+		}
+	}
 }

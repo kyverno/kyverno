@@ -29,6 +29,7 @@ type policyHandlers struct {
 
 func NewHandlers(client dclient.Interface, secretLister corev1listers.SecretLister, backgroundSA, reportsSA string) *policyHandlers {
 	return &policyHandlers{
+		secretLister:                 secretLister,
 		client:                       client,
 		secretLister:                 secretLister,
 		backgroundServiceAccountName: backgroundSA,
@@ -53,6 +54,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 
 	if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
 		warnings, err := eval.Validate(ivpol, registryclient.CachedSecretInterface(h.secretLister))
+		warnings, err := eval.Validate(ivpol, h.secretLister)
 		if err != nil {
 			logger.Error(err, "ImageValidatingPolicy validation errors")
 		}

@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -45,6 +46,7 @@ type scanner struct {
 	config        config.Configuration
 	jp            jmespath.Interface
 	client        dclient.Interface
+	secretLister  corev1listers.SecretLister
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -78,6 +80,7 @@ func NewScanner(
 	client dclient.Interface,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
+	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
 	secretLister corev1listers.SecretLister,
 ) Scanner {
@@ -89,6 +92,7 @@ func NewScanner(
 		client:        client,
 		gctxStore:     gctxStore,
 		mapper:        mapper,
+		secretLister:  secretLister,
 		typeConverter: typeConverter,
 		secretLister:  secretLister,
 	}
@@ -292,6 +296,8 @@ func (s *scanner) ScanResource(
 				matching.NewMatcher(),
 				registryclient.CachedSecretInterface(s.secretLister),
 				nil,
+				s.secretLister,
+				imageverifycache.DisabledImageVerifyCache(),
 			), metrics.BackgroundScan)
 			request := celengine.Request(
 				libs.GetLibsCtx(),

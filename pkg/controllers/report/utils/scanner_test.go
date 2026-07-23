@@ -54,6 +54,7 @@ func newTestScanner(t *testing.T) Scanner {
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, newTestSecretLister(t))
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nil)
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {
