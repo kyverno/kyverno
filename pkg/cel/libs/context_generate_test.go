@@ -318,6 +318,8 @@ func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
 	assert.Nil(t, generated.GetManagedFields(), "server-populated managedFields must not be copied")
 	creationTimestamp := generated.GetCreationTimestamp()
 	assert.True(t, creationTimestamp.IsZero(), "server-populated creationTimestamp must not be copied")
+	assert.Equal(t, "5b7dc768-9a06-4b25-b3e1-02b0e7b8d02a", generated.GetLabels()[common.GenerateSourceUIDLabel],
+		"metadata cleanup must not run before addGenerateLabels reads the source UID/resourceVersion")
 }
 
 // Companion case: generating into the same namespace as the source must keep

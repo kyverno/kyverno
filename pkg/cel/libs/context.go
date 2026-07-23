@@ -238,25 +238,30 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				item.SetOwnerReferences(nil)
 			}
 
+			// In CLI evaluation mode, we do not create the resource in the cluster
+			// but just store it in the generated resources list.
+			if cp.cliEvaluation {
+				item.SetUID("")
+				item.SetManagedFields(nil)
+				item.SetAnnotations(nil)
+				item.SetNamespace(targetNamespace)
+				item.SetResourceVersion("")
+				item.SetCreationTimestamp(metav1.Time{})
+				cp.generatedResources = append(cp.generatedResources, item)
+				continue
+			}
+			cp.addGenerateLabels(item)
 			// Clean up server-populated metadata that must not be copied to the
 			// generated resource, mirroring the legacy clone behavior
 			// (see pkg/background/generate/clone.go). In particular, a non-nil
-			// managedFields is rejected by server-side apply.
+			// managedFields is rejected by server-side apply. This must run after
+			// addGenerateLabels, which reads the source UID and resourceVersion to
+			// set the generate.kyverno.io/source-uid label.
 			item.SetUID("")
 			item.SetSelfLink("")
 			item.SetCreationTimestamp(metav1.Time{})
 			item.SetManagedFields(nil)
 			item.SetResourceVersion("")
-
-			// In CLI evaluation mode, we do not create the resource in the cluster
-			// but just store it in the generated resources list.
-			if cp.cliEvaluation {
-				item.SetAnnotations(nil)
-				item.SetNamespace(targetNamespace)
-				cp.generatedResources = append(cp.generatedResources, item)
-				continue
-			}
-			cp.addGenerateLabels(item)
 			item.SetNamespace(targetNamespace)
 			// check if the resource already exists
 			existing, err := cp.client.GetResource(
