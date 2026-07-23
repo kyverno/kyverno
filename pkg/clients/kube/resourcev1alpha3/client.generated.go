@@ -3,9 +3,10 @@ package client
 import (
 	"github.com/go-logr/logr"
 	devicetaintrules "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/devicetaintrules"
+	resourcepoolstatusrequests "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/resourcepoolstatusrequests"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_resource_v1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface {
@@ -26,12 +27,16 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceTaintRuleInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "DeviceTaintRule", c.clientType)
 	return devicetaintrules.WithMetrics(c.inner.DeviceTaintRules(), recorder)
+}
+func (c *withMetrics) ResourcePoolStatusRequests() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourcePoolStatusRequestInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ResourcePoolStatusRequest", c.clientType)
+	return resourcepoolstatusrequests.WithMetrics(c.inner.ResourcePoolStatusRequests(), recorder)
 }
 
 type withTracing struct {
@@ -39,11 +44,14 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceTaintRuleInterface {
 	return devicetaintrules.WithTracing(c.inner.DeviceTaintRules(), c.client, "DeviceTaintRule")
+}
+func (c *withTracing) ResourcePoolStatusRequests() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourcePoolStatusRequestInterface {
+	return resourcepoolstatusrequests.WithTracing(c.inner.ResourcePoolStatusRequests(), c.client, "ResourcePoolStatusRequest")
 }
 
 type withLogging struct {
@@ -51,9 +59,12 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceTaintRuleInterface {
 	return devicetaintrules.WithLogging(c.inner.DeviceTaintRules(), c.logger.WithValues("resource", "DeviceTaintRules"))
+}
+func (c *withLogging) ResourcePoolStatusRequests() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourcePoolStatusRequestInterface {
+	return resourcepoolstatusrequests.WithLogging(c.inner.ResourcePoolStatusRequests(), c.logger.WithValues("resource", "ResourcePoolStatusRequests"))
 }

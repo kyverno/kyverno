@@ -10,6 +10,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -104,6 +105,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 				imagedata.Lib(
 					imagedata.Context{ContextInterface: libsctx},
 					imagedata.Latest(),
+					nil,
 				),
 				hash.Lib(
 					hash.Latest(),
@@ -141,7 +143,6 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 			},
 		},
 	)
-
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
 	finalOpts := append(baseOpts, libEnvOpts...)
@@ -179,14 +180,34 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	generations := make([]cel.Program, 0, len(spec.Generation))
+	generations := make([]Generation, 0, len(spec.Generation))
 	{
 		path := path.Child("generate")
-		programs, errs := compiler.CompileGenerations(path, env, spec.Generation...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
+		for i, generation := range spec.Generation {
+			entryPath := path.Index(i)
+			switch {
+			case generation.Template != nil && generation.Expression != "":
+				return nil, append(allErrs, field.Invalid(entryPath, generation, "only one of expression or template may be set"))
+			case generation.Template != nil:
+				tpl, errs := template.Compile(entryPath.Child("template"), env, generation.Template)
+				if errs != nil {
+					return nil, append(allErrs, errs...)
+				}
+				generations = append(generations, Generation{template: tpl})
+			case generation.Expression != "":
+				program, errs := compiler.CompileGeneration(entryPath, env, generation)
+				if errs != nil {
+					return nil, append(allErrs, errs...)
+				}
+				generations = append(generations, Generation{expression: program})
+			default:
+				return nil, append(allErrs, field.Required(entryPath, "one of expression or template must be set"))
+			}
 		}
-		generations = append(generations, programs...)
+	}
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -201,9 +222,11 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		})
 	}
 	return &Policy{
+		namespace:        policy.GetNamespace(),
 		matchConditions:  matchConditions,
 		variables:        variables,
 		generations:      generations,
+		auditAnnotations: auditAnnotations,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
 	}, nil

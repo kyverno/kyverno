@@ -99,6 +99,16 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1beta1", "v1"},
 	}
+	mutatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"mutatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
+	}
+	namespacedMutatingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespacedmutatingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1beta1", "v1"},
+	}
 	deletingPolicyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"deletingpolicies"},
 		APIGroups:   []string{"policies.kyverno.io"},
@@ -862,6 +872,18 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Update,
 					},
 				}, {
+					Rule: mutatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
+					Rule: namespacedMutatingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
 					Rule: deletingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
@@ -974,7 +996,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 
 	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
-		config.MutatingPolicyWebhookName,
+		config.NamespacedMutatingPolicyWebhookName,
 		"/nmpol",
 		c.servicePort,
 		caBundle,
