@@ -2,11 +2,13 @@ package cosign
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -400,6 +402,68 @@ func TestBundleAutoDetection(t *testing.T) {
 			})
 		}
 	})
+}
+
+// TestShouldUseSignedTimestamps is a regression test for the
+// buildCheckOptsWithBundleDetection branch that enables UseSignedTimestamps
+// for detected Sigstore bundles (format v0.3, e.g. GitHub Actions) when the
+// transparency log is ignored. It is a pure unit test (no registry access)
+// so it cannot be silently broken by future refactors of the bundle
+// detection/network logic in buildCheckOptsWithBundleDetection.
+func TestShouldUseSignedTimestamps(t *testing.T) {
+	att := &v1beta1.Cosign{
+		TrustedRoot: &v1beta1.StringOrExpression{},
+	}
+	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+	att.TrustedRoot.Value = string(validJSON)
+	trustedMaterial, err := resolveTrustedMaterial(att, nil)
+	require.NoError(t, err)
+	require.NotNil(t, trustedMaterial)
+
+	tests := []struct {
+		name                string
+		ignoreTlog          bool
+		useSignedTimestamps bool
+		trustedMaterial     root.TrustedMaterial
+		wantUseSignedStamps bool
+	}{
+		{
+			name:                "bundle detected, tlog ignored, trusted material present -> enable signed timestamps",
+			ignoreTlog:          true,
+			useSignedTimestamps: false,
+			trustedMaterial:     trustedMaterial,
+			wantUseSignedStamps: true,
+		},
+		{
+			name:                "tlog not ignored -> keep default (current time) verification",
+			ignoreTlog:          false,
+			useSignedTimestamps: false,
+			trustedMaterial:     trustedMaterial,
+			wantUseSignedStamps: false,
+		},
+		{
+			name:                "trusted material nil (skipSigstoreInfra fast path) -> do not enable",
+			ignoreTlog:          true,
+			useSignedTimestamps: false,
+			trustedMaterial:     nil,
+			wantUseSignedStamps: false,
+		},
+		{
+			name:                "already using signed timestamps -> no-op",
+			ignoreTlog:          true,
+			useSignedTimestamps: true,
+			trustedMaterial:     trustedMaterial,
+			wantUseSignedStamps: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := shouldUseSignedTimestamps(tc.ignoreTlog, tc.useSignedTimestamps, tc.trustedMaterial)
+			assert.Equal(t, tc.wantUseSignedStamps, got)
+		})
+	}
 }
 
 func TestMultiPlatformImages(t *testing.T) {

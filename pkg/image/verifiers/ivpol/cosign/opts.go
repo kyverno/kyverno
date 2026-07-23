@@ -31,6 +31,14 @@ import (
 // unbounded work in crypto/x509 certificate chain building).
 const maxIntermediateCerts = 10
 
+// maxTrustedRootJSONSize limits the size of an inline trustedRoot JSON value
+// (att.TrustedRoot.Value) accepted for parsing. This value can be
+// user-controlled (e.g. sourced via a CEL expression reading a ConfigMap), so
+// an unbounded size could cause excessive memory/CPU usage during policy
+// evaluation. 1 MiB is generous relative to real-world trusted root
+// documents (GitHub's is ~26 KB).
+const maxTrustedRootJSONSize = 1 << 20 // 1 MiB
+
 // pemCertBlockHeader is the PEM block header used to count certificate blocks
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
@@ -101,7 +109,11 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 		}
 
-		opts.TrustedMaterial = trust.trustedRoot
+		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+		}
+		opts.TrustedMaterial = trustedMaterial
 	}
 
 	if att.CTLog != nil {
@@ -315,44 +327,88 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 	return opts, nil
 }
 
+// getRekor resolves the Rekor client and the Rekor/CTLog transparency log
+// public keys used to verify signed entry timestamps (SET) and signed
+// certificate timestamps (SCT).
+//
+// When ctlog.InsecureIgnoreTlog is set, no Rekor URL or client is required:
+// the transparency log verification will be skipped entirely by cosign, so
+// building a Rekor client (which requires a URL) is unnecessary and should
+// not fail policy evaluation. Similarly, when ctlog.InsecureIgnoreSCT is set,
+// fetching CT log public keys is skipped.
+//
+// defaultRekorPubKeys/defaultCtlogPubKeys are the Rekor/CTLog public keys
+// already fetched atomically alongside TUF initialization by
+// initTUFAndFetch; they are reused here (when the policy does not override
+// them explicitly) to avoid an extra TUF lock acquisition.
 func getRekor(_ context.Context, ctlog *v1beta1.CTLog, defaultRekorPubKeys, defaultCtlogPubKeys *cosign.TrustedTransparencyLogPubKeys) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
-	// In keyless, if no TrustRoot was defined and CTLog is nil, then default
-	// to the Rekor/CTLog pubkeys already fetched atomically with initTUFAndFetch.
+	// When CTLog is nil, default to the Rekor/CTLog pubkeys already fetched
+	// atomically with initTUFAndFetch.
 	if ctlog == nil {
 		return nil, defaultRekorPubKeys, defaultCtlogPubKeys, nil
 	}
 
-	if len(ctlog.URL) == 0 {
-		return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
-	}
-	rekorClient, err := rekor.GetRekorClient(ctlog.URL)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
+	var (
+		rekorClient *client.Rekor
+		rekorPubKey *cosign.TrustedTransparencyLogPubKeys
+		ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
+		err         error
+	)
+
+	if !ctlog.InsecureIgnoreTlog {
+		if len(ctlog.URL) == 0 {
+			return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
+		}
+		rekorClient, err = rekor.GetRekorClient(ctlog.URL)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
+		}
+		if ctlog.RekorPubKey == "" {
+			// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
+			rekorPubKey = defaultRekorPubKeys
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
+			}
+			rekorPubKey = &key
+		}
 	}
 
-	var rekorPubKey *cosign.TrustedTransparencyLogPubKeys
-	var ctlogPubKey *cosign.TrustedTransparencyLogPubKeys
-	if ctlog.RekorPubKey == "" {
-		// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
-		rekorPubKey = defaultRekorPubKeys
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse rekor public keys: %w", err)
+	if !ctlog.InsecureIgnoreSCT {
+		if ctlog.CTLogPubKey == "" {
+			// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
+			ctlogPubKey = defaultCtlogPubKeys
+		} else {
+			key := cosign.NewTrustedTransparencyLogPubKeys()
+			if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
+			}
+			ctlogPubKey = &key
 		}
-		rekorPubKey = &key
-	}
-
-	if ctlog.CTLogPubKey == "" {
-		// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
-		ctlogPubKey = defaultCtlogPubKeys
-	} else {
-		key := cosign.NewTrustedTransparencyLogPubKeys()
-		if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to parse ctlog public keys: %w", err)
-		}
-		ctlogPubKey = &key
 	}
 
 	return rekorClient, rekorPubKey, ctlogPubKey, nil
+}
+
+// resolveTrustedMaterial returns the sigstore-go TrustedMaterial used to
+// verify Sigstore bundles. When att.TrustedRoot carries an inline JSON value
+// (typically resolved from a CEL expression reading a ConfigMap, see
+// variables.CompiledAttestor), it is parsed and used directly instead of
+// the trusted_root.json already fetched atomically by initTUFAndFetch. This
+// allows verifying attestations/signatures from private Sigstore instances
+// (e.g. GitHub's) that don't operate a TUF server, while still falling back
+// to the TUF-derived trusted root for standard Sigstore verification.
+func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.TrustedRoot) (root.TrustedMaterial, error) {
+	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
+		if n := len(att.TrustedRoot.Value); n > maxTrustedRootJSONSize {
+			return nil, fmt.Errorf("inline trustedRoot JSON is too large (%d bytes), maximum allowed is %d bytes", n, maxTrustedRootJSONSize)
+		}
+		tr, err := root.NewTrustedRootFromJSON([]byte(att.TrustedRoot.Value))
+		if err != nil {
+			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
+		}
+		return tr, nil
+	}
+	return defaultTrustedRoot, nil
 }
