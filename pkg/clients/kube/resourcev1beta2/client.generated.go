@@ -3,12 +3,13 @@ package client
 import (
 	"github.com/go-logr/logr"
 	deviceclasses "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2/deviceclasses"
+	devicetaintrules "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2/devicetaintrules"
 	resourceclaims "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2/resourceclaims"
 	resourceclaimtemplates "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2/resourceclaimtemplates"
 	resourceslices "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1beta2/resourceslices"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_resource_v1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceV1beta2Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceV1beta2Interface {
@@ -29,12 +30,16 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceClassInterface {
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "DeviceClass", c.clientType)
 	return deviceclasses.WithMetrics(c.inner.DeviceClasses(), recorder)
+}
+func (c *withMetrics) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceTaintRuleInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "DeviceTaintRule", c.clientType)
+	return devicetaintrules.WithMetrics(c.inner.DeviceTaintRules(), recorder)
 }
 func (c *withMetrics) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceClaimTemplateInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "ResourceClaimTemplate", c.clientType)
@@ -54,11 +59,14 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceClassInterface {
 	return deviceclasses.WithTracing(c.inner.DeviceClasses(), c.client, "DeviceClass")
+}
+func (c *withTracing) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceTaintRuleInterface {
+	return devicetaintrules.WithTracing(c.inner.DeviceTaintRules(), c.client, "DeviceTaintRule")
 }
 func (c *withTracing) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceClaimTemplateInterface {
 	return resourceclaimtemplates.WithTracing(c.inner.ResourceClaimTemplates(namespace), c.client, "ResourceClaimTemplate")
@@ -75,11 +83,14 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceClassInterface {
 	return deviceclasses.WithLogging(c.inner.DeviceClasses(), c.logger.WithValues("resource", "DeviceClasses"))
+}
+func (c *withLogging) DeviceTaintRules() k8s_io_client_go_kubernetes_typed_resource_v1beta2.DeviceTaintRuleInterface {
+	return devicetaintrules.WithLogging(c.inner.DeviceTaintRules(), c.logger.WithValues("resource", "DeviceTaintRules"))
 }
 func (c *withLogging) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1beta2.ResourceClaimTemplateInterface {
 	return resourceclaimtemplates.WithLogging(c.inner.ResourceClaimTemplates(namespace), c.logger.WithValues("resource", "ResourceClaimTemplates").WithValues("namespace", namespace))

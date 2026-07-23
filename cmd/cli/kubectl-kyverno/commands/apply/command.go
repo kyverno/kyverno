@@ -47,13 +47,13 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/spf13/cobra"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -65,14 +65,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []string
-	invalid []string
+	skipped []PolicyDiagnostic
+	invalid []PolicyDiagnostic
+}
+
+type PolicyDiagnostic struct {
+	name   string
+	reason string
 }
 
 type ApplyCommandConfig struct {
@@ -544,9 +550,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			}
 			continue
 		}
@@ -668,16 +674,27 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		// This informer will automatically die at the end of this function and thats ok,
+		// we don't care about it past applying image validating policies anyways
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		imageverifycache.DisabledImageVerifyCache(),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -742,13 +759,15 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -841,8 +860,13 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
-				status = engineapi.RuleStatusFail
-				message = fmt.Sprintf("%s did not match", payloadType)
+				if resp.PolicyMatched {
+					status = engineapi.RuleStatusFail
+					message = fmt.Sprintf("%s did not match", payloadType)
+				} else {
+					status = engineapi.RuleStatusSkip
+					message = fmt.Sprintf("%s skipped by policy match constraints", payloadType)
+				}
 			}
 
 			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)

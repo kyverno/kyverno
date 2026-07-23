@@ -342,6 +342,8 @@ We are using code generation tools to create the following portions of code:
 
 > **Note**: You can run `make codegen-all` to build all generated code at once.
 
+> **Note**: After bumping the `github.com/kyverno/api` dependency, run `make codegen-api-bump` (or `make codegen-all`): besides the CRD manifests, the API reference docs under `docs/user/crd/` are generated from the api module types and are checked by the "Verify codegen (docs)" CI job. If that job fails anyway, it uploads a `codegen-*-patch` artifact you can apply directly with `git apply` instead of re-running codegen locally.
+
 ### Generating kubernetes API client
 
 Based on the [APIs golang code definitions](./api), you can generate the corresponding Kubernetes client by running:

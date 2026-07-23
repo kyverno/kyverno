@@ -636,6 +636,37 @@ Required.</p>
     
     
       <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+The results of evaluating the expressions are attached to the audit event as annotations with the key
+&quot;<!-- raw HTML omitted -->/<!-- raw HTML omitted -->&quot;.
+If the expression evaluates to an empty string or null the annotation will not be included in the audit event.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>useServerSideApply</code>
           
           </br>
@@ -1455,8 +1486,9 @@ image verification functions</p>
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+          <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Trigger constraints and MatchConditions are evaluated before target resolution.
 Required.</p>
 
 
@@ -1559,8 +1591,11 @@ There are a maximum of 64 match conditions allowed.</p>
 
           <p>Variables contain definitions of variables that can be used in composition of other expressions.
 Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+The variables defined here will be available under <code>variables</code> in other expressions of the policy,
+including MatchConditions where they are evaluated lazily on first reference.
+Note that a native Kubernetes MutatingAdmissionPolicy does not support variables in match
+conditions; policies that generate a MutatingAdmissionPolicy through autogen should not
+reference variables in MatchConditions.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
@@ -1620,7 +1655,36 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
         <td>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>TargetMatchConstraints resolves the resources to mutate after Variables are evaluated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+Target match conditions are evaluated after variables and target resolution. They can reference
+variables and use Object to refer to the target resource.</p>
 
 
           
@@ -4720,6 +4784,37 @@ Required.</p>
     
     
       <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+The results of evaluating the expressions are attached to the audit event as annotations with the key
+&quot;<!-- raw HTML omitted -->/<!-- raw HTML omitted -->&quot;.
+If the expression evaluates to an empty string or null the annotation will not be included in the audit event.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>useServerSideApply</code>
           
           </br>
@@ -4850,6 +4945,99 @@ Defaults to &quot;false&quot; if not specified.</p>
       <tr>
         <td><code>expression</code>
           
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>template</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GenerationTemplate">
+                <span style="font-family: monospace">GenerationTemplate</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Template declares the resources to be generated as a YAML document,
+with optional CEL interpolation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GenerationTemplate">GenerationTemplate
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Generation">Generation</a>)
+    </p>
+  
+
+  <p><p>GenerationTemplate declares generated resources as a YAML document with optional CEL interpolation.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>value</code>
+          
           <span style="color:blue;"> *</span>
           
           </br>
@@ -4864,7 +5052,40 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+          <p>Value is a YAML string, single or multi-document, defining the resources to generate.
+The namespace of each generated resource is taken from its rendered metadata.namespace,
+resources without a namespace are treated as cluster-scoped.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>interpolate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-InterpolationMode">
+                <span style="font-family: monospace">InterpolationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Interpolate controls placeholder evaluation in Value:
+&quot;none&quot; (default) treats Value as plain YAML;
+&quot;cel&quot; evaluates <code>(( ... ))</code> placeholders as CEL expressions before the YAML is parsed.</p>
 
 
           
@@ -6036,6 +6257,21 @@ image verification functions</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-InterpolationMode">InterpolationMode
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GenerationTemplate">GenerationTemplate</a>)
+    </p>
+  
+
+  <p><p>InterpolationMode controls placeholder evaluation in a generation template.</p>
+</p>
+
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-Key">Key
     </H3>
 
@@ -6969,6 +7205,37 @@ The default value is set to &quot;true&quot;, it must be set to &quot;false&quot
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply applies ApplyConfiguration patches with Server-Side Apply semantics,
+which allows setting atomic fields (for example a container's args or a projected volume)
+that the default MutatingAdmissionPolicy behaviour rejects. When true, an atomic value is
+replaced as a whole, so any field the object owner set but the patch does not is dropped.
+The default is false, which keeps parity with a native MutatingAdmissionPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -7025,8 +7292,9 @@ The default value is set to &quot;true&quot;, it must be set to &quot;false&quot
         <td>
           
 
-          <p>MatchConstraints specifies what resources this policy is designed to evaluate.
+          <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
+Trigger constraints and MatchConditions are evaluated before target resolution.
 Required.</p>
 
 
@@ -7129,8 +7397,11 @@ There are a maximum of 64 match conditions allowed.</p>
 
           <p>Variables contain definitions of variables that can be used in composition of other expressions.
 Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+The variables defined here will be available under <code>variables</code> in other expressions of the policy,
+including MatchConditions where they are evaluated lazily on first reference.
+Note that a native Kubernetes MutatingAdmissionPolicy does not support variables in match
+conditions; policies that generate a MutatingAdmissionPolicy through autogen should not
+reference variables in MatchConditions.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
@@ -7190,7 +7461,36 @@ Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
         <td>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>TargetMatchConstraints resolves the resources to mutate after Variables are evaluated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>targetMatchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TargetMatchConditions is a list of conditions that must be met for a resolved target resource.
+Target match conditions are evaluated after variables and target resolution. They can reference
+variables and use Object to refer to the target resource.</p>
 
 
           
@@ -8756,7 +9056,9 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          
+          <p>Expression resolves one target object or a list of target objects. The expression can use
+variables computed from the trigger request.</p>
+
 
           
 
@@ -8784,7 +9086,8 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
             <p>(Members of <code>MatchResources</code> are embedded into this type.)</p>
           
 
-          <p>TargetMatchConstraints specifies what target mutation resources this policy is designed to evaluate.</p>
+          <p>MatchResources constrains target resources and supplies their API route. When Expression is
+set, these rules still determine whether a target uses a subresource endpoint.</p>
 
 
           

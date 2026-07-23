@@ -39,7 +39,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil)
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nil)
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {
@@ -74,4 +74,62 @@ func TestScanResource_ImageValidatingPolicy(t *testing.T) {
 	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
 
 	assert.Len(t, results, 1, "ImageValidatingPolicy must not be silently skipped by the scanner")
+}
+
+func TestFilterMatchConditionSkips(t *testing.T) {
+	tests := []struct {
+		name          string
+		rules         []engineapi.RuleResponse
+		expectedCount int
+	}{
+		{
+			name:          "empty input",
+			rules:         []engineapi.RuleResponse{},
+			expectedCount: 0,
+		},
+		{
+			name: "skip with SkipReasonMatchConditions is filtered out",
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("rule-1", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions),
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "skip without SkipReason is kept",
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("rule-1", engineapi.Validation, "skip", nil),
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "skip from PolicyException is kept",
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception", nil),
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "pass and fail rules are never filtered",
+			rules: []engineapi.RuleResponse{
+				*engineapi.RulePass("rule-1", engineapi.Validation, "pass", nil),
+				*engineapi.RuleFail("rule-2", engineapi.Validation, "fail", nil),
+			},
+			expectedCount: 2,
+		},
+		{
+			name: "mixed -- only matchConditions skips are removed",
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("rule-1", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions),
+				*engineapi.RulePass("rule-2", engineapi.Validation, "pass", nil),
+				*engineapi.RuleSkip("exception", engineapi.Validation, "policy exception", nil),
+			},
+			expectedCount: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterMatchConditionSkips(tt.rules)
+			assert.Equal(t, tt.expectedCount, len(got))
+		})
+	}
 }

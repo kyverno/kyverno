@@ -298,6 +298,8 @@ func createrLeaderControllers(
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+		var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+		var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
@@ -309,6 +311,10 @@ func createrLeaderControllers(
 		var mapBindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1")
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1beta1")
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
@@ -337,6 +343,8 @@ func createrLeaderControllers(
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
+			mapV1Informer,
+			mapBindingV1Informer,
 			mapBetaInformer,
 			mapBindingBetaInformer,
 			mapAlphaInformer,
@@ -430,6 +438,7 @@ func main() {
 		internal.WithReporting(),
 		internal.WithRestConfig(),
 	)
+
 	// parse flags
 	internal.ParseFlags(appConfig)
 	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
@@ -571,7 +580,6 @@ func main() {
 			setup.Configuration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
-			setup.RegistryClient,
 			setup.ImageVerifyCacheClient,
 			setup.KubeClient,
 			setup.KyvernoClient,
@@ -676,15 +684,15 @@ func main() {
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
+			setup.RegistrySecretLister,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
 
 		contextProvider, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			setup.RegistrySecretLister,
 			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			restMapper,
 			false,
 		)
@@ -778,8 +786,8 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-				nil,
+				setup.RegistrySecretLister,
+				setup.ImageVerifyCacheClient,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
@@ -887,15 +895,17 @@ func main() {
 			},
 			webhooks.ResourceHandlers{
 				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
-				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.Mutate),
-				MutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateClustered),
-				NamespacedMutatingPolicies:        webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
-				Validation:                        webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateClustered),
-				NamespacedValidatingPolicies:      webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
-				ImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.Validate),
-				GeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.Generate),
-				NamespacedGeneratingPolicies:      webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateClustered),
+				NamespacedImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateNamespaced),
+				MutatingPolicies:                    webhooks.HandlerFunc(mpolHandlers.MutateClustered),
+				NamespacedMutatingPolicies:          webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
+				Validation:                          webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies:                  webhooks.HandlerFunc(voplHandlers.ValidateClustered),
+				NamespacedValidatingPolicies:        webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
+				ImageVerificationPolicies:           webhooks.HandlerFunc(ivpolHandlers.ValidateClustered),
+				NamespacedImageVerificationPolicies: webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
+				GeneratingPolicies:                  webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies:        webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
