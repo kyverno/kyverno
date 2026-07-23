@@ -1,12 +1,19 @@
 package imageverify
 
 import (
+	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -56,12 +63,12 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, nil),
+		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -94,12 +101,12 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 }
 
 func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, nil),
+		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -130,4 +137,111 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	assert.Equal(t, out.Value(), int64(1))
+}
+
+func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "notary",
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
+					Value: cert,
+				},
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy",
+			UID:             "test-uid",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: attestors,
+		},
+	}
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	// imgCtx is left nil on purpose: if the cache is bypassed, fetching image data errors
+	// out, and the test fails, proving a cache hit skips the registry round trip entirely.
+	f := &ivfuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
+	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	out2 := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	assert.Equal(t, int64(len(attestors)), out2.Value())
+}
+
+func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testing.T) {
+	// a certificate that doesn't match the image's actual signer, so verification fails
+	// while the image fetch itself still succeeds against the real registry.
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "notary",
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
+					Value: "not-a-valid-certificate",
+				},
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy-miss",
+			UID:             "test-uid-miss",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: attestors,
+		},
+	}
+	// reuse the same signed image as the other tests: the fetch succeeds, but the bogus
+	// cert above means verification never passes, so the count never reaches len(attestors)
+	// and the result must not be cached.
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &ivfuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		imgCtx:         imgCtx,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	out := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	count, ok := out.Value().(int64)
+	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
+	assert.Less(t, count, int64(len(attestors)))
+
+	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
+	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.False(t, found, "a partial or failed verification must never be cached")
 }

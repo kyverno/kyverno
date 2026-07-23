@@ -10,8 +10,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -22,6 +23,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/tuf"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // maxIntermediateCerts limits the number of intermediate certificates accepted
@@ -40,7 +42,8 @@ func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
 
-func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister imagedataloader.SecretInterface) (*cosign.CheckOpts, error) {
+func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
+
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
@@ -49,7 +52,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	cosignRemoteOpts := []ociremote.Option{}
 
 	if att.Source != nil {
-		remoteOpts, err := sourceRemoteOpts(ctx, secretLister, att.Source)
+		remoteOpts, err := sourceRemoteOpts(secretLister, att.Source)
 		if err != nil {
 			return nil, err
 		}
@@ -300,17 +303,14 @@ func initTUFAndFetch(ctx context.Context, t *v1beta1.TUF) (*sigstoreTrustMateria
 	return &m, nil
 }
 
-func sourceRemoteOpts(ctx context.Context, secretLister imagedataloader.SecretInterface, src *v1beta1.Source) ([]remote.Option, error) {
+func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Source) ([]remote.Option, error) {
 	opts := make([]remote.Option, 0)
 	if len(src.SignaturePullSecrets) > 0 {
 		signaturePullSecrets := make([]string, 0, len(src.SignaturePullSecrets))
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc, err := imagedataloader.NewAutoRefreshSecretsKeychain(secretLister, signaturePullSecrets...)
-		if err != nil {
-			return nil, err
-		}
+		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil
