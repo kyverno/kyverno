@@ -13,8 +13,8 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -2165,7 +2165,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		require.NoError(t, err)
 		dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
 
-		er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext, nil)
+		er := testMutate(context.TODO(), dclient, registryclient.New(nil, "", "", "", false), policyContext, nil)
 
 		var actualPatchedTargets []unstructured.Unstructured
 		for i := range er.PolicyResponse.Rules {

@@ -63,7 +63,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
@@ -101,7 +101,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 }
 
 func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
@@ -216,7 +216,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	// and the result must not be cached.
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
