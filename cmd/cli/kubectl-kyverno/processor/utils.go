@@ -36,13 +36,13 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		informerFactory.WaitForCacheSync(stopCh)
 
 		lister := informerFactory.Core().V1().Secrets().Lister()
-    return libs.NewContextProvider(
-      dclient,
-      lister,
-      gctxstore.New(0),
-      restMapper,
-      true,
-	  )
+		return libs.NewContextProvider(
+			dclient,
+			lister,
+			gctxstore.New(0),
+			restMapper,
+			true,
+		)
 	}
 
 	fakeContextProvider := libs.NewFakeContextProvider()
