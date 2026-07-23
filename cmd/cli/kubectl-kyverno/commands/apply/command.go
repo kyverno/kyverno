@@ -736,7 +736,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -860,13 +860,15 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
-				if resp.PolicyMatched {
-					status = engineapi.RuleStatusFail
-					message = fmt.Sprintf("%s did not match", payloadType)
-				} else {
-					status = engineapi.RuleStatusSkip
-					message = fmt.Sprintf("%s skipped by policy match constraints", payloadType)
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
 				}
+				status = engineapi.RuleStatusFail
+				message = fmt.Sprintf("%s did not match", payloadType)
 			}
 
 			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)

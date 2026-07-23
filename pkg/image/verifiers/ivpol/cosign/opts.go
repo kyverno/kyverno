@@ -6,12 +6,12 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
@@ -25,8 +25,6 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
-
-var tufMu sync.Mutex
 
 // maxIntermediateCerts limits the number of intermediate certificates accepted
 // from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
@@ -53,9 +51,6 @@ func countPEMCertBlocks(pem []byte) int {
 }
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
-	tufMu.Lock()
-	defer tufMu.Unlock()
-
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
@@ -84,15 +79,23 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
 	var err error
+	var trust *sigstoreTrustMaterial
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
 	}
 
 	if !skipSigstoreInfra {
-		if err := initializeTuf(ctx, att.TUF); err != nil {
+		// initTUFAndFetch initializes the TUF singleton and reads all
+		// TUF-derived trust material (Rekor/CTLog pubkeys, trusted root,
+		// Fulcio roots) in a single mutex acquisition, so no concurrent
+		// goroutine can reinitialize the singleton with a different mirror
+		// between the init step and the reads.
+		trust, err = initTUFAndFetch(ctx, att.TUF)
+		if err != nil {
 			return nil, err
 		}
-		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog)
+
+		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog, trust.rekorPubKeys, trust.ctlogPubKeys)
 		if err != nil {
 			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
 		}
@@ -106,7 +109,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 		}
 
-		trustedMaterial, err := resolveTrustedMaterial(ctx, att)
+		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
 		}
@@ -151,12 +154,10 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					SubjectRegExp: id.SubjectRegExp,
 				})
 		}
-		fulcioRoots, fulcioIntermediates, err := getFulcio(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("getting Fulcio certs: %w", err)
-		}
-		opts.RootCerts = fulcioRoots
-		opts.IntermediateCerts = fulcioIntermediates
+		// trust is always non-nil when att.Keyless != nil because
+		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
+		opts.RootCerts = trust.fulcioRoots
+		opts.IntermediateCerts = trust.fulcioIntermediates
 		if att.Keyless.Roots != "" {
 			cp, err := certPoolFromBytes([]byte(att.Keyless.Roots))
 			if err != nil {
@@ -230,31 +231,87 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	return nil, fmt.Errorf("cosign verifier needs to have one key, keyless or certificate fields set")
 }
 
-func initializeTuf(ctx context.Context, t *v1beta1.TUF) error {
+// sigstoreTrustMaterial holds all TUF-derived trust material fetched by
+// initTUFAndFetch in a single locked operation.
+type sigstoreTrustMaterial struct {
+	rekorPubKeys        *cosign.TrustedTransparencyLogPubKeys
+	ctlogPubKeys        *cosign.TrustedTransparencyLogPubKeys
+	trustedRoot         *root.TrustedRoot
+	fulcioRoots         *x509.CertPool
+	fulcioIntermediates *x509.CertPool
+}
+
+// initTUFAndFetch pre-reads any file-based TUF root (pure I/O), then
+// atomically initializes the TUF singleton and fetches all TUF-derived
+// trust material within a single sigstoretuf.WithLock acquisition.
+// This prevents a concurrent goroutine from reinitializing the singleton
+// with a different mirror between the initialization and the reads.
+func initTUFAndFetch(ctx context.Context, t *v1beta1.TUF) (*sigstoreTrustMaterial, error) {
+	// Step 1: read optional root bytes — pure I/O, no TUF lock needed.
+	var rootBytes []byte
+	mirror := tuf.DefaultRemoteRoot
 	if t != nil {
-		var root []byte
 		var err error
 		if t.Root.Path != "" {
-			root, err = blob.LoadFileOrURL(t.Root.Path)
+			rootBytes, err = blob.LoadFileOrURL(t.Root.Path)
 			if err != nil {
-				return fmt.Errorf("Failed to read alternate TUF root file %v : %w", t, err)
+				return nil, fmt.Errorf("failed to read alternate TUF root file %q: %w", t.Root.Path, err)
 			}
 		} else if t.Root.Data != "" {
-			root, err = base64.StdEncoding.DecodeString(t.Root.Data)
+			rootBytes, err = base64.StdEncoding.DecodeString(t.Root.Data)
 			if err != nil {
-				return fmt.Errorf("Failed to base64 decode TUF root  %v : %w", t, err)
+				return nil, fmt.Errorf("failed to base64-decode inline TUF root data: %w", err)
 			}
 		}
-
-		if err := tuf.Initialize(ctx, t.Mirror, root); err != nil {
-			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
-		}
-	} else {
-		if err := tuf.Initialize(ctx, tuf.DefaultRemoteRoot, nil); err != nil {
-			return fmt.Errorf("Failed to initialize TUF client from %v : %w", t, err)
+		if t.Mirror != "" {
+			mirror = t.Mirror
 		}
 	}
-	return nil
+
+	// Step 2: hold the process-wide TUF mutex for init + all reads so
+	// that no other goroutine can reinitialize the singleton between them.
+	// Note: fn must call sigstore/TUF functions directly (not through
+	// sigstoretuf wrappers) to avoid deadlocking on the same mutex.
+	var m sigstoreTrustMaterial
+	err := sigstoretuf.WithLock(func() error {
+		if err := tuf.Initialize(ctx, mirror, rootBytes); err != nil {
+			return fmt.Errorf("failed to initialize TUF client (mirror=%q): %w", mirror, err)
+		}
+		var err error
+		m.rekorPubKeys, err = cosign.GetRekorPubs(ctx)
+		if err != nil {
+			return fmt.Errorf("getting Rekor public keys: %w", err)
+		}
+		m.ctlogPubKeys, err = cosign.GetCTLogPubs(ctx)
+		if err != nil {
+			return fmt.Errorf("getting CTLog public keys: %w", err)
+		}
+		tufClient, err := tuf.NewFromEnv(ctx)
+		if err != nil {
+			return fmt.Errorf("initializing tuf client: %w", err)
+		}
+		targetBytes, err := tufClient.GetTarget("trusted_root.json")
+		if err != nil {
+			return fmt.Errorf("error getting target trusted_root.json: %w", err)
+		}
+		m.trustedRoot, err = root.NewTrustedRootFromJSON(targetBytes)
+		if err != nil {
+			return fmt.Errorf("error creating trusted root: %w", err)
+		}
+		m.fulcioRoots, err = fulcioroots.Get()
+		if err != nil {
+			return fmt.Errorf("failed to fetch Fulcio roots: %w", err)
+		}
+		m.fulcioIntermediates, err = fulcioroots.GetIntermediates()
+		if err != nil {
+			return fmt.Errorf("failed to fetch Fulcio intermediates: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
 }
 
 func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Source) ([]remote.Option, error) {
@@ -279,18 +336,16 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 // building a Rekor client (which requires a URL) is unnecessary and should
 // not fail policy evaluation. Similarly, when ctlog.InsecureIgnoreSCT is set,
 // fetching CT log public keys is skipped.
-func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
-	// When CTLog is nil, default to the public Rekor and CT log keys (cosign defaults).
+//
+// defaultRekorPubKeys/defaultCtlogPubKeys are the Rekor/CTLog public keys
+// already fetched atomically alongside TUF initialization by
+// initTUFAndFetch; they are reused here (when the policy does not override
+// them explicitly) to avoid an extra TUF lock acquisition.
+func getRekor(_ context.Context, ctlog *v1beta1.CTLog, defaultRekorPubKeys, defaultCtlogPubKeys *cosign.TrustedTransparencyLogPubKeys) (*client.Rekor, *cosign.TrustedTransparencyLogPubKeys, *cosign.TrustedTransparencyLogPubKeys, error) {
+	// When CTLog is nil, default to the Rekor/CTLog pubkeys already fetched
+	// atomically with initTUFAndFetch.
 	if ctlog == nil {
-		rekorPubKeys, err := cosign.GetRekorPubs(ctx)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("getting Rekor public keys: %w", err)
-		}
-		ctlogPubKey, err := cosign.GetCTLogPubs(ctx)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("getting Rekor public keys: %w", err)
-		}
-		return nil, rekorPubKeys, ctlogPubKey, nil
+		return nil, defaultRekorPubKeys, defaultCtlogPubKeys, nil
 	}
 
 	var (
@@ -309,9 +364,8 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 			return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
 		}
 		if ctlog.RekorPubKey == "" {
-			if rekorPubKey, err = cosign.GetRekorPubs(ctx); err != nil {
-				return nil, nil, nil, fmt.Errorf("failed to get rekor public keys: %w", err)
-			}
+			// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
+			rekorPubKey = defaultRekorPubKeys
 		} else {
 			key := cosign.NewTrustedTransparencyLogPubKeys()
 			if err := key.AddTransparencyLogPubKey([]byte(ctlog.RekorPubKey), tuf.Active); err != nil {
@@ -323,9 +377,8 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 
 	if !ctlog.InsecureIgnoreSCT {
 		if ctlog.CTLogPubKey == "" {
-			if ctlogPubKey, err = cosign.GetCTLogPubs(ctx); err != nil {
-				return nil, nil, nil, fmt.Errorf("failed to get ctlog public keys: %w", err)
-			}
+			// Reuse pre-fetched defaults to avoid an extra TUF lock acquisition.
+			ctlogPubKey = defaultCtlogPubKeys
 		} else {
 			key := cosign.NewTrustedTransparencyLogPubKeys()
 			if err := key.AddTransparencyLogPubKey([]byte(ctlog.CTLogPubKey), tuf.Active); err != nil {
@@ -338,26 +391,15 @@ func getRekor(ctx context.Context, ctlog *v1beta1.CTLog) (*client.Rekor, *cosign
 	return rekorClient, rekorPubKey, ctlogPubKey, nil
 }
 
-func getFulcio(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
-	roots, err := fulcioroots.Get()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch Fulcio roots: %w", err)
-	}
-	intermediates, err := fulcioroots.GetIntermediates()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch Fulcio intermediates: %w", err)
-	}
-	return roots, intermediates, nil
-}
-
 // resolveTrustedMaterial returns the sigstore-go TrustedMaterial used to
 // verify Sigstore bundles. When att.TrustedRoot carries an inline JSON value
 // (typically resolved from a CEL expression reading a ConfigMap, see
 // variables.CompiledAttestor), it is parsed and used directly instead of
-// fetching trusted_root.json from the Sigstore TUF repository. This allows
-// verifying attestations signed by Sigstore deployments that do not operate a
-// TUF server, such as GitHub Actions' private Fulcio/TSA instance.
-func resolveTrustedMaterial(ctx context.Context, att *v1beta1.Cosign) (root.TrustedMaterial, error) {
+// the trusted_root.json already fetched atomically by initTUFAndFetch. This
+// allows verifying attestations/signatures from private Sigstore instances
+// (e.g. GitHub's) that don't operate a TUF server, while still falling back
+// to the TUF-derived trusted root for standard Sigstore verification.
+func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.TrustedRoot) (root.TrustedMaterial, error) {
 	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
 		if n := len(att.TrustedRoot.Value); n > maxTrustedRootJSONSize {
 			return nil, fmt.Errorf("inline trustedRoot JSON is too large (%d bytes), maximum allowed is %d bytes", n, maxTrustedRootJSONSize)
@@ -368,21 +410,5 @@ func resolveTrustedMaterial(ctx context.Context, att *v1beta1.Cosign) (root.Trus
 		}
 		return tr, nil
 	}
-	return getTrustedRootFromTUF(ctx)
-}
-
-func getTrustedRootFromTUF(ctx context.Context) (*root.TrustedRoot, error) {
-	tufClient, err := tuf.NewFromEnv(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("initializing tuf: %w", err)
-	}
-	targetBytes, err := tufClient.GetTarget("trusted_root.json")
-	if err != nil {
-		return nil, fmt.Errorf("error getting targets: %w", err)
-	}
-	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error creating trusted root: %w", err)
-	}
-	return trustedRoot, nil
+	return defaultTrustedRoot, nil
 }

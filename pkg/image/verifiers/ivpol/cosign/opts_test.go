@@ -271,20 +271,26 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 	assert.False(t, opts.Offline)
 }
 
-func TestInitializeTuf_Default(t *testing.T) {
+func TestInitTUFAndFetch_Default(t *testing.T) {
 	ctx := context.TODO()
-	err := initializeTuf(ctx, nil)
-	assert.NoError(t, err)
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, trust)
+	assert.NotNil(t, trust.rekorPubKeys)
+	assert.NotNil(t, trust.ctlogPubKeys)
+	assert.NotNil(t, trust.trustedRoot)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
 }
 
-func TestInitializeTuf_WithCustomMirror(t *testing.T) {
+func TestInitTUFAndFetch_WithCustomMirror(t *testing.T) {
 	ctx := context.TODO()
 	tufCfg := &v1beta1.TUF{
 		Mirror: "https://custom-tuf.example.com",
 	}
 
-	err := initializeTuf(ctx, tufCfg)
-	if err != nil && err.Error() != "initializing TUF client from &TUF{}" {
+	_, err := initTUFAndFetch(ctx, tufCfg)
+	if err != nil {
 		t.Logf("Custom TUF mirror test (expected to fail in test env): %v", err)
 	}
 }
@@ -295,7 +301,11 @@ func TestGetRekor_WithURL(t *testing.T) {
 		URL: "https://rekor.sigstore.dev",
 	}
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	// Fetch default pubkeys first (as checkOptions does via initTUFAndFetch).
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.NotNil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
@@ -305,18 +315,22 @@ func TestGetRekor_WithURL(t *testing.T) {
 func TestGetRekor_NilCTLog(t *testing.T) {
 	ctx := context.TODO()
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil)
+	// When ctlog is nil, getRekor returns the pre-fetched defaults unchanged.
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.Nil(t, rekorClient)
-	assert.NotNil(t, rekorPubKeys)
-	assert.NotNil(t, ctlogPubKeys)
+	assert.Equal(t, trust.rekorPubKeys, rekorPubKeys)
+	assert.Equal(t, trust.ctlogPubKeys, ctlogPubKeys)
 }
 
 func TestGetRekor_MissingURL(t *testing.T) {
 	ctx := context.TODO()
 	ctlog := &v1beta1.CTLog{}
 
-	_, _, _, err := getRekor(ctx, ctlog)
+	_, _, _, err := getRekor(ctx, ctlog, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "rekor URL must be provided")
 }
@@ -331,7 +345,10 @@ func TestGetRekor_InsecureIgnoreTlog_NoURL(t *testing.T) {
 		InsecureIgnoreTlog: true,
 	}
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.Nil(t, rekorClient)
 	assert.Nil(t, rekorPubKeys)
@@ -348,35 +365,36 @@ func TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys(t *testing.T) {
 		InsecureIgnoreSCT: true,
 	}
 
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog)
+	trust, err := initTUFAndFetch(ctx, nil)
+	require.NoError(t, err)
+
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, trust.rekorPubKeys, trust.ctlogPubKeys)
 	require.NoError(t, err)
 	assert.NotNil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
 	assert.Nil(t, ctlogPubKeys)
 }
 
-func TestGetFulcio(t *testing.T) {
+func TestInitTUFAndFetch_FulcioRoots(t *testing.T) {
 	ctx := context.TODO()
 
-	roots, intermediates, err := getFulcio(ctx)
+	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, roots)
-	assert.NotNil(t, intermediates)
+	assert.NotNil(t, trust.fulcioRoots)
+	assert.NotNil(t, trust.fulcioIntermediates)
 }
 
-func TestGetTrustedRootFromTUF(t *testing.T) {
+func TestInitTUFAndFetch_TrustedRoot(t *testing.T) {
 	ctx := context.TODO()
 
-	err := initializeTuf(ctx, nil)
+	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
-
-	trustedRoot, err := getTrustedRootFromTUF(ctx)
-	require.NoError(t, err)
-	assert.NotNil(t, trustedRoot)
+	assert.NotNil(t, trust.trustedRoot)
 }
 
 // TestResolveTrustedMaterial covers loading the trusted material from an
-// inline JSON value (att.TrustedRoot.Value), falling back to TUF when unset.
+// inline JSON value (att.TrustedRoot.Value), falling back to the
+// already-fetched TUF trusted root when unset.
 func TestResolveTrustedMaterial(t *testing.T) {
 	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
 	require.NoError(t, err)
@@ -385,7 +403,7 @@ func TestResolveTrustedMaterial(t *testing.T) {
 		att := &v1beta1.Cosign{
 			TrustedRoot: &v1beta1.StringOrExpression{Value: string(validJSON)},
 		}
-		tm, err := resolveTrustedMaterial(context.Background(), att)
+		tm, err := resolveTrustedMaterial(att, nil)
 		require.NoError(t, err)
 		require.NotNil(t, tm)
 	})
@@ -394,29 +412,31 @@ func TestResolveTrustedMaterial(t *testing.T) {
 		att := &v1beta1.Cosign{
 			TrustedRoot: &v1beta1.StringOrExpression{Value: "not-json"},
 		}
-		_, err := resolveTrustedMaterial(context.Background(), att)
+		_, err := resolveTrustedMaterial(att, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
 	})
 
-	t.Run("nil TrustedRoot falls back to TUF", func(t *testing.T) {
-		// Initialize the TUF client explicitly so this subtest doesn't
-		// depend on another test having already initialized it.
-		require.NoError(t, initializeTuf(context.Background(), nil))
+	t.Run("nil TrustedRoot falls back to the pre-fetched default", func(t *testing.T) {
+		// Fetch the default trusted root explicitly so this subtest doesn't
+		// depend on another test having already initialized TUF.
+		trust, err := initTUFAndFetch(context.Background(), nil)
+		require.NoError(t, err)
 		att := &v1beta1.Cosign{}
-		tm, err := resolveTrustedMaterial(context.Background(), att)
+		tm, err := resolveTrustedMaterial(att, trust.trustedRoot)
 		require.NoError(t, err)
 		require.NotNil(t, tm)
 	})
 
-	t.Run("TrustedRoot with empty Value falls back to TUF", func(t *testing.T) {
-		// Initialize the TUF client explicitly so this subtest doesn't
-		// depend on another test having already initialized it.
-		require.NoError(t, initializeTuf(context.Background(), nil))
+	t.Run("TrustedRoot with empty Value falls back to the pre-fetched default", func(t *testing.T) {
+		// Fetch the default trusted root explicitly so this subtest doesn't
+		// depend on another test having already initialized TUF.
+		trust, err := initTUFAndFetch(context.Background(), nil)
+		require.NoError(t, err)
 		att := &v1beta1.Cosign{
 			TrustedRoot: &v1beta1.StringOrExpression{Value: ""},
 		}
-		tm, err := resolveTrustedMaterial(context.Background(), att)
+		tm, err := resolveTrustedMaterial(att, trust.trustedRoot)
 		require.NoError(t, err)
 		require.NotNil(t, tm)
 	})
@@ -427,7 +447,7 @@ func TestResolveTrustedMaterial(t *testing.T) {
 				Value: strings.Repeat("a", maxTrustedRootJSONSize+1),
 			},
 		}
-		_, err := resolveTrustedMaterial(context.Background(), att)
+		_, err := resolveTrustedMaterial(att, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "too large")
 	})

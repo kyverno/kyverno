@@ -17,8 +17,15 @@ import (
 )
 
 type EngineResponse struct {
-	Resource      *unstructured.Unstructured
-	Match         bool
+	// Resource is the resource the policy was evaluated against.
+	Resource *unstructured.Unstructured
+	// Match reports whether the policy's delete conditions evaluated to true.
+	// Only meaningful when the returned error is nil.
+	Match bool
+	// PolicyMatched reports whether the resource was selected by the policy's
+	// matchConstraints (resourceRules, objectSelector, namespaceSelector).
+	// When false, Match is always false and the delete conditions were not
+	// evaluated. Only meaningful when the returned error is nil.
 	PolicyMatched bool
 }
 
