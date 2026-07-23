@@ -417,7 +417,7 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
 	require.NoError(t, err)
 	att.TrustedRoot.Value = string(validJSON)
-	trustedMaterial, err := resolveTrustedMaterial(context.Background(), att)
+	trustedMaterial, err := resolveTrustedMaterial(att, nil)
 	require.NoError(t, err)
 	require.NotNil(t, trustedMaterial)
 
