@@ -57,17 +57,8 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	mapName := "mpol-" + mpol.GetName()
 	mapBindingName := constructBindingName(mapName)
 
-	wantMap := mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled()
-	shouldDelete := !wantMap
-	var reason string
-	if wantMap {
-		if len(mpol.GetStatus().Autogen.Configs) > 0 {
-			shouldDelete = true
-			reason = "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled."
-		}
-	} else {
-		reason = "skip generating MutatingAdmissionPolicy: not enabled."
-	}
+	reason := mapGenerationSkipReason(mpol)
+	shouldDelete := reason != ""
 
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
@@ -77,6 +68,24 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	default:
 		return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
 	}
+}
+
+// mapGenerationSkipReason returns a non-empty reason when a MutatingAdmissionPolicy must not be
+// generated for the policy, in which case any previously generated policy is deleted instead.
+// useServerSideApply mutates atomic fields that a native MutatingAdmissionPolicy rejects, so a
+// generated MAP (which becomes the sole admission path once status.generated is set) would drop the
+// mutation. Pod-controller autogen is likewise incompatible with MAP generation.
+func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) string {
+	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
+		return "skip generating MutatingAdmissionPolicy: not enabled."
+	}
+	if ec := mpol.GetSpec().EvaluationConfiguration; ec != nil && ec.UseServerSideApply {
+		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects."
+	}
+	if len(mpol.GetStatus().Autogen.Configs) > 0 {
+		return "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled."
+	}
+	return ""
 }
 
 func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {

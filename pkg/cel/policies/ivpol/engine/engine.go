@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -26,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -44,26 +45,26 @@ type Engine interface {
 type NamespaceResolver = engine.NamespaceResolver
 
 type engineImpl struct {
-	provider     Provider
-	nsResolver   NamespaceResolver
-	matcher      matching.Matcher
-	lister       k8scorev1.SecretInterface
-	registryOpts []imagedataloader.Option
+	provider   Provider
+	nsResolver NamespaceResolver
+	matcher    matching.Matcher
+	lister     corev1listers.SecretLister
+	ivCache    imageverifycache.Client
 }
 
 func NewEngine(
 	provider Provider,
 	nsResolver NamespaceResolver,
 	matcher matching.Matcher,
-	lister k8scorev1.SecretInterface,
-	registryOpts []imagedataloader.Option,
+	lister corev1listers.SecretLister,
+	ivCache imageverifycache.Client,
 ) Engine {
 	return &engineImpl{
-		provider:     provider,
-		nsResolver:   nsResolver,
-		matcher:      matcher,
-		lister:       lister,
-		registryOpts: registryOpts,
+		provider:   provider,
+		nsResolver: nsResolver,
+		matcher:    matcher,
+		lister:     lister,
+		ivCache:    ivCache,
 	}
 }
 
@@ -129,7 +130,6 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
-	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
 	if err != nil {
 		return response, nil, err
@@ -237,12 +237,16 @@ func (e *engineImpl) handleMutation(
 			}
 		}
 	}
-	ictx, err := imagedataloader.NewImageContext(e.lister, e.registryOpts...)
+
+	// leave remote and name options blank, each compiled policy will provide
+	// its own credentials or the default global ones.
+	ictx, err := imagedataloader.NewImageContext(e.lister, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, request.RequestResource)
+
 	for _, ivpol := range filteredPolicies {
+		c := eval.NewCompiler(ictx, e.lister, request.RequestResource, e.ivCache)
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,
 			Actions:    ivpol.Actions,

@@ -5,8 +5,11 @@ import (
 	"reflect"
 
 	cel "github.com/google/cel-go/cel"
+	celcommon "github.com/google/cel-go/common"
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/google/cel-go/parser"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -61,6 +64,10 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 
 	spec := policy.GetSpec()
 	path := field.NewPath("spec")
+	allErrs = append(allErrs, validateMAPCompatibleMatchConditions(spec)...)
+	if len(allErrs) > 0 {
+		return nil, allErrs
+	}
 
 	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
 	if errs != nil {
@@ -77,6 +84,31 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		matchConditions = append(matchConditions, programs...)
 	}
 
+	var targetExpression cel.Program
+	if expression := policy.GetTargetMatchConstraints().Expression; expression != "" {
+		ast, issues := extendedCompiler.Compile(expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
+		}
+		targetExpression, err = extendedCompiler.Program(ast)
+		if err != nil {
+			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
+		}
+	}
+
+	targetMatchConditions := make([]cel.Program, 0, len(spec.TargetMatchConditions))
+	{
+		path := path.Child("targetMatchConditions")
+		programs, errs := compiler.CompileMatchConditions(path, extendedCompiler, spec.TargetMatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		targetMatchConditions = append(targetMatchConditions, programs...)
+	}
+
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
@@ -88,6 +120,11 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 			Exception:       polex,
 			MatchConditions: polexMatchConditions,
 		})
+	}
+
+	useServerSideApply := false
+	if ec := spec.EvaluationConfiguration; ec != nil {
+		useServerSideApply = ec.UseServerSideApply
 	}
 
 	var patchers []Patcher
@@ -107,17 +144,19 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newApplyConfigPatcher(prog))
+				patchers = append(patchers, newApplyConfigPatcher(prog, useServerSideApply))
 			}
 		}
 	}
 
 	return &Policy{
-		matchConditions:  matchConditions,
-		variables:        variables,
-		exceptions:       compiledExceptions,
-		matchConstraints: policy.GetSpec().MatchConstraints,
-		patchers:         patchers,
+		matchConditions:       matchConditions,
+		targetMatchConditions: targetMatchConditions,
+		targetExpression:      targetExpression,
+		variables:             variables,
+		exceptions:            compiledExceptions,
+		matchConstraints:      policy.GetSpec().MatchConstraints,
+		patchers:              patchers,
 	}, allErrs
 }
 
@@ -170,6 +209,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libCtx},
 			imagedata.Latest(),
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		hash.Lib(
 			hash.Latest(),
@@ -231,4 +271,43 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		return nil, nil, err
 	}
 	return extendedEnv, variablesProvider, nil
+}
+
+func validateMAPCompatibleMatchConditions(spec *policiesv1beta1.MutatingPolicySpec) field.ErrorList {
+	var errs field.ErrorList
+	if spec == nil || !spec.GenerateMutatingAdmissionPolicyEnabled() || len(spec.MatchConditions) == 0 {
+		return nil
+	}
+
+	for i := range spec.MatchConditions {
+		condition := spec.MatchConditions[i]
+		parsed, parseErrs := parser.Parse(celcommon.NewStringSource(condition.Expression, "matchCondition"))
+		if parseErrs != nil && len(parseErrs.GetErrors()) > 0 {
+			continue
+		}
+		if referencesVariables(parsed.Expr()) {
+			errs = append(errs, field.Forbidden(
+				field.NewPath("spec").Child("matchConditions").Index(i).Child("expression"),
+				"variables cannot be referenced in matchConditions when spec.autogen.mutatingAdmissionPolicy.enabled is true; native MutatingAdmissionPolicy evaluates match conditions before variables, so inline the expression instead",
+			))
+		}
+	}
+	return errs
+}
+
+func referencesVariables(expr celast.Expr) bool {
+	if expr == nil {
+		return false
+	}
+
+	found := false
+	celast.PreOrderVisit(expr, celast.NewExprVisitor(func(node celast.Expr) {
+		if found || node == nil {
+			return
+		}
+		if node.Kind() == celast.IdentKind && node.AsIdent() == "variables" {
+			found = true
+		}
+	}))
+	return found
 }
