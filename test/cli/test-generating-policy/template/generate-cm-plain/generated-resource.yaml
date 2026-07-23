@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  key: value
+kind: ConfigMap
+metadata:
+  name: static-config
+  namespace: test-ns
+---
+apiVersion: v1
+data:
+  other: (( kept as a literal, interpolate defaults to none ))
+kind: ConfigMap
+metadata:
+  name: second-config
+  namespace: test-ns
