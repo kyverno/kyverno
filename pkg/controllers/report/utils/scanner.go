@@ -24,7 +24,6 @@ import (
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -50,7 +49,6 @@ type scanner struct {
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
-	secretLister  corev1listers.SecretLister
 }
 
 type ScanResult struct {
@@ -82,7 +80,6 @@ func NewScanner(
 	mapper meta.RESTMapper,
 	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
-	secretLister corev1listers.SecretLister,
 ) Scanner {
 	return &scanner{
 		logger:        logger,
@@ -94,7 +91,6 @@ func NewScanner(
 		mapper:        mapper,
 		secretLister:  secretLister,
 		typeConverter: typeConverter,
-		secretLister:  secretLister,
 	}
 }
 
@@ -294,8 +290,6 @@ func (s *scanner) ScanResource(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-				registryclient.CachedSecretInterface(s.secretLister),
-				nil,
 				s.secretLister,
 				imageverifycache.DisabledImageVerifyCache(),
 			), metrics.BackgroundScan)

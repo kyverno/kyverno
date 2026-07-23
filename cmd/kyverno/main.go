@@ -47,7 +47,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
@@ -787,8 +786,6 @@ func main() {
 					return ns
 				},
 				matching.NewMatcher(),
-				registryclient.CachedSecretInterface(setup.RegistrySecretLister),
-				nil,
 				setup.RegistrySecretLister,
 				setup.ImageVerifyCacheClient,
 			), metrics.AdmissionRequest)

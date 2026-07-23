@@ -112,7 +112,6 @@ type controller struct {
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
-	secretLister  corev1listers.SecretLister
 }
 
 func NewController(
@@ -179,7 +178,6 @@ func NewController(
 		mapper:             mapper,
 		secretLister:       secretLister,
 		typeConverter:      typeConverter,
-		secretLister:       secretLister,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -733,7 +731,6 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter, c.secretLister)
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
