@@ -1488,7 +1488,7 @@ image verification functions</p>
 
           <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-Trigger constraints and MatchConditions are evaluated before Variables.
+Trigger constraints and MatchConditions are evaluated before target resolution.
 Required.</p>
 
 
@@ -1591,8 +1591,11 @@ There are a maximum of 64 match conditions allowed.</p>
 
           <p>Variables contain definitions of variables that can be used in composition of other expressions.
 Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+The variables defined here will be available under <code>variables</code> in other expressions of the policy,
+including MatchConditions where they are evaluated lazily on first reference.
+Note that a native Kubernetes MutatingAdmissionPolicy does not support variables in match
+conditions; policies that generate a MutatingAdmissionPolicy through autogen should not
+reference variables in MatchConditions.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 
@@ -4942,6 +4945,99 @@ Defaults to &quot;false&quot; if not specified.</p>
       <tr>
         <td><code>expression</code>
           
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>template</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-GenerationTemplate">
+                <span style="font-family: monospace">GenerationTemplate</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Template declares the resources to be generated as a YAML document,
+with optional CEL interpolation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="policies-kyverno-io-v1alpha1-GenerationTemplate">GenerationTemplate
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-Generation">Generation</a>)
+    </p>
+  
+
+  <p><p>GenerationTemplate declares generated resources as a YAML document with optional CEL interpolation.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>value</code>
+          
           <span style="color:blue;"> *</span>
           
           </br>
@@ -4956,7 +5052,40 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>Expression is a CEL expression that takes a list of resources to be generated.</p>
+          <p>Value is a YAML string, single or multi-document, defining the resources to generate.
+The namespace of each generated resource is taken from its rendered metadata.namespace,
+resources without a namespace are treated as cluster-scoped.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>interpolate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#policies-kyverno-io-v1alpha1-InterpolationMode">
+                <span style="font-family: monospace">InterpolationMode</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Interpolate controls placeholder evaluation in Value:
+&quot;none&quot; (default) treats Value as plain YAML;
+&quot;cel&quot; evaluates <code>(( ... ))</code> placeholders as CEL expressions before the YAML is parsed.</p>
 
 
           
@@ -6128,6 +6257,21 @@ image verification functions</p>
     </table>
   
 
+  <H3 id="policies-kyverno-io-v1alpha1-InterpolationMode">InterpolationMode
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#policies-kyverno-io-v1alpha1-GenerationTemplate">GenerationTemplate</a>)
+    </p>
+  
+
+  <p><p>InterpolationMode controls placeholder evaluation in a generation template.</p>
+</p>
+
+  
+
   <H3 id="policies-kyverno-io-v1alpha1-Key">Key
     </H3>
 
@@ -7150,7 +7294,7 @@ The default is false, which keeps parity with a native MutatingAdmissionPolicy.<
 
           <p>MatchConstraints specifies the trigger resources this policy is designed to evaluate.
 The AdmissionPolicy cares about a request if it matches <em>all</em> Constraints.
-Trigger constraints and MatchConditions are evaluated before Variables.
+Trigger constraints and MatchConditions are evaluated before target resolution.
 Required.</p>
 
 
@@ -7253,8 +7397,11 @@ There are a maximum of 64 match conditions allowed.</p>
 
           <p>Variables contain definitions of variables that can be used in composition of other expressions.
 Each variable is defined as a named CEL expression.
-The variables defined here will be available under <code>variables</code> in other expressions of the policy
-except MatchConditions because MatchConditions are evaluated before the rest of the policy.</p>
+The variables defined here will be available under <code>variables</code> in other expressions of the policy,
+including MatchConditions where they are evaluated lazily on first reference.
+Note that a native Kubernetes MutatingAdmissionPolicy does not support variables in match
+conditions; policies that generate a MutatingAdmissionPolicy through autogen should not
+reference variables in MatchConditions.</p>
 <p>The expression of a variable can refer to other variables defined earlier in the list but not those after.
 Thus, Variables must be sorted by the order of first appearance and acyclic.</p>
 

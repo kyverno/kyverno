@@ -44,7 +44,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations:     []cel.Program{},
+			generations:     []Generation{},
 			exceptions:      []compiler.Exception{},
 		}
 		res.SetGroupVersionKind(gvk)
@@ -63,8 +63,8 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations: []cel.Program{
-				&mockProgram{retVal: types.String("value")},
+			generations: []Generation{
+				{expression: &mockProgram{retVal: types.String("value")}},
 			},
 			exceptions: []compiler.Exception{
 				{
@@ -130,8 +130,8 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations: []cel.Program{
-				&mockProgram{err: fmt.Errorf("generation error")},
+			generations: []Generation{
+				{expression: &mockProgram{err: fmt.Errorf("generation error")}},
 			},
 		}
 		res.SetGroupVersionKind(gvk)
@@ -146,7 +146,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations:     []cel.Program{},
+			generations:     []Generation{},
 			auditAnnotations: map[string]cel.Program{
 				"env": &mockProgram{retVal: types.String("production")},
 			},
@@ -166,7 +166,7 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations:     []cel.Program{},
+			generations:     []Generation{},
 			auditAnnotations: map[string]cel.Program{
 				"broken": &mockProgram{err: fmt.Errorf("annotation eval error")},
 			},
