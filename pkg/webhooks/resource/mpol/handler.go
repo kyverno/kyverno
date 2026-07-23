@@ -98,6 +98,10 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	// to honor the SideEffects: NoneOnDryRun contract.
 	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
 		go func() {
+			ctx := context.WithoutCancel(ctx)
+			// MatchedMutateExistingPolicies only returns admission-enabled policies:
+			// admission-disabled policies opt out of the admission plane entirely and
+			// are driven by policy events and the periodic background scan instead.
 			mpols := h.engine.MatchedMutateExistingPolicies(ctx, request)
 			if isBackgroundRequest {
 				mpols = h.filterBackgroundPolicies(logger, mpols)
@@ -139,7 +143,7 @@ func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string
 	for _, name := range policies {
 		policy, ok := compiledPolicies[name]
 		if !ok {
-			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name, "error", fmt.Errorf("compiled policy %q not found", name))
+			logger.V(4).Info("skipping background request for policy because compiled policy is unavailable", "policy", name)
 			continue
 		}
 		if policy.Policy.GetSpec().SkipBackgroundRequestsEnabled() {

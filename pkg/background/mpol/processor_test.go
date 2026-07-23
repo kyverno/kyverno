@@ -262,6 +262,57 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 	assert.Equal(t, 1, len(result["*"]))
 }
 
+func TestCollectGVK_PreservesSubresourceRoute(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+
+	assert.Len(t, result["*"], 1)
+	for item := range result["*"] {
+		assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, item.parentResource)
+		assert.Equal(t, "resize", item.subresource)
+	}
+}
+
+func TestResolveTargetRoute_Subresource(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+	p := &processor{mapper: mapper}
+	pod := unstructured.Unstructured{}
+	pod.SetAPIVersion("v1")
+	pod.SetKind("Pod")
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	resource, subresource, err := p.resolveTargetRoute(pod, constraints)
+
+	assert.NoError(t, err)
+	assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, resource)
+	assert.Equal(t, "resize", subresource)
+}
+
 // TestGetPolicy_NamespacedMutatingPolicy verifies that GetPolicy resolves a
 // "namespace/name" UR policy key to a NamespacedMutatingPolicy without hitting
 // the cluster-scoped MutatingPolicy API (which rejects "/" in resource names).

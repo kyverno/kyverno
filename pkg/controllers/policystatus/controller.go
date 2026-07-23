@@ -321,7 +321,9 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsMutatingPolicy().GetSpec().BackgroundEnabled()
-		backgroundOnly = (!policy.AsMutatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
+		// admission-disabled policies are not registered in the webhook by design,
+		// so the webhook-configured condition must not gate their readiness.
+		backgroundOnly = !policy.AsMutatingPolicy().GetSpec().AdmissionEnabled()
 		// MutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status
@@ -329,7 +331,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		key = webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedMutatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsNamespacedMutatingPolicy().GetSpec().BackgroundEnabled()
-		backgroundOnly = (!policy.AsNamespacedMutatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
+		backgroundOnly = !policy.AsNamespacedMutatingPolicy().GetSpec().AdmissionEnabled()
 		// NamespacedMutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsNamespacedMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status

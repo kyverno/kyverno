@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 )
 
@@ -62,11 +62,10 @@ func TestNotaryImageVerification(t *testing.T) {
 		Cert:     cert,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &notaryVerifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
