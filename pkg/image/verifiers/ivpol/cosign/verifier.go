@@ -35,10 +35,7 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, err
 	}
 
-	// Enable new bundle format detection (cosign v3)
-	cOpts.NewBundleFormat = true
-
-	// Auto-detect if new bundle format is actually present
+	// Auto-detect if new bundle format (cosign v3) is actually present
 	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
 	bundleDetected := len(newBundles) > 0 && err == nil
 	cOpts.NewBundleFormat = bundleDetected

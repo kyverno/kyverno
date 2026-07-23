@@ -33,6 +33,14 @@ var tufMu sync.Mutex
 // unbounded work in crypto/x509 certificate chain building).
 const maxIntermediateCerts = 10
 
+// maxTrustedRootJSONSize limits the size of an inline trustedRoot JSON value
+// (att.TrustedRoot.Value) accepted for parsing. This value can be
+// user-controlled (e.g. sourced via a CEL expression reading a ConfigMap), so
+// an unbounded size could cause excessive memory/CPU usage during policy
+// evaluation. 1 MiB is generous relative to real-world trusted root
+// documents (GitHub's is ~26 KB).
+const maxTrustedRootJSONSize = 1 << 20 // 1 MiB
+
 // pemCertBlockHeader is the PEM block header used to count certificate blocks
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
@@ -351,6 +359,9 @@ func getFulcio(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
 // TUF server, such as GitHub Actions' private Fulcio/TSA instance.
 func resolveTrustedMaterial(ctx context.Context, att *v1beta1.Cosign) (root.TrustedMaterial, error) {
 	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
+		if n := len(att.TrustedRoot.Value); n > maxTrustedRootJSONSize {
+			return nil, fmt.Errorf("inline trustedRoot JSON is too large (%d bytes), maximum allowed is %d bytes", n, maxTrustedRootJSONSize)
+		}
 		tr, err := root.NewTrustedRootFromJSON([]byte(att.TrustedRoot.Value))
 		if err != nil {
 			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)

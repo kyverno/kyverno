@@ -3,6 +3,7 @@ package cosign
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -418,6 +419,17 @@ func TestResolveTrustedMaterial(t *testing.T) {
 		tm, err := resolveTrustedMaterial(context.Background(), att)
 		require.NoError(t, err)
 		require.NotNil(t, tm)
+	})
+
+	t.Run("oversized inline JSON is rejected before parsing", func(t *testing.T) {
+		att := &v1beta1.Cosign{
+			TrustedRoot: &v1beta1.StringOrExpression{
+				Value: strings.Repeat("a", maxTrustedRootJSONSize+1),
+			},
+		}
+		_, err := resolveTrustedMaterial(context.Background(), att)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "too large")
 	})
 }
 
