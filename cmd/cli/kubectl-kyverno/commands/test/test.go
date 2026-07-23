@@ -854,13 +854,15 @@ func applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := "resource matched"
 			if !resp.Match {
-				if resp.PolicyMatched {
-					status = engineapi.RuleStatusFail
-					message = "resource did not match"
-				} else {
-					status = engineapi.RuleStatusSkip
-					message = "resource skipped by policy match constraints"
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
 				}
+				status = engineapi.RuleStatusFail
+				message = "resource did not match"
 			}
 
 			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
