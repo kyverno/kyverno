@@ -90,8 +90,7 @@ func TestNewLazyCELHTTPContext_ToggleEnforcement(t *testing.T) {
 
 func TestHTTPContextSeparation(t *testing.T) {
 	// Toggle is off by default. Namespaced policies must be blocked while
-	// cluster-scoped policies are still allowed to attempt calls (subject to
-	// blocklist/allowlist filtering in the shared HTTP context).
+	// cluster-scoped policies are allowed to attempt calls.
 	t.Run("namespaced blocked, cluster skips namespaced toggle", func(t *testing.T) {
 		namespacedCtx := NewLazyCELHTTPContext("my-namespace")
 		clusterCtx := NewLazyCELHTTPContext("")
@@ -106,13 +105,39 @@ func TestHTTPContextSeparation(t *testing.T) {
 		}
 	})
 
-	t.Run("default blocklist applies to cluster policies", func(t *testing.T) {
+	t.Run("shared policy blocklist allows in-cluster service CIDRs", func(t *testing.T) {
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
+		// In-cluster service CIDRs should not be blocked by default.
 		_, err := ctx.Get("http://10.1.2.3", nil)
+		// Error is expected (no actual server) but NOT due to blocklist
+		if err != nil {
+			assert.NotContains(t, err.Error(), "blocked")
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
+		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
+
+		ctx := NewLazyCELHTTPContext("my-namespace")
+		require.NotNil(t, ctx)
+
+		_, err := ctx.Get("http://10.1.2.3", nil)
+		if err != nil {
+			assert.NotContains(t, err.Error(), "blocked")
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
+	t.Run("shared policy blocklist blocks dangerous metadata services", func(t *testing.T) {
+		ctx := NewLazyCELHTTPContext("")
+		require.NotNil(t, ctx)
+
+		// Metadata services should be blocked for all policy scopes.
+		_, err := ctx.Get("http://169.254.169.254", nil)
 		require.Error(t, err)
-		assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 		assert.Contains(t, err.Error(), "blocked")
 	})
 }
