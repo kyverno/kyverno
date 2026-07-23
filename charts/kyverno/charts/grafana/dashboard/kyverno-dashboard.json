@@ -4282,7 +4282,7 @@
               "uid": "${DS_PROMETHEUS_KYVERNO}"
             },
             "exemplar": true,
-            "expr": "(sum(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"})) / (sum(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}))",
+            "expr": "(sum(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"})) / (sum(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}))",
             "interval": "",
             "legendFormat": "",
             "refId": "A"
