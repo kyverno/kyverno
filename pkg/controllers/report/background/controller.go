@@ -91,6 +91,7 @@ type controller struct {
 	bgscanrLister         cache.GenericLister
 	cbgscanrLister        cache.GenericLister
 	nsLister              corev1listers.NamespaceLister
+	secretLister          corev1listers.SecretLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[string]
@@ -143,6 +144,7 @@ func NewController(
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -170,6 +172,7 @@ func NewController(
 		exceptionNamespace: exceptionNamespace,
 		gctxStore:          gctxStore,
 		mapper:             mapper,
+		secretLister:       secretLister,
 		typeConverter:      typeConverter,
 	}
 	if vpolInformer != nil {
@@ -684,7 +687,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
