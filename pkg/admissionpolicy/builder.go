@@ -329,6 +329,69 @@ func BuildMutatingAdmissionPolicyBinding(
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
+// BuildMutatingAdmissionPolicyV1 is used to build a Kubernetes MutatingAdmissionPolicy (v1) from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyV1(
+	mapol *admissionregistrationv1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := negateExceptionMatchConditions(exceptions)
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, mc)
+	}
+
+	var fpt *admissionregistrationv1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := *mp.Spec.FailurePolicy
+		fpt = &conv
+	}
+
+	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
+				return admissionregistrationv1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: rule.RuleWithOperations,
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
+			mut := admissionregistrationv1.Mutation{PatchType: admissionregistrationv1.PatchType(m.PatchType)}
+			if m.ApplyConfiguration != nil {
+				mut.ApplyConfiguration = &admissionregistrationv1.ApplyConfiguration{Expression: m.ApplyConfiguration.Expression}
+			}
+			if m.JSONPatch != nil {
+				mut.JSONPatch = &admissionregistrationv1.JSONPatch{Expression: m.JSONPatch.Expression}
+			}
+			return mut
+		}),
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1.Variable {
+			return v
+		}),
+		FailurePolicy:      fpt,
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
+}
+
+// BuildMutatingAdmissionPolicyBindingV1 is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1) from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyBindingV1(
+	mapbinding *admissionregistrationv1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1beta1.MutatingPolicy,
+) {
+	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	mapbinding.Spec = admissionregistrationv1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
 // BuildMutatingAdmissionPolicyBeta is used to build a Kubernetes MutatingAdmissionPolicy (v1beta1) from a MutatingPolicy
 func BuildMutatingAdmissionPolicyBeta(
 	mapol *admissionregistrationv1beta1.MutatingAdmissionPolicy,
