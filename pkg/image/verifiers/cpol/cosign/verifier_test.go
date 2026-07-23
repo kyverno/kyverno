@@ -10,7 +10,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
@@ -153,12 +153,11 @@ func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
 		SignatureAlgorithm: "sha1",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.ErrorContains(t, err, "invalid signature algorithm provided sha1")
 }
 
@@ -171,12 +170,11 @@ func TestCosignKeyless(t *testing.T) {
 		IgnoreSCT: true,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.ErrorContains(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
 
 	opts.Subject = "jim@nirmata.com"
@@ -198,12 +196,11 @@ func TestRekorPubkeys(t *testing.T) {
 		IgnoreSCT:   true,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.ErrorContains(t, err, "rekor log public key not found for payload")
 
 	opts.RekorPubKey = globalRekorPubKey
@@ -220,8 +217,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 		ImageRef: "ghcr.io/kyverno/test-verify-image",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -256,12 +252,11 @@ func TestCTLogsPubkeys(t *testing.T) {
 		CTLogsPubKey: wrongPubKey,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.ErrorContains(t, err, "ctfe public key not found for payload.")
 
 	opts.CTLogsPubKey = ""
@@ -336,12 +331,11 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P
 		TSACertChain: freeTSACertChain,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
 
@@ -355,12 +349,11 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 `,
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.ErrorContains(t, err, "no signatures found")
 
 	opts.CosignOCI11 = true
@@ -368,8 +361,7 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 	assert.NilError(t, err)
 }
 func TestBuildCosignOptionsUsesSignedTimestamps(t *testing.T) {
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 
 	tests := []struct {
 		name             string

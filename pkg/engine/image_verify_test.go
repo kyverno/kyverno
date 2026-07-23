@@ -24,8 +24,8 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -336,7 +336,7 @@ func Test_CosignMockAttest(t *testing.T) {
 	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
-	er, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -351,7 +351,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
-	er, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 }
@@ -631,7 +631,7 @@ var (
 
 func Test_NoMatch(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
-	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 0)
 }
 
@@ -640,7 +640,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
 	resolver, err := resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset())
 	assert.NilError(t, err)
-	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), resolver, policyContext, cfg)
+	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), resolver, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError, resp.PolicyResponse.Rules[0].Message())
 }
@@ -648,7 +648,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	policyContext.Policy().GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
 	constainers, found, err := unstructured.NestedSlice(engineResp.PatchedResource.UnstructuredContent(), "spec", "containers")
@@ -663,7 +663,7 @@ func Test_SignatureGoodSigned(t *testing.T) {
 func Test_SignatureUnsigned(t *testing.T) {
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message())
 }
@@ -671,7 +671,7 @@ func Test_SignatureUnsigned(t *testing.T) {
 func Test_SignatureWrongKey(t *testing.T) {
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message())
 }
@@ -681,7 +681,7 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
 }
@@ -690,7 +690,7 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message())
 }
@@ -700,7 +700,7 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
 }
@@ -710,7 +710,7 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[0].Message())
 }
@@ -725,14 +725,14 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	applyAll := kyvernov1.ApplyAll
 	spec.ApplyRules = &applyAll
 
-	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message())
 	assert.Equal(t, resp.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[1].Message())
 
 	applyOne := kyvernov1.ApplyOne
 	spec.ApplyRules = &applyOne
-	resp, _ = testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	resp, _ = testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message())
 }
@@ -848,7 +848,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
@@ -856,7 +856,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err, _ = testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	err, _ = testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 
@@ -864,7 +864,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err, _ = testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	err, _ = testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 }
@@ -934,7 +934,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
-	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
@@ -1032,7 +1032,7 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	defer cosign.ClearMock()
 	assert.NilError(t, err)
 
-	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
 
@@ -1085,12 +1085,12 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
@@ -1109,12 +1109,12 @@ func Test_ImageVerifyCacheDisabled(t *testing.T) {
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
@@ -1133,14 +1133,14 @@ func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
@@ -1159,13 +1159,13 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, cosignTestPolicyUpdated, cosignTestResource, "")
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
@@ -1308,12 +1308,12 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
@@ -1332,14 +1332,14 @@ func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 
 	time.Sleep(5 * time.Second)
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry is expired, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
@@ -1357,13 +1357,13 @@ func Test_changePolicyCacheVerificationNotary(t *testing.T) {
 
 	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
 	start := time.Now()
-	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	firstOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	policyContext = buildContext(t, verifyImageNotaryUpdatedPolicy, verifyImageNotaryResource, "")
 
 	start = time.Now()
-	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
@@ -1475,7 +1475,7 @@ func Test_SkipImageReferences(t *testing.T) {
 	policyContextPass := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourcePass, "")
 
 	// Passes as image is included and not excluded
-	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextPass, cfg)
 	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
 	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -1485,7 +1485,7 @@ func Test_SkipImageReferences(t *testing.T) {
 	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
 
 	// Skipped as image is excluded
-	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextSkip, cfg)
 	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
 	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -1680,7 +1680,7 @@ func Test_MultipleImageVerificationAttestationPass(t *testing.T) {
 	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyPass, excludeVerifyImageNotaryResourcePass, "")
 
 	// Passes as image is included and not excluded
-	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextPass, cfg)
 	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
 	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -1690,7 +1690,7 @@ func Test_MultipleImageVerificationAttestationPass(t *testing.T) {
 	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
 
 	// Skipped as image is excluded
-	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextSkip, cfg)
 	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
 	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -1701,7 +1701,7 @@ func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
 	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyFail, excludeVerifyImageNotaryResourcePass, "")
 
 	// Passes as image is included and not excluded
-	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextPass, cfg)
 	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
 	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -1711,7 +1711,7 @@ func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
 	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
 
 	// Skipped as image is excluded
-	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(nil, "", "", "", false), nil, policyContextSkip, cfg)
 	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
 	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
