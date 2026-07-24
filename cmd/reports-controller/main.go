@@ -144,6 +144,7 @@ func createReportControllers(
 			mapBetaInformer,
 			mapAlphaInformer,
 			metaClient,
+			eventGenerator,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)

@@ -11,19 +11,22 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
+	policieskyvernoiov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	policieskyvernoiov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
+	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -93,17 +96,18 @@ type controller struct {
 	// listers
 	polLister      kyvernov1listers.PolicyLister
 	cpolLister     kyvernov1listers.ClusterPolicyLister
-	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
-	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
-	mpolLister     policiesv1beta1listers.MutatingPolicyLister
-	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
-	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
-	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
+	vpolLister     policieskyvernoiov1beta1listers.ValidatingPolicyLister
+	nvpolLister    policieskyvernoiov1beta1listers.NamespacedValidatingPolicyLister
+	mpolLister     policieskyvernoiov1beta1listers.MutatingPolicyLister
+	nmpolLister    policieskyvernoiov1beta1listers.NamespacedMutatingPolicyLister
+	ivpolLister    policieskyvernoiov1beta1listers.ImageValidatingPolicyLister
+	nivpolLister   policieskyvernoiov1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	metaClient     metaclient.UpstreamInterface
+	eventGenerator event.Interface
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -118,22 +122,24 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
-	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
-	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
-	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
-	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
-	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
+	vpolInformer policieskyvernoiov1beta1informers.ValidatingPolicyInformer,
+	nvpolInformer policieskyvernoiov1beta1informers.NamespacedValidatingPolicyInformer,
+	mpolInformer policieskyvernoiov1beta1informers.MutatingPolicyInformer,
+	nmpolInformer policieskyvernoiov1beta1informers.NamespacedMutatingPolicyInformer,
+	ivpolInformer policieskyvernoiov1beta1informers.ImageValidatingPolicyInformer,
+	nivpolInformer policieskyvernoiov1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	metaClient metaclient.UpstreamInterface,
+	eventGenerator event.Interface,
 ) Controller {
 	c := controller{
-		client:     client,
-		polLister:  polInformer.Lister(),
-		cpolLister: cpolInformer.Lister(),
+		client:         client,
+		polLister:      polInformer.Lister(),
+		cpolLister:     cpolInformer.Lister(),
+		eventGenerator: eventGenerator,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
@@ -414,10 +420,15 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
+			policyRef := corev1.ObjectReference{
+				APIVersion: admissionregistrationv1.SchemeGroupVersion.String(),
+				Kind:       "ValidatingAdmissionPolicy",
+				Name:       policy.Name,
+			}
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -427,11 +438,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mapPolicies {
+			policyRef := corev1.ObjectReference{
+				APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.String(),
+				Kind:       "MutatingAdmissionPolicy",
+				Name:       policy.Name,
+			}
 			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
 			kinds := admissionpolicy.GetKinds(converted, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -455,6 +471,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mapAlphaPolicies {
+			policyRef := corev1.ObjectReference{
+				APIVersion: admissionregistrationv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "MutatingAdmissionPolicy",
+				Name:       policy.Name,
+			}
 			var matchConstraints *admissionregistrationv1beta1.MatchResources
 			if policy.Spec.MatchConstraints != nil {
 				matchConstraints = &admissionregistrationv1beta1.MatchResources{
@@ -467,7 +488,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			kinds := admissionpolicy.GetKinds(converted, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -478,6 +499,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "ValidatingPolicy",
+				Name:       policy.Name,
+			}
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
@@ -486,7 +512,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -497,6 +523,12 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "NamespacedValidatingPolicy",
+				Name:       policy.Name,
+				Namespace:  policy.Namespace,
+			}
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, autogen := range policy.Status.Autogen.Configs {
 				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
@@ -505,7 +537,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -515,6 +547,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "MutatingPolicy",
+				Name:       policy.Name,
+			}
 			matchConstraints := policy.Spec.MatchConstraints
 			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
 			for _, policy := range policy.Status.Autogen.Configs {
@@ -526,7 +563,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -536,6 +573,12 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			return err
 		}
 		for _, policy := range mpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "NamespacedMutatingPolicy",
+				Name:       policy.Name,
+				Namespace:  policy.Namespace,
+			}
 			matchConstraints := policy.Spec.MatchConstraints
 			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
 			for _, policy := range policy.Status.Autogen.Configs {
@@ -547,7 +590,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -558,10 +601,15 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from image verification admission policies
 		for _, policy := range ivpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "ImageValidatingPolicy",
+				Name:       policy.Name,
+			}
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -572,10 +620,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from image verification admission policies
 		for _, policy := range ivpols {
+			policyRef := corev1.ObjectReference{
+				APIVersion: "policies.kyverno.io/v1beta1",
+				Kind:       "NamespacedImageValidatingPolicy",
+				Name:       policy.Name,
+				Namespace:  policy.Namespace,
+			}
 			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvkToGvr, &policyRef)
 			}
 		}
 	}
@@ -607,10 +661,37 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	return nil
 }
 
-func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
+func (c *controller) emitKindResolutionEvent(policyRef corev1.ObjectReference, kindStr string, err error) {
+	if c.eventGenerator == nil {
+		return
+	}
+	message := fmt.Sprintf("failed to resolve kind/resource %q while processing reports for policy %q: %v", kindStr, policyRef.Name, err)
+	c.eventGenerator.Add(event.Info{
+		Regarding: policyRef,
+		Reason:    event.KindResolutionFailed,
+		Message:   message,
+		Action:    event.None,
+		Source:    event.PolicyController,
+		Type:      corev1.EventTypeWarning,
+	})
+}
+
+func (c *controller) addGVKToGVRMappingWithPolicy(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource, policyRef *corev1.ObjectReference) {
 	gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
 		logger.Error(err, "failed to get gvr from kind", "kind", kind)
+		if policyRef != nil {
+			kindStr := kind
+			if group != "" {
+				kindStr = fmt.Sprintf("%s/%s/%s", group, version, kind)
+			} else {
+				kindStr = fmt.Sprintf("%s/%s", version, kind)
+			}
+			if subresource != "" {
+				kindStr = fmt.Sprintf("%s/%s", kindStr, subresource)
+			}
+			c.emitKindResolutionEvent(*policyRef, kindStr, err)
+		}
 	} else {
 		for gvrs, api := range gvrss {
 			if gvrs.SubResource == "" {
@@ -627,6 +708,10 @@ func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string
 			}
 		}
 	}
+}
+
+func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
+	c.addGVKToGVRMappingWithPolicy(group, version, kind, subresource, gvrMap, nil)
 }
 
 func (c *controller) stopDynamicWatchers() {
