@@ -78,20 +78,19 @@ func (h validateImageHandler) Process(
 
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
+	failedErrors := make([]string, 0)
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
 			for _, imageInfo := range infoMap {
 				image := imageInfo.String()
-
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
 					logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
 					continue
 				}
-
 				logger.V(4).Info("validating image", "image", image)
 				if v, err := validateImage(policyContext, imageVerify, imageInfo, logger); err != nil {
-					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
+					failedErrors = append(failedErrors, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
 				} else if v == engineapi.ImageVerificationPass {
@@ -99,6 +98,18 @@ func (h validateImageHandler) Process(
 				}
 			}
 		}
+	}
+	if len(failedErrors) > 0 {
+		seen := make(map[string]struct{}, len(failedErrors))
+		uniq := make([]string, 0, len(failedErrors))
+		for _, e := range failedErrors {
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			uniq = append(uniq, e)
+		}
+		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(uniq, "; "))
 	}
 
 	logger.V(4).Info("validated image", "rule", rule.Name)
