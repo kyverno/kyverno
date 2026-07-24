@@ -12,6 +12,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/attestation"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -28,10 +29,12 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/x509"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 var (
@@ -48,11 +51,19 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
-func NewCompiler() Compiler {
-	return &compilerImpl{}
+// NewCompiler creates a VPOL compiler. imgCtx and lister are optional; when
+// provided they enable authenticated registry access for the attestation CEL
+// functions (verifyAttestationSignatures, extractPayload, etc.). Pass nil for
+// both in contexts where image registry access is not required (e.g., policy
+// validation, CLI dry-run).
+func NewCompiler(imgCtx imagedataloader.ImageContext, lister k8scorev1.SecretInterface) Compiler {
+	return &compilerImpl{imgCtx: imgCtx, lister: lister}
 }
 
-type compilerImpl struct{}
+type compilerImpl struct {
+	imgCtx imagedataloader.ImageContext
+	lister k8scorev1.SecretInterface
+}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
@@ -240,6 +251,11 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 	libEnvOpts := []cel.EnvOption{
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+		attestation.Lib(
+			attestation.Latest(),
+			c.imgCtx,
+			c.lister,
+		),
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
 			globalcontext.Latest(),
