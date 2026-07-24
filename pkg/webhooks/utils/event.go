@@ -24,10 +24,10 @@ func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []
 				if ruleResp.Status() == engineapi.RuleStatusFail || ruleResp.Status() == engineapi.RuleStatusError {
 					e := event.NewPolicyFailEvent(event.AdmissionController, event.PolicyViolation, er, ruleResp, blocked)
 					events = append(events, e)
-				}
-				if !blocked {
-					e := event.NewResourceViolationEvent(event.AdmissionController, event.PolicyViolation, er, ruleResp)
-					events = append(events, e)
+					if !blocked {
+						e := event.NewResourceViolationEvent(event.AdmissionController, event.PolicyViolation, er, ruleResp)
+						events = append(events, e)
+					}
 				}
 			}
 		} else if er.IsSkipped() { // Handle PolicyException Event

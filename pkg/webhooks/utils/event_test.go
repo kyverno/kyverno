@@ -206,6 +206,38 @@ func TestGenerateEvents(t *testing.T) {
 			},
 		},
 		{
+			name: "mixed pass and fail rules only emit violation events for failing rules in audit mode",
+			args: args{
+				engineResponses: []engineapi.EngineResponse{
+					engineapi.NewEngineResponse(resource, policy, nil).
+						WithPolicyResponse(engineapi.PolicyResponse{
+							Rules: []engineapi.RuleResponse{
+								*engineapi.RuleFail(
+									"failing-rule",
+									engineapi.Validation,
+									"this rule failed",
+									nil,
+								),
+								*engineapi.RulePass(
+									"passing-rule",
+									engineapi.Validation,
+									"this rule passed",
+									nil,
+								),
+							},
+						}),
+				},
+				blocked: false,
+			},
+			wantCount: 2,
+			wantCheck: func(t *testing.T, events []event.Info) {
+				for _, e := range events {
+					assert.NotContains(t, e.Message, "passing-rule",
+						"passing rules should not generate PolicyViolation events")
+				}
+			},
+		},
+		{
 			name: "empty engine response produces no events",
 			args: args{
 				engineResponses: []engineapi.EngineResponse{
