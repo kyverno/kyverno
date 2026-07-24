@@ -64,7 +64,7 @@ func (m *generatingMetrics) RecordDuration(ctx context.Context, seconds float64,
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
-		attribute.String("execution_cause", string(AdmissionRequest)),
+		attribute.String("execution_cause", string(BackgroundScan)),
 		attribute.String("result", status),
 	))
 }
@@ -82,7 +82,7 @@ func (m *generatingMetrics) RecordResult(ctx context.Context, status string, pol
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", strings.ToLower(operation)),
-		attribute.String("execution_cause", string(AdmissionRequest)),
+		attribute.String("execution_cause", string(BackgroundScan)),
 		attribute.String("result", status),
 	))
 }
