@@ -76,16 +76,16 @@ func (c *fakeClient) RawAbsPath(ctx context.Context, path string, method string,
 	return nil, fmt.Errorf("not implemented")
 }
 
-// buildCELContext creates a PolicyContext suitable for CEL handler tests.
-func buildCELContext(t *testing.T, operation kyvernov1.AdmissionOperation, policyJSON, resourceJSON, oldResourceJSON string) *policycontext.PolicyContext {
-	t.Helper()
+// buildCELContext creates a PolicyContext suitable for CEL handler tests and benchmarks.
+func buildCELContext(tb testing.TB, operation kyvernov1.AdmissionOperation, policyJSON, resourceJSON, oldResourceJSON string) *policycontext.PolicyContext {
+	tb.Helper()
 
 	var cpol kyvernov1.ClusterPolicy
 	err := json.Unmarshal([]byte(policyJSON), &cpol)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resourceJSON))
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	pc, err := policycontext.NewPolicyContext(
 		jp,
@@ -94,7 +94,7 @@ func buildCELContext(t *testing.T, operation kyvernov1.AdmissionOperation, polic
 		nil,
 		cfg,
 	)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	pc = pc.
 		WithPolicy(&cpol).
@@ -104,7 +104,7 @@ func buildCELContext(t *testing.T, operation kyvernov1.AdmissionOperation, polic
 
 	if oldResourceJSON != "" {
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResourceJSON))
-		require.NoError(t, err)
+		require.NoError(tb, err)
 		pc = pc.WithOldResource(*oldResourceUnstructured)
 	}
 
