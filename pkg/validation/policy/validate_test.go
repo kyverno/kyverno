@@ -3598,3 +3598,45 @@ func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 	err := validateGlobalReference(entry)
 	assert.Nil(t, err)
 }
+
+func Test_Validate_ExternalData_Security_Warnings(t *testing.T) {
+	rawPolicy := []byte(`
+    {
+        "apiVersion": "kyverno.io/v1",
+        "kind": "ClusterPolicy",
+        "metadata": { "name": "insecure-external-call" },
+        "spec": {
+            "background": false,
+            "rules": [
+                {
+                    "name": "check-external-data",
+                    "match": { "resources": { "kinds": ["Pod"] } },
+                    "context": [
+                        {
+                            "name": "external-data",
+                            "apiCall": {
+                                "service": {
+                                    "url": "http://my-api.com/check",
+                                    "headers": [{ "key": "Content-Type", "value": "application/json" }]
+                                }
+                            }
+                        }
+                    ],
+                    "validate": { "message": "test", "pattern": { "metadata": { "labels": { "foo": "bar" } } } }
+                }
+            ]
+        }
+    }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	warnings, err := Validate(policy, nil, nil, true, "", "")
+	assert.Nil(t, err)
+
+	// We expect 2 warnings: One for HTTP and one for missing Authorization
+	assert.Equal(t, 2, len(warnings))
+	assert.Contains(t, warnings[0], "Use HTTPS")
+	assert.Contains(t, warnings[1], "Authorization")
+}
