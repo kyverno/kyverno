@@ -11,4 +11,12 @@ var examples = [][]string{
 		`# Print Kyverno CLI version`,
 		`kyverno version`,
 	},
+	{
+		`# Print Kyverno CLI version in JSON format`,
+		`kyverno version -o json`,
+	},
+	{
+		`# Print Kyverno CLI version in YAML format`,
+		`kyverno version --output yaml`,
+	},
 }
