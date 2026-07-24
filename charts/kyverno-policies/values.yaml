@@ -33,12 +33,19 @@ includeOtherPolicies: []
 includeRestrictedPolicies: []
 # - require-run-as-non-root-user
 
-# -- Additional custom policies to include.
+# -- Additional custom policies to include. Can be a list or a map (useful for Helm/ArgoCD value merging).
 customPolicies: []
-# - apiVersion: kyverno.io/v1
-#   kind: ClusterPolicy
-#   metadata: # metadata
-#   spec: # spec
+# List form:
+#   - apiVersion: kyverno.io/v1
+#     kind: ClusterPolicy
+#     metadata: # metadata
+#     spec: # spec
+# Map form:
+#   myPolicy:
+#     apiVersion: kyverno.io/v1
+#     kind: ClusterPolicy
+#     metadata: # metadata
+#     spec: # spec
 
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/
