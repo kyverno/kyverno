@@ -117,8 +117,12 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 	var err error
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
-		log.V(2).Info("missing digest", "image", imageInfo.String())
-		return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
+		if !imageVerify.MutateDigest {
+			log.V(4).Info("skipping missing digest check since mutateDigest is false", "image", imageInfo.String())
+		} else {
+			log.V(2).Info("missing digest", "image", imageInfo.String())
+			return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
+		}
 	}
 	newResource := ctx.NewResource()
 	if imageVerify.Required && newResource.Object != nil {
