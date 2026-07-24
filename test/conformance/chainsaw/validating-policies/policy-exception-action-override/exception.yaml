@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: dev-audit-override
+spec:
+  policyRefs:
+    - name: require-env-label
+      kind: ValidatingPolicy
+      validationAction: Audit
+  matchConditions:
+    - name: match-dev-namespace
+      expression: "object.metadata.namespace == 'development-namespace'"
