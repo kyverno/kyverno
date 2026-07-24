@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mpol-audit-ann-cm
+  namespace: mpol-audit-ann-ns
+  labels:
+    foo: bar
+data:
+  key1: value1
