@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: deleting-status-ready
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      resources:
+      - pods
+  schedule: '*/1 * * * *'
