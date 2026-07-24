@@ -1,0 +1,27 @@
+# Negative mutation test (see issue #16100): a patchedResources entry whose
+# expected result is "fail" asserts that the patched resource intentionally
+# differs from the declared result (a guard against undesired mutation changes).
+# The expected-pass case asserts the mutation produces the declared result.
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: patched-resource-negative
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- policy: test-mutation
+  rule: add-annotation
+  patchedResources: results.yaml
+  kind: ConfigMap
+  resources:
+  - expected-pass
+  result: pass
+- policy: test-mutation
+  rule: add-annotation
+  patchedResources: results.yaml
+  kind: ConfigMap
+  resources:
+  - expected-fail
+  result: fail
