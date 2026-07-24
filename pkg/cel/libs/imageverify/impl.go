@@ -139,12 +139,14 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			}
 		}
 
-		for _, attestor := range attestors {
-			img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
+		// Fetch image data once before the loop: the image reference and
+		// credentials are the same for every attestor.
+		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
 
+		for _, attestor := range attestors {
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
@@ -209,15 +211,18 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				return f.NativeToValue(len(attestors))
 			}
 		}
+		// Hoist invariant lookups out of the loop: both the attestation
+		// definition and the image data are the same for every attestor.
+		attest, ok := f.attestationList[attestation]
+		if !ok {
+			return types.NewErr("attestation not found in policy: %s", attestation)
+		}
+		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+
 		for _, attestor := range attestors {
-			attest, ok := f.attestationList[attestation]
-			if !ok {
-				return types.NewErr("attestation not found in policy: %s", attestation)
-			}
-			img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {

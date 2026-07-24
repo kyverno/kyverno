@@ -12,9 +12,13 @@ type metricWrapper struct {
 	inner   Engine
 }
 
-func NewMetricsEngine(engine Engine) *metricWrapper {
+func NewMetricsEngine(engine Engine) Engine {
+	m := metrics.GetGeneratingMetrics()
+	if m == nil {
+		return engine
+	}
 	return &metricWrapper{
-		metrics: metrics.GetGeneratingMetrics(),
+		metrics: m,
 		inner:   engine,
 	}
 }
@@ -31,6 +35,7 @@ func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cach
 		}
 
 		w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+		w.metrics.RecordResult(context.TODO(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
 	}
 
 	return response, nil
