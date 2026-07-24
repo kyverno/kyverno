@@ -243,6 +243,7 @@ func printTestResult(
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
+
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
