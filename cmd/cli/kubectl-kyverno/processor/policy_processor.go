@@ -788,6 +788,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	case "CONNECT":
+		operation = kyvernov1.Connect
 	}
 
 	var newResource unstructured.Unstructured
@@ -834,7 +836,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	}
 	// we need to get the resources back from the context to account for injected variables
 	switch operation {
-	case kyvernov1.Create:
+	case kyvernov1.Create, kyvernov1.Connect:
 		ret, err := policyContext.JSONContext().Query("request.object")
 		if err != nil {
 			return nil, err
