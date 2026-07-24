@@ -212,6 +212,88 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 	return rules
 }
 
+// matchesFailureActionOverride reports whether a validationFailureAction override applies
+// to the given resource namespace and namespace labels.
+func matchesFailureActionOverride(v kyvernov1.ValidationFailureActionOverride, namespaceLabels map[string]string, resourceNamespace string) bool {
+	if !v.Action.IsValid() {
+		return false
+	}
+	if v.Namespaces == nil {
+		// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
+		if v.NamespaceSelector == nil {
+			return true
+		}
+		hasPass, err := utils.CheckSelector(v.NamespaceSelector, namespaceLabels)
+		return err == nil && hasPass
+	}
+	for _, ns := range v.Namespaces {
+		if wildcard.Match(ns, resourceNamespace) {
+			if v.NamespaceSelector == nil {
+				return true
+			}
+			hasPass, err := utils.CheckSelector(v.NamespaceSelector, namespaceLabels)
+			if err == nil && hasPass {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ResolveValidationFailureAction resolves the effective failureAction for a single
+// validate rule. It honors the rule's own failureActionOverrides and failureAction
+// first, then falls back to the deprecated policy-level overrides and
+// spec.validationFailureAction. Scoping the decision to a single rule ensures that a
+// policy mixing Audit and Enforce validate rules honors each rule's action
+// independently of its position in the policy (see issue #16557).
+func ResolveValidationFailureAction(validation *kyvernov1.Validation, spec *kyvernov1.Spec, namespaceLabels map[string]string, resourceNamespace string) kyvernov1.ValidationFailureAction {
+	if validation != nil {
+		for _, v := range validation.FailureActionOverrides {
+			if matchesFailureActionOverride(v, namespaceLabels, resourceNamespace) {
+				return v.Action
+			}
+		}
+		if validation.FailureAction != nil {
+			return *validation.FailureAction
+		}
+	}
+	for _, v := range spec.ValidationFailureActionOverrides {
+		if matchesFailureActionOverride(v, namespaceLabels, resourceNamespace) {
+			return v.Action
+		}
+	}
+	return spec.ValidationFailureAction
+}
+
+// EnforcesFailedRules reports whether any failed rule should block the admission request,
+// i.e. its effective failureAction resolves to Enforce. Validate rules stamped by the
+// engine carry their own per-rule action, so an Enforce rule blocks regardless of its
+// position relative to Audit rules in the same policy. Failed rules without a per-rule
+// action (mutate rules, image verification, or responses built outside the engine) fall
+// back to the policy-level action, preserving existing behavior (see issue #16557).
+func (er EngineResponse) EnforcesFailedRules() bool {
+	var policyAction *kyvernov1.ValidationFailureAction
+	for _, rule := range er.PolicyResponse.Rules {
+		if !rule.HasStatus(RuleStatusFail) {
+			continue
+		}
+		if action := rule.ValidationFailureAction(); action != nil {
+			if action.Enforce() {
+				return true
+			}
+			continue
+		}
+		if policyAction == nil {
+			a := er.GetValidationFailureAction()
+			policyAction = &a
+		}
+		if policyAction.Enforce() {
+			return true
+		}
+	}
+	return false
+}
+
 // If the policy is of type ValidatingAdmissionPolicy, an empty string is returned.
 func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	pol := er.Policy()
@@ -222,32 +304,10 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 	for _, r := range spec.Rules {
 		if r.HasValidate() {
 			for _, v := range r.Validation.FailureActionOverrides {
-				if !v.Action.IsValid() {
-					continue
-				}
-				if v.Namespaces == nil {
-					// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
-					if v.NamespaceSelector == nil {
-						return v.Action
-					}
-					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-					if err == nil && hasPass {
-						return v.Action
-					}
-				}
-				for _, ns := range v.Namespaces {
-					if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-						if v.NamespaceSelector == nil {
-							return v.Action
-						}
-						hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-						if err == nil && hasPass {
-							return v.Action
-						}
-					}
+				if matchesFailureActionOverride(v, er.namespaceLabels, er.PatchedResource.GetNamespace()) {
+					return v.Action
 				}
 			}
-
 			if r.Validation.FailureAction != nil {
 				return *r.Validation.FailureAction
 			}
@@ -272,29 +332,8 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 		}
 	}
 	for _, v := range spec.ValidationFailureActionOverrides {
-		if !v.Action.IsValid() {
-			continue
-		}
-		if v.Namespaces == nil {
-			// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
-			if v.NamespaceSelector == nil {
-				return v.Action
-			}
-			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-			if err == nil && hasPass {
-				return v.Action
-			}
-		}
-		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-				if v.NamespaceSelector == nil {
-					return v.Action
-				}
-				hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-				if err == nil && hasPass {
-					return v.Action
-				}
-			}
+		if matchesFailureActionOverride(v, er.namespaceLabels, er.PatchedResource.GetNamespace()) {
+			return v.Action
 		}
 	}
 	return spec.ValidationFailureAction
