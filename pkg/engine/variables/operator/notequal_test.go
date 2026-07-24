@@ -80,3 +80,45 @@ func TestNotEqualHandler_Evaluate(t *testing.T) {
 		})
 	}
 }
+
+func Test_NotEqual_ResourceQuantityCrossType(t *testing.T) {
+	handler := NewNotEqualHandler(logr.Discard(), nil)
+
+	tests := []struct {
+		name     string
+		key      interface{}
+		value    interface{}
+		expected bool
+	}{
+		{
+			name:     "string quantity equals int",
+			key:      "5",
+			value:    5,
+			expected: false,
+		},
+		{
+			name:     "string quantity equals int64",
+			key:      "5",
+			value:    int64(5),
+			expected: false,
+		},
+		{
+			name:     "string quantity equals float64",
+			key:      "5",
+			value:    float64(5),
+			expected: false,
+		},
+		{
+			name:     "different quantity",
+			key:      "5",
+			value:    6,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, handler.Evaluate(tt.key, tt.value))
+		})
+	}
+}

@@ -76,21 +76,13 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 	// Attempt to extract resource quantity from string.
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
-		switch typedValue := value.(type) {
-		case string:
-			if typedValue == "" {
-				if val, ok := value.(string); ok {
-					return !wildcard.Match(val, key)
-				}
-			}
-			resourceValue, err := resource.ParseQuantity(typedValue)
-			if err != nil {
-				neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
-				return true
-			}
+		resourceValue, ok := parseComparableQuantity(value)
+		if ok {
 			return !resourceKey.Equal(resourceValue)
 		}
-	}
+			neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+			return true
+		}
 
 	if val, ok := value.(string); ok {
 		return !wildcard.Match(val, key)
