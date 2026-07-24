@@ -100,9 +100,9 @@ func jpTimeToCron(arguments []interface{}) (interface{}, error) {
 }
 
 func jpTimeAdd(arguments []interface{}) (interface{}, error) {
-	if t, err := getTimeArg(timeToCron, arguments, 0); err != nil {
+	if t, err := getTimeArg(timeAdd, arguments, 0); err != nil {
 		return nil, err
-	} else if d, err := getDurationArg(timeToCron, arguments, 1); err != nil {
+	} else if d, err := getDurationArg(timeAdd, arguments, 1); err != nil {
 		return nil, err
 	} else {
 		return t.Add(d).Format(time.RFC3339), nil
