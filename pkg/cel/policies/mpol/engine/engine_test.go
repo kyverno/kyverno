@@ -283,6 +283,64 @@ func TestEvaluate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("audit annotations surface as rule response properties", func(t *testing.T) {
+		mutateExisting := true
+		mpol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "add-label-with-annotations",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+						},
+					},
+				},
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{Key: "resource-name", ValueExpression: `'name/' + object.metadata.name`},
+					{Key: "empty-omitted", ValueExpression: `''`},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+		assert.NoError(t, err)
+		engine := NewEngine(
+			provider,
+			func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusPass, rule.Status())
+			assert.Equal(t, map[string]string{"resource-name": "name/nginx"}, rule.Properties())
+		}
+	})
+
 	t.Run("matches target constraints with trigger variables", func(t *testing.T) {
 		mutateExisting := true
 		mpol := &policiesv1beta1.MutatingPolicy{

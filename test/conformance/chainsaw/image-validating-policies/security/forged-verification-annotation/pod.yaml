@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: forged-verification-outcome
+  labels:
+    app: forged-annotation-test
+  annotations:
+    # An attacker (or a compromised client) sends this annotation directly on
+    # the incoming request, claiming that image verification for this policy
+    # already passed. The image itself (ghcr.io/kyverno/test-verify-image:unsigned)
+    # is NOT signed, so if the forged annotation were trusted the pod would be
+    # admitted even though it should be denied. The ImageValidatingPolicy engine
+    # must ignore this client-supplied annotation and re-run verification on
+    # every request (see https://github.com/kyverno/kyverno/issues/16336).
+    kyverno.io/image-verification-outcomes: >-
+      {"check-signed-images-forged-annotation":{"name":"check-signed-images-forged-annotation","status":"pass","message":"forged: verification already passed"}}
+spec:
+  containers:
+  - name: nginx
+    image: ghcr.io/kyverno/test-verify-image:unsigned
+    securityContext:
+      allowPrivilegeEscalation: false
+    imagePullPolicy: IfNotPresent
