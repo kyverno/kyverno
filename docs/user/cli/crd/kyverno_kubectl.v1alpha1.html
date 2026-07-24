@@ -543,6 +543,33 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
+        <td><code>oldResources</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>OldResources are the &quot;before&quot; state resources for admission-style CEL policy tests.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>jsonPayload</code>
           
           <span style="color:blue;"> *</span>
@@ -3799,6 +3826,35 @@ from the user which is meant to be cloned by the generate rule.</p>
           
 
           <p>FailOnMissingResources indicates if the test should fail if the patched/generated resources are missing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resourceOperation</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceOperation indicates the expected operation to be applied within the test.
+Expected values are CREATE, UPDATE, DELETE and CONNECT.
+This field is optional, if unset, it falls back to CREATE.</p>
 
 
           

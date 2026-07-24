@@ -110,13 +110,22 @@ func cleanTest(test *v1alpha1.Test) {
 	}
 	// Normalize JSON payload names to strip ./ prefixes and normalize slashes,
 	// so trigger keys match expected resource names in test results.
-	var cleaned []string
+	var cleanedJP []string
 	for _, jp := range test.JSONPayloads {
 		if strings.TrimSpace(jp) != "" {
-			cleaned = append(cleaned, path.Clean(jp))
+			cleanedJP = append(cleanedJP, path.Clean(jp))
 		}
 	}
-	test.JSONPayloads = removeDuplicateStrings(cleaned)
+	test.JSONPayloads = removeDuplicateStrings(cleanedJP)
+
+	// Normalize old resource names to strip ./ prefixes and normalize slashes.
+	var cleanedOld []string
+	for _, old := range test.OldResources {
+		if strings.TrimSpace(old) != "" {
+			cleanedOld = append(cleanedOld, path.Clean(old))
+		}
+	}
+	test.OldResources = removeDuplicateStrings(cleanedOld)
 }
 
 func removeDuplicateStrings(strings []string) []string {
