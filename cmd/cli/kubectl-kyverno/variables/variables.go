@@ -98,10 +98,6 @@ func (v Variables) ComputeVariables(s *store.Store, policy, resource, kind strin
 	for k, v := range v.variables {
 		resourceValues[k] = v
 	}
-	// make sure `request.operation` is set
-	if _, ok := resourceValues["request.operation"]; !ok {
-		resourceValues["request.operation"] = "CREATE"
-	}
 	// skipping the variable check for non matching kind
 	// TODO remove dependency to store
 	if kindMap.Has(kind) && len(variables) > 0 && len(resourceValues) == 0 && s.HasPolicies() {

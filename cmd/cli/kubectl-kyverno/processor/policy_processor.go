@@ -39,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -767,7 +768,6 @@ func (p *PolicyProcessor) makePolicyContext(
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) (*policycontext.PolicyContext, error) {
-	operation := kyvernov1.Create
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
@@ -782,24 +782,20 @@ func (p *PolicyProcessor) makePolicyContext(
 		}
 		resourceValues = vals
 	}
-	// TODO: this is kind of buggy, we should read that from the json context
-	switch resourceValues["request.operation"] {
-	case "DELETE":
-		operation = kyvernov1.Delete
-	case "UPDATE":
-		operation = kyvernov1.Update
+
+	resolvedResource, resolvedOldResource, operation, err := resolveAdmissionRequest(jp, cfg, resource, resourceValues)
+	if err != nil {
+		return nil, err
 	}
 
-	var newResource unstructured.Unstructured
+	baseResource := resolvedResource
 	if operation == kyvernov1.Delete {
-		newResource = unstructured.Unstructured{}
-	} else {
-		newResource = resource
+		baseResource = resolvedOldResource
 	}
 
 	policyContext, err := engine.NewPolicyContext(
 		jp,
-		newResource,
+		baseResource,
 		operation,
 		p.UserInfo,
 		cfg,
@@ -808,23 +804,6 @@ func (p *PolicyProcessor) makePolicyContext(
 		log.Log.Error(err, "failed to create policy context")
 		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
-	if operation == kyvernov1.Update {
-		resource := resource.DeepCopy()
-		policyContext = policyContext.WithOldResource(*resource)
-		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
-			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
-		}
-	}
-	if operation == kyvernov1.Delete {
-		policyContext = policyContext.WithOldResource(resource)
-		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
-			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
-		}
-	}
-	policyContext = policyContext.
-		WithPolicy(policy).
-		WithNamespaceLabels(namespaceLabels).
-		WithResourceKind(gvk, subresource)
 	for key, value := range resourceValues {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
@@ -832,6 +811,16 @@ func (p *PolicyProcessor) makePolicyContext(
 			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
 		}
 	}
+	if operation == kyvernov1.Update || operation == kyvernov1.Delete {
+		policyContext = policyContext.WithOldResource(resolvedOldResource)
+		if err := policyContext.JSONContext().AddOldResource(resolvedOldResource.Object); err != nil {
+			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
+		}
+	}
+	policyContext = policyContext.
+		WithPolicy(policy).
+		WithNamespaceLabels(namespaceLabels).
+		WithResourceKind(gvk, subresource)
 	// we need to get the resources back from the context to account for injected variables
 	switch operation {
 	case kyvernov1.Create:
@@ -896,6 +885,76 @@ func (p *PolicyProcessor) makePolicyContext(
 		}
 	}
 	return policyContext, nil
+}
+
+func resolveAdmissionRequest(
+	jp jmespath.Interface,
+	cfg config.Configuration,
+	resource unstructured.Unstructured,
+	resourceValues map[string]interface{},
+) (unstructured.Unstructured, unstructured.Unstructured, kyvernov1.AdmissionOperation, error) {
+	ctx := enginectx.NewContextWithMaxSize(jp, cfg.GetMaxContextSize())
+	if err := ctx.AddResource(resource.Object); err != nil {
+		return unstructured.Unstructured{}, unstructured.Unstructured{}, "", fmt.Errorf("failed to add resource to json context (%w)", err)
+	}
+	for key, value := range resourceValues {
+		if err := ctx.AddVariable(key, value); err != nil {
+			return unstructured.Unstructured{}, unstructured.Unstructured{}, "", fmt.Errorf("failed to add variable to json context %s (%w)", key, err)
+		}
+	}
+
+	newResource, err := getContextResource(ctx, "request.object")
+	if err != nil {
+		return unstructured.Unstructured{}, unstructured.Unstructured{}, "", err
+	}
+	if newResource.Object == nil {
+		newResource = resource
+	}
+	oldResource, err := getContextResource(ctx, "request.oldObject")
+	if err != nil {
+		return unstructured.Unstructured{}, unstructured.Unstructured{}, "", err
+	}
+
+	operation := getAdmissionOperationFromContext(ctx, oldResource.Object != nil)
+	return newResource, oldResource, operation, nil
+}
+
+func getAdmissionOperationFromContext(ctx enginectx.Interface, hasOldResource bool) kyvernov1.AdmissionOperation {
+	if operation, err := ctx.Query("request.operation"); err == nil {
+		switch operation {
+		case "CONNECT":
+			return kyvernov1.Connect
+		case "DELETE":
+			return kyvernov1.Delete
+		case "UPDATE":
+			return kyvernov1.Update
+		}
+	}
+	if hasOldResource {
+		if resource, err := ctx.Query("request.object"); err == nil && resource == nil {
+			return kyvernov1.Delete
+		}
+		return kyvernov1.Update
+	}
+	return kyvernov1.Create
+}
+
+func getContextResource(ctx enginectx.Interface, query string) (unstructured.Unstructured, error) {
+	ret, err := ctx.Query(query)
+	if err != nil {
+		if strings.Contains(err.Error(), "Unknown key") {
+			return unstructured.Unstructured{}, nil
+		}
+		return unstructured.Unstructured{}, err
+	}
+	if ret == nil {
+		return unstructured.Unstructured{}, nil
+	}
+	object, ok := ret.(map[string]interface{})
+	if !ok {
+		return unstructured.Unstructured{}, fmt.Errorf("the object retrieved from the json context is not valid")
+	}
+	return unstructured.Unstructured{Object: object}, nil
 }
 
 func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineResponse, resourcePath string) error {
