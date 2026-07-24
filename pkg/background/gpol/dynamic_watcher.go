@@ -453,6 +453,10 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
 				newResource.SetLabels(downstream.GetLabels())
+				// The content comes from the source, whose resourceVersion means nothing for the
+				// downstream, so carry the downstream's own. Custom resources reject an update that
+				// has no resourceVersion, which used to leave every CRD downstream unsynced.
+				newResource.SetResourceVersion(downstream.GetResourceVersion())
 				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
 				if err != nil {
 					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
@@ -484,7 +488,11 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				downstream.SetSelfLink("")
 				downstream.SetCreationTimestamp(metav1.Time{})
 				downstream.SetManagedFields(nil)
-				downstream.SetResourceVersion("")
+				// Carry the resourceVersion of the object we just observed. The cached copy holds the
+				// resourceVersion from when it was generated, which is stale by now, and an empty one
+				// is only accepted for built-in resources: custom resources reject an update without
+				// a resourceVersion, which used to leave every CRD downstream unsynced.
+				downstream.SetResourceVersion(obj.GetResourceVersion())
 				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())

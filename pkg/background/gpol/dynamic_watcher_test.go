@@ -58,9 +58,11 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 }
 
 type MockClient struct {
-	deleted  []string
-	err      error
-	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+	deleted   []string
+	err       error
+	deleteFn  func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+	updateFn  func(obj interface{})
+	listItems []unstructured.Unstructured
 }
 
 func (m *MockClient) GetKubeClient() kubernetes.Interface {
@@ -90,6 +92,9 @@ func (m *MockClient) ListResource(ctx context.Context, apiVersion string, kind s
 	if m.err != nil {
 		return nil, m.err
 	}
+	if m.listItems != nil {
+		return &unstructured.UnstructuredList{Items: m.listItems}, nil
+	}
 	item := makeUnstructured("", "", "", "", "", "", "", nil)
 	return &unstructured.UnstructuredList{
 		Items: []unstructured.Unstructured{
@@ -108,6 +113,9 @@ func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind
 	return nil, nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
+	if m.updateFn != nil {
+		m.updateFn(obj)
+	}
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1235,4 +1243,81 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	_, hasSecond := restarted.metadataCache["uid2"]
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
+}
+
+// TestHandleUpdate_DriftRevert_PreservesResourceVersion is the regression test for the
+// CustomResource sync bug: when a user tampers with a generated downstream, the revert must reuse
+// the live object's resourceVersion rather than clearing it. Kubernetes accepts a blind (no
+// resourceVersion) update for built-in resources, but rejects it for CustomResources
+// ("metadata.resourceVersion: must be specified for an update"), so clearing it silently broke sync
+// for every CRD downstream (e.g. a Kai Scheduler Queue). The cached copy carries an older
+// resourceVersion, so the fix uses the resourceVersion from the current watch event.
+func TestHandleUpdate_DriftRevert_PreservesResourceVersion(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
+	labels := map[string]string{common.GeneratePolicyLabel: "generate-user-namespace-resources"}
+	// The cached downstream (what sync restores to) carries the resourceVersion from when it was synced.
+	cached := makeUnstructured("100", "scheduling.run.ai", "v2", "Queue", "alice", "", "queue-uid", labels)
+	cachedHash := reportutils.CalculateResourceHash(*cached)
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{updateFn: func(obj interface{}) {
+		if u, ok := obj.(*unstructured.Unstructured); ok {
+			captured = u
+		}
+	}}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"queue-uid": {Name: "alice", Labels: labels, Hash: cachedHash, Data: cached},
+			}},
+		},
+	}
+
+	// The user tampers with the live downstream: same UID, a newer resourceVersion, and a spec change
+	// (extra annotation) so the hash differs from the cache and a revert is triggered.
+	live := cached.DeepCopy()
+	live.SetResourceVersion("205")
+	live.SetAnnotations(map[string]string{"tampered": "true"})
+	wm.handleUpdate(live, gvr)
+
+	require.NotNil(t, captured, "the revert must call UpdateResource")
+	assert.Equal(t, "205", captured.GetResourceVersion(),
+		"revert must use the live object's resourceVersion (CRD updates reject an empty one)")
+}
+
+// TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion is the regression test for the
+// same bug on the source-change propagation path: when the source changes, each downstream is updated,
+// and that update must carry the downstream's current resourceVersion. Otherwise propagation to a CRD
+// downstream fails the same way the drift revert did.
+func TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
+	// The source object is not in the metadata cache, which routes handleUpdate to the propagation path.
+	src := makeUnstructured("500", "scheduling.run.ai", "v2", "Queue", "source-queue", "", "src-uid", nil)
+	src.SetAnnotations(map[string]string{"tier": "free"})
+	// The current downstream, returned by the List, carries its own resourceVersion.
+	ds := makeUnstructured("305", "scheduling.run.ai", "v2", "Queue", "alice", "", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{
+		updateFn:  func(obj interface{}) { captured, _ = obj.(*unstructured.Unstructured) },
+		listItems: []unstructured.Unstructured{*ds},
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"ds-uid": {Name: "alice", Labels: ds.GetLabels(), Hash: "stale", Data: ds},
+			}},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	require.NotNil(t, captured, "propagation must call UpdateResource on the downstream")
+	assert.Equal(t, "305", captured.GetResourceVersion(),
+		"propagation must set the downstream's current resourceVersion (CRD updates reject an empty one)")
 }
