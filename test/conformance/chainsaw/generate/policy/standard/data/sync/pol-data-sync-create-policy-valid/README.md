@@ -6,7 +6,7 @@ This test is basically identical to a similar one in which sync is disabled and 
 
 ## Expected Behavior
 
-"good" (valid) Policy should be successfully created. If the creations is blocked, the test failed. If any creation is allowed, the test succeeds.
+"good" (valid) Policy should be successfully created. If the creation is blocked, the test fails. If the creation is allowed, the test succeeds.
 
 ## Reference Issue(s)
 
