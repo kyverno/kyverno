@@ -67,7 +67,7 @@ func TestIsYaml_YamlFiles(t *testing.T) {
 		{
 			name:     "uppercase yaml",
 			file:     mockFileInfo{name: "CONFIG.YAML", isDir: false},
-			expected: false,
+			expected: true,
 		},
 		{
 			name:     "hidden yaml file",
