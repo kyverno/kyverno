@@ -20,10 +20,14 @@ func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]polic
 		return nil, nil
 	}
 	actualControllers := autogen.AllConfigs
-	if spec.AutogenConfiguration != nil &&
-		spec.AutogenConfiguration.PodControllers != nil &&
-		spec.AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
+	if spec.AutogenConfiguration != nil && spec.AutogenConfiguration.PodControllers != nil {
+		pc := spec.AutogenConfiguration.PodControllers
+		if pc.Enabled != nil && !*pc.Enabled {
+			return nil, nil
+		}
+		if pc.Controllers != nil {
+			actualControllers = sets.New(pc.Controllers...)
+		}
 	}
 	return autogenIvPols(*spec, actualControllers)
 }
