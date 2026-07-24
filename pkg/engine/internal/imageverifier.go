@@ -272,6 +272,7 @@ func (iv *imageVerifier) verifyAttestations(
 					errorList = append(errorList, err)
 					continue
 				}
+				iv.policyContext.JSONContext().Persist(name)
 
 				if imageInfo.Digest == "" {
 					imageInfo.Digest = cosignResp.Digest
