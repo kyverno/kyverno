@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-cm-template-plain
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  generate:
+    - template:
+        value: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: static-config
+            namespace: test-ns
+          data:
+            key: value
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: second-config
+            namespace: test-ns
+          data:
+            other: (( kept as a literal, interpolate defaults to none ))
