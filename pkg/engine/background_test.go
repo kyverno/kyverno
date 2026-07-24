@@ -43,6 +43,6 @@ func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
 
 type loaderFunc func(context.Context) error
 
-func (f loaderFunc) Load(ctx context.Context, _ jmespath.Interface, _ engineapi.RawClient, _ engineapi.RegistryClientFactory, _ []kyverno.ContextEntry, _ enginecontext.Interface) error {
+func (f loaderFunc) Load(ctx context.Context, _ jmespath.Interface, _ engineapi.Client, _ engineapi.RegistryClientFactory, _ []kyverno.ContextEntry, _ enginecontext.Interface) error {
 	return f(ctx)
 }

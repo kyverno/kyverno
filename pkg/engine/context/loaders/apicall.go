@@ -18,7 +18,7 @@ type apiLoader struct {
 	entry           kyvernov1.ContextEntry
 	enginectx       enginecontext.Interface
 	jp              jmespath.Interface
-	client          engineapi.RawClient
+	client          engineapi.Client
 	config          apicall.APICallConfiguration
 	data            []byte
 	policyNamespace string
@@ -30,7 +30,7 @@ func NewAPILoader(
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	apiCallConfig apicall.APICallConfiguration,
 	policyNamespace string,
 ) enginecontext.Loader {

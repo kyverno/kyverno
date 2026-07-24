@@ -38,7 +38,7 @@ func New(
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
 
-	executor := NewExecutor(logger, entry.Name, client, apiCallConfig)
+	executor := NewExecutor(logger, entry.Name, client, apiCallConfig, policyNamespace)
 
 	return &apiCall{
 		logger:          logger,

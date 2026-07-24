@@ -73,7 +73,7 @@ type wrapper struct {
 func (w wrapper) Load(
 	ctx context.Context,
 	jp jmespath.Interface,
-	client engineapi.RawClient,
+	client engineapi.Client,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,

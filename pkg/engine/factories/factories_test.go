@@ -154,7 +154,7 @@ type wrongUnderlyingLoader struct{}
 func (wrongUnderlyingLoader) Load(
 	context.Context,
 	jmespath.Interface,
-	engineapi.RawClient,
+	engineapi.Client,
 	engineapi.RegistryClientFactory,
 	[]kyvernov1.ContextEntry,
 	enginecontext.Interface,
