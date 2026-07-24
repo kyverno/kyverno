@@ -1,0 +1,6 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: disabled
+status:
+  generated: false
