@@ -344,15 +344,30 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
 			}
+			operation := admissionv1.Create
+			if p.Variables != nil {
+				if vals, err := p.Variables.ComputeVariables(p.Store, "", resource.GetName(), resource.GetKind(), nil); err == nil {
+					switch vals["request.operation"] {
+					case "CREATE":
+						operation = admissionv1.Create
+					case "UPDATE":
+						operation = admissionv1.Update
+					case "DELETE":
+						operation = admissionv1.Delete
+					case "CONNECT":
+						operation = admissionv1.Connect
+					}
+				}
+			}
 			// create engine request
 			request := celengine.Request(
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
 				&resource,
 				nil,
@@ -549,17 +564,30 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if p.UserInfo != nil {
 					user = p.UserInfo.AdmissionUserInfo
 				}
+				operation := admissionv1.Create
+				if p.Variables != nil {
+					if vals, err := p.Variables.ComputeVariables(p.Store, "", resource.GetName(), resource.GetKind(), nil); err == nil {
+						switch vals["request.operation"] {
+						case "CREATE":
+							operation = admissionv1.Create
+						case "UPDATE":
+							operation = admissionv1.Update
+						case "DELETE":
+							operation = admissionv1.Delete
+						case "CONNECT":
+							operation = admissionv1.Connect
+						}
+					}
+				}
 				// create engine request
 				request := celengine.Request(
 					contextProvider,
 					gvk,
 					gvr,
-					// TODO: how to manage subresource ?
-					"",
+					subresource,
 					resource.GetName(),
 					resource.GetNamespace(),
-					// TODO: how to manage other operations ?
-					admissionv1.Create,
+					operation,
 					user,
 					&resource,
 					nil,
