@@ -341,3 +341,21 @@ func Test_extractImageInfo(t *testing.T) {
 		assert.DeepEqual(t, test.images, images)
 	}
 }
+
+// Test_extractImageInfo_NoPathComponents is a regression test for a panic in
+// lookupImageExtractor: a custom imageExtractor whose path resolves to zero
+// components (e.g. "", "/", "//", or whitespace) with no explicit value caused
+// an "index out of range [-1]" panic. Such an extractor is now skipped, so
+// extraction fails gracefully with an error instead of crashing.
+func Test_extractImageInfo_NoPathComponents(t *testing.T) {
+	raw := []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"x"},"spec":{}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+	for _, path := range []string{"", "/", "//", "   "} {
+		configs := kyvernov1.ImageExtractorConfigs{
+			"Task": []kyvernov1.ImageExtractorConfig{{Path: path}},
+		}
+		_, err := ExtractImagesFromResource(*resource, configs, cfg)
+		assert.ErrorContains(t, err, "no extractors found")
+	}
+}
