@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCommand(t *testing.T) {
@@ -55,4 +56,19 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+
+func TestEvaluateInvalidSyntax(t *testing.T) {
+	// An invalid JMESPath expression should return an error containing "syntax"
+	_, err := evaluate(map[string]interface{}{"foo": "bar"}, "invalid[expression")
+	require.Error(t, err)
+	assert.Contains(t, strings.ToLower(err.Error()), "syntax")
+}
+
+func TestEvaluateValidExpression(t *testing.T) {
+	// A valid JMESPath expression with valid input should succeed
+	input := map[string]interface{}{"foo": "bar"}
+	result, err := evaluate(input, "foo")
+	require.NoError(t, err)
+	assert.Equal(t, "bar", result)
 }
