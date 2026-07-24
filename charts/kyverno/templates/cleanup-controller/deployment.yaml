@@ -59,6 +59,12 @@ spec:
       {{- with .Values.cleanupController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
+      {{- with .Values.cleanupController.schedulerName | default .Values.global.schedulerName }}
+      schedulerName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.cleanupController.runtimeClassName | default .Values.global.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
       {{- with .Values.cleanupController.hostNetwork }}
       hostNetwork: {{ . }}
       {{- end }}
