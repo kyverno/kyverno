@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -21,6 +22,13 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 )
+
+// cacheSyncTimeout bounds the initial cache sync in New. Failure modes that
+// do not trigger the watch error handler promptly (e.g. an unreachable API
+// server retried internally by client-go) must not block the globalcontext
+// controller's single reconcile worker indefinitely; the workqueue retries
+// with backoff on error. It is a variable so tests can shorten it.
+var cacheSyncTimeout = 30 * time.Second
 
 type entry struct {
 	lister      cache.GenericLister
@@ -74,7 +82,16 @@ func New(
 			UID:        gce.UID,
 		}, eventErr))
 
-		stop()
+		// Only cancel the context here, never call stop(). This handler runs
+		// on the reflector's goroutine, which informer.Informer().Run (and
+		// therefore stop's group.Wait) transitively waits on: calling stop()
+		// from here self-deadlocks, wedging the entry forever and permanently
+		// blocking the globalcontext controller's single reconcile worker, so
+		// one entry referencing a non-existent CRD prevents every other
+		// GlobalContextEntry from loading (#15856). Cancelling the context
+		// lets the informer wind down; WaitForCacheSync below observes the
+		// cancellation and the error path performs the full stop().
+		cancel()
 	})
 	if err != nil {
 		logger.Error(err, "failed to set watch error handler")
@@ -122,9 +139,11 @@ func New(
 		informer.Informer().Run(ctx.Done())
 	})
 
-	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+	syncCtx, syncCancel := context.WithTimeout(ctx, cacheSyncTimeout)
+	defer syncCancel()
+	if !cache.WaitForCacheSync(syncCtx.Done(), informer.Informer().HasSynced) {
 		stop()
-		err := fmt.Errorf("failed to sync cache for %s", gvr)
+		err := fmt.Errorf("failed to sync cache for %s (the resource may not exist in the cluster)", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
