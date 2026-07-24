@@ -47,6 +47,37 @@ func TestNotEqualHandler_Evaluate(t *testing.T) {
 			value:    "world",
 			expected: true,
 		},
+		// String key vs numeric value (issue #16358 - symmetry)
+		{
+			name:     "string key not equal int value (equal values)",
+			key:      "5",
+			value:    5,
+			expected: false,
+		},
+		{
+			name:     "string key not equal int64 value (equal values)",
+			key:      "5",
+			value:    int64(5),
+			expected: false,
+		},
+		{
+			name:     "string key not equal float64 value (equal values)",
+			key:      "5",
+			value:    float64(5),
+			expected: false,
+		},
+		{
+			name:     "string key not equal int value (different values)",
+			key:      "5",
+			value:    6,
+			expected: true,
+		},
+		{
+			name:     "non-numeric string key vs int value",
+			key:      "abc",
+			value:    5,
+			expected: true,
+		},
 		{
 			name:     "resource quantity vs non-quantity",
 			key:      "100Mi",
