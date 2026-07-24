@@ -268,7 +268,8 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			)
 		}
 	} else {
-		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		// Surface evaluated audit annotations as report result properties on successful evaluation.
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
 }

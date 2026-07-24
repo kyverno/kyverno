@@ -17,8 +17,16 @@ import (
 )
 
 type EngineResponse struct {
+	// Resource is the resource the policy was evaluated against.
 	Resource *unstructured.Unstructured
-	Match    bool
+	// Match reports whether the policy's delete conditions evaluated to true.
+	// Only meaningful when the returned error is nil.
+	Match bool
+	// PolicyMatched reports whether the resource was selected by the policy's
+	// matchConstraints (resourceRules, objectSelector, namespaceSelector).
+	// When false, Match is always false and the delete conditions were not
+	// evaluated. Only meaningful when the returned error is nil.
+	PolicyMatched bool
 }
 
 type Engine struct {
@@ -88,7 +96,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
-			return EngineResponse{Match: false}, err
+			return EngineResponse{Match: false, PolicyMatched: false}, nil
 		}
 	}
 
@@ -97,7 +105,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		return EngineResponse{}, err
 	}
 
-	return EngineResponse{Match: result.Result}, nil
+	return EngineResponse{Match: result.Result, PolicyMatched: true}, nil
 }
 
 func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {

@@ -109,6 +109,7 @@ func TestHandleValidPolicy(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.True(t, resp.Match)
+	assert.True(t, resp.PolicyMatched)
 }
 
 func TestHandleWithPolex(t *testing.T) {
@@ -134,6 +135,7 @@ func TestHandleWithPolex(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.False(t, resp.Match)
+	assert.False(t, resp.PolicyMatched)
 }
 
 func TestHandleConstraintsNil(t *testing.T) {
@@ -166,6 +168,7 @@ func TestHandleConstraintsNil(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.False(t, resp.Match)
+	assert.False(t, resp.PolicyMatched)
 }
 
 func TestHandleNamespaceWithNamespaceSelector(t *testing.T) {
@@ -218,6 +221,7 @@ func TestHandleNamespaceWithNamespaceSelector(t *testing.T) {
 		resp, err := engine.Handle(ctx, pol, makeNs("my-ns", labels))
 		assert.NoError(t, err)
 		assert.True(t, resp.Match)
+		assert.True(t, resp.PolicyMatched)
 	})
 
 	t.Run("namespace without matching label does not match", func(t *testing.T) {
@@ -225,7 +229,49 @@ func TestHandleNamespaceWithNamespaceSelector(t *testing.T) {
 		resp, err := engine.Handle(ctx, pol, makeNs("kube-system", nil))
 		assert.NoError(t, err)
 		assert.False(t, resp.Match)
+		assert.False(t, resp.PolicyMatched)
 	})
+}
+
+func TestHandleObjectSelectorNoMatch(t *testing.T) {
+	policy := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "cleanup-invalidated-legacy-sa-tokens"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &v1.MatchResources{
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{v1.OperationAll},
+						Rule:       v1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"}},
+					},
+				}},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{{
+						Key:      "kubernetes.io/legacy-token-invalid-since",
+						Operator: metav1.LabelSelectorOpExists,
+					}},
+				},
+			},
+		},
+	}
+
+	compiled, errs := comp.Compile(policy, nil)
+	assert.Empty(t, errs)
+	pol := Policy{Policy: policy, CompiledPolicy: compiled}
+
+	secretMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	secretMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}, meta.RESTScopeNamespace)
+	engine := NewEngine(nsResolver, secretMapper, &libs.FakeContextProvider{}, matcher)
+
+	secret := unstructured.Unstructured{}
+	secret.SetAPIVersion("v1")
+	secret.SetKind("Secret")
+	secret.SetName("secret-skip")
+	secret.SetNamespace("default")
+
+	resp, err := engine.Handle(ctx, pol, secret)
+	assert.NoError(t, err)
+	assert.False(t, resp.Match)
+	assert.False(t, resp.PolicyMatched)
 }
 
 // TestHandleCleanupIntegrationTestNamespaces mirrors the real-world DeletingPolicy:
@@ -338,6 +384,7 @@ func TestHandleCleanupIntegrationTestNamespaces(t *testing.T) {
 			resp, err := engine.Handle(ctx, pol, makeNs(tt.nsName, tt.labels))
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantMatch, resp.Match)
+			assert.Equal(t, tt.wantMatch, resp.PolicyMatched)
 		})
 	}
 
@@ -348,11 +395,13 @@ func TestHandleCleanupIntegrationTestNamespaces(t *testing.T) {
 		resp, err := noopEngine.Handle(ctx, pol, makeNs("acti-bifrost-even-env", map[string]string{"project-name": "acti-bifrost-even-env"}))
 		assert.NoError(t, err)
 		assert.True(t, resp.Match)
+		assert.True(t, resp.PolicyMatched)
 	})
 	t.Run("system namespace not matched with noop resolver (CLI path)", func(t *testing.T) {
 		resp, err := noopEngine.Handle(ctx, pol, makeNs("kube-system", map[string]string{"kubernetes.io/metadata.name": "kube-system"}))
 		assert.NoError(t, err)
 		assert.False(t, resp.Match)
+		assert.False(t, resp.PolicyMatched)
 	})
 }
 
@@ -395,4 +444,5 @@ func TestHandleError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.False(t, resp.Match)
+	assert.False(t, resp.PolicyMatched)
 }

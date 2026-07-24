@@ -78,7 +78,7 @@ func certToPEM(cert *x509.Certificate) []byte {
 	})
 }
 
-func publicKeyToPEM(key interface{}) []byte {
+func testPublicKeyToPEM(key interface{}) []byte {
 	pubBytes, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return nil
@@ -494,33 +494,33 @@ func TestDecodePEM(t *testing.T) {
 	}{
 		{
 			name:     "RSA public key",
-			input:    publicKeyToPEM(&rsaKey.PublicKey),
+			input:    testPublicKeyToPEM(&rsaKey.PublicKey),
 			hashAlgo: crypto.SHA256,
 			wantErr:  false,
 			keyType:  "RSA",
 		},
 		{
 			name:     "ECDSA public key",
-			input:    publicKeyToPEM(&ecdsaKey.PublicKey),
+			input:    testPublicKeyToPEM(&ecdsaKey.PublicKey),
 			hashAlgo: crypto.SHA256,
 			wantErr:  false,
 			keyType:  "ECDSA",
 		},
 		{
 			name:     "SHA-256 hash algorithm",
-			input:    publicKeyToPEM(&rsaKey.PublicKey),
+			input:    testPublicKeyToPEM(&rsaKey.PublicKey),
 			hashAlgo: crypto.SHA256,
 			wantErr:  false,
 		},
 		{
 			name:     "SHA-384 hash algorithm",
-			input:    publicKeyToPEM(&rsaKey.PublicKey),
+			input:    testPublicKeyToPEM(&rsaKey.PublicKey),
 			hashAlgo: crypto.SHA384,
 			wantErr:  false,
 		},
 		{
 			name:     "SHA-512 hash algorithm",
-			input:    publicKeyToPEM(&rsaKey.PublicKey),
+			input:    testPublicKeyToPEM(&rsaKey.PublicKey),
 			hashAlgo: crypto.SHA512,
 			wantErr:  false,
 		},
