@@ -27,8 +27,9 @@ import (
 // do not trigger the watch error handler promptly (e.g. an unreachable API
 // server retried internally by client-go) must not block the globalcontext
 // controller's single reconcile worker indefinitely; the workqueue retries
-// with backoff on error. It is a variable so tests can shorten it.
-var cacheSyncTimeout = 30 * time.Second
+// with backoff on error. Callers can enforce a shorter bound through the
+// deadline of the context passed to New.
+const cacheSyncTimeout = 30 * time.Second
 
 type entry struct {
 	lister      cache.GenericLister
@@ -143,7 +144,15 @@ func New(
 	defer syncCancel()
 	if !cache.WaitForCacheSync(syncCtx.Done(), informer.Informer().HasSynced) {
 		stop()
-		err := fmt.Errorf("failed to sync cache for %s (the resource may not exist in the cluster)", gvr)
+		var err error
+		if cause := ctx.Err(); cause != nil {
+			// The informer context ended: either the caller cancelled it, or the
+			// watch error handler observed a list/watch failure (e.g. the
+			// referenced resource does not exist in the cluster).
+			err = fmt.Errorf("failed to sync cache for %s: informer stopped (%w), the resource may not exist in the cluster", gvr, cause)
+		} else {
+			err = fmt.Errorf("failed to sync cache for %s: timed out after %s waiting for the informer to sync", gvr, cacheSyncTimeout)
+		}
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
