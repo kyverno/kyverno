@@ -981,19 +981,17 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 			return err
 		}
 	}
+
+	defer file.Close()
 	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
 		return err
 	}
-
 	for _, patchedTarget := range yamlEncodedTargetResources {
 		if _, err := file.Write(patchedTarget); err != nil {
 			return err
 		}
 	}
-	if err := file.Close(); err != nil {
-		return err
-	}
-	return nil
+	return file.Close()
 }
 
 func (p *PolicyProcessor) openAPI() openapi.Client {
