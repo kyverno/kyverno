@@ -53,7 +53,7 @@ func (e *engine) validate(
 				} else if hasValidatePss {
 					return validation.NewValidatePssHandler(e.client, e.isCluster)
 				} else if hasValidateCEL {
-					return validation.NewValidateCELHandler(e.client, e.isCluster)
+					return validation.NewValidateCELHandler(e.client, e.isCluster, e.nsLister)
 				} else {
 					return validation.NewValidateResourceHandler(e.client, e.isCluster)
 				}

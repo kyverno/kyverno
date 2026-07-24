@@ -66,6 +66,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			exceptions.New(peLister),
 			nil,
+			nil,
 		),
 	}
 }
