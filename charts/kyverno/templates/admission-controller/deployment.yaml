@@ -176,6 +176,9 @@ spec:
             - --tracingCreds={{ . }}
             {{- end }}
             {{- end }}
+            {{- if .Values.admissionController.verifyApiServerCert }}
+            - --verifyApiServerCert=true
+            {{- end }}
             - --disableMetrics={{ .Values.admissionController.metering.disabled }}
             {{- if not .Values.admissionController.metering.disabled }}
             - --otelConfig={{ .Values.admissionController.metering.config }}
