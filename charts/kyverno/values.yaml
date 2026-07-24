@@ -544,6 +544,14 @@ metricsConfig:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
       disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_mutating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_generating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_image_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
@@ -845,6 +853,9 @@ features:
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
+  excludeBootstrapResources:
+    # -- Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled.
+    enabled: false
   backgroundScan:
     # -- Enables the feature
     enabled: true
