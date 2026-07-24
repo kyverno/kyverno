@@ -98,11 +98,14 @@ func createStaticKeyAttestors(keys []string, base kyvernov1.Attestor) []kyvernov
 	return attestors
 }
 
-func buildStatementMap(statements []map[string]any) (map[string][]map[string]any, []string) {
+func buildStatementMap(statements []map[string]any) (map[string][]map[string]any, []string, error) {
 	results := map[string][]map[string]any{}
 	predicateTypes := make([]string, 0, len(statements))
 	for _, s := range statements {
-		predicateType := s["type"].(string)
+		predicateType, ok := s["type"].(string)
+		if !ok {
+			return nil, nil, fmt.Errorf("statement missing or non-string 'type' field: %v", s)
+		}
 		if results[predicateType] != nil {
 			results[predicateType] = append(results[predicateType], s)
 		} else {
@@ -110,7 +113,7 @@ func buildStatementMap(statements []map[string]any) (map[string][]map[string]any
 		}
 		predicateTypes = append(predicateTypes, predicateType)
 	}
-	return results, predicateTypes
+	return results, predicateTypes, nil
 }
 
 func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.JsonPatchOperation {
