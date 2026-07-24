@@ -28,7 +28,7 @@ func NamespacedPolicy(namespace string) Predicate {
 func And(conditions ...Predicate) Predicate {
 	return func(policy policiesv1beta1.ValidatingPolicyLike) bool {
 		for _, condition := range conditions {
-			if !condition(policy) {
+			if condition != nil && !condition(policy) {
 				return false
 			}
 		}
