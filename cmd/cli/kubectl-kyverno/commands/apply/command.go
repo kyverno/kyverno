@@ -752,7 +752,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		for _, r := range engineResponse.Policies {
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -794,7 +794,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -848,7 +848,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				}})
 
 				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 
 				if c.ContinueOnFail {
 					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
@@ -878,7 +878,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 
 			responses = append(responses, response)
 
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 		}
 	}
 
@@ -917,7 +917,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, "cleanup policy has no spec", engineapi.RuleStatusError, nil),
 					},
 				})
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 				responses = append(responses, response)
 			}
 			continue
@@ -935,7 +935,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
 					},
 				})
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 				responses = append(responses, response)
 			}
 			if c.ContinueOnFail {
@@ -1032,7 +1032,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, message, status, nil),
 				},
 			})
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 			responses = append(responses, response)
 		}
 	}
