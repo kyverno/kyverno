@@ -300,6 +300,8 @@ func createrLeaderControllers(
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+		var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+		var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
@@ -311,6 +313,10 @@ func createrLeaderControllers(
 		var mapBindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1")
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1beta1")
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
@@ -339,6 +345,8 @@ func createrLeaderControllers(
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
+			mapV1Informer,
+			mapBindingV1Informer,
 			mapBetaInformer,
 			mapBindingBetaInformer,
 			mapAlphaInformer,
@@ -375,6 +383,7 @@ func main() {
 		maxAuditWorkers                 int
 		maxAuditCapacity                int
 		maxAdmissionReports             int
+		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
 		tlsKeyAlgorithm                 string
 	)
@@ -409,6 +418,7 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
@@ -516,7 +526,7 @@ func main() {
 			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 
 		gceController := internal.NewController(

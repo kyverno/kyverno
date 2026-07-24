@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"fmt"
 
 	cel "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -29,6 +30,7 @@ type Policy struct {
 	targetMatchConditions []cel.Program
 	targetExpression      cel.Program
 	variables             map[string]cel.Program
+	auditAnnotations      map[string]cel.Program
 	exceptions            []compiler.Exception
 	matchConstraints      *admissionregistrationv1.MatchResources
 }
@@ -232,7 +234,36 @@ func (p *Policy) evaluate(
 		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
 	}
 
-	return &EvaluationResult{PatchedResource: versionedAttributes.VersionedObject.(*unstructured.Unstructured)}
+	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, data)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+
+	return &EvaluationResult{
+		PatchedResource:  versionedAttributes.VersionedObject.(*unstructured.Unstructured),
+		AuditAnnotations: auditAnnotations,
+	}
+}
+
+// evaluateAuditAnnotations evaluates each auditAnnotation valueExpression and returns the
+// resulting key/value pairs to be surfaced as report result properties. Empty results are omitted.
+func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
+	if len(p.auditAnnotations) == 0 {
+		return nil, nil
+	}
+	annotations := make(map[string]string, len(p.auditAnnotations))
+	for key, prog := range p.auditAnnotations {
+		out, _, err := prog.ContextEval(ctx, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate auditAnnotation %q: %w", key, err)
+		}
+		if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+			annotations[key] = outcome
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to convert auditAnnotation %q expression: %w", key, err)
+		}
+	}
+	return annotations, nil
 }
 
 func (p *Policy) GetCompiledVariables() map[string]cel.Program {

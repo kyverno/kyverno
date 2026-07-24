@@ -44,7 +44,7 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		match := autogen.CreateMatchConstraints(targets, operations)
+		match := autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		spec.SetMatchConstraints(*match)
 
 		for i := range spec.MatchConditions {
