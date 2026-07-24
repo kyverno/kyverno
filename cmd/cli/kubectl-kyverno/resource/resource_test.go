@@ -1,9 +1,12 @@
 package resource
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -311,5 +314,80 @@ subjects:
 	_, err := GetResourceFromPath(nil, path, "rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "namespace-editor-test1-namespace-creator-sa")
 	if err != nil {
 		t.Fatalf("expected cluster-scoped resource to be found, got error: %v", err)
+	}
+}
+func TestGetFileBytesHTTP(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantErr    bool
+	}{
+		{
+			name:       "successful fetch",
+			statusCode: http.StatusOK,
+			body:       "kind: Pod",
+			wantErr:    false,
+		},
+		{
+			name:       "non 200 response",
+			statusCode: http.StatusNotFound,
+			body:       "",
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			content, err := GetFileBytes(server.URL)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFileBytes() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && string(content) != tt.body {
+				t.Errorf("expected %q, got %q", tt.body, string(content))
+			}
+		})
+	}
+}
+
+func TestGetFileBytesHTTPTimeout(t *testing.T) {
+	oldTimeout := remoteHTTPTimeout
+	defer func() {
+		remoteHTTPTimeout = oldTimeout
+	}()
+
+	remoteHTTPTimeout = 100 * time.Millisecond
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
+	}))
+	defer server.Close()
+
+	_, err := GetFileBytes(server.URL)
+
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	check := err
+	for {
+		if te, ok := check.(interface{ Timeout() bool }); ok && te.Timeout() {
+			break
+		}
+		if ue, ok := check.(interface{ Unwrap() error }); ok && ue.Unwrap() != nil {
+			check = ue.Unwrap()
+			continue
+		}
+		t.Fatalf("expected timeout error, got: %v", err)
 	}
 }
