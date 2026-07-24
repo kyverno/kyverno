@@ -12,6 +12,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/toggle"
 )
 
 var namespacePathRegex = regexp.MustCompile(`^/api(s)?/.*?/namespaces/([^/]+)/?.*$`)
@@ -71,14 +72,20 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	}
 
 	if a.policyNamespace != "" {
-		cleanPath := path.Clean(call.APICall.URLPath)
-		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
-			ns := matches[2]
-			if ns != a.policyNamespace {
-				return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", cleanPath, ns, a.policyNamespace)
+		if call.APICall.Service != nil {
+			if !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
+				return nil, fmt.Errorf("service calls are not allowed in namespaced policies: set --%s to enable", toggle.AllowHTTPInNamespacedPoliciesFlagName)
 			}
 		} else {
-			return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", cleanPath)
+			cleanPath := path.Clean(call.APICall.URLPath)
+			if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
+				ns := matches[2]
+				if ns != a.policyNamespace {
+					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", cleanPath, ns, a.policyNamespace)
+				}
+			} else {
+				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", cleanPath)
+			}
 		}
 	}
 
