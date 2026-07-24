@@ -18,7 +18,7 @@ import (
 // This mirrors the production wiring in cmd/kyverno/main.go: compiler → KubeProvider → engine.
 // The returned provider exposes Fetch() to check reconciliation status in tests.
 func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, error) {
-	compiler := vpolcompiler.NewCompiler()
+	compiler := vpolcompiler.NewCompiler(nil, nil)
 	provider, err := vpolengine.NewKubeProvider(compiler, mgr, nil, false)
 	if err != nil {
 		return nil, nil, err
@@ -61,7 +61,7 @@ var _ engine.PolicyExceptionLister = (*managerPolexLister)(nil)
 func NewVpolEngineWithExceptions(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, error) {
 	polexLister := &managerPolexLister{client: mgr.GetClient()}
 
-	compiler := vpolcompiler.NewCompiler()
+	compiler := vpolcompiler.NewCompiler(nil, nil)
 	provider, err := vpolengine.NewKubeProvider(compiler, mgr, polexLister, true)
 	if err != nil {
 		return nil, nil, err
