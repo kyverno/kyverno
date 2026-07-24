@@ -1,6 +1,5 @@
 package main
 
-// We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 import (
 	"context"
 	"errors"
@@ -64,6 +63,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	"github.com/prometheus/client_golang/prometheus"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -78,7 +78,9 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -94,9 +96,114 @@ var (
 	tlsSecretName string
 )
 
+type workqueueMetricsProvider struct{}
+
+func (p *workqueueMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_depth",
+		Help:        "Current depth of workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewAddsMetric(name string) workqueue.CounterMetric {
+	m := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        "workqueue_adds_total",
+		Help:        "Total number of adds handled by workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Counter)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
+	m := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:        "workqueue_queue_duration_seconds",
+		Help:        "How long in seconds an item stays in workqueue before being requested",
+		ConstLabels: prometheus.Labels{"name": name},
+		Buckets:     prometheus.ExponentialBuckets(10e-9, 10, 10),
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Histogram)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
+	m := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:        "workqueue_work_duration_seconds",
+		Help:        "How long in seconds processing an item from workqueue takes.",
+		ConstLabels: prometheus.Labels{"name": name},
+		Buckets:     prometheus.ExponentialBuckets(10e-9, 10, 10),
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Histogram)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_unfinished_work_seconds",
+		Help:        "How many seconds of work has been done that is in progress and hasn't been observed by work_duration. Large values indicate stuck threads.",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_longest_running_processor_seconds",
+		Help:        "How many seconds has the longest running processor for workqueue been running.",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
+	m := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        "workqueue_retries_total",
+		Help:        "Total number of retries handled by workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Counter)
+		}
+	}
+	return m
+}
+
+func init() {
+	workqueue.SetProvider(&workqueueMetricsProvider{})
+}
+
 func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
-	// log if `forceFailurePolicyIgnore` flag has been set or not
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		logger.V(2).Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
@@ -351,8 +458,6 @@ func createrLeaderControllers(
 
 func main() {
 	var (
-		// TODO: this has been added to backward support command line arguments
-		// will be removed in future and the configuration will be set only via configmaps
 		serverIP                        string
 		webhookTimeout                  int
 		maxQueuedEvents                 int
@@ -407,7 +512,6 @@ func main() {
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
-	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithTracing(),
@@ -430,17 +534,14 @@ func main() {
 		internal.WithReporting(),
 		internal.WithRestConfig(),
 	)
-	// parse flags
 	internal.ParseFlags(appConfig)
 	apicall.SetScopedTokenClientTimeout(apiCallTimeout)
-	// Validate HTTP blocklist/allowlist flags at startup (fail-fast).
 	if err := celcompiler.ValidateHTTPFlags(); err != nil {
 		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
 		os.Exit(1)
 	}
 	var wg wait.Group
 	func() {
-		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 		defer sdown()
 		if caSecretName == "" {
@@ -456,7 +557,6 @@ func main() {
 			setup.Logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", tlsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
 			os.Exit(1)
 		}
-		// check if mutating admission policies are registered in the API server
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
 		if generateMutatingAdmissionPolicy {
 			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
@@ -473,17 +573,12 @@ func main() {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
-		// show version
 		showWarnings(signalCtx, setup.Logger)
-		// THIS IS AN UGLY FIX
-		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
-		// check we can run
 		if err := sanityChecks(setup.ApiServerClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
-		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
@@ -536,7 +631,6 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		// this controller only subscribe to events, nothing is returned...
 		policymetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
@@ -545,7 +639,6 @@ func main() {
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
-		// log policy changes
 		genericloggingcontroller.NewController(
 			setup.Logger.WithName("policy"),
 			"Policy",
@@ -564,7 +657,6 @@ func main() {
 			kubeKyvernoInformer.Apps().V1().Deployments(),
 			certRenewer,
 		)
-		// engine
 		engine := internal.NewEngine(
 			signalCtx,
 			setup.Logger,
@@ -580,24 +672,20 @@ func main() {
 			polexCache,
 			gcstore,
 		)
-		// create non leader controllers
 		nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 			kyvernoInformer,
 			setup.KyvernoDynamicClient,
 			policyCache,
 		)
-		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
-		// bootstrap non leader controllers
 		if nonLeaderBootstrap != nil {
 			if err := nonLeaderBootstrap(signalCtx); err != nil {
 				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
 			}
 		}
-		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
 			"kyverno",
@@ -607,11 +695,6 @@ func main() {
 			internal.LeaderElectionRetryPeriod(),
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
-				// create leader controllers
-				// NOTE: We intentionally reuse the outer-scope informer factories (kubeInformer, kyvernoInformer)
-				// rather than creating new ones here. This ensures webhook handlers and webhook controller
-				// share the same informer caches, preventing split-brain policy enforcement gaps.
-				// Controllers still stop on leadership loss because they use ctx (leader context).
 				leaderControllers, warmup, err := createrLeaderControllers(
 					admissionReports,
 					serverIP,
@@ -638,11 +721,6 @@ func main() {
 					logger.Error(err, "failed to create leader controllers")
 					os.Exit(1)
 				}
-				// Ensure informers are synced before starting leader controllers.
-				// Informers were already started earlier, but this ensures any newly registered
-				// handlers from leader controller creation have received initial data.
-				// Note: Informers remain running after leadership loss (shared with webhook handlers);
-				// only controllers stop because they use ctx (leader context).
 				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 					os.Exit(1)
@@ -653,12 +731,10 @@ func main() {
 						os.Exit(1)
 					}
 				}
-				// start leader controllers
 				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(ctx, logger.WithName("controllers"), &wg)
 				}
-				// wait all controllers shut down
 				wg.Wait()
 			},
 			nil,
@@ -668,7 +744,6 @@ func main() {
 			os.Exit(1)
 		}
 		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
-		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
@@ -684,7 +759,6 @@ func main() {
 			setup.KyvernoDynamicClient,
 			nil,
 			gcstore,
-			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 			restMapper,
 			false,
 		)
@@ -699,7 +773,6 @@ func main() {
 		var ivpolEngine ivpolengine.Engine
 		var mpolEngine mpolengine.Engine
 		{
-			// create a controller manager
 			scheme := kruntime.NewScheme()
 			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
@@ -716,9 +789,7 @@ func main() {
 				os.Exit(1)
 			}
 			celExceptionLister := celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace())
-			// create compiler
 			compiler := vpolcompiler.NewCompiler()
-			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
 				mgr,
@@ -740,11 +811,8 @@ func main() {
 				setup.Logger.Error(err, "failed to create mpol provider")
 				os.Exit(1)
 			}
-			// create a cancellable context
 			ctx, cancel := context.WithCancel(signalCtx)
-			// start manager
 			wg.StartWithContext(ctx, func(ctx context.Context) {
-				// cancel context at the end
 				defer cancel()
 				if err := mgr.Start(ctx); err != nil {
 					setup.Logger.Error(err, "failed to start manager")
@@ -820,15 +888,12 @@ func main() {
 						return
 					}
 				}()
-				// create a temporary fake breaker until the retrying goroutine succeeds
 				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 					return true
 				}))
-				// no error has occurred, create a normal breaker
 			} else {
 				breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", ephrCounterFunc(ephrs)))
 			}
-			// admission reports are disabled, create a fake breaker by default
 		} else {
 			breaker.SetReportsBreaker(breaker.NewBreaker("admission reports", func(context.Context) bool {
 				return true
@@ -928,16 +993,12 @@ func main() {
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
 		)
-		// start informers and wait for cache sync
-		// we need to call start again because we potentially registered new informers
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
-		// start webhooks server
 		server.Run()
 		defer server.Stop()
-		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
 		if polexController != nil {
@@ -946,9 +1007,7 @@ func main() {
 		for _, controller := range nonLeaderControllers {
 			controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 		}
-		// start leader election
 		le.Run(signalCtx)
 	}()
-	// wait for everything to shut down and exit
 	wg.Wait()
 }

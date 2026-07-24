@@ -43,17 +43,125 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	_ "k8s.io/component-base/metrics/prometheus/workqueue"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
+
+type workqueueMetricsProvider struct{}
+
+func (p *workqueueMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_depth",
+		Help:        "Current depth of workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewAddsMetric(name string) workqueue.CounterMetric {
+	m := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        "workqueue_adds_total",
+		Help:        "Total number of adds handled by workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Counter)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
+	m := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:        "workqueue_queue_duration_seconds",
+		Help:        "How long in seconds an item stays in workqueue before being requested",
+		ConstLabels: prometheus.Labels{"name": name},
+		Buckets:     prometheus.ExponentialBuckets(10e-9, 10, 10),
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Histogram)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
+	m := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:        "workqueue_work_duration_seconds",
+		Help:        "How long in seconds processing an item from workqueue takes.",
+		ConstLabels: prometheus.Labels{"name": name},
+		Buckets:     prometheus.ExponentialBuckets(10e-9, 10, 10),
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Histogram)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_unfinished_work_seconds",
+		Help:        "How many seconds of work has been done that is in progress and hasn't been observed by work_duration. Large values indicate stuck threads.",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	m := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "workqueue_longest_running_processor_seconds",
+		Help:        "How many seconds has the longest running processor for workqueue been running.",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Gauge)
+		}
+	}
+	return m
+}
+
+func (p *workqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
+	m := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        "workqueue_retries_total",
+		Help:        "Total number of retries handled by workqueue",
+		ConstLabels: prometheus.Labels{"name": name},
+	})
+	if err := crmetrics.Registry.Register(m); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return are.ExistingCollector.(prometheus.Counter)
+		}
+	}
+	return m
+}
+
+func init() {
+	workqueue.SetProvider(&workqueueMetricsProvider{})
+}
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient, "updaterequests.kyverno.io")
