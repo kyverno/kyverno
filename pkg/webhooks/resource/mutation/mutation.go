@@ -158,7 +158,12 @@ func (v *mutationHandler) applyMutations(
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
 		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
-			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
+			// The timeout bounds how long this goroutine can live: if the reports API
+			// hangs (e.g. an unhealthy reports-server behind an aggregated APIService),
+			// unbounded goroutines accumulate at the admission request rate and OOM the pod.
+			ctx, cancel := context.WithTimeout(context.Background(), reportutils.CreationTimeout)
+			defer cancel()
+			if err := v.createReports(ctx, policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
 		}()

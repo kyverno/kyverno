@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
@@ -11,6 +12,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// CreationTimeout bounds the fire-and-forget admission report creation goroutines
+// in the webhook handlers. Without it, a reports API that accepts connections but
+// never responds keeps every goroutine (and its report payload) alive indefinitely.
+const CreationTimeout = 10 * time.Second
 
 func IsPolicyReportable(pol metav1.Object) bool {
 	if pol == nil { // invalid behavior
