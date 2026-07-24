@@ -28,22 +28,22 @@ func Test_GetImageInfo(t *testing.T) {
 	validateImageInfo(t,
 		"nginx",
 		"nginx",
-		"nginx",
+		"library/nginx",
 		"docker.io",
 		"latest",
 		"",
-		"docker.io/nginx:latest",
+		"docker.io/library/nginx:latest",
 		"docker.io",
 		true)
 
 	validateImageInfo(t,
 		"nginx:v10.3",
 		"nginx",
-		"nginx",
+		"library/nginx",
 		"docker.io",
 		"v10.3",
 		"",
-		"docker.io/nginx:v10.3",
+		"docker.io/library/nginx:v10.3",
 		"docker.io",
 		true)
 
@@ -120,10 +120,10 @@ func Test_ReferenceWithTag(t *testing.T) {
 		expected string
 	}{{
 		input:    "nginx",
-		expected: "docker.io/nginx:latest",
+		expected: "docker.io/library/nginx:latest",
 	}, {
 		input:    "nginx:v10.3",
-		expected: "docker.io/nginx:v10.3",
+		expected: "docker.io/library/nginx:v10.3",
 	}, {
 		input:    "docker.io/test/nginx:v10.3",
 		expected: "docker.io/test/nginx:v10.3",
@@ -153,12 +153,12 @@ func Test_ReferenceAndReferenceWithTag(t *testing.T) {
 		expectedReferenceWithTag string
 	}{{
 		input:                    "nginx",
-		expectedReference:        "docker.io/nginx:latest",
-		expectedReferenceWithTag: "docker.io/nginx:latest",
+		expectedReference:        "docker.io/library/nginx:latest",
+		expectedReferenceWithTag: "docker.io/library/nginx:latest",
 	}, {
 		input:                    "nginx:v10.3",
-		expectedReference:        "docker.io/nginx:v10.3",
-		expectedReferenceWithTag: "docker.io/nginx:v10.3",
+		expectedReference:        "docker.io/library/nginx:v10.3",
+		expectedReferenceWithTag: "docker.io/library/nginx:v10.3",
 	}, {
 		input:                    "docker.io/test/nginx:v10.3",
 		expectedReference:        "docker.io/test/nginx:v10.3",
@@ -242,7 +242,7 @@ func Test_addDefaultRegistry(t *testing.T) {
 			input:                         "localhost/netd:v0.4.4-gke.0",
 			defaultRegistry:               "docker.io",
 			enableDefaultRegistryMutation: true,
-			want:                          "localhost/netd:v0.4.4-gke.0",
+			want:                          "localhost/library/netd:v0.4.4-gke.0",
 		},
 		{
 			input:                         "myregistry.org/test/nginx:v10.3",
