@@ -1,0 +1,1149 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="kyverno-io-v1beta1">Package: <span style="font-family: monospace">kyverno.io/v1beta1</span></h2>
+            <p><p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
+</p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#kyverno-io-v1beta1-UpdateRequest">UpdateRequest</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="kyverno-io-v1beta1-UpdateRequest">UpdateRequest
+    </H3>
+
+  
+
+  <p><p>UpdateRequest is a request to process mutate and generate rules in background.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v1beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>UpdateRequest</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-UpdateRequestSpec">
+                <span style="font-family: monospace">UpdateRequestSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceSpec is the information to identify the trigger resource.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>requestType</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-RequestType">
+                <span style="font-family: monospace">RequestType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type represents request type for background processing</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Specifies the name of the policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule is the associate rule name of the current UR.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deleteDownstream</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>synchronize</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceSpec">
+                <span style="font-family: monospace">ResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceSpec is the information to identify the trigger resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-UpdateRequestSpecContext">
+                <span style="font-family: monospace">UpdateRequestSpecContext</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context ...</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-UpdateRequestStatus">
+                <span style="font-family: monospace">UpdateRequestStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains statistics related to update request.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1beta1-AdmissionRequestInfoObject">AdmissionRequestInfoObject
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequestSpecContext">UpdateRequestSpecContext</a>)
+    </p>
+  
+
+  <p><p>AdmissionRequestInfoObject stores the admission request and operation details</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>admissionRequest</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admission/v1.AdmissionRequest</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>operation</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admission/v1.Operation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1beta1-RequestInfo">RequestInfo
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequestSpecContext">UpdateRequestSpecContext</a>)
+    </p>
+  
+
+  <p><p>RequestInfo contains permission info carried in an admission request.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>roles</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Roles is a list of possible role send the request.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>clusterRoles</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ClusterRoles is a list of possible clusterRoles send the request.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>userInfo</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">authentication/v1.UserInfo</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UserInfo is the userInfo carried in the admission request.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1beta1-RequestType">RequestType
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequestSpec">UpdateRequestSpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+
+  <H3 id="kyverno-io-v1beta1-UpdateRequestSpec">UpdateRequestSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequest">UpdateRequest</a>)
+    </p>
+  
+
+  <p><p>UpdateRequestSpec stores the request specification.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>requestType</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-RequestType">
+                <span style="font-family: monospace">RequestType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type represents request type for background processing</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Specifies the name of the policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule is the associate rule name of the current UR.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deleteDownstream</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>synchronize</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceSpec">
+                <span style="font-family: monospace">ResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceSpec is the information to identify the trigger resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-UpdateRequestSpecContext">
+                <span style="font-family: monospace">UpdateRequestSpecContext</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context ...</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1beta1-UpdateRequestSpecContext">UpdateRequestSpecContext
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequestSpec">UpdateRequestSpec</a>)
+    </p>
+  
+
+  <p><p>UpdateRequestSpecContext stores the context to be shared.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>userInfo</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-RequestInfo">
+                <span style="font-family: monospace">RequestInfo</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>admissionRequestInfo</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-AdmissionRequestInfoObject">
+                <span style="font-family: monospace">AdmissionRequestInfoObject</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1beta1-UpdateRequestState">UpdateRequestState
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequestStatus">UpdateRequestStatus</a>)
+    </p>
+  
+
+  <p><p>UpdateRequestState defines the state of request.</p>
+</p>
+
+  
+
+  <H3 id="kyverno-io-v1beta1-UpdateRequestStatus">UpdateRequestStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1beta1-UpdateRequest">UpdateRequest</a>)
+    </p>
+  
+
+  <p><p>UpdateRequestStatus defines the observed state of UpdateRequest</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>handler</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>state</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1beta1-UpdateRequestState">
+                <span style="font-family: monospace">UpdateRequestState</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>State represents state of the update request.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Specifies request status message.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generatedResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceSpec">
+                <span style="font-family: monospace">[]ResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>This will track the resources that are updated by the generate Policy.
+Will be used during clean up resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>retryCount</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>

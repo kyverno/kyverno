@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: bad-taskrun
+spec:
+  taskRef:
+    resolver: bundles
+    params:
+    - name: kind
+      value: Task
+    - name: bundle
+      value: ghcr.io/kyverno/test-verify-image:unsigned
+    - name: name
+      value: hello

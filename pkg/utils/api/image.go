@@ -42,11 +42,12 @@ type imageExtractor struct {
 	Value    string
 	Name     string
 	JMESPath string
+	Filter   string
 }
 
 func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Configuration) (map[string]ImageInfo, error) {
 	imageInfo := map[string]ImageInfo{}
-	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg, []string{}); err != nil {
+	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, i.Filter, &imageInfo, cfg, []string{}); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
@@ -59,6 +60,7 @@ func extract(
 	valuePath string,
 	fields []string,
 	jmesPath string,
+	filter string,
 	imageInfos *map[string]ImageInfo,
 	cfg config.Configuration,
 	pullSecrets []string,
@@ -69,14 +71,26 @@ func extract(
 	if len(fields) > 0 && fields[0] == "*" {
 		switch typedObj := obj.(type) {
 		case []interface{}:
-			for i, v := range typedObj {
-				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+			if filter != "" && keyPath == "" {
+				return fmt.Errorf("filter requires key to be set in imageExtractor config")
+			}
+			for idx, v := range typedObj {
+				if filter != "" && len(fields) == 1 {
+					elem, ok := v.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if val, ok := elem[keyPath].(string); !ok || val != filter {
+						continue
+					}
+				}
+				if err := extract(v, append(path, strconv.Itoa(idx)), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
 		case map[string]interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
@@ -139,7 +153,7 @@ func extract(
 		return nil
 	}
 	currentPath := fields[0]
-	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets)
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets)
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
@@ -184,6 +198,7 @@ func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) 
 					Name:     name,
 					Value:    value,
 					JMESPath: c.JMESPath,
+					Filter:   c.Filter,
 				})
 			}
 			return extractors
