@@ -19,7 +19,7 @@ import (
 // +kubebuilder:printcolumn:name="BACKGROUND",type=boolean,JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.failurePolicy",priority=1
+// +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.webhookConfiguration.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="VALIDATE",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
 // +kubebuilder:printcolumn:name="MUTATE",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
 // +kubebuilder:printcolumn:name="GENERATE",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
