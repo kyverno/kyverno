@@ -8,5 +8,5 @@ metadata:
 spec:
   containers:
   - name: example
-    image: public.ecr.aws/docker/library/busybox
+    image: busybox
     args: ["sleep", "infinity"]

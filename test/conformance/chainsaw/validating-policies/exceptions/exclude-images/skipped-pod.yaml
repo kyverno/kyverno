@@ -5,11 +5,11 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: public.ecr.aws/docker/library/nginx:latest
+    image: nginx:latest
     securityContext:
       allowPrivilegeEscalation: true
   - name: container02
-    image: public.ecr.aws/docker/library/ubuntu:latest
+    image: ubuntu:latest
     securityContext:
       allowPrivilegeEscalation: false
 ---
@@ -20,11 +20,11 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
     securityContext:
       allowPrivilegeEscalation: true
   - name: container02
-    image: public.ecr.aws/docker/library/ubuntu:latest
+    image: ubuntu:latest
     securityContext:
       allowPrivilegeEscalation: false
 ---
@@ -35,10 +35,10 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
     securityContext:
       allowPrivilegeEscalation: true
   - name: container02
-    image: public.ecr.aws/docker/library/nginx:latest
+    image: nginx:latest
     securityContext:
       allowPrivilegeEscalation: true

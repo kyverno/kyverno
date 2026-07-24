@@ -16,13 +16,13 @@ spec:
   podSecurity:
     - controlName: "Capabilities"
       images:
-      - public.ecr.aws/docker/library/nginx
+      - nginx
       restrictedField: "spec.containers[*].securityContext.capabilities.add"
       values:
       - "foo"
     - controlName: "Capabilities"
       images:
-      - public.ecr.aws/docker/library/nginx
+      - nginx
       restrictedField: "spec.initContainers[*].securityContext.capabilities.add"
       values:
       - "baz"

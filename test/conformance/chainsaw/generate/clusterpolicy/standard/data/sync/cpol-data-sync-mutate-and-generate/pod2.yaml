@@ -6,6 +6,6 @@ metadata:
 spec:
   containers:
     - name: container
-      image: public.ecr.aws/docker/library/nginx
+      image: nginx
 
 

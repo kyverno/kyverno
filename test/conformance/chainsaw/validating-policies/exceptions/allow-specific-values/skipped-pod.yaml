@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: public.ecr.aws/docker/library/ubuntu:latest
+    image: ubuntu:latest
     args:
     - sleep
     - 1d
@@ -20,7 +20,7 @@ spec:
         add:
         - NET_BIND_SERVICE
   - name: nginx
-    image: public.ecr.aws/docker/library/nginx:latest
+    image: nginx:latest
     args:
     - sleep
     - 1d

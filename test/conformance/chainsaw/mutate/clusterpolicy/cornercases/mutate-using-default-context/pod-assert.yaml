@@ -8,5 +8,5 @@ spec:
   automountServiceAccountToken: false
   containers:
   - name: busybox
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
     command: ["sleep", "9999"]
