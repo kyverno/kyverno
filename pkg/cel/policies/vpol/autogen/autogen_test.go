@@ -290,6 +290,83 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "autogen preserves object.metadata.name in messageExpression",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [
+								""
+							],
+							"apiVersions": [
+								"v1"
+							],
+							"operations": [
+								"CREATE",
+								"UPDATE"
+							],
+							"resources": [
+								"pods"
+							]
+						}
+					]
+				},
+				"variables": [
+					{
+						"name": "violatingContainers",
+						"expression": "object.spec.containers.filter(c, !c.image.contains(':'))"
+					}
+				],
+				"validations": [
+					{
+						"expression": "variables.violatingContainers.size() == 0",
+						"message": "Don't do this",
+						"messageExpression": "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\""
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Variables: []admissionregistrationv1.Variable{
+							{
+								Name:       "violatingContainers",
+								Expression: "object.spec.template.spec.containers.filter(c, !c.image.contains(':'))",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression:        "variables.violatingContainers.size() == 0",
+								Message:           "Don't do this",
+								MessageExpression: "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\"",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
