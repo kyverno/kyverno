@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 )
 
 type mockRESTMapper struct {
@@ -1320,4 +1321,111 @@ func TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion(t *te
 	require.NotNil(t, captured, "propagation must call UpdateResource on the downstream")
 	assert.Equal(t, "305", captured.GetResourceVersion(),
 		"propagation must set the downstream's current resourceVersion (CRD updates reject an empty one)")
+}
+
+// TestSyncWatchers_OtherTriggersKeepTheirDownstreams covers the multi tenant shape: one policy that
+// generates for many namespaces. SyncWatchers is called once per trigger with only that trigger's
+// resources, so a trigger whose set is smaller must not be read as "the policy stopped generating
+// this kind". Before the fix it stopped the other kinds' watchers and deleted their downstreams
+// cluster wide, which silently killed synchronization for every other namespace after a background
+// controller restart (when one cacheRestore UpdateRequest per namespace is processed at once).
+func TestSyncWatchers_OtherTriggersKeepTheirDownstreams(t *testing.T) {
+	groups := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {{Name: "resourcequotas", Namespaced: true, Kind: "ResourceQuota"}},
+			},
+		},
+		{
+			Group: metav1.APIGroup{
+				Name:             "networking.k8s.io",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "networking.k8s.io/v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "networking.k8s.io/v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {{Name: "networkpolicies", Namespaced: true, Kind: "NetworkPolicy"}},
+			},
+		},
+	}
+
+	const policy = "generate-user-namespace-resources"
+	labels := map[string]string{common.GeneratePolicyLabel: policy}
+	rqGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "resourcequotas"}
+	npGVR := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
+
+	// Both kinds already have a running watcher, so SyncWatchers takes its "watcher already exists"
+	// path and only updates the cache, the way it does once the policy has generated at least once.
+	newWatcher := func() *watcher {
+		return &watcher{
+			watcher:       watch.MockWatcher{StopFunc: func() {}, ResultChanFunc: func() <-chan watch.Event { return nil }},
+			metadataCache: map[types.UID]Resource{},
+		}
+	}
+	mc := &MockClient{}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          mc,
+		restMapper:      restmapper.NewDiscoveryRESTMapper(groups),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{rqGVR: newWatcher(), npGVR: newWatcher()},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
+	}
+
+	// Trigger "carol" generates a ResourceQuota and a NetworkPolicy.
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("10", "", "v1", "ResourceQuota", "tier-quota", "carol", "uid-rq-carol", labels),
+		makeUnstructured("11", "networking.k8s.io", "v1", "NetworkPolicy", "namespace-isolation", "carol", "uid-np-carol", labels),
+	}))
+
+	// Trigger "alice" only has a NetworkPolicy.
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("12", "networking.k8s.io", "v1", "NetworkPolicy", "namespace-isolation", "alice", "uid-np-alice", labels),
+	}))
+
+	_, rqWatched := wm.dynamicWatchers[rqGVR]
+	_, npWatched := wm.dynamicWatchers[npGVR]
+	assert.True(t, npWatched, "the NetworkPolicy watcher must stay")
+	assert.True(t, rqWatched, "carol's ResourceQuota is still generated, so its watcher must stay")
+	assert.Empty(t, mc.deleted, "syncing one trigger must not delete another trigger's downstreams")
+	assert.Contains(t, wm.policyRefs[policy], rqGVR, "the policy must still reference the ResourceQuota kind")
+}
+
+// TestSyncWatchers_StopsWatcherWhenPolicyHasNoDownstreamsLeft is the counterpart: once a kind really
+// has no generated resources left for the policy (the update path clears the cache before
+// regenerating), its watcher should be stopped rather than left running forever.
+func TestSyncWatchers_StopsWatcherWhenPolicyHasNoDownstreamsLeft(t *testing.T) {
+	const policy = "pol1"
+	stopped := false
+	oldGVR := schema.GroupVersionResource{Group: "old", Version: "v1", Resource: "res"}
+
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: &MockClient{},
+		restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr1}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			// No cached downstreams: the policy no longer generates this kind.
+			oldGVR: {watcher: watch.MockWatcher{StopFunc: func() { stopped = true }}, metadataCache: map[types.UID]Resource{}},
+			// The kind still generated, already watched, so no new watcher is started here.
+			gvr1: {
+				watcher:       watch.MockWatcher{StopFunc: func() {}, ResultChanFunc: func() <-chan watch.Event { return nil }},
+				metadataCache: map[types.UID]Resource{},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policy: {oldGVR}},
+		refCount:   map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("1", "apps", "v1", "Pod", "n", "ns", "uid1", nil),
+	}))
+
+	assert.True(t, stopped, "a kind the policy no longer generates should have its watcher stopped")
+	assert.NotContains(t, wm.policyRefs[policy], oldGVR, "and should be dropped from the policy references")
 }

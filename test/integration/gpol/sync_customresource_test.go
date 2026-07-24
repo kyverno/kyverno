@@ -5,6 +5,7 @@ package gpol_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,8 +69,13 @@ func createTierConfigMap(t *testing.T) {
 // buildTenantPolicy mirrors the user reported policy: for a tenant namespace it generates and syncs a
 // namespaced ResourceQuota, a cluster scoped Queue custom resource, and a namespaced NetworkPolicy,
 // with the quota and the queue derived from a tier ConfigMap. matchConditions pin the policy to the
-// single test namespace, otherwise this cluster scoped policy fires for every namespace in envtest.
-func buildTenantPolicy(policyName, userNs string) *policiesv1beta1.GeneratingPolicy {
+// given test namespaces, otherwise this cluster scoped policy fires for every namespace in envtest.
+func buildTenantPolicy(policyName string, userNamespaces ...string) *policiesv1beta1.GeneratingPolicy {
+	quoted := make([]string, 0, len(userNamespaces))
+	for _, ns := range userNamespaces {
+		quoted = append(quoted, fmt.Sprintf("%q", ns))
+	}
+	matchesATestNamespace := fmt.Sprintf("object.metadata.name in [%s]", strings.Join(quoted, ", "))
 	return &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: policyName},
 		Spec: policiesv1beta1.GeneratingPolicySpec{
@@ -94,8 +100,8 @@ func buildTenantPolicy(policyName, userNs string) *policiesv1beta1.GeneratingPol
 				}},
 			},
 			MatchConditions: []admissionregistrationv1.MatchCondition{{
-				Name:       "only-test-namespace",
-				Expression: fmt.Sprintf("object.metadata.name == %q", userNs),
+				Name:       "only-test-namespaces",
+				Expression: matchesATestNamespace,
 			}},
 			Variables: []admissionregistrationv1.Variable{
 				{Name: "nsName", Expression: "object.metadata.name"},
@@ -289,4 +295,83 @@ func TestGenerateSync_CustomResourceDownstream_RestoredAfterRestart(t *testing.T
 	assert.True(t, kinds["ResourceQuota"], "ResourceQuota should be watched again after a restart")
 	assert.True(t, kinds["NetworkPolicy"], "NetworkPolicy should be watched again after a restart")
 	assert.True(t, kinds["Queue"], "the cluster scoped custom resource should be watched again after a restart")
+}
+
+// TestGenerateSync_MultiTenantRestart_KeepsOtherTenantsResources covers the shape the user actually
+// runs: one policy generating for several tenant namespaces. On a background controller restart the
+// controller processes one cacheRestore UpdateRequest per tenant, so SyncWatchers runs once per
+// tenant with only that tenant's resources.
+//
+// A tenant whose set is smaller (here the Queue was removed out of band, which is exactly the state a
+// partially synced cluster ends up in) must not be read as "the policy stopped generating Queues".
+// Before the fix that stopped the Queue watcher and deleted every other tenant's Queue, so after a
+// restart the healthy tenants silently lost both their resources and their synchronization.
+func TestGenerateSync_MultiTenantRestart_KeepsOtherTenantsResources(t *testing.T) {
+	const (
+		policyName = "generate-tenant-resources-multi"
+		tenantA    = "tenant-alpha"
+		tenantB    = "tenant-beta"
+	)
+	ctx := context.Background()
+	requireQueueCRDServed(t)
+	createTierConfigMap(t)
+
+	createGpolWithCleanup(t, buildTenantPolicy(policyName, tenantA, tenantB))
+	waitForGpolInLister(t, policyName)
+	framework.CreateNamespace(t, testEnv.KubeClient, tenantA)
+	framework.CreateNamespace(t, testEnv.KubeClient, tenantB)
+
+	dyn := testEnv.DClient.GetDynamicInterface()
+	t.Cleanup(func() {
+		for _, ns := range []string{tenantA, tenantB} {
+			_ = dyn.Resource(queueGVR).Delete(context.Background(), ns, metav1.DeleteOptions{})
+		}
+	})
+
+	// Generate for both tenants, the way admission does when each namespace is created.
+	wmGen, stopGen := framework.NewGpolWatchManager(testEnv.DClient, logr.Discard())
+	t.Cleanup(stopGen)
+	processor := framework.NewURProcessorWithSyncWatchers(gpolEngine, gpolProvider, testEnv.ContextProvider, wmGen)
+	mock := framework.NewProcessingURGenerator(processor)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
+	for _, ns := range []string{tenantA, tenantB} {
+		resp := h.Generate(framework.ContextWithPolicies(ctx, policyName), logr.Discard(),
+			framework.NamespaceAdmissionRequest(ns, namespaceJSON(ns)), "", time.Now())
+		require.True(t, resp.Allowed)
+	}
+	require.Eventually(t, func() bool { return len(mock.GetSpecs()) >= 2 }, 15*time.Second, 200*time.Millisecond,
+		"both tenants' UpdateRequests should be processed")
+	require.Empty(t, mock.ProcessingErrors())
+	waitForQueueField(t, tenantA, "displayName", "Free Tier")
+	waitForQueueField(t, tenantB, "displayName", "Free Tier")
+
+	// Tenant B loses its Queue out of band, so its restore will report a smaller set of kinds.
+	require.NoError(t, dyn.Resource(queueGVR).Delete(ctx, tenantB, metav1.DeleteOptions{}))
+
+	// Restart: a fresh WatchManager rebuilds its cache from one cacheRestore evaluation per tenant.
+	wm, stopWM := framework.NewGpolWatchManager(testEnv.DClient, logr.Discard())
+	t.Cleanup(stopWM)
+	policy, err := gpolProvider.Get(ctx, policyName)
+	require.NoError(t, err)
+	for _, ns := range []string{tenantA, tenantB} {
+		testEnv.ContextProvider.ClearGeneratedResources()
+		request := framework.NamespaceAdmissionRequest(ns, namespaceJSON(ns))
+		resp, err := gpolEngine.Handle(celengine.RequestFromAdmission(testEnv.ContextProvider, request.AdmissionRequest), policy, true)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		require.NotNil(t, resp.Policies[0].Result, "cache restore should produce a rule result for %s", ns)
+		require.NoError(t, wm.SyncWatchers(policyName, resp.Policies[0].Result.GeneratedResources()))
+	}
+
+	// Tenant A is untouched by tenant B's restore: its Queue is still there and still watched.
+	_, err = dyn.Resource(queueGVR).Get(ctx, tenantA, metav1.GetOptions{})
+	assert.NoError(t, err, "restoring a tenant without a Queue must not delete another tenant's Queue")
+
+	kinds := map[string]bool{}
+	for _, d := range wm.GetDownstreams(policyName) {
+		kinds[d.GetKind()] = true
+	}
+	assert.True(t, kinds["Queue"], "the Queue kind must still be watched for the tenants that have one")
+	assert.True(t, kinds["ResourceQuota"], "ResourceQuota should still be watched")
+	assert.True(t, kinds["NetworkPolicy"], "NetworkPolicy should still be watched")
 }
