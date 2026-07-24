@@ -33,9 +33,105 @@ func TestValidate(t *testing.T) {
 							},
 						},
 					},
+					Schedule: "*/5 * * * *",
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "valid policy with six-field schedule",
+			dpol: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "six-field-schedule",
+				},
+				Spec: v1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+					Schedule: "0 */5 * * * *",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid policy with predefined schedule",
+			dpol: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "predefined-schedule",
+				},
+				Spec: v1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+					Schedule: "@daily",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid cron schedule",
+			dpol: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "bad-schedule",
+				},
+				Spec: v1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+					Schedule: "not-a-cron",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing schedule",
+			dpol: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "no-schedule",
+				},
+				Spec: v1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
 		},
 		{
 			name: "missing matchConstraints",

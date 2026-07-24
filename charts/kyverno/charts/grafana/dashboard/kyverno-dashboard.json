@@ -3375,6 +3375,1050 @@
         ],
         "title": "Total Admission Requests (Last 24 Hours)",
         "type": "stat"
+      },
+      {
+        "collapsed": false,
+        "datasource": null,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 86
+        },
+        "id": 500,
+        "panels": [],
+        "title": "CEL Policy Results",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "pass"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "rgb(43, 219, 23)",
+                    "mode": "fixed"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "dash": [
+                      10,
+                      10
+                    ],
+                    "fill": "dash"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "fail"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#F2495C",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 0,
+          "y": 87
+        },
+        "id": 501,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total|kyverno_image_validating_policy_results_total\", execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "interval": "",
+            "legendFormat": "{{result}}",
+            "refId": "A"
+          }
+        ],
+        "title": "Admission Review Results (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "pass"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "rgb(43, 219, 23)",
+                    "mode": "fixed"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "dash": [
+                      10,
+                      10
+                    ],
+                    "fill": "dash"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "fail"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#F2495C",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 8,
+          "y": 87
+        },
+        "id": 502,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total|kyverno_image_validating_policy_results_total\", execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (result)",
+            "interval": "",
+            "legendFormat": "{{result}}",
+            "refId": "A"
+          }
+        ],
+        "title": "Background Scan Results (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 16,
+          "y": 87
+        },
+        "id": 503,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase(kyverno_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Validating Policy",
+            "refId": "A"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase(kyverno_mutating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Mutating Policy",
+            "refId": "B"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase(kyverno_generating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Generating Policy",
+            "refId": "C"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(increase(kyverno_image_validating_policy_results_total{result=\"fail\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Image Validating Policy",
+            "refId": "D"
+          }
+        ],
+        "title": "Policy Failures by Type (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "pass"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "rgb(43, 219, 23)",
+                    "mode": "fixed"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "dash": [
+                      10,
+                      10
+                    ],
+                    "fill": "dash"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "fail"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#F2495C",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 95
+        },
+        "id": 504,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum by (policy_name, result) (increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total|kyverno_image_validating_policy_results_total\", execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "{{policy_name}} - {{result}}",
+            "refId": "A"
+          }
+        ],
+        "title": "Admission Review Results per-policy (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "short"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "pass"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "rgb(43, 219, 23)",
+                    "mode": "fixed"
+                  }
+                },
+                {
+                  "id": "custom.lineStyle",
+                  "value": {
+                    "dash": [
+                      10,
+                      10
+                    ],
+                    "fill": "dash"
+                  }
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "fail"
+              },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "fixedColor": "#F2495C",
+                    "mode": "fixed"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 95
+        },
+        "id": 505,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum by (policy_name, result) (increase({__name__=~\"kyverno_validating_policy_results_total|kyverno_mutating_policy_results_total|kyverno_image_validating_policy_results_total\", execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "{{policy_name}} - {{result}}",
+            "refId": "A"
+          }
+        ],
+        "title": "Background Scan Results per-policy (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "collapsed": false,
+        "datasource": null,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 103
+        },
+        "id": 506,
+        "panels": [],
+        "title": "CEL Policy Execution Latency",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 8,
+          "x": 0,
+          "y": 104
+        },
+        "id": 507,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Validating",
+            "refId": "A"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Mutating",
+            "refId": "B"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Generating",
+            "refId": "C"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m]))",
+            "interval": "",
+            "legendFormat": "Image Validating",
+            "refId": "D"
+          }
+        ],
+        "title": "Avg Latency by Policy Type (CEL)",
+        "type": "timeseries"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 4,
+          "x": 8,
+          "y": 104
+        },
+        "id": 508,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "text": {},
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.2.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "(sum(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"})) / (sum(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}) + sum(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}))",
+            "interval": "",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "title": "Overall Avg CEL Policy Latency",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "uid": "${DS_PROMETHEUS_KYVERNO}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "barWidthFactor": 0.6,
+              "drawStyle": "line",
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "insertNulls": false,
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "never",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 104
+        },
+        "id": 509,
+        "options": {
+          "legend": {
+            "calcs": [
+              "lastNotNull",
+              "max",
+              "min"
+            ],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "8.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "interval": "",
+            "legendFormat": "{{policy_name}} (vpol)",
+            "refId": "A"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_mutating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_mutating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "interval": "",
+            "legendFormat": "{{policy_name}} (mpol)",
+            "refId": "B"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_generating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_generating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "interval": "",
+            "legendFormat": "{{policy_name}} (gpol)",
+            "refId": "C"
+          },
+          {
+            "datasource": {
+              "uid": "${DS_PROMETHEUS_KYVERNO}"
+            },
+            "exemplar": true,
+            "expr": "sum(rate(kyverno_image_validating_policy_execution_duration_seconds_sum{cluster=~\"$cluster\"}[5m])) by (policy_name) / sum(rate(kyverno_image_validating_policy_execution_duration_seconds_count{cluster=~\"$cluster\"}[5m])) by (policy_name)",
+            "interval": "",
+            "legendFormat": "{{policy_name}} (ivpol)",
+            "refId": "D"
+          }
+        ],
+        "title": "Avg Latency per Policy Name (CEL)",
+        "type": "timeseries"
       }
     ],
     "refresh": false,

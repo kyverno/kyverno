@@ -827,6 +827,11 @@ codegen-all: ## Generate all generated code and docs
 codegen-all: codegen-all-code
 codegen-all: codegen-all-docs
 
+.PHONY: codegen-api-bump
+codegen-api-bump: ## Regenerate everything affected by a github.com/kyverno/api dependency bump
+codegen-api-bump: codegen-all-code
+codegen-api-bump: codegen-all-docs
+
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
