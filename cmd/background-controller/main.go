@@ -137,6 +137,7 @@ func main() {
 		omitEvents                      string
 		maxAPICallResponseLength        int64
 		apiCallTimeout                  time.Duration
+		enableSATokenInjection          bool
 		maxBackgroundReports            int
 		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
@@ -147,6 +148,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
+	flagset.BoolVar(&enableSATokenInjection, "enableSATokenInjection", true, "If true, Kyverno automatically injects its scoped ServiceAccount token into outbound service calls that have no Authorization header. Enabled by default; set to false to opt out.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
@@ -235,6 +237,7 @@ func main() {
 				apiCallTimeout,
 				false,
 				setup.Jp,
+				enableSATokenInjection,
 			),
 			globalcontextcontroller.Workers,
 		) // this controller only subscribe to events, nothing is returned...
@@ -256,7 +259,7 @@ func main() {
 			setup.KubeClient,
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout, enableSATokenInjection),
 			polexCache,
 			gcstore,
 		)
