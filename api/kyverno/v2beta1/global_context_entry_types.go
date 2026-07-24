@@ -132,6 +132,13 @@ type KubernetesResource struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// Name defines the name of the resource. When specified, only that resource
+	// is returned as a single object instead of a list.
+	// For namespaced resources, set Namespace when using Name to avoid ambiguous lookups.
+	// Leave empty to return all cached resources of this type.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Name string `json:"name,omitempty"`
 }
 
 // Validate implements programmatic validation

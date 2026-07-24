@@ -17,8 +17,23 @@ import (
 
 // mockLister implements cache.GenericLister for testing
 type mockLister struct {
-	objects []runtime.Object
-	err     error
+	objects   []runtime.Object
+	getObject runtime.Object
+	err       error
+	getErr    error
+}
+
+type mockNamespaceLister struct {
+	getObject runtime.Object
+	err       error
+}
+
+func (m *mockNamespaceLister) List(selector labels.Selector) ([]runtime.Object, error) {
+	return nil, nil
+}
+
+func (m *mockNamespaceLister) Get(name string) (runtime.Object, error) {
+	return m.getObject, m.err
 }
 
 func (m *mockLister) List(selector labels.Selector) ([]runtime.Object, error) {
@@ -26,11 +41,17 @@ func (m *mockLister) List(selector labels.Selector) ([]runtime.Object, error) {
 }
 
 func (m *mockLister) Get(name string) (runtime.Object, error) {
-	return nil, nil
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
+	return m.getObject, m.err
 }
 
 func (m *mockLister) ByNamespace(namespace string) cache.GenericNamespaceLister {
-	return nil
+	return &mockNamespaceLister{
+		getObject: m.getObject,
+		err:       m.err,
+	}
 }
 
 // mockEventGen implements event.Interface for testing
@@ -50,6 +71,14 @@ type mockJMESPathQuery struct {
 
 func (m *mockJMESPathQuery) Search(data interface{}) (interface{}, error) {
 	return m.result, m.err
+}
+
+type capturingQuery struct {
+	fn func(interface{}) (interface{}, error)
+}
+
+func (c *capturingQuery) Search(data interface{}) (interface{}, error) {
+	return c.fn(data)
 }
 
 func TestEntry_Get_EmptyProjection(t *testing.T) {
@@ -80,7 +109,12 @@ func TestEntry_Get_EmptyProjection(t *testing.T) {
 	}
 
 	e := &entry{
-		lister:      lister,
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{},
+			},
+		},
 		projectedMu: sync.RWMutex{},
 		projected:   make(map[string]interface{}),
 	}
@@ -132,6 +166,7 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 		lister      *mockLister
 		expectError bool
 		errorMsg    string
+		gce         *kyvernov2beta1.GlobalContextEntry
 	}{
 		{
 			name:       "empty projection returns list",
@@ -141,7 +176,14 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 					&unstructured.Unstructured{Object: map[string]interface{}{"name": "obj1"}},
 				},
 			},
-			projected:   make(map[string]interface{}),
+
+			projected: make(map[string]interface{}),
+			gce: &kyvernov2beta1.GlobalContextEntry{
+				Spec: kyvernov2beta1.GlobalContextEntrySpec{
+					KubernetesResource: &kyvernov2beta1.KubernetesResource{},
+				},
+			},
+
 			expectError: false,
 		},
 		{
@@ -165,7 +207,12 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 			lister: &mockLister{
 				err: assert.AnError,
 			},
-			projected:   make(map[string]interface{}),
+			projected: make(map[string]interface{}),
+			gce: &kyvernov2beta1.GlobalContextEntry{
+				Spec: kyvernov2beta1.GlobalContextEntrySpec{
+					KubernetesResource: &kyvernov2beta1.KubernetesResource{},
+				},
+			},
 			expectError: true,
 		},
 	}
@@ -174,6 +221,7 @@ func TestEntry_Get_MultipleScenarios(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &entry{
 				lister:      tt.lister,
+				gce:         tt.gce,
 				projected:   tt.projected,
 				projectedMu: sync.RWMutex{},
 			}
@@ -473,4 +521,277 @@ func TestEntry_ConcurrentAccess(t *testing.T) {
 
 	// Should not panic or race
 	assert.Equal(t, "initial", e.projected["test"])
+}
+
+func TestEntry_Get_WithName_Namespaced(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "service-registry",
+				"namespace": "kyverno",
+			},
+		},
+	}
+
+	lister := &mockLister{getObject: obj}
+
+	e := &entry{
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{
+					Namespace: "kyverno",
+					Name:      "service-registry",
+				},
+			},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	result, err := e.Get("")
+	assert.NoError(t, err)
+	objMap, ok := result.(map[string]interface{})
+	assert.True(t, ok)
+	metadata := objMap["metadata"].(map[string]interface{})
+	assert.Equal(t, "service-registry", metadata["name"])
+}
+
+func TestEntry_Get_WithName_ClusterScoped(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": "my-node",
+			},
+		},
+	}
+
+	lister := &mockLister{getObject: obj}
+
+	e := &entry{
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{
+					Name: "my-node",
+				},
+			},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	result, err := e.Get("")
+	assert.NoError(t, err)
+	objMap, ok := result.(map[string]interface{})
+	assert.True(t, ok)
+	metadata := objMap["metadata"].(map[string]interface{})
+	assert.Equal(t, "my-node", metadata["name"])
+}
+
+func TestEntry_Get_WithoutName(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": "service-registry",
+			},
+		},
+	}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj},
+	}
+
+	e := &entry{
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{
+					Name: "",
+				},
+			},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	result, err := e.Get("")
+	assert.NoError(t, err)
+	list, ok := result.([]interface{})
+	assert.True(t, ok)
+	assert.Len(t, list, 1)
+}
+
+func TestEntry_RecomputeProjections_WithName(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "service-registry",
+				"namespace": "kyverno",
+			},
+			"data": map[string]interface{}{
+				"allowedRegistries": "myregistry.io",
+			},
+		},
+	}
+
+	lister := &mockLister{getObject: obj}
+	eventGen := &mockEventGen{}
+
+	var receivedData interface{}
+	captureQuery := &capturingQuery{fn: func(data interface{}) (interface{}, error) {
+		receivedData = data
+		return "myregistry.io", nil
+	}}
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			KubernetesResource: &kyvernov2beta1.KubernetesResource{
+				Namespace: "kyverno",
+				Name:      "service-registry",
+			},
+		},
+	}
+
+	e := &entry{
+		lister:   lister,
+		eventGen: eventGen,
+		gce:      gce,
+		projections: []store.Projection{
+			{Name: "registry-proj", JP: captureQuery},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	e.recomputeProjections()
+
+	assert.Equal(t, "myregistry.io", e.projected["registry-proj"])
+	assert.Empty(t, eventGen.events)
+
+	// Key assertion: JMESPath must receive a single object map, not a list
+	_, isList := receivedData.([]interface{})
+	assert.False(t, isList, "projection should receive single object, not a list")
+	_, isMap := receivedData.(map[string]interface{})
+	assert.True(t, isMap, "projection should receive object as map[string]interface{}")
+}
+
+func TestEntry_GetObject_CrossNamespace_SingleMatch(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "my-config",
+				"namespace": "team-a",
+			},
+		},
+	}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj},
+		getErr:  assert.AnError,
+	}
+
+	e := &entry{
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{
+					Name: "my-config",
+				},
+			},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	result, err := e.getObject("", "my-config")
+	assert.NoError(t, err)
+	objMap, ok := result.(map[string]interface{})
+	assert.True(t, ok)
+	metadata := objMap["metadata"].(map[string]interface{})
+	assert.Equal(t, "my-config", metadata["name"])
+}
+
+func TestEntry_GetObject_CrossNamespace_DuplicateNameError(t *testing.T) {
+	obj1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "my-config",
+				"namespace": "team-a",
+			},
+		},
+	}
+	obj2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "my-config",
+				"namespace": "team-b",
+			},
+		},
+	}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj1, obj2},
+		getErr:  assert.AnError,
+	}
+
+	e := &entry{
+		lister: lister,
+		gce: &kyvernov2beta1.GlobalContextEntry{
+			Spec: kyvernov2beta1.GlobalContextEntrySpec{
+				KubernetesResource: &kyvernov2beta1.KubernetesResource{
+					Name: "my-config",
+				},
+			},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	_, err := e.getObject("", "my-config")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple objects named")
+	assert.Contains(t, err.Error(), "disambiguate")
+}
+
+func TestEntry_RecomputeProjections_WithName_ClearsOnError(t *testing.T) {
+	lister := &mockLister{
+		getErr: assert.AnError,
+		err: assert.AnError,
+	}
+	eventGen := &mockEventGen{}
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			KubernetesResource: &kyvernov2beta1.KubernetesResource{
+				Namespace: "kyverno",
+				Name:      "service-registry",
+			},
+		},
+	}
+
+	e := &entry{
+		lister:   lister,
+		eventGen: eventGen,
+		gce:      gce,
+		projections: []store.Projection{
+			{Name: "registry-proj", JP: &mockJMESPathQuery{result: "stale"}},
+		},
+		projected: map[string]interface{}{
+			"registry-proj": "stale-value",
+		},
+		projectedMu: sync.RWMutex{},
+	}
+
+	e.recomputeProjections()
+
+	// Projections must be cleared when named object lookup fails
+	assert.Empty(t, e.projected, "stale projections should be cleared on lookup error")
+	assert.Len(t, eventGen.events, 1, "error event should be generated")
 }
