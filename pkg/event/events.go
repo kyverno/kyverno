@@ -170,8 +170,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
 	events := make([]Info, 0, 1)
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -210,8 +209,7 @@ func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, re
 		action = ResourceMutated
 	}
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -260,9 +258,8 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 
 			exceptionEvent := Info{
 				Regarding: corev1.ObjectReference{
-					// TODO: iirc it's not safe to assume api version is set
-					APIVersion: "kyverno.io/v2",
-					Kind:       "PolicyException",
+					APIVersion: exception.GetAPIVersion(),
+					Kind:       exception.GetKind(),
 					Name:       name,
 					Namespace:  ns,
 					UID:        exception.GetUID(),
@@ -285,8 +282,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		// build the policy events
 		policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
 		regarding := corev1.ObjectReference{
-			// TODO: iirc it's not safe to assume api version is set
-			APIVersion: "kyverno.io/v1",
+			APIVersion: policy.GetAPIVersion(),
 			Kind:       pol.GetKind(),
 			Name:       pol.GetName(),
 			Namespace:  pol.GetNamespace(),
@@ -312,9 +308,12 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 }
 
 func NewCleanupPolicyEvent(policy kyvernov2.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
+	apiVersion := policy.GetAPIVersion()
+	if apiVersion == "" {
+		apiVersion = kyvernov2.GroupVersion.String()
+	}
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v2",
+		APIVersion: apiVersion,
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -349,7 +348,6 @@ func NewCleanupPolicyEvent(policy kyvernov2.CleanupPolicyInterface, resource uns
 
 func NewValidatingAdmissionPolicyEvent(policy engineapi.GenericPolicy, vapName, vapBindingName string) []Info {
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
 		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
