@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: sync-generate-existing-restart-background-controller
+spec:
+  concurrent: false
+  steps:
+  - name: create-existing-namespace
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: create-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-generate-existing-restart-background-controller
+  - name: wait-initial-generation
+    try:
+    - sleep:
+        duration: 5s
+  - name: assert-downstream-generated
+    try:
+    - assert:
+        file: configmap-assert.yaml
+  - name: restart-background-controller-and-assert-uid-stable
+    try:
+    - script:
+        timeout: 5m
+        content: |
+          set -euo pipefail
+          NS="sync-generate-existing-restart-background-controller"
+          NAME="sync-generate-existing-restart-background-controller"
+
+          UID_BEFORE="$(kubectl get configmap "${NAME}" -n "${NS}" -o jsonpath='{.metadata.uid}')"
+
+          kubectl rollout restart deployment/kyverno-background-controller -n kyverno
+          kubectl rollout status deployment/kyverno-background-controller -n kyverno --timeout=180s
+          sleep 8
+
+          UID_AFTER="$(kubectl get configmap "${NAME}" -n "${NS}" -o jsonpath='{.metadata.uid}')"
+          test "${UID_BEFORE}" = "${UID_AFTER}"

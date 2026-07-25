@@ -69,6 +69,27 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
+	var out bytes.Buffer
+	printSkippedAndInvalidPolicies(&out, SkippedInvalidPolicies{
+		skipped: []PolicyDiagnostic{{
+			name:   "skipped-policy",
+			reason: "missing variable `request.operation`",
+		}},
+		invalid: []PolicyDiagnostic{{
+			name:   "invalid-policy",
+			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
+		}},
+	})
+
+	printed := out.String()
+	assert.Contains(t, printed, "Policies Skipped:")
+	assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+	assert.Contains(t, printed, "Invalid Policies:")
+	assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+	assert.Contains(t, printed, "variables cannot be referenced")
+}
+
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		expectedReports []openreportsv1alpha1.Report
@@ -1839,6 +1860,58 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "stdin later in policy and resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin first in policy paths and later in resource paths",
+			args: []string{
+				"-",
+				"policy.yaml",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin later in policy paths and first in resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"-,resource.yaml",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			assert.NotNil(t, cmd)
+
+			b := bytes.NewBufferString("")
+			cmd.SetErr(b)
+
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
 		})
 	}
 }

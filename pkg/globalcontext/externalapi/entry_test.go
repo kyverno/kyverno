@@ -1,11 +1,20 @@
 package externalapi
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // mockJMESPathQuery implements jmespath.Query for testing
@@ -116,6 +125,68 @@ func TestEntry_Stop_CallsStopFunction(t *testing.T) {
 
 	e.Stop()
 	assert.True(t, stopCalled, "stop function should be called")
+}
+
+type blockingAPIClient struct {
+	started chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingAPIClient) RawAbsPath(ctx context.Context, _ string, _ string, _ io.Reader) ([]byte, error) {
+	b.once.Do(func() { close(b.started) })
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestEntry_Stop_NoDeadlockWithInflightCall(t *testing.T) {
+	client := &blockingAPIClient{started: make(chan struct{})}
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: time.Millisecond},
+				RetryLimit:      1,
+			},
+		},
+	}
+
+	e, err := New(
+		context.Background(),
+		gce,
+		event.NewFake(),
+		nil,
+		nil,
+		logr.Discard(),
+		client,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		false,
+		nil,
+	)
+	assert.NoError(t, err)
+
+	select {
+	case <-client.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the API call to start")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		e.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("entry.Stop() deadlocked while an API call was in flight")
+	}
 }
 
 func TestEntry_Stop_WithNilStopFunction(t *testing.T) {

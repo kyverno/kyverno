@@ -1,0 +1,5 @@
+apiVersion: example.io/v1alpha1
+kind: MyResource
+metadata:
+  name: my-resource-no-uid
+  namespace: default

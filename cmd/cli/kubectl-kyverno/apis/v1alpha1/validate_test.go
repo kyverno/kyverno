@@ -134,6 +134,166 @@ func TestValidateAPICallResponses(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 	})
+	t.Run("valid method GET", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:    "https://example.com/config",
+			Method: "GET",
+			Response: APICallResponse{
+				StatusCode: 200,
+				Body:       runtime.RawExtension{Raw: []byte(`{"allowed":true}`)},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("valid method POST", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:    "https://authz.example.com/validate",
+			Method: "POST",
+			Response: APICallResponse{
+				StatusCode: 200,
+				Body:       runtime.RawExtension{Raw: []byte(`{"allowed":true}`)},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("valid method POST lowercase normalised", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:    "https://authz.example.com/validate",
+			Method: "post",
+			Response: APICallResponse{
+				StatusCode: 201,
+				Body:       runtime.RawExtension{Raw: []byte(`{"id":"42"}`)},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("invalid method DELETE", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URL:    "https://example.com/items",
+			Method: "DELETE",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{}`)},
+			},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "method must be GET or POST") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("duplicate POST url key", func(t *testing.T) {
+		body := runtime.RawExtension{Raw: []byte(`{"ok":true}`)}
+		err := ValidateAPICallResponses([]APICallResponseEntry{
+			{URL: "https://example.com/submit", Method: "POST", Response: APICallResponse{Body: body}},
+			{URL: "https://example.com/submit", Method: "POST", Response: APICallResponse{Body: body}},
+		})
+		if err == nil || !strings.Contains(err.Error(), "duplicate entry") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("GET and POST same URL are not duplicates", func(t *testing.T) {
+		body := runtime.RawExtension{Raw: []byte(`{"ok":true}`)}
+		err := ValidateAPICallResponses([]APICallResponseEntry{
+			{URL: "https://example.com/resource", Method: "GET", Response: APICallResponse{Body: body}},
+			{URL: "https://example.com/resource", Method: "POST", Response: APICallResponse{Body: body}},
+		})
+		if err != nil {
+			t.Fatalf("GET and POST on same URL should not be a duplicate: %v", err)
+		}
+	})
+	t.Run("valid POST with urlPath", func(t *testing.T) {
+		err := ValidateAPICallResponses([]APICallResponseEntry{{
+			URLPath: "/apis/v1/validate",
+			Method:  "POST",
+			Response: APICallResponse{
+				Body: runtime.RawExtension{Raw: []byte(`{"allowed":true}`)},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// TestValidateAPICallResponses_DuplicateKeys verifies that the duplicate-key
+// detection logic handles all four key forms correctly:
+// plain URL, GET:URL, POST:URL, and urlPath.
+func TestValidateAPICallResponses_DuplicateKeys(t *testing.T) {
+	body := runtime.RawExtension{Raw: []byte(`{"ok":true}`)}
+
+	tests := []struct {
+		name    string
+		entries []APICallResponseEntry
+		wantErr string
+	}{
+		{
+			name: "plain URL duplicate",
+			entries: []APICallResponseEntry{
+				{URL: "https://example.com/x", Response: APICallResponse{Body: body}},
+				{URL: "https://example.com/x", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "duplicate entry",
+		},
+		{
+			name: "GET:URL duplicate",
+			entries: []APICallResponseEntry{
+				{URL: "https://example.com/x", Method: "GET", Response: APICallResponse{Body: body}},
+				{URL: "https://example.com/x", Method: "GET", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "duplicate entry",
+		},
+		{
+			name: "POST:URL duplicate",
+			entries: []APICallResponseEntry{
+				{URL: "https://example.com/x", Method: "POST", Response: APICallResponse{Body: body}},
+				{URL: "https://example.com/x", Method: "POST", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "duplicate entry",
+		},
+		{
+			name: "urlPath duplicate",
+			entries: []APICallResponseEntry{
+				{URLPath: "/api/v1/check", Response: APICallResponse{Body: body}},
+				{URLPath: "/api/v1/check", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "duplicate entry",
+		},
+		{
+			name: "GET:URL and POST:URL same path — allowed",
+			entries: []APICallResponseEntry{
+				{URL: "https://example.com/x", Method: "GET", Response: APICallResponse{Body: body}},
+				{URL: "https://example.com/x", Method: "POST", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "",
+		},
+		{
+			name: "plain URL and GET:URL same path — allowed (different keys)",
+			entries: []APICallResponseEntry{
+				{URL: "https://example.com/x", Response: APICallResponse{Body: body}},
+				{URL: "https://example.com/x", Method: "GET", Response: APICallResponse{Body: body}},
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateAPICallResponses(tt.entries)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got: %v", err)
+				}
+			} else {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
+			}
+		})
+	}
 }
 
 func TestValidateGlobalContextEntries(t *testing.T) {
