@@ -192,3 +192,85 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 	assert.Len(t, client.deleted, 0)
 	assert.Contains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID())
 }
+
+func TestProcessUR_SynchronizeUpdateDoesNotDeleteDownstream(t *testing.T) {
+	policyName := "test-gpol-sync"
+	trigger := makeUnstructured("", "example.io", "v1", "TestTrigger", "existing-trigger", "tenant-a", "trigger-uid", nil)
+	downstream := makeUnstructured("", "", "v1", "ConfigMap", "test-cm", "tenant-a", "downstream-uid", map[string]string{
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerUIDLabel: string(trigger.GetUID()),
+	})
+	configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+	client := &triggerClient{
+		MockClient: &MockClient{},
+		trigger:    trigger,
+	}
+	wm := &WatchManager{
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: configMapGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			configMapGVR: {
+				watcher: watch.NewFake(),
+				metadataCache: map[types.UID]Resource{
+					downstream.GetUID(): {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+					},
+				},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyName: {configMapGVR}},
+		refCount:   map[schema.GroupVersionResource]int{configMapGVR: 1},
+		log:        logging.WithName("test-watch-manager"),
+	}
+
+	policy := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: policyName},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+	}
+	controller := &CELGenerateController{
+		client:        client,
+		restMapper:    wm.restMapper,
+		context:       libs.NewFakeContextProvider(),
+		engine:        &testEngine{generated: []*unstructured.Unstructured{downstream.DeepCopy()}},
+		provider:      &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		watchManager:  wm,
+		statusControl: testStatusControl{},
+		eventGen:      testEventGen{},
+		log:           logging.WithName("test-gpol-controller"),
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-test-sync"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule:        "rule",
+				Synchronize: true,
+				Trigger: kyvernov1.ResourceSpec{
+					APIVersion: trigger.GetAPIVersion(),
+					Kind:       trigger.GetKind(),
+					Namespace:  trigger.GetNamespace(),
+					Name:       trigger.GetName(),
+					UID:        trigger.GetUID(),
+				},
+			}},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+
+	// verify downstream resource is not deleted on trigger UPDATE
+	assert.Len(t, client.deleted, 0, "downstream resource should not be deleted on trigger UPDATE")
+}
