@@ -102,37 +102,85 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		return nil, nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", limit)
 	}
 	for _, manifestDesc := range referrersDescs.Manifests {
-		if !strings.HasPrefix(manifestDesc.ArtifactType, "application/vnd.dev.sigstore.bundle") {
+		artifactType := manifestDesc.ArtifactType
+		var refImg v1.Image
+		var bundleBytes []byte
+
+		if !strings.HasPrefix(artifactType, "application/vnd.dev.sigstore.bundle") {
+			if artifactType == "" || artifactType == "application/vnd.oci.empty.v1+json" {
+				img, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
+				if err == nil && img != nil {
+					if imgManifest, err := img.Manifest(); err == nil && imgManifest != nil {
+						if strings.HasPrefix(imgManifest.ArtifactType, "application/vnd.dev.sigstore.bundle") {
+							artifactType = imgManifest.ArtifactType
+							refImg = img
+						} else if len(imgManifest.Layers) > 0 && strings.HasPrefix(string(imgManifest.Layers[0].MediaType), "application/vnd.dev.sigstore.bundle") {
+							artifactType = string(imgManifest.Layers[0].MediaType)
+							refImg = img
+						} else if len(imgManifest.Layers) > 0 {
+							layers, err := img.Layers()
+							if err == nil && len(layers) > 0 {
+								layer := layers[0]
+								if layerSize, err := layer.Size(); err == nil && layerSize <= maxLayerSize {
+									if layerBytes, err := layer.Uncompressed(); err == nil {
+										data, err := io.ReadAll(layerBytes)
+										_ = layerBytes.Close()
+										if err == nil {
+											b := &bundle.Bundle{}
+											if err := b.UnmarshalJSON(data); err == nil && b.Bundle != nil {
+												artifactType = "application/vnd.dev.sigstore.bundle"
+												refImg = img
+												bundleBytes = data
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if !strings.HasPrefix(artifactType, "application/vnd.dev.sigstore.bundle") {
 			continue
 		}
-		refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
+
+		if refImg == nil {
+			var err error
+			refImg, err = remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
+			}
 		}
-		layers, err := refImg.Layers()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+
+		if bundleBytes == nil {
+			layers, err := refImg.Layers()
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			if len(layers) == 0 {
+				return nil, nil, fmt.Errorf("layers not found")
+			}
+			layer := layers[0]
+			layerSize, err := layer.Size()
+			if err != nil {
+				return nil, nil, err
+			}
+			if layerSize > maxLayerSize {
+				return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
+			}
+			layerBytes, err := layer.Uncompressed()
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			defer layerBytes.Close()
+			bundleBytes, err = io.ReadAll(layerBytes)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
 		}
-		if len(layers) == 0 {
-			return nil, nil, fmt.Errorf("layers not found")
-		}
-		layer := layers[0]
-		layerSize, err := layer.Size()
-		if err != nil {
-			return nil, nil, err
-		}
-		if layerSize > maxLayerSize {
-			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
-		}
-		layerBytes, err := layer.Uncompressed()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		defer layerBytes.Close()
-		bundleBytes, err := io.ReadAll(layerBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
+
 		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
 		if err != nil {
