@@ -88,9 +88,6 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
 		}
-		if ur.Spec.RuleContext[i].Synchronize {
-			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
-		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
@@ -167,13 +164,13 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					isSync &&
 					(!ur.Spec.RuleContext[i].CacheRestore || len(resourcesToSync) > 0) {
 					// Pass resourcesToSync as an argument to safely capture it for the goroutine
-					go func(resources []*unstructured.Unstructured) {
-						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), resources); err != nil {
+					go func(resources []*unstructured.Unstructured, triggerUID string) {
+						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), triggerUID, resources); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						} else {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
-					}(resourcesToSync)
+					}(resourcesToSync, string(ur.Spec.RuleContext[i].Trigger.UID))
 				}
 			}
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {

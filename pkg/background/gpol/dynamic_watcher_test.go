@@ -327,7 +327,7 @@ func TestSyncWatchers(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			wm := tc.setupWM()
-			err := wm.SyncWatchers(tc.polName, tc.generatedResources)
+			err := wm.SyncWatchers(tc.polName, "dummy-trigger", tc.generatedResources)
 			if tc.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -347,7 +347,7 @@ func TestSyncWatchers_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
 		refCount:        map[schema.GroupVersionResource]int{oldGVR: 1},
 	}
 
-	err := wm.SyncWatchers("pol1", nil)
+	err := wm.SyncWatchers("pol1", "dummy-trigger", nil)
 	require.NoError(t, err)
 	_, exists := wm.refCount[oldGVR]
 	assert.False(t, exists)
@@ -1172,7 +1172,7 @@ func TestWatcherCleanup_DeadWatcherMarkedStoppedOnExit(t *testing.T) {
 	}
 
 	resource := makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)
-	err := wm.SyncWatchers("test-policy", []*unstructured.Unstructured{resource})
+	err := wm.SyncWatchers("test-policy", "dummy-trigger", []*unstructured.Unstructured{resource})
 	require.NoError(t, err)
 
 	wm.lock.Lock()
@@ -1206,7 +1206,7 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	}
 
 	first := makeUnstructured("1", "g", "v1", "Kind", "n1", "ns", "uid1", nil)
-	err := wm.SyncWatchers("test-policy", []*unstructured.Unstructured{first})
+	err := wm.SyncWatchers("test-policy", "dummy-trigger", []*unstructured.Unstructured{first})
 	require.NoError(t, err)
 
 	wm.lock.Lock()
@@ -1223,7 +1223,7 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	}, 2*time.Second, 10*time.Millisecond)
 
 	second := makeUnstructured("2", "g", "v1", "Kind", "n2", "ns", "uid2", nil)
-	err = wm.SyncWatchers("test-policy", []*unstructured.Unstructured{second})
+	err = wm.SyncWatchers("test-policy", "dummy-trigger", []*unstructured.Unstructured{second})
 	require.NoError(t, err)
 
 	wm.lock.Lock()
