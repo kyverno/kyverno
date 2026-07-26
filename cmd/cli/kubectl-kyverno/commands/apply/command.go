@@ -1059,9 +1059,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 				}
 			}
 		}
-		if len(jsonPayloads) > 0 {
-			err = nil
-		} else {
+		if len(jsonPayloads) == 0 {
 			return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 		}
 	}
