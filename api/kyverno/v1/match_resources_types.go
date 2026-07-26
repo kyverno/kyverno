@@ -71,7 +71,7 @@ func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterReso
 	}
 	allPath := path.Child("all")
 	for i, filter := range m.All {
-		errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
+		errs = append(errs, filter.UserInfo.Validate(allPath.Index(i))...)
 		errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), namespaced, clusterResources)...)
 	}
 	errs = append(errs, m.UserInfo.Validate(path)...)

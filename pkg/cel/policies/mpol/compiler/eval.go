@@ -6,7 +6,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,9 +14,10 @@ import (
 )
 
 type EvaluationResult struct {
-	PatchedResource *unstructured.Unstructured
-	Exceptions      []*policiesv1beta1.PolicyException
-	Error           error
+	PatchedResource  *unstructured.Unstructured
+	Exceptions       []*policiesv1beta1.PolicyException
+	AuditAnnotations map[string]string
+	Error            error
 }
 
 func prepareData(

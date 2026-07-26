@@ -5,19 +5,19 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	admissionv1 "k8s.io/apiserver/pkg/admission"
-
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 type fakeCompiledPolicy struct{}
 
-func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admissionv1.Attributes, _ *corev1.Namespace) bool {
+func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admission.Attributes, _ *admissionv1.AdmissionRequest, _ *corev1.Namespace) bool {
 	return true
 }
 
@@ -149,7 +149,7 @@ func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	}
 
 	t.Run("match all", func(t *testing.T) {
-		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, &corev1.Namespace{})
+		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, nil, &corev1.Namespace{})
 		assert.Equal(t, []string{"match"}, names)
 	})
 }

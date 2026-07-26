@@ -1,0 +1,4 @@
+reportsServer:
+  # Test case: reportsServer enabled with waitForReady (the combination that triggered the null-tag bug)
+  enabled: true
+  waitForReady: true

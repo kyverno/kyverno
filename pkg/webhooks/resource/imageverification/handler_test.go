@@ -19,9 +19,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/exceptions"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +49,7 @@ func newFakeImageVerificationHandler(t *testing.T, ctx context.Context) (ImageVe
 	dclientInstance := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(configuration)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	configMapResolver, _ := resolvers.NewClientBasedResolver(client)
 	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 
