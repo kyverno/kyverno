@@ -11,7 +11,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -91,7 +91,6 @@ func (p *Policy) evaluateWithData(
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
-		fullExemptionFound := false
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {
@@ -100,15 +99,15 @@ func (p *Policy) evaluateWithData(
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
 				if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
-					fullExemptionFound = true
-				} else if !fullExemptionFound {
-					// only accumulate partial scopes while no full exemption has been seen
-					allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
-					allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+					// full exemption: skip evaluation immediately
+					return &EvaluationResult{Exceptions: matchedExceptions}, nil
 				}
+				// only accumulate partial scopes
+				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
 			}
 		}
-		if fullExemptionFound {
+		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
@@ -140,7 +139,7 @@ func (p *Policy) evaluateWithData(
 	for index, validation := range p.validations {
 		out, _, err := validation.Program.ContextEval(ctx, dataNew)
 		if err != nil {
-			return nil, err
+			return &EvaluationResult{Error: err, Index: index}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
@@ -159,17 +158,16 @@ func (p *Policy) evaluateWithData(
 			}
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				return nil, err
+				return &EvaluationResult{Error: err, Index: index}, nil
 			}
 			return &EvaluationResult{
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
-				Error:            err,
 				AuditAnnotations: auditAnnotations,
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err}, nil
+			return &EvaluationResult{Error: err, Index: index}, nil
 		}
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)

@@ -21,6 +21,17 @@ type PodSecurityChecks struct {
 	Checks []pssutils.PSSCheckResult
 }
 
+// SkipReason is the reason a rule was skipped. It is internal routing metadata
+// and is not persisted to PolicyReport results.
+type SkipReason string
+
+const (
+	// SkipReasonMatchConditions indicates the rule was skipped because
+	// matchConditions evaluated to false. This mirrors admission-time behavior
+	// where the webhook is never called when matchConditions don't match.
+	SkipReasonMatchConditions SkipReason = "matchConditions"
+)
+
 // RuleResponse details for each rule application
 type RuleResponse struct {
 	// name is the rule name specified in policy
@@ -51,6 +62,8 @@ type RuleResponse struct {
 	mapBinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
+	// skipReason is the internal reason a rule was skipped, not persisted to reports
+	skipReason SkipReason
 	// properties are the additional properties from the rule that will be added to the policy report result
 	properties map[string]string
 }
@@ -204,6 +217,15 @@ func (r *RuleResponse) HasStatus(status ...RuleStatus) bool {
 		}
 	}
 	return false
+}
+
+func (r RuleResponse) WithSkipReason(reason SkipReason) *RuleResponse {
+	r.skipReason = reason
+	return &r
+}
+
+func (r *RuleResponse) SkipReason() SkipReason {
+	return r.skipReason
 }
 
 // String implements Stringer interface

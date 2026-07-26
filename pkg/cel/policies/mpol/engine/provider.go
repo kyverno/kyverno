@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -24,7 +25,7 @@ import (
 
 type Provider interface {
 	Fetch(context.Context, bool) []Policy
-	MatchesMutateExisting(context.Context, admission.Attributes, *corev1.Namespace) []string
+	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace) []string
 }
 
 func NewKubeProvider(
@@ -116,10 +117,14 @@ func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Polic
 	return filtered
 }
 
-func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, namespace *corev1.Namespace) []string {
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		// admission-disabled policies are never triggered by admission requests.
+		if !mpol.Policy.GetSpec().AdmissionEnabled() {
+			continue
+		}
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetSpec().MatchConstraints
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: matchConstraints}, attr, namespace); err != nil || !ok {
@@ -127,11 +132,11 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, namespace, r.libCxt) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, r.libCxt) {
 				continue
 			}
 		}
-		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+		matchedPolicies = append(matchedPolicies, PolicyKey(mpol.Policy))
 	}
 	return matchedPolicies
 }

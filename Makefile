@@ -415,6 +415,7 @@ LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
 LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
+LOCAL_READINESS_REPO   := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_READINESS_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -433,6 +434,9 @@ image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
 
 .PHONY: image-build-background-controller
 image-build-background-controller: $(BUILD_WITH)-build-background-controller
+
+.PHONY: image-build-readiness-checker
+image-build-readiness-checker: $(BUILD_WITH)-build-readiness-checker
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -823,6 +827,11 @@ codegen-all: ## Generate all generated code and docs
 codegen-all: codegen-all-code
 codegen-all: codegen-all-docs
 
+.PHONY: codegen-api-bump
+codegen-api-bump: ## Regenerate everything affected by a github.com/kyverno/api dependency bump
+codegen-api-bump: codegen-all-code
+codegen-api-bump: codegen-all-docs
+
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
@@ -906,11 +915,15 @@ test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
 test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
 	@echo Running local cli gpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-gpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-gpol
 
 .PHONY: test-cli-local-mpols
-test-cli-local-mpols: $(CLI_BIN) ## Run local CLI GPOL tests
+test-cli-local-mpols: $(CLI_BIN) ## Run local CLI MPOL tests
 	@echo Running local cli mpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-mpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-mpol
 
 .PHONY: test-cli-local-ivpols
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
@@ -921,6 +934,8 @@ test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 test-cli-local-dpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 	@echo Running local cli dpols tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-deleting-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-dpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-dpol
 
 .PHONY: test-cli-local-vaps
 test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
@@ -1003,6 +1018,7 @@ docker-save-image-all: image-build-all ## Save docker images in archive
 		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
@@ -1049,6 +1065,11 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@echo Load background controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
+.PHONY: kind-load-readiness-checker
+kind-load-readiness-checker: $(KIND) image-build-readiness-checker ## Build readiness-checker image and load it in kind cluster
+	@echo Load readiness-checker image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA)
+
 .PHONY: kind-load-all
 kind-load-all: ## Build images and load them in kind cluster
 kind-load-all: kind-load-kyverno-init
@@ -1056,6 +1077,7 @@ kind-load-all: kind-load-kyverno
 kind-load-all: kind-load-cleanup-controller
 kind-load-all: kind-load-reports-controller
 kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-readiness-checker
 kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
@@ -1082,6 +1104,9 @@ kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set webhooksCleanup.image.registry=$(LOCAL_REGISTRY) \
+		--set webhooksCleanup.image.repository=$(LOCAL_READINESS_REPO) \
+		--set webhooksCleanup.image.tag=$(GIT_SHA) \
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \

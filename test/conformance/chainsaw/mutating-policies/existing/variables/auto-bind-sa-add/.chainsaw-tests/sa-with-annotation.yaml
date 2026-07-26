@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-auto-bind
+  namespace: default
+  annotations:
+    rbac.example.com/auto-bind: "true"

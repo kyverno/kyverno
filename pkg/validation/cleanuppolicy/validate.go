@@ -66,7 +66,7 @@ func validatePolicy(clusterResources sets.Set[string], policy kyvernov2.CleanupP
 	return errs.ToAggregate()
 }
 
-// validateAuth checks the the delete action is allowed
+// validateAuth checks the delete action is allowed
 func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()

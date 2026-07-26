@@ -1,0 +1,92 @@
+package compiler
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/stretchr/testify/assert"
+)
+
+// mockVpolProgram is a lightweight cel.Program stub for unit tests.
+type mockVpolProgram struct {
+	retVal ref.Val
+	err    error
+}
+
+func (m *mockVpolProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
+	return m.retVal, nil, m.err
+}
+
+func (m *mockVpolProgram) Eval(any) (ref.Val, *cel.EvalDetails, error) {
+	return m.retVal, nil, m.err
+}
+
+// TestEvaluateWithData_FullExemptionPrecedence is a regression test for
+// https://github.com/kyverno/kyverno/issues/16053.
+//
+// When multiple PolicyExceptions match a resource, a full-exemption exception
+// (one with no Images and no AllowedValues) must immediately skip policy evaluation
+// regardless of whether a partial exception also matched.
+func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
+	t.Run("full-exemption takes precedence over partial exception", func(t *testing.T) {
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// no Images, no AllowedValues → full exemption
+			},
+		}
+
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				// partial exception is matched first
+				{MatchConditions: []cel.Program{}, Exception: partialEx},
+				// full exemption is matched second – must still win
+				{MatchConditions: []cel.Program{}, Exception: fullEx},
+			},
+		}
+
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+
+		assert.NoError(t, err)
+		// The full exemption triggers an early return; no validation is run.
+		assert.NotNil(t, result)
+		assert.NotEmpty(t, result.Exceptions)
+		assert.False(t, result.Result, "validation should not have run")
+	})
+
+	t.Run("partial exception alone does not skip evaluation", func(t *testing.T) {
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+
+		// A single validation that always returns true.
+		alwaysPass := &mockVpolProgram{retVal: types.Bool(true)}
+
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{MatchConditions: []cel.Program{}, Exception: partialEx},
+			},
+			validations: []compiler.Validation{
+				{Program: alwaysPass},
+			},
+		}
+
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+
+		// A partial exception alone must NOT skip validation; the policy is evaluated.
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.True(t, result.Result, "validation should have run and passed")
+	})
+}

@@ -19,7 +19,7 @@ Reports Server readiness init container
 {{- define "kyverno.reportsServer.initContainer" -}}
 {{- if and .Values.reportsServer.enabled .Values.reportsServer.waitForReady }}
 - name: wait-for-reports-server
-  image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" .Values.test.image.tag) | quote }}
+  image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" .Chart.AppVersion) | quote }}
   imagePullPolicy: {{ .Values.test.image.pullPolicy | default "IfNotPresent" }}
   args:
     - check-endpoints

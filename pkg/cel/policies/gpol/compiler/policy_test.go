@@ -40,21 +40,22 @@ var (
 )
 
 func TestPolicyEvaluate(t *testing.T) {
-	t.Run("returns nil when generations and conditions are valid", func(t *testing.T) {
+	t.Run("returns empty result when generations and conditions are valid", func(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations:     []cel.Program{},
+			generations:     []Generation{},
 			exceptions:      []compiler.Exception{},
 		}
 		res.SetGroupVersionKind(gvk)
 		res.SetName("valid-name")
 		res.SetNamespace("test-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
-		assert.Nil(t, resources)
-		assert.Nil(t, exceptions)
+		assert.NotNil(t, result)
+		assert.Nil(t, result.GeneratedResources)
+		assert.Nil(t, result.Exceptions)
 		assert.NoError(t, err)
 	})
 
@@ -62,8 +63,8 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations: []cel.Program{
-				&mockProgram{retVal: types.String("value")},
+			generations: []Generation{
+				{expression: &mockProgram{retVal: types.String("value")}},
 			},
 			exceptions: []compiler.Exception{
 				{
@@ -82,10 +83,10 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("exception-name")
 		res.SetNamespace("test-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
-		assert.Nil(t, resources)
-		assert.NotNil(t, exceptions)
+		assert.NotNil(t, result)
+		assert.NotNil(t, result.Exceptions)
 		assert.NoError(t, err)
 	})
 
@@ -103,10 +104,9 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("bad-exception")
 		res.SetNamespace("bad-ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
-		assert.Nil(t, resources)
-		assert.Nil(t, exceptions)
+		assert.Nil(t, result)
 		assert.Error(t, err)
 	})
 
@@ -120,10 +120,9 @@ func TestPolicyEvaluate(t *testing.T) {
 		res.SetName("bad-match")
 		res.SetNamespace("ns")
 
-		resources, exceptions, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
-		assert.Nil(t, resources)
-		assert.Nil(t, exceptions)
+		assert.Nil(t, result)
 		assert.Error(t, err)
 	})
 
@@ -131,15 +130,89 @@ func TestPolicyEvaluate(t *testing.T) {
 		policy := &Policy{
 			matchConditions: []cel.Program{},
 			variables:       map[string]cel.Program{},
-			generations: []cel.Program{
-				&mockProgram{err: fmt.Errorf("generation error")},
+			generations: []Generation{
+				{expression: &mockProgram{err: fmt.Errorf("generation error")}},
 			},
 		}
 		res.SetGroupVersionKind(gvk)
 		res.SetName("gen-fail")
 		res.SetNamespace("ns")
 
-		_, _, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		_, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 		assert.Error(t, err)
+	})
+
+	t.Run("returns audit annotations in evaluation result", func(t *testing.T) {
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []Generation{},
+			auditAnnotations: map[string]cel.Program{
+				"env": &mockProgram{retVal: types.String("production")},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("audit-name")
+		res.SetNamespace("test-ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "production", result.AuditAnnotations["env"])
+	})
+
+	t.Run("returns error when audit annotation expression fails", func(t *testing.T) {
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []Generation{},
+			auditAnnotations: map[string]cel.Program{
+				"broken": &mockProgram{err: fmt.Errorf("annotation eval error")},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("audit-err")
+		res.SetNamespace("ns")
+
+		_, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Error(t, err)
+	})
+	t.Run("full-exemption exception takes precedence over partial exceptions", func(t *testing.T) {
+		// Regression test for https://github.com/kyverno/kyverno/issues/16053:
+		// When both a partial exception and a full-exemption exception match, the
+		// full exemption must be honoured and evaluation must be skipped entirely.
+		partialException := &v1beta1.PolicyException{
+			Spec: v1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullExemptionException := &v1beta1.PolicyException{
+			Spec: v1beta1.PolicyExceptionSpec{
+				// empty Images and AllowedValues → full exemption
+			},
+		}
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []Generation{},
+			exceptions: []compiler.Exception{
+				// partial exception is evaluated first
+				{MatchConditions: []cel.Program{}, Exception: partialException},
+				// full exemption is evaluated second; must still win
+				{MatchConditions: []cel.Program{}, Exception: fullExemptionException},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("mixed-exceptions")
+		res.SetNamespace("test-ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.NoError(t, err)
+		// The full exemption triggers an early return with collected exceptions.
+		assert.NotNil(t, result)
+		assert.Nil(t, result.GeneratedResources)
+		assert.NotEmpty(t, result.Exceptions)
 	})
 }

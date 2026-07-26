@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 )
 
 type rclientAdapter struct {
