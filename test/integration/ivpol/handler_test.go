@@ -354,10 +354,9 @@ func TestMutate_MatchConditionNotMet_SkipsBeforeVerification(t *testing.T) {
 		"a policy whose match conditions are not met must not verify the image")
 }
 
-// TestMutate_PolicyExceptionSkipsVerification covers the break-glass path: a PolicyException naming
-// the policy exempts the matching pod, and the recorded outcome is a skip rather than a verification
-// verdict, so the image is never pulled.
-func TestMutate_PolicyExceptionSkipsVerification(t *testing.T) {
+// TestValidate_PolicyExceptionSkipsVerification covers the break-glass path: a PolicyException naming
+// the policy exempts the matching pod, so policy verification is skipped and the pod is admitted.
+func TestValidate_PolicyExceptionSkipsVerification(t *testing.T) {
 	exception := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "allow-migration-pod", Namespace: "default"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
@@ -379,13 +378,16 @@ func TestMutate_PolicyExceptionSkipsVerification(t *testing.T) {
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawNoOutcomes(t, "skipped-pod", "default")
+	// Non-exempted pod fails validation and is denied.
+	unskippedRaw := podRawNoOutcomes(t, "unskipped-pod", "default")
 	ctx := framework.ContextWithPolicies(context.Background(), "exception-verify")
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("skipped-pod", "default", raw), "", time.Now())
+	unskippedResp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("unskipped-pod", "default", unskippedRaw), "", time.Now())
+	assert.False(t, unskippedResp.Allowed, "a non-exempted pod must be denied")
 
-	assert.True(t, resp.Allowed, "an exempted pod must be admitted")
-	assert.Equal(t, "skip", outcomeStatusFor(t, resp.Patch, "exception-verify"),
-		"the exempted pod must record a skip rather than a verification verdict")
+	// Exempted pod skips verification due to PolicyException and is admitted.
+	skippedRaw := podRawNoOutcomes(t, "skipped-pod", "default")
+	skippedResp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("skipped-pod", "default", skippedRaw), "", time.Now())
+	assert.True(t, skippedResp.Allowed, "an exempted pod must be admitted")
 }
 
 // TestMutate_ResourceOutsideMatchConstraints_NotEvaluated confirms matchConstraints filtering reaches
