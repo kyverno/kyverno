@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
+	"k8s.io/pod-security-admission/policy"
 )
 
 // hostProbePod mirrors the workloads users reported in #15111: a container whose liveness probe pins
@@ -82,4 +83,16 @@ func Test_HostProbes_RequiresImages(t *testing.T) {
 		Images:      []string{"602401143452.dkr.ecr.*.amazonaws.com/eks/eks-pod-identity-agent:*"},
 	}
 	assert.Assert(t, len(withImages.Validate(path)) == 0)
+}
+
+// Test_AllPodSecurityChecksHaveAControlName guards the gap that let this slip through: the Host Probes
+// check was vendored in with the 1.34 standards but never mapped to a control name, so it could not be
+// excluded and showed up with an empty name in reports. Any future control added upstream fails here
+// until it is mapped.
+func Test_AllPodSecurityChecksHaveAControlName(t *testing.T) {
+	for _, check := range policy.DefaultChecks() {
+		name := pssutils.PSSControlIDToName(string(check.ID))
+		assert.Assert(t, name != "",
+			"pod security check %q has no control name: add it to PSS_control_name_to_ids and to the controlName enum", check.ID)
+	}
 }
