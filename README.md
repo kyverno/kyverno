@@ -74,9 +74,9 @@ Kyverno installation and reference documentation is available at [kyverno.io](ht
 Kyverno helps platform teams enforce best practices and security standards. These use cases often combine multiple Kyverno capabilities into technical outcomes such as:
 
 - **Secure-by-default Kubernetes**: validate and mutate workload settings, enforce Pod Security Standards, and block unsafe configurations.
-- **Policy-driven platform engineering**: publish reusable guardrails with Kubernetes-native policies instead of custom admission webhooks.
-- **Automated governance and compliance**: use background scans and policy reports to detect policy drift across clusters.
-- **Software supply chain assurance**: verify image signatures and attestations before workloads run.
+- **Policy-driven platform engineering**: define reusable guardrails as Kubernetes-native policies without maintaining custom admission webhooks.
+- **Automated governance and compliance**: use [background scans](https://kyverno.io/docs/guides/reports/#background-scans) and [policy reports](https://kyverno.io/docs/guides/reports/) to identify policy violations in existing resources.
+- **Software supply chain assurance**: [verify image signatures and attestations](https://kyverno.io/docs/policy-types/image-validating-policy/) before admitting workloads.
 - **Configuration automation**: generate and clean up supporting resources to reduce manual operational work.
 
 Common use cases include:
