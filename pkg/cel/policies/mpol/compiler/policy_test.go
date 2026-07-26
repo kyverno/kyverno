@@ -173,6 +173,32 @@ func TestEvaluate(t *testing.T) {
 		assert.NotEmpty(t, res.Exceptions)
 	})
 
+	t.Run("full-exemption exception takes precedence over partial exceptions (reversed order)", func(t *testing.T) {
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// empty → full exemption
+			},
+		}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{MatchConditions: []cel2.Program{}, Exception: fullEx},
+				{MatchConditions: []cel2.Program{}, Exception: partialEx},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+
+		assert.NotNil(t, res)
+		assert.Nil(t, res.Error)
+		assert.Nil(t, res.PatchedResource)
+		assert.NotEmpty(t, res.Exceptions)
+	})
+
 	t.Run("successful evaluation with audit annotations", func(t *testing.T) {
 		patchedObj := &unstructured.Unstructured{}
 		p := &Policy{

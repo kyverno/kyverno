@@ -103,8 +103,13 @@ func (p *Policy) Evaluate(
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
 				if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
-					// full exemption: skip evaluation immediately
-					return &EvaluationResult{Exceptions: matchedExceptions}, nil
+					// full exemption found: reset any partially accumulated scopes and stop
+					// processing further exceptions. Continuing could surface errors from
+					// later match conditions that would wrongly negate an already-granted
+					// full exemption.
+					allowedImages = allowedImages[:0]
+					allowedValues = allowedValues[:0]
+					break
 				}
 				// only accumulate partial scopes
 				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)

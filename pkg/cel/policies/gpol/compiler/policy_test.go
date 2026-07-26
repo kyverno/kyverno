@@ -178,10 +178,13 @@ func TestPolicyEvaluate(t *testing.T) {
 		_, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 		assert.Error(t, err)
 	})
+
 	t.Run("full-exemption exception takes precedence over partial exceptions", func(t *testing.T) {
 		// Regression test for https://github.com/kyverno/kyverno/issues/16053:
 		// When both a partial exception and a full-exemption exception match, the
 		// full exemption must be honoured and evaluation must be skipped entirely.
+		// The loop breaks on the full exemption and resets any previously accumulated
+		// partial scopes (allowedImages / allowedValues).
 		partialException := &v1beta1.PolicyException{
 			Spec: v1beta1.PolicyExceptionSpec{
 				Images: []string{"nginx:*"},
@@ -199,7 +202,7 @@ func TestPolicyEvaluate(t *testing.T) {
 			exceptions: []compiler.Exception{
 				// partial exception is evaluated first
 				{MatchConditions: []cel.Program{}, Exception: partialException},
-				// full exemption is evaluated second; must still win
+				// full exemption is evaluated second; the loop breaks here and resets partial scopes
 				{MatchConditions: []cel.Program{}, Exception: fullExemptionException},
 			},
 		}
@@ -210,7 +213,42 @@ func TestPolicyEvaluate(t *testing.T) {
 		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 
 		assert.NoError(t, err)
-		// The full exemption triggers an early return with collected exceptions.
+		// The full exemption breaks the loop (resetting partial scopes); the
+		// post-loop check returns with the collected exceptions.
+		assert.NotNil(t, result)
+		assert.Nil(t, result.GeneratedResources)
+		assert.NotEmpty(t, result.Exceptions)
+	})
+
+	t.Run("full-exemption first, partial second — full exemption wins", func(t *testing.T) {
+		// Verifies the break+reset approach works regardless of ordering.
+		fullExemptionException := &v1beta1.PolicyException{
+			Spec: v1beta1.PolicyExceptionSpec{
+				// empty Images and AllowedValues → full exemption
+			},
+		}
+		partialException := &v1beta1.PolicyException{
+			Spec: v1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		policy := &Policy{
+			matchConditions: []cel.Program{},
+			variables:       map[string]cel.Program{},
+			generations:     []Generation{},
+			exceptions: []compiler.Exception{
+				// full exemption first: loop breaks immediately, partial never reached
+				{MatchConditions: []cel.Program{}, Exception: fullExemptionException},
+				{MatchConditions: []cel.Program{}, Exception: partialException},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("full-first-exceptions")
+		res.SetNamespace("test-ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Nil(t, result.GeneratedResources)
 		assert.NotEmpty(t, result.Exceptions)

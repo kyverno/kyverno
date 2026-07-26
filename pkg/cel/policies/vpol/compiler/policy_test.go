@@ -30,8 +30,9 @@ func (m *mockVpolProgram) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 // https://github.com/kyverno/kyverno/issues/16053.
 //
 // When multiple PolicyExceptions match a resource, a full-exemption exception
-// (one with no Images and no AllowedValues) must immediately skip policy evaluation
-// regardless of whether a partial exception also matched.
+// (one with no Images and no AllowedValues) must cause the evaluation loop to
+// break and indicate a full exemption, regardless of whether a partial
+// exception also matched.
 func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
 	t.Run("full-exemption takes precedence over partial exception", func(t *testing.T) {
 		partialEx := &policiesv1beta1.PolicyException{
@@ -57,7 +58,37 @@ func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
 		result, err := p.evaluateWithData(context.Background(), evaluationData{})
 
 		assert.NoError(t, err)
-		// The full exemption triggers an early return; no validation is run.
+		// The full exemption breaks the loop (resetting any prior partial scopes),
+		// and the post-loop check returns with exceptions; no validation is run.
+		assert.NotNil(t, result)
+		assert.NotEmpty(t, result.Exceptions)
+		assert.False(t, result.Result, "validation should not have run")
+	})
+
+	t.Run("full-exemption takes precedence when appearing first", func(t *testing.T) {
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// no Images, no AllowedValues → full exemption
+			},
+		}
+
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				// full exemption is matched first
+				{MatchConditions: []cel.Program{}, Exception: fullEx},
+				// partial exception is matched second
+				{MatchConditions: []cel.Program{}, Exception: partialEx},
+			},
+		}
+
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+
+		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotEmpty(t, result.Exceptions)
 		assert.False(t, result.Result, "validation should not have run")
