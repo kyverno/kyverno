@@ -1049,19 +1049,33 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 		Timeout:         5 * time.Minute,
 	}
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, c.ClusterWideResources, "", resourceOptions, c.ShowPerformance)
+	var jsonPayloads []*unstructured.Unstructured
 	if err != nil {
-		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
+		for _, path := range paths {
+			p, loadErr := payload.Load(path)
+			if loadErr == nil && p != nil {
+				if m, ok := p.(map[string]interface{}); ok {
+					jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: m})
+				}
+			}
+		}
+		if len(jsonPayloads) > 0 {
+			err = nil
+		} else {
+			return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
+		}
 	}
 	resources = test.ProcessResources(resources)
-	var jsonPayloads []*unstructured.Unstructured
 	if len(c.JSONPaths) > 0 {
 		for _, path := range c.JSONPaths {
-			payload, err := payload.Load(path)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
+			p, loadErr := payload.Load(path)
+			if loadErr != nil {
+				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", loadErr)
 			}
 
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+			if m, ok := p.(map[string]interface{}); ok {
+				jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: m})
+			}
 		}
 	}
 	return resources, jsonPayloads, nil
