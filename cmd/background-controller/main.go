@@ -43,7 +43,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
@@ -329,13 +328,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				}
+				namespaceGetter := celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient)
 
 				// create compiler
 				compiler := gpolcompiler.NewCompiler()
