@@ -23,8 +23,11 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 	}
 	report.SetGenerateName(name + "-")
 	report.SetNamespace(namespace)
-	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.GetName(), resource.GetUID())
-	SetResourceUid(report, resource.GetUID())
+	uid := resource.GetUID()
+	if uid != "" {
+		controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.GetName(), uid)
+	}
+	SetResourceUid(report, uid)
 	SetResourceGVR(report, gvr)
 	SetResourceGVK(report, gvk)
 	SetResourceNamespaceAndName(report, resource.GetNamespace(), resource.GetName())

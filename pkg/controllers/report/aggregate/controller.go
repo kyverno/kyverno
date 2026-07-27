@@ -78,6 +78,9 @@ type controller struct {
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
 	cephrLister    cache.GenericLister
+	polrLister     cache.GenericLister
+	cpolrLister    cache.GenericLister
+	reportSelector labels.Selector
 
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
@@ -184,6 +187,9 @@ func NewController(
 		cpolLister:              cpolInformer.Lister(),
 		ephrLister:              ephrInformer.Lister(),
 		cephrLister:             cephrInformer.Lister(),
+		polrLister:              polrInformer.Lister(),
+		cpolrLister:             cpolrInformer.Lister(),
+		reportSelector:          selector,
 		cacheMu:                 cacheMu,
 		reportUUIDToPolicyCache: reportUUIDToPolicyCache,
 		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -429,33 +435,6 @@ func NewController(
 		}
 	}
 
-	// Periodic sweep enqueues all reports for reconciliation as a safety net.
-	// This handles edge cases where event-driven reconciliation misses a report
-	// (e.g., orphaned reports without ownerReferences or matching ephemeral reports).
-	go func() {
-		for {
-			time.Sleep(time.Minute * 30)
-			allReports, err := polrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list reports for periodic sweep")
-			} else {
-				for _, item := range allReports {
-					itemMeta := item.(*metav1.PartialObjectMetadata)
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-				}
-			}
-			allClusterReports, err := cpolrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list cluster reports for periodic sweep")
-			} else {
-				for _, item := range allClusterReports {
-					itemMeta := item.(*metav1.PartialObjectMetadata)
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-				}
-			}
-		}
-	}()
-
 	return &c
 }
 
@@ -467,7 +446,31 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.backQueue, workers, maxRetries, c.backReconcile)
 	})
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		wait.UntilWithContext(ctx, c.periodicSweep, time.Minute*30)
+	})
 	group.Wait()
+}
+
+func (c *controller) periodicSweep(ctx context.Context) {
+	allReports, err := c.polrLister.List(c.reportSelector)
+	if err != nil {
+		logger.Error(err, "failed to list reports for periodic sweep")
+	} else {
+		for _, item := range allReports {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
+	allClusterReports, err := c.cpolrLister.List(c.reportSelector)
+	if err != nil {
+		logger.Error(err, "failed to list cluster reports for periodic sweep")
+	} else {
+		for _, item := range allClusterReports {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
 }
 
 func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {
