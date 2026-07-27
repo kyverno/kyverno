@@ -999,3 +999,82 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	_, found := got["secret-skip"]
 	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
 }
+
+func Test_OperationDelete(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	resourceKey := "v1,Pod,test-ns,protected-pod"
+
+	t.Run("DELETE run evaluates DELETE-scoped policy against oldObject", func(t *testing.T) {
+		require.Contains(t, testResponse.TriggerByOperation, "DELETE")
+		responses := testResponse.TriggerByOperation["DELETE"][resourceKey]
+		require.NotEmpty(t, responses)
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "deny-protected-deletion" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for deny-protected-deletion in the DELETE run")
+	})
+
+	t.Run("default run skips the DELETE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		require.NotEmpty(t, responses)
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-protected-deletion" {
+				assert.Empty(t, response.PolicyResponse.Rules, "DELETE-scoped policy must not match the default CREATE run")
+			}
+		}
+	})
+
+	t.Run("default run evaluates the CREATE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "require-env-label" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for require-env-label in the default run")
+	})
+}
+
+func Test_InvalidResultOperation(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+	testCase := testCases[0]
+	testCase.Test.Results[0].Operation = "CONNECT"
+
+	_, err = runTest(io.Discard, testCase, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid operation")
+}
