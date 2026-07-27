@@ -1,0 +1,94 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: auto-bind-sa-remove
+spec:
+  template: false
+  steps:
+  - name: step-01-install-policy
+    try:
+    - apply:
+        file: ../auto-bind-sa-remove.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: auto-bind-sa-remove
+        timeout: 10s
+    - sleep:
+        duration: 3s
+
+  - name: step-02-setup-crb-and-sa
+    try:
+    - apply:
+        file: crb-with-sa-subject.yaml
+    - apply:
+        file: sa-auto-bind-remove.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: sa-auto-bind-remove
+            namespace: default
+        timeout: 10s
+
+  - name: step-03-delete-annotated-sa-removes-from-crb
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ServiceAccount
+          name: sa-auto-bind-remove
+          namespace: default
+    - sleep:
+        duration: 3s
+    - script:
+        content: |
+          SUBJECTS=$(kubectl get clusterrolebinding test-crb-auto-bind-remove -o jsonpath='{.subjects}' 2>&1 || echo '[]')
+          echo "Subjects: $SUBJECTS"
+          if echo "$SUBJECTS" | grep -q 'sa-auto-bind-remove'; then
+            echo 'ERROR: SA still present in subjects'
+            exit 1
+          else
+            echo 'OK: SA removed from subjects'
+            exit 0
+          fi
+
+  - name: step-04-setup-unannotated-sa-and-crb
+    try:
+    - apply:
+        file: sa-no-annotation.yaml
+    - apply:
+        file: crb-with-other-sa-subject.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: sa-no-annotation
+            namespace: default
+        timeout: 10s
+
+  - name: step-05-delete-unannotated-sa-does-not-affect-crb
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ServiceAccount
+          name: sa-no-annotation
+          namespace: default
+    - sleep:
+        duration: 3s
+    - script:
+        content: |
+          SUBJECTS=$(kubectl get clusterrolebinding test-crb-other-sa -o jsonpath='{.subjects}' 2>&1 || echo '[]')
+          echo "Subjects: $SUBJECTS"
+          if echo "$SUBJECTS" | grep -q 'sa-no-annotation'; then
+            echo 'OK: SA still present (policy did not remove it)'
+            exit 0
+          else
+            echo 'ERROR: SA was incorrectly removed from subjects'
+            exit 1
+          fi

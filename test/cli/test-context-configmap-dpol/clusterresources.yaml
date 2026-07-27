@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+  - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: test-namespace
+
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: env-config
+      namespace: test-namespace
+    data:
+      env: delete-me

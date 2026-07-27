@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-configmap-dpol
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isDeletingPolicy: true
+  kind: Deployment
+  policy: delete-via-env
+  resources:
+  - test-deploy
+  result: pass

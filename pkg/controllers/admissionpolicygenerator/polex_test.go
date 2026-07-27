@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -160,4 +161,49 @@ func TestEnqueueCELExceptionContinuesOnMissingPolicy(t *testing.T) {
 	assert.True(t, enqueuedPolicies["ValidatingPolicy/vpol-1"], "vpol-1 should be enqueued")
 	assert.True(t, enqueuedPolicies["ValidatingPolicy/vpol-2"], "vpol-2 should be enqueued despite vpol-missing error")
 	assert.True(t, enqueuedPolicies["MutatingPolicy/mpol-1"], "mpol-1 should be enqueued despite mpol-missing error")
+}
+
+func TestGetCELExceptionsIgnoresExpired(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	active := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "active-exception",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: "vpol-1",
+				Kind: "ValidatingPolicy",
+			}},
+			ExpiresAt: &metav1.Time{
+				Time: time.Now().Add(time.Hour),
+			},
+		},
+	}
+	expired := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "expired-exception",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: "vpol-1",
+				Kind: "ValidatingPolicy",
+			}},
+			ExpiresAt: &metav1.Time{
+				Time: time.Now().Add(-time.Hour),
+			},
+		},
+	}
+	assert.NoError(t, indexer.Add(active))
+	assert.NoError(t, indexer.Add(expired))
+
+	lister := policiesv1beta1listers.NewPolicyExceptionLister(indexer)
+	c := &controller{
+		celpolexLister: lister,
+	}
+	got, err := c.getCELExceptions("vpol-1")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "active-exception", got[0].GetName())
 }

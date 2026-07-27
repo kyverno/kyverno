@@ -73,6 +73,7 @@ type controller struct {
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
 	nmpolLister    policiesv1beta1listers.NamespacedMutatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
@@ -88,9 +89,12 @@ type controller struct {
 	backQueue  workqueue.TypedRateLimitingInterface[any]
 }
 
-type policyMapEntry struct {
-	policy kyvernov1.PolicyInterface
-	rules  sets.Set[string]
+// PolicyMapEntry holds an active traditional policy and its (autogen-expanded)
+// rule names. MergeReports reads only Rules; Policy is retained for caller
+// reference.
+type PolicyMapEntry struct {
+	Policy kyvernov1.PolicyInterface
+	Rules  sets.Set[string]
 }
 
 func NewController(
@@ -109,6 +113,7 @@ func NewController(
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 ) controllers.Controller {
@@ -390,6 +395,17 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			mapV1Informer.Informer(),
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(_, o metav1.Object) { enqueueReportsForPolicy(o) },
+			func(o metav1.Object) { enqueueReportsForPolicy(o) },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if mapInformer != nil {
 		c.mapLister = mapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
@@ -426,20 +442,20 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.Wait()
 }
 
-func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
-	results := map[string]policyMapEntry{}
+func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {
+	results := map[string]PolicyMapEntry{}
 	cpols, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return nil, err
 	}
 	for _, cpol := range cpols {
 		key := cache.MetaObjectToName(cpol).String()
-		results[key] = policyMapEntry{
-			policy: cpol,
-			rules:  sets.New[string](),
+		results[key] = PolicyMapEntry{
+			Policy: cpol,
+			Rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
-			results[key].rules.Insert(rule.Name)
+			results[key].Rules.Insert(rule.Name)
 		}
 	}
 	pols, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
@@ -448,12 +464,12 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 	}
 	for _, pol := range pols {
 		key := cache.MetaObjectToName(pol).String()
-		results[key] = policyMapEntry{
-			policy: pol,
-			rules:  sets.New[string](),
+		results[key] = PolicyMapEntry{
+			Policy: pol,
+			Rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.Default.ComputeRules(pol, "") {
-			results[key].rules.Insert(rule.Name)
+			results[key].Rules.Insert(rule.Name)
 		}
 	}
 	return results, nil
@@ -475,6 +491,15 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 
 func (c *controller) createMappolMap() (sets.Set[string], error) {
 	results := sets.New[string]()
+	if c.mapV1Lister != nil {
+		maps, err := utils.FetchMutatingAdmissionPoliciesV1(c.mapV1Lister)
+		if err != nil {
+			return nil, err
+		}
+		for _, pol := range maps {
+			results.Insert(cache.MetaObjectToName(&pol).String())
+		}
+	}
 	if c.mapLister != nil {
 		maps, err := utils.FetchMutatingAdmissionPolicies(c.mapLister)
 		if err != nil {
@@ -850,18 +875,18 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
-	maps := maps{
-		pol:    policyMap,
-		vap:    vapMap,
-		mappol: mappolMap,
-		vpol:   vpolMap,
-		ivpol:  ivpolMap,
-		gpol:   gpolMap,
-		mpol:   mpolMap,
+	maps := Maps{
+		Pol:    policyMap,
+		Vap:    vapMap,
+		Mappol: mappolMap,
+		Vpol:   vpolMap,
+		Ivpol:  ivpolMap,
+		Gpol:   gpolMap,
+		Mpol:   mpolMap,
 	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]openreportsv1alpha1.ReportResult{}
-	mergeReports(maps, merged, types.UID(name), reports...)
+	MergeReports(maps, merged, types.UID(name), reports...)
 	policySet := sets.New[string]() // collect policies for cache population
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(merged))
 	for _, result := range merged {
