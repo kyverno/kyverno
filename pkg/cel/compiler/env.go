@@ -9,6 +9,8 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/library"
+	
+	"github.com/kyverno/kyverno/pkg/cel/libs/jmespath"
 )
 
 // breaking change history is stored inside the library structure. each policy compiler can pass a kyverno
@@ -71,6 +73,8 @@ func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.En
 		ext.Regex(ext.RegexVersion(1)),
 		// register kubernetes libs
 		library.CIDR(),
+		// register kyverno JMESPath extension
+		jmespath.Lib(),
 		library.Format(),
 		library.IP(),
 		library.Lists(),
