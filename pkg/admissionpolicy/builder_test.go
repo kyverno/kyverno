@@ -371,6 +371,38 @@ func TestBuildMutatingAdmissionPolicy_ReportingLabels(t *testing.T) {
 		_, hasEnabled := mapol.Labels[kyverno.LabelEnableVAPReporting]
 		assert.False(t, hasEnabled)
 	})
+
+	t.Run("clears disabled label when source re-enables reporting on update", func(t *testing.T) {
+		mapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mpol-test-mpol",
+				Labels: map[string]string{
+					kyverno.LabelExcludeReporting: "true",
+				},
+			},
+		}
+		BuildMutatingAdmissionPolicy(mapol, mp, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := mapol.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("clears enabled label when source disables reporting on update", func(t *testing.T) {
+		excluded := mp.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		mapol := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mpol-test-mpol",
+				Labels: map[string]string{
+					kyverno.LabelEnableVAPReporting: "true",
+				},
+			},
+		}
+		BuildMutatingAdmissionPolicy(mapol, excluded, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := mapol.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
 }
 
 func TestBuildMutatingAdmissionPolicyBeta_ReportingLabels(t *testing.T) {
@@ -412,6 +444,38 @@ func TestBuildMutatingAdmissionPolicyBeta_ReportingLabels(t *testing.T) {
 		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
 		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"},
+		}
+		BuildMutatingAdmissionPolicyBeta(mapol, excluded, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := mapol.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
+
+	t.Run("clears disabled label when source re-enables reporting on update", func(t *testing.T) {
+		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mpol-test-mpol",
+				Labels: map[string]string{
+					kyverno.LabelExcludeReporting: "true",
+				},
+			},
+		}
+		BuildMutatingAdmissionPolicyBeta(mapol, mp, nil)
+		assert.Equal(t, "true", mapol.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := mapol.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("clears enabled label when source disables reporting on update", func(t *testing.T) {
+		excluded := mp.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		mapol := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mpol-test-mpol",
+				Labels: map[string]string{
+					kyverno.LabelEnableVAPReporting: "true",
+				},
+			},
 		}
 		BuildMutatingAdmissionPolicyBeta(mapol, excluded, nil)
 		assert.Equal(t, "true", mapol.Labels[kyverno.LabelExcludeReporting])
@@ -465,6 +529,41 @@ func TestBuildValidatingAdmissionPolicy_ReportingLabels(t *testing.T) {
 		excludedPolicy := engineapi.NewValidatingPolicy(excluded)
 		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "vpol-test-vpol"},
+		}
+		err := BuildValidatingAdmissionPolicy(nil, vap, excludedPolicy, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "true", vap.Labels[kyverno.LabelExcludeReporting])
+		_, hasEnabled := vap.Labels[kyverno.LabelEnableVAPReporting]
+		assert.False(t, hasEnabled)
+	})
+
+	t.Run("clears disabled label when source re-enables reporting on update", func(t *testing.T) {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vpol-test-vpol",
+				Labels: map[string]string{
+					kyverno.LabelExcludeReporting: "true",
+				},
+			},
+		}
+		err := BuildValidatingAdmissionPolicy(nil, vap, policy, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "true", vap.Labels[kyverno.LabelEnableVAPReporting])
+		_, hasDisabled := vap.Labels[kyverno.LabelExcludeReporting]
+		assert.False(t, hasDisabled)
+	})
+
+	t.Run("clears enabled label when source disables reporting on update", func(t *testing.T) {
+		excluded := vpol.DeepCopy()
+		excluded.Labels = map[string]string{kyverno.LabelExcludeReporting: "true"}
+		excludedPolicy := engineapi.NewValidatingPolicy(excluded)
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vpol-test-vpol",
+				Labels: map[string]string{
+					kyverno.LabelEnableVAPReporting: "true",
+				},
+			},
 		}
 		err := BuildValidatingAdmissionPolicy(nil, vap, excludedPolicy, nil)
 		assert.NoError(t, err)

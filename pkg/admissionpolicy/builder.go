@@ -170,12 +170,7 @@ func BuildValidatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vap)
-	policyLabels := policy.GetLabels()
-	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
-		vap.Labels[kyverno.LabelExcludeReporting] = "true"
-	} else {
-		controllerutils.SetLabel(vap, kyverno.LabelEnableVAPReporting, "true")
-	}
+	setGeneratedAdmissionPolicyReportingLabels(vap, policy.GetLabels())
 	return nil
 }
 
@@ -309,12 +304,7 @@ func BuildMutatingAdmissionPolicy(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
-	policyLabels := mp.GetLabels()
-	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
-		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
-	} else {
-		controllerutils.SetLabel(mapol, kyverno.LabelEnableVAPReporting, "true")
-	}
+	setGeneratedAdmissionPolicyReportingLabels(mapol, mp.GetLabels())
 }
 
 // BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
@@ -448,12 +438,7 @@ func BuildMutatingAdmissionPolicyBeta(
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
-	policyLabels := mp.GetLabels()
-	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
-		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
-	} else {
-		controllerutils.SetLabel(mapol, kyverno.LabelEnableVAPReporting, "true")
-	}
+	setGeneratedAdmissionPolicyReportingLabels(mapol, mp.GetLabels())
 }
 
 // BuildMutatingAdmissionPolicyBindingBeta is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1beta1) from a MutatingPolicy
@@ -619,6 +604,21 @@ func buildNamedRuleWithOperations(
 			Operations: operations,
 		},
 	}
+}
+
+func setGeneratedAdmissionPolicyReportingLabels(obj metav1.Object, policyLabels map[string]string) {
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		delete(labels, kyverno.LabelEnableVAPReporting)
+		labels[kyverno.LabelExcludeReporting] = "true"
+	} else {
+		delete(labels, kyverno.LabelExcludeReporting)
+		labels[kyverno.LabelEnableVAPReporting] = "true"
+	}
+	obj.SetLabels(labels)
 }
 
 func translateOperations(operations []string) []admissionregistrationv1.OperationType {
