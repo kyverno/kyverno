@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -22,6 +23,7 @@ const (
 	Mpol
 	Gpol
 	Dpol
+	Ivpol
 )
 
 func (p PolicyType) String() string {
@@ -34,6 +36,8 @@ func (p PolicyType) String() string {
 		return "Gpol"
 	case Dpol:
 		return "Dpol"
+	case Ivpol:
+		return "Ivpol"
 	}
 	return fmt.Sprintf("PolicyType(%d)", int(p))
 }
@@ -63,6 +67,14 @@ type GpolSetup struct {
 type DpolSetup struct {
 	Deps          *DpolDeps
 	PolexInformer kyvernov1beta1informers.PolicyExceptionInformer
+}
+
+// IvpolSetup holds the per-test wiring for ImageValidatingPolicy. The single
+// provider watches both ImageValidatingPolicy and NamespacedImageValidatingPolicy,
+// so this one setup serves the clustered and namespaced handler routes alike.
+type IvpolSetup struct {
+	Engine   ivpolengine.Engine
+	Provider ivpolengine.Provider
 }
 
 // SetupOption configures a TestEnv built via NewTestEnvWithOptions.
@@ -209,6 +221,22 @@ func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabl
 			deps := NewDpolDeps(ctx, env.DClient, env.KyvernoClient, env.KubeClient, env.Mgr.GetRESTMapper(), env.ContextProvider)
 			env.Dpol = &DpolSetup{Deps: deps}
 		}
+
+	case Ivpol:
+		var (
+			engine   ivpolengine.Engine
+			provider ivpolengine.Provider
+			err      error
+		)
+		if polexEnabled {
+			engine, provider, err = NewIvpolEngineWithExceptions(env.Mgr, env.KubeClient)
+		} else {
+			engine, provider, err = NewIvpolEngine(env.Mgr, env.KubeClient)
+		}
+		if err != nil {
+			return err
+		}
+		env.Ivpol = &IvpolSetup{Engine: engine, Provider: provider}
 
 	default:
 		return fmt.Errorf("unknown policy type: %s", pt)
