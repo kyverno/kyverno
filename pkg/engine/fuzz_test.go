@@ -7,12 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
-
-	corev1 "k8s.io/api/core/v1"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -23,8 +18,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -33,7 +30,7 @@ var (
 	fuzzJp         = jmespath.New(fuzzCfg)
 
 	validateContext = context.Background()
-	regClient       = registryclient.NewOrDie()
+	regClient       = registryclient.New(nil, "", "", "", false)
 	validateEngine  = NewEngine(
 		fuzzCfg,
 		fuzzJp,
@@ -121,7 +118,7 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			fuzzCfg,
 			fuzzJp,
 			nil,
-			factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.NewOrDie()), nil),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.New(nil, "", "", "", false)), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
 			nil,
