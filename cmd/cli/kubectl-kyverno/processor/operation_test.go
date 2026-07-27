@@ -35,6 +35,32 @@ func TestNormalizeOperation(t *testing.T) {
 	}
 }
 
+func TestNormalizeValuesOperation(t *testing.T) {
+	tests := []struct {
+		operation string
+		wantErr   bool
+	}{
+		{operation: ""},
+		{operation: "CREATE"},
+		{operation: "UPDATE"},
+		{operation: "DELETE"},
+		{operation: "CONNECT"},
+		{operation: "connect", wantErr: true},
+		{operation: "foo", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.operation, func(t *testing.T) {
+			got, err := NormalizeValuesOperation(tt.operation)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.operation, got)
+			}
+		})
+	}
+}
+
 func TestAdmissionRequestShape(t *testing.T) {
 	resource := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "v1",
@@ -63,7 +89,7 @@ func TestAdmissionRequestShape(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("DELETE", resource)
 		assert.Equal(t, admissionv1.Delete, op)
 		assert.Nil(t, object)
-		assert.Equal(t, resource, oldObject)
+		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
 	})
 }
 

@@ -796,16 +796,19 @@ func (p *PolicyProcessor) makePolicyContext(
 	}
 	// an explicitly configured operation (e.g. from the test result entry) takes
 	// precedence over the values file
-	switch p.Operation {
-	case "CREATE":
-		operation = kyvernov1.Create
-	case "DELETE":
-		operation = kyvernov1.Delete
-	case "UPDATE":
-		operation = kyvernov1.Update
-	}
-	if resourceValues != nil {
-		resourceValues["request.operation"] = string(operation)
+	if p.Operation != "" {
+		switch p.Operation {
+		case "CREATE":
+			operation = kyvernov1.Create
+		case "DELETE":
+			operation = kyvernov1.Delete
+		case "UPDATE":
+			operation = kyvernov1.Update
+		}
+		if resourceValues == nil {
+			resourceValues = map[string]interface{}{}
+		}
+		resourceValues["request.operation"] = p.Operation
 	}
 
 	var newResource unstructured.Unstructured

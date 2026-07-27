@@ -437,6 +437,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 	// validate the operations declared on test results and collect the distinct
 	// explicit operations, each of which triggers a dedicated evaluation run
+	if _, err := processor.NormalizeValuesOperation(vars.GlobalOperation()); err != nil {
+		return nil, err
+	}
 	explicitOperations := sets.New[string]()
 	for _, res := range testCase.Test.Results {
 		if _, err := processor.NormalizeOperation(res.Operation); err != nil {

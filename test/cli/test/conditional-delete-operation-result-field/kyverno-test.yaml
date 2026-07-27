@@ -7,10 +7,9 @@ policies:
 resources:
 - resource.yaml
 results:
-# the DELETE operation is declared on the result entry instead of values.yaml
 - kind: Pod
-  policy: deny-delete-prod
   operation: DELETE
+  policy: deny-delete-prod
   resources:
   - prod-app
   result: fail

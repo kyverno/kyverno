@@ -19,6 +19,20 @@ func NormalizeOperation(operation string) (string, error) {
 	}
 }
 
+// NormalizeValuesOperation validates a `request.operation` global value from a
+// values file. In addition to the operations supported by admission request
+// simulation, CONNECT is accepted for backward compatibility with classic
+// policies that evaluate `request.operation` in preconditions; it is not
+// simulated for CEL policy types, which fall back to the CREATE request shape.
+func NormalizeValuesOperation(operation string) (string, error) {
+	switch operation {
+	case "", "CREATE", "UPDATE", "DELETE", "CONNECT":
+		return operation, nil
+	default:
+		return "", fmt.Errorf("invalid request.operation value %q, must be one of CREATE, UPDATE, DELETE, CONNECT", operation)
+	}
+}
+
 // AdmissionRequestShape maps a CLI-declared operation to the admission operation
 // and the (object, oldObject) pair, mirroring the API server semantics:
 //   - CREATE (default): object is the resource, oldObject is null
@@ -29,7 +43,9 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 	case "UPDATE":
 		return admissionv1.Update, resource, resource.DeepCopy()
 	case "DELETE":
-		return admissionv1.Delete, nil, resource
+		// deep copy so downstream mutations of the old state cannot leak into
+		// the shared resource object
+		return admissionv1.Delete, nil, resource.DeepCopy()
 	default:
 		return admissionv1.Create, resource, nil
 	}
@@ -37,7 +53,8 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 
 // resolveOperation returns the effective operation for the processor: the
 // explicitly configured operation takes precedence, then the `request.operation`
-// global value from the values file, then the default (CREATE).
+// global value from the values file, then the default (CREATE). CONNECT from the
+// values file is not simulated and maps to the default request shape.
 func (p *PolicyProcessor) resolveOperation() string {
 	if p.Operation != "" {
 		return p.Operation
