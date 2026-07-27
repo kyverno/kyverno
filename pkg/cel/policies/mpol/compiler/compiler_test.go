@@ -231,6 +231,55 @@ func TestCompile(t *testing.T) {
 			polex:   nil,
 			wantErr: true,
 		},
+		{
+			name: "valid auditAnnotations",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Mutations: []admissionregistrationv1alpha1.Mutation{{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{}`,
+						},
+					}},
+					AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+						Key:             "resource-name",
+						ValueExpression: `'name/' + object.metadata.name`,
+					}},
+				},
+			},
+			polex:   nil,
+			wantErr: false,
+		},
+		{
+			name: "auditAnnotations can reference variables",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "resourceName",
+						Expression: `object.metadata.name`,
+					}},
+					AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+						Key:             "resource-name",
+						ValueExpression: `'resource/' + string(variables.resourceName)`,
+					}},
+				},
+			},
+			polex:   nil,
+			wantErr: false,
+		},
+		{
+			name: "invalid auditAnnotation expression",
+			pol: &v1beta1.MutatingPolicy{
+				Spec: v1beta1.MutatingPolicySpec{
+					AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+						Key:             "bad",
+						ValueExpression: `this is not a cel`,
+					}},
+				},
+			},
+			polex:   nil,
+			wantErr: true,
+		},
 	}
 
 	compiler := NewCompiler()
@@ -245,4 +294,27 @@ func TestCompile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompileAuditAnnotations(t *testing.T) {
+	pol := &v1beta1.MutatingPolicy{
+		Spec: v1beta1.MutatingPolicySpec{
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{}`,
+				},
+			}},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+				{Key: "resource-name", ValueExpression: `'name/' + object.metadata.name`},
+				{Key: "static", ValueExpression: `'value'`},
+			},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(pol, nil)
+	assert.Empty(t, errs)
+	assert.NotNil(t, compiled)
+	assert.Len(t, compiled.auditAnnotations, 2)
+	assert.Contains(t, compiled.auditAnnotations, "resource-name")
+	assert.Contains(t, compiled.auditAnnotations, "static")
 }
