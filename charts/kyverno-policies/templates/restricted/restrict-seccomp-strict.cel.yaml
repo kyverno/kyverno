@@ -33,66 +33,30 @@ spec:
     {{- end }}
   {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
   {{ end }}
+  variables:
+    - name: allContainers
+      expression: >-
+        object.spec.containers
+        + object.spec.?initContainers.orValue([])
+        + object.spec.?ephemeralContainers.orValue([])
+
   validations:
     - expression: >-
-        (
-          !has(object.spec.securityContext) ||
-          !has(object.spec.securityContext.seccompProfile) ||
-          !has(object.spec.securityContext.seccompProfile.type) ||
-          object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-        ) &&
-        (!has(object.spec.containers) || object.spec.containers.all(c,
-          (
-            has(c.securityContext) &&
-            has(c.securityContext.seccompProfile) &&
-            has(c.securityContext.seccompProfile.type) &&
-            c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          ) ||
-          (
-            !(has(c.securityContext) && has(c.securityContext.seccompProfile) && has(c.securityContext.seccompProfile.type)) &&
-            has(object.spec.securityContext) &&
-            has(object.spec.securityContext.seccompProfile) &&
-            has(object.spec.securityContext.seccompProfile.type) &&
-            object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          )
-        )) &&
-        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
-          (
-            has(c.securityContext) &&
-            has(c.securityContext.seccompProfile) &&
-            has(c.securityContext.seccompProfile.type) &&
-            c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          ) ||
-          (
-            !(has(c.securityContext) && has(c.securityContext.seccompProfile) && has(c.securityContext.seccompProfile.type)) &&
-            has(object.spec.securityContext) &&
-            has(object.spec.securityContext.seccompProfile) &&
-            has(object.spec.securityContext.seccompProfile.type) &&
-            object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          )
-        )) &&
-        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
-          (
-            has(c.securityContext) &&
-            has(c.securityContext.seccompProfile) &&
-            has(c.securityContext.seccompProfile.type) &&
-            c.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          ) ||
-          (
-            !(has(c.securityContext) && has(c.securityContext.seccompProfile) && has(c.securityContext.seccompProfile.type)) &&
-            has(object.spec.securityContext) &&
-            has(object.spec.securityContext.seccompProfile) &&
-            has(object.spec.securityContext.seccompProfile.type) &&
-            object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
-          )
-        ))
+        !object.spec.?securityContext.?seccompProfile.?type.hasValue() ||
+        object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
       message: >-
-        Seccomp profile must be set to `RuntimeDefault` or `Localhost`.
-        The pod-level field spec.securityContext.seccompProfile.type may be used,
-        or the fields spec.containers[*].securityContext.seccompProfile.type,
-        spec.initContainers[*].securityContext.seccompProfile.type, and
-        spec.ephemeralContainers[*].securityContext.seccompProfile.type may be set
-        to an allowed value.
+        The field spec.securityContext.seccompProfile.type must be unset or
+        set to `RuntimeDefault` or `Localhost`.
+
+    - expression: >-
+        variables.allContainers.all(c,
+          c.?securityContext.?seccompProfile.?type.orValue('') in ['RuntimeDefault', 'Localhost'] ||
+          (!c.?securityContext.?seccompProfile.?type.hasValue() &&
+           object.spec.?securityContext.?seccompProfile.?type.orValue('') in ['RuntimeDefault', 'Localhost']))
+      message: >-
+        Containers must set securityContext.seccompProfile.type to `RuntimeDefault`
+        or `Localhost`, or inherit a valid pod-level
+        spec.securityContext.seccompProfile.type.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
