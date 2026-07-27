@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: conditional-delete-test-result-field
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+# the DELETE operation is declared on the result entry instead of values.yaml
+- kind: Pod
+  policy: deny-delete-prod
+  operation: DELETE
+  resources:
+  - prod-app
+  result: fail
+  rule: block-prod-deletion

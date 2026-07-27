@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-operation-delete
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+# DELETE-scoped policy evaluated with a simulated DELETE admission request:
+# object is null, oldObject is the resource
+- isValidatingPolicy: true
+  kind: Pod
+  policy: deny-protected-deletion
+  operation: DELETE
+  resources:
+  - protected-pod
+  result: fail
+# CREATE-scoped policy evaluated with the default CREATE admission request
+# in the same test file
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-env-label
+  resources:
+  - protected-pod
+  result: fail
