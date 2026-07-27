@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -224,19 +225,10 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				"matchConstraints": {
 					"resourceRules": [
 						{
-							"apiGroups": [
-								""
-							],
-							"apiVersions": [
-								"v1"
-							],
-							"operations": [
-								"CREATE",
-								"UPDATE"
-							],
-							"resources": [
-								"pods"
-							]
+							"apiGroups": [""],
+							"apiVersions": ["v1"],
+							"operations": ["CREATE","UPDATE"],
+							"resources": ["pods"]
 						}
 					]
 				},
@@ -324,6 +316,27 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						"expression": "variables.violatingContainers.size() == 0",
 						"message": "Don't do this",
 						"messageExpression": "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\""
+			name:        "autogen rule for deployments with namespace selector",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"namespaceSelector": {
+						"matchLabels": {
+							"kubernetes.io/namespace-type": "product"
+						}
+					},
+					"resourceRules": [
+						{
+							"apiGroups": [""],
+							"apiVersions": ["v1"],
+							"operations": ["CREATE","UPDATE"],
+							"resources": ["pods"]
+						}
+					]
+				},
+				"validations": [
+					{
+						"expression": "object.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)"
 					}
 				]
 			}`),
@@ -334,6 +347,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 					},
 					Spec: &policiesv1beta1.ValidatingPolicySpec{
 						MatchConstraints: &admissionregistrationv1.MatchResources{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/namespace-type": "product",
+								},
+							},
 							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 								{
 									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -361,6 +379,9 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								Expression:        "variables.violatingContainers.size() == 0",
 								Message:           "Don't do this",
 								MessageExpression: "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\"",
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
 							},
 						},
 					},

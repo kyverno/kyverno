@@ -134,6 +134,7 @@ func createrLeaderControllers(
 	reportsServiceAccountName string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
+	excludeBootstrapResources bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -185,6 +186,7 @@ func createrLeaderControllers(
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
 		autoUpdateWebhooks,
+		excludeBootstrapResources,
 		admissionReports,
 		runtime,
 		configuration,
@@ -298,6 +300,8 @@ func createrLeaderControllers(
 
 		var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 		var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+		var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+		var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 		if vapsRegistered {
 			vapInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies()
 			vapBindingInformer = kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
@@ -309,6 +313,10 @@ func createrLeaderControllers(
 		var mapBindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer
 		if mapsRegistered {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1")
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				logging.GlobalLogger().Info("Initializing MutatingAdmissionPolicy informers for v1beta1")
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
@@ -337,6 +345,8 @@ func createrLeaderControllers(
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
+			mapV1Informer,
+			mapBindingV1Informer,
 			mapBetaInformer,
 			mapBindingBetaInformer,
 			mapAlphaInformer,
@@ -358,6 +368,7 @@ func main() {
 		maxQueuedEvents                 int
 		omitEvents                      string
 		autoUpdateWebhooks              bool
+		excludeBootstrapResources       bool
 		webhookRegistrationTimeout      time.Duration
 		admissionReports                bool
 		dumpPayload                     bool
@@ -372,6 +383,7 @@ func main() {
 		maxAuditWorkers                 int
 		maxAuditCapacity                int
 		maxAdmissionReports             int
+		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
 		tlsKeyAlgorithm                 string
 	)
@@ -382,6 +394,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.BoolVar(&excludeBootstrapResources, "excludeBootstrapResources", false, "Set this flag to 'true' to exclude cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks, avoiding a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while this is enabled.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
@@ -405,6 +418,7 @@ func main() {
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	// config
@@ -512,7 +526,7 @@ func main() {
 			setup.Configuration,
 			strings.Split(omitEvents, ",")...,
 		)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 
 		gceController := internal.NewController(
@@ -618,6 +632,7 @@ func main() {
 					reportsServiceAccountName,
 					webhookTimeout,
 					autoUpdateWebhooks,
+					excludeBootstrapResources,
 					kubeInformer,
 					kubeKyvernoInformer,
 					kyvernoInformer,

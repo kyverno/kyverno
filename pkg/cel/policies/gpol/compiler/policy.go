@@ -10,6 +10,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
@@ -23,12 +24,20 @@ import (
 )
 
 type Policy struct {
+	namespace        string
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
-	generations      []cel.Program
+	generations      []Generation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
 	matchConstraints *admissionregistrationv1.MatchResources
+}
+
+// Generation is a compiled generate entry: either a CEL expression program or
+// a YAML template. Exactly one of the two is set.
+type Generation struct {
+	expression cel.Program
+	template   *template.Template
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -128,7 +137,13 @@ func (p *Policy) Evaluate(
 		})
 	}
 	for _, generation := range p.generations {
-		_, _, err := generation.ContextEval(ctx, dataNew)
+		if generation.template != nil {
+			if err := p.applyTemplate(ctx, generation.template, dataNew, data.Context); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		_, _, err := generation.expression.ContextEval(ctx, dataNew)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +157,42 @@ func (p *Policy) Evaluate(
 		GeneratedResources: generatedResources,
 		AuditAnnotations:   auditAnnotations,
 	}, nil
+}
+
+// applyTemplate renders a generation template and feeds the resulting
+// resources into the same generation runtime path used by generator.Apply.
+// The target namespace of each resource is taken from its rendered
+// metadata.namespace. For a namespaced policy, resources without a namespace
+// default to the policy namespace and cross-namespace generation is denied,
+// mirroring the namespaced generator.Apply semantics.
+func (p *Policy) applyTemplate(ctx context.Context, tpl *template.Template, activation map[string]any, libsCtx libs.Context) error {
+	resources, err := tpl.Render(ctx, activation)
+	if err != nil {
+		return fmt.Errorf("failed to render generation template: %w", err)
+	}
+	namespaces := make([]string, 0, 1)
+	grouped := map[string][]map[string]any{}
+	for _, resource := range resources {
+		obj := unstructured.Unstructured{Object: resource}
+		namespace := obj.GetNamespace()
+		if p.namespace != "" {
+			if namespace == "" {
+				namespace = p.namespace
+			} else if namespace != p.namespace {
+				return fmt.Errorf("cross-namespace generation denied: a policy in namespace %q cannot generate resources into namespace %q", p.namespace, namespace)
+			}
+		}
+		if _, ok := grouped[namespace]; !ok {
+			namespaces = append(namespaces, namespace)
+		}
+		grouped[namespace] = append(grouped[namespace], resource)
+	}
+	for _, namespace := range namespaces {
+		if err := libsCtx.GenerateResources(namespace, grouped[namespace]); err != nil {
+			return fmt.Errorf("failed to generate resources: %w", err)
+		}
+	}
+	return nil
 }
 
 func (p *Policy) match(
