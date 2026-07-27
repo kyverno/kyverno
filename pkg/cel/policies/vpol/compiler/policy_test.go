@@ -120,4 +120,51 @@ func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.True(t, result.Result, "validation should have run and passed")
 	})
+
+	t.Run("all matched exceptions collected when priority labels and reportResult differ", func(t *testing.T) {
+		// Regression guard for the exhaustive-loop requirement from the maintainer review:
+		// matchedExceptions must be complete so the engine can (a) pick the
+		// highest-priority exception via polex.kyverno.io/priority and (b) build
+		// the user-facing message that lists every matched exception key.
+		//
+		// highPriorityEx has priority=10 (the winner for report selection).
+		// laterEx has a lower priority but carries reportResult: pass, which
+		// would silently override the skip result if the engine only saw *it*.
+		// With the old break-based loop the second exception was never collected;
+		// with the flag-based loop both must appear in result.Exceptions.
+		highPriorityEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// full exemption – no Images, no AllowedValues
+			},
+		}
+		highPriorityEx.SetLabels(map[string]string{
+			"polex.kyverno.io/priority": "10",
+		})
+
+		laterEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// full exemption as well; carries reportResult: pass
+				ReportResult: "pass",
+			},
+		}
+		laterEx.SetLabels(map[string]string{
+			"polex.kyverno.io/priority": "5",
+		})
+
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				// high-priority exception is first in iteration order
+				{MatchConditions: []cel.Program{}, Exception: highPriorityEx},
+				// lower-priority exception with reportResult: pass comes second
+				{MatchConditions: []cel.Program{}, Exception: laterEx},
+			},
+		}
+
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		// Both exceptions must be present so the engine sees the complete set.
+		assert.Len(t, result.Exceptions, 2, "both exceptions must be collected by the exhaustive loop")
+	})
 }
