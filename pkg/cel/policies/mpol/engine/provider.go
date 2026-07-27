@@ -107,10 +107,16 @@ type staticProvider struct {
 	libCxt   libs.Context
 }
 
+// Fetch mirrors the cluster reconciler's Fetch: mutateExisting=false returns
+// every policy (a mutate-existing policy still runs on admission by default),
+// while mutateExisting=true returns only the mutate-existing policies. Filtering
+// the false case down to non-mutate-existing policies would drop them from the
+// CLI admission path and from the background reports scanner, both of which build
+// this provider and call Fetch(ctx, false).
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var filtered []Policy
 	for _, pol := range p.policies {
-		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
+		if !mutateExisting || pol.Policy.GetSpec().MutateExistingEnabled() {
 			filtered = append(filtered, pol)
 		}
 	}
