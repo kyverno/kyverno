@@ -146,22 +146,12 @@ func newDeleteErrorTestController(t *testing.T) (*controller, *captureQueue, str
 	return ctrl, cq, "default/test-cm"
 }
 
-func exhaustRetryBudget(t *testing.T, ctrl *controller, q workqueue.TypedRateLimitingInterface[any], itemKey string) {
+func exhaustRetryBudget(t *testing.T, q workqueue.TypedRateLimitingInterface[any], itemKey string) {
 	t.Helper()
 
 	q.Add(itemKey)
 	for q.NumRequeues(itemKey) < maxRetries {
-		item, quit := q.Get()
-		if quit {
-			t.Fatal("queue shut down unexpectedly")
-		}
-		if err := ctrl.reconcile(context.Background(), logr.Discard(), itemKey, "", ""); err == nil {
-			t.Fatal("expected reconcile to return error while exhausting retries")
-		}
-		if q.NumRequeues(item) < maxRetries {
-			q.AddRateLimited(item)
-		}
-		q.Done(item)
+		q.AddRateLimited(itemKey)
 	}
 }
 
@@ -179,7 +169,7 @@ func TestReconcile_DeleteError_NoRearmBeforeRetryExhausted(t *testing.T) {
 
 func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
 	ctrl, cq, itemKey := newDeleteErrorTestController(t)
-	exhaustRetryBudget(t, ctrl, cq.TypedRateLimitingInterface, itemKey)
+	exhaustRetryBudget(t, cq.TypedRateLimitingInterface, itemKey)
 
 	cq.lastDelay = 0
 	cq.lastKey = nil

@@ -112,7 +112,7 @@ func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *meta
 
 // rearmAfterRetryExhausted schedules a future reconcile only after handleErr would
 // drop the key (NumRequeues >= maxRetries). Short-term retries stay on the rate limiter.
-func (c *controller) rearmAfterRetryExhausted(itemKey any) {
+func (c *controller) rearmAfterRetryExhausted(itemKey string) {
 	if c.queue.NumRequeues(itemKey) >= maxRetries {
 		c.queue.AddAfter(itemKey, minRequeueDelay)
 	}
@@ -178,10 +178,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 			return execErr
 		}
 		logger.V(2).Info("resource has been deleted")
-	} else {
 		if c.metrics != nil {
 			c.metrics.RecordDeletedObject(ctx, c.gvr, metaObj.GetNamespace())
 		}
+	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
 		// Add the item back to the queue after the remaining time
