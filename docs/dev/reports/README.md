@@ -162,7 +162,7 @@ If we omit the short lived admission reports, this usually means 2 additional re
 - one aggregated admission report
 - one background scan report
 
-Short lived admission reports are ephemeral in nature, as long as they cleaned up correctly they shouldn't impact storage too much.
+Short lived admission reports are ephemeral in nature, as long as they are cleaned up correctly they shouldn't impact storage too much.
 If for some reason Kyverno fails to cleanup those reports fast enough it can become a severe issue though.
 
 Of course not all resources will have background scan reports, some policies can have `background` disabled but you get the picture.
@@ -181,7 +181,7 @@ Sometimes they are too big to be stored in etcd and we split them into multiple 
 
 ### Reports deletion
 
-Quick note about reports deletion, we use the builtin Kubernetes garbage collection mechanism for that. Reports are owned by the resource they apply to and when the resource goes away, reports are garbage collected and deleted automatically.
+Quick note about reports deletion, we use the built-in Kubernetes garbage collection mechanism for that. Reports are owned by the resource they apply to and when the resource goes away, reports are garbage collected and deleted automatically.
 
 ### Conclusion
 

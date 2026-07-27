@@ -3,7 +3,7 @@ package oci
 var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#oci`
 
 var description = []string{
-	`Pulls/pushes images that include policie(s) from/to OCI registries.`,
+	`Pulls/pushes images that include policies from/to OCI registries.`,
 }
 
 var examples = [][]string{
