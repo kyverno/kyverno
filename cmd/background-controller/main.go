@@ -43,7 +43,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
@@ -86,6 +85,9 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies(),
+		kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
+		kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -135,6 +137,7 @@ func main() {
 		maxAPICallResponseLength        int64
 		apiCallTimeout                  time.Duration
 		maxBackgroundReports            int
+		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
@@ -144,6 +147,7 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
@@ -216,7 +220,7 @@ func main() {
 			event.Workers,
 		)
 		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
@@ -247,7 +251,6 @@ func main() {
 			setup.Configuration,
 			setup.Jp,
 			setup.KyvernoDynamicClient,
-			setup.RegistryClient,
 			setup.ImageVerifyCacheClient,
 			setup.KubeClient,
 			setup.KyvernoClient,
@@ -315,7 +318,7 @@ func main() {
 
 				contextProvider, err := libs.NewContextProvider(
 					setup.KyvernoDynamicClient,
-					nil,
+					setup.RegistrySecretLister,
 					gcstore,
 					restMapper,
 					false,
@@ -325,13 +328,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				}
+				namespaceGetter := celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient)
 
 				// create compiler
 				compiler := gpolcompiler.NewCompiler()

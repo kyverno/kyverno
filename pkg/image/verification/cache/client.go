@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -19,7 +19,7 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
-	cache          *ristretto.Cache
+	cache          *ristretto.Cache[string, any]
 }
 
 type Option = func(*cache) error
@@ -31,7 +31,7 @@ func New(options ...Option) (Client, error) {
 			return nil, err
 		}
 	}
-	config := ristretto.Config{
+	config := ristretto.Config[string, any]{
 		MaxCost:     cache.maxSize,
 		NumCounters: 10 * cache.maxSize,
 		BufferItems: 64,

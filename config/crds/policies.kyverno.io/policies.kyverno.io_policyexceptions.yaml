@@ -51,6 +51,13 @@ spec:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
                 type: string
+              expiresAt:
+                description: |-
+                  ExpiresAt specifies the time when the policy exception expires.
+                  Once expired, the exception will no longer be applied to incoming requests.
+                  The expected format is RFC3339 date-time (for example "2026-05-01T00:00:00Z").
+                format: date-time
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
@@ -67,7 +74,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -83,7 +90,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -114,6 +121,16 @@ spec:
                   - name
                   type: object
                 type: array
+              properties:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Properties is an optional map for additional metadata attached to this exception.
+                  For example:
+                  - reason: why this exception is needed
+                  - ticket: external approval/request identifier
+                  - approved-by: comma-separated approver list
+                type: object
               reportResult:
                 default: skip
                 description: |-
@@ -169,6 +186,13 @@ spec:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
                 type: string
+              expiresAt:
+                description: |-
+                  ExpiresAt specifies the time when the policy exception expires.
+                  Once expired, the exception will no longer be applied to incoming requests.
+                  The expected format is RFC3339 date-time (for example "2026-05-01T00:00:00Z").
+                format: date-time
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
@@ -185,7 +209,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -201,7 +225,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -232,6 +256,16 @@ spec:
                   - name
                   type: object
                 type: array
+              properties:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Properties is an optional map for additional metadata attached to this exception.
+                  For example:
+                  - reason: why this exception is needed
+                  - ticket: external approval/request identifier
+                  - approved-by: comma-separated approver list
+                type: object
               reportResult:
                 default: skip
                 description: |-
@@ -286,6 +320,13 @@ spec:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
                 type: string
+              expiresAt:
+                description: |-
+                  ExpiresAt specifies the time when the policy exception expires.
+                  Once expired, the exception will no longer be applied to incoming requests.
+                  The expected format is RFC3339 date-time (for example "2026-05-01T00:00:00Z").
+                format: date-time
+                type: string
               images:
                 description: |-
                   Images specifies container images to be excluded from policy evaluation.
@@ -302,7 +343,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -318,7 +359,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -349,6 +390,16 @@ spec:
                   - name
                   type: object
                 type: array
+              properties:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Properties is an optional map for additional metadata attached to this exception.
+                  For example:
+                  - reason: why this exception is needed
+                  - ticket: external approval/request identifier
+                  - approved-by: comma-separated approver list
+                type: object
               reportResult:
                 default: skip
                 description: |-

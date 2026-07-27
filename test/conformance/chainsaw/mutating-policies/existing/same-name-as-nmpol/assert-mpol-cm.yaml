@@ -1,0 +1,11 @@
+---
+# Assert mpol-cm has the cluster policy's label and NOT the namespaced policy's label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: same-name-pol-mpol-cm
+  namespace: test-same-name-ns
+  labels:
+    bycluster: "true"
+    # Negative assertion: namespaced-policy label must be absent.
+    (bynamespaced): ~
