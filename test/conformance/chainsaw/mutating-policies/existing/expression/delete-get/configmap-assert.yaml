@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm-1
+  namespace: myns-delete-get
+  labels:
+    deleted: "true"

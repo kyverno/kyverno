@@ -2,6 +2,7 @@ package resource
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -283,4 +284,32 @@ func checkMapsEqual(t *testing.T, expected, actual map[string]interface{}) {
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
+}
+
+func TestGetResourceFromPathClusterScopedResource(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "clusterrolebinding.yaml")
+
+	data := []byte(`
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: namespace-editor-test1-namespace-creator-sa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: namespace-editor
+subjects:
+  - kind: ServiceAccount
+    name: namespace-creator-sa
+    namespace: test1
+`)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := GetResourceFromPath(nil, path, "rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", "namespace-editor-test1-namespace-creator-sa")
+	if err != nil {
+		t.Fatalf("expected cluster-scoped resource to be found, got error: %v", err)
+	}
 }
