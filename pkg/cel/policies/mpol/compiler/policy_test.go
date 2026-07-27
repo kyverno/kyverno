@@ -7,6 +7,7 @@ import (
 	"time"
 
 	cel2 "github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
@@ -138,6 +139,45 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
+	})
+
+	t.Run("successful evaluation with audit annotations", func(t *testing.T) {
+		patchedObj := &unstructured.Unstructured{}
+		p := &Policy{
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: patchedObj,
+					err:    nil,
+				},
+			},
+			auditAnnotations: map[string]cel2.Program{
+				"resource-name": &fakeProgram{refVal: types.String("nginx")},
+				"empty":         &fakeProgram{refVal: types.String("")},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.Equal(t, patchedObj, res.PatchedResource)
+		assert.Equal(t, map[string]string{"resource-name": "nginx"}, res.AuditAnnotations)
+	})
+
+	t.Run("audit annotation evaluation error", func(t *testing.T) {
+		p := &Policy{
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: &unstructured.Unstructured{},
+					err:    nil,
+				},
+			},
+			auditAnnotations: map[string]cel2.Program{
+				"bad": &fakeProgram{err: errors.New("eval failed")},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.ErrorContains(t, res.Error, "failed to evaluate auditAnnotation \"bad\"")
 	})
 }
 

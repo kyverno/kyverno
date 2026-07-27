@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privilege-escalation-ns
+spec:
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/namespace-type: product
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   ["pods"]
+  validations:
+    - expression: >-
+        object.spec.containers.all(container, has(container.securityContext) &&
+        has(container.securityContext.allowPrivilegeEscalation) &&
+        container.securityContext.allowPrivilegeEscalation == false)
+      message: >-
+        Privilege escalation is disallowed. The field
+        spec.containers[*].securityContext.allowPrivilegeEscalation must be set to `false`.

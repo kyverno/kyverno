@@ -31,6 +31,17 @@ jobs:
         run: make codegen-all-code
       - name: Verify codegen is up to date
         run: make verify-codegen
+      - name: Create codegen patch
+        if: failure()
+        run: |
+          git diff > codegen-code.patch
+          echo 'Codegen is out of date. Download the codegen-code-patch artifact, then run `git apply codegen-code.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload codegen patch
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codegen-code-patch
+          path: codegen-code.patch
 
   verify-codegen-docs:
     name: Verify codegen (docs)
@@ -44,6 +55,17 @@ jobs:
         run: make codegen-all-docs
       - name: Verify codegen is up to date
         run: make verify-codegen
+      - name: Create codegen patch
+        if: failure()
+        run: |
+          git diff > codegen-docs.patch
+          echo 'Codegen is out of date. Download the codegen-docs-patch artifact, then run `git apply codegen-docs.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload codegen patch
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codegen-docs-patch
+          path: codegen-docs.patch
 
   sync-issue:
     if: always() && github.event_name == 'push'

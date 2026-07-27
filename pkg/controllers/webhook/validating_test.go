@@ -665,6 +665,102 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 	}
 }
 
+// TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers guards the webhook-routing
+// half of https://github.com/kyverno/kyverno/issues/16275 ("unsigned ephemeral containers can
+// execute despite ImageValidatingPolicy").
+//
+// Unlike the legacy JSON policy engine (see computeRules in utils_webhook.go, which always adds
+// "pods/ephemeralcontainers" whenever a rule matches "pods"), CEL-based ImageValidatingPolicy
+// webhook rules are built verbatim from the policy's own matchConstraints.ResourceRules
+// (see buildWebhookRules). There is currently no implicit expansion for the ephemeral containers
+// subresource, so a policy that only lists "pods" will never be invoked for
+// `pods/ephemeralcontainers` requests, and a policy must explicitly opt in (as recommended by the
+// Kyverno docs and as the issue reporter did) to be evaluated at all for debug/ephemeral
+// containers.
+//
+// These tests document both:
+//  1. the supported, working path (explicit "pods/ephemeralcontainers" in matchConstraints), and
+//  2. the current gap (matching only "pods" does not implicitly cover ephemeral containers),
+//
+// so that any future change to this default (e.g. auto-adding the subresource for IVPol/NIVPol,
+// mirroring the legacy engine) has an explicit regression test to update.
+func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.T) {
+	newIVPol := func(resources []string) *policiesv1beta1.ImageValidatingPolicy {
+		return &policiesv1beta1.ImageValidatingPolicy{
+			Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+									admissionregistrationv1.Update,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   resources,
+									Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	buildRules := func(t *testing.T, ivpol *policiesv1beta1.ImageValidatingPolicy) []admissionregistrationv1.RuleWithOperations {
+		t.Helper()
+		expressionCache := NewExpressionCache()
+		ivpols := []engineapi.GenericPolicy{engineapi.NewImageValidatingPolicy(ivpol)}
+		expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
+		webhooks := buildWebhookRules(
+			config.NewDefaultConfiguration(false),
+			"",
+			config.ImageValidatingPolicyValidateWebhookName,
+			"/ivpol/validate",
+			0,
+			nil,
+			ivpols,
+			expressionCache,
+		)
+		if len(webhooks) != 1 {
+			t.Fatalf("expected exactly one webhook, got %d", len(webhooks))
+		}
+		return webhooks[0].Rules
+	}
+
+	resourcesOf := func(rules []admissionregistrationv1.RuleWithOperations) []string {
+		var out []string
+		for _, r := range rules {
+			out = append(out, r.Resources...)
+		}
+		return out
+	}
+
+	t.Run("explicit opt-in covers ephemeral containers", func(t *testing.T) {
+		ivpol := newIVPol([]string{"pods", "pods/ephemeralcontainers"})
+		rules := buildRules(t, ivpol)
+		assert.Contains(t, resourcesOf(rules), "pods/ephemeralcontainers")
+
+		// Related gap (tracked separately, not part of #16275/#16336): CanAutoGen
+		// (pkg/cel/autogen/support.go) requires the rule's Resources to be exactly
+		// ["pods"], so opting into ephemeral container coverage currently disables
+		// autogen entirely -- the resulting webhook has no extra rules for
+		// Deployments/DaemonSets/Jobs/CronJobs/etc. Assert that here so a future
+		// change to either behavior is caught.
+		assert.Len(t, rules, 1, "expected autogen to be disabled once pods/ephemeralcontainers is added")
+	})
+
+	t.Run("matching pods alone does not implicitly cover ephemeral containers", func(t *testing.T) {
+		ivpol := newIVPol([]string{"pods"})
+		rules := buildRules(t, ivpol)
+		assert.NotContains(t, resourcesOf(rules), "pods/ephemeralcontainers")
+	})
+}
+
 func TestMergeLabelSelectors(t *testing.T) {
 	tests := []struct {
 		name     string
