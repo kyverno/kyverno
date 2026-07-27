@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -30,13 +29,21 @@ var (
 )
 
 // cosignPubKey is the public key for ghcr.io/kyverno/test-verify-image:signed, the same key used by
-// the in-tree cosign verifier tests. Policies here verify against it; the hermetic tests never run
-// the verification (they read a pre-stamped outcome), but the key keeps the policy authentic and
-// lets the reconciler compile it.
+// the in-tree cosign verifier tests. Policies here verify against it. The hermetic tests never reach
+// a registry, so verification of the unsigned or unreachable images they use fails and the policies
+// behave as configured (deny or warn); the registry-tagged tests use this key against the real signed
+// image.
 const cosignPubKey = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
 -----END PUBLIC KEY-----`
+
+// unverifiableImage points at a registry host that can never resolve ("registry.invalid" uses the
+// RFC 6761 reserved .invalid TLD). Verification of it fails fast and closed at name resolution, with
+// no network round trip, so the deny and warn assertions below are deterministic and independent of
+// whether the test host has (or flakily has) registry egress. The real signed/unsigned image checks
+// that need a registry live in the registry-tagged tests.
+const unverifiableImage = "registry.invalid/kyverno/unverifiable:latest"
 
 func TestMain(m *testing.M) {
 	var err error
@@ -84,9 +91,10 @@ func waitForPolicyReady(t *testing.T, name, namespace string) {
 	}, 5*time.Second, 100*time.Millisecond, "policy %q (namespace %q) not reconciled in time", name, namespace)
 }
 
-// ivpolSpec returns an authentic ImageValidatingPolicy spec: match pods on CREATE, only images under
-// ghcr.io, verify a cosign signature against the test key. actions selects the validation actions,
-// defaulting to Deny when none are given.
+// ivpolSpec returns an authentic ImageValidatingPolicy spec: match pods on CREATE, verify a cosign
+// signature on every image against the test key. actions selects the validation actions, defaulting
+// to Deny when none are given. The image glob is "*" (verify all images) so the hermetic tests can
+// point a pod at an unresolvable reference and still have it selected for verification.
 func ivpolSpec(actions ...admissionregistrationv1.ValidationAction) policiesv1beta1.ImageValidatingPolicySpec {
 	if len(actions) == 0 {
 		actions = []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}
@@ -94,7 +102,7 @@ func ivpolSpec(actions ...admissionregistrationv1.ValidationAction) policiesv1be
 	return policiesv1beta1.ImageValidatingPolicySpec{
 		MatchConstraints:     framework.PodMatchRules(),
 		ValidationAction:     actions,
-		MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+		MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "*"}},
 		Attestors: []policiesv1beta1.Attestor{{
 			Name:   "cosign",
 			Cosign: &policiesv1beta1.Cosign{Key: &policiesv1beta1.Key{Data: cosignPubKey}},
@@ -132,10 +140,12 @@ func createNivpolWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedIma
 	t.Cleanup(func() { _ = testEnv.Client.Delete(context.Background(), policy) })
 }
 
-// podRawWithOutcomes builds a Pod carrying the image-verification-outcomes annotation the validate
-// phase reads. outcomes maps a policy name to a status ("pass"/"fail"/"warning"). This is what the
-// mutate phase would normally stamp; seeding it lets us exercise the validate decision hermetically.
-func podRawWithOutcomes(t *testing.T, name, namespace string, outcomes map[string]string) []byte {
+// podRawWithImageAndOutcomes builds a Pod running the given image and carrying a forged
+// image-verification-outcomes annotation. outcomes maps a policy name to a status ("pass"/"fail").
+// The annotation is what an attacker (or a skipped mutate webhook) could pre-stamp; the validating
+// phase must ignore it and verify the image itself, so tests use this to prove the stamp is not
+// trusted (see issue #16336).
+func podRawWithImageAndOutcomes(t *testing.T, name, namespace, image string, outcomes map[string]string) []byte {
 	t.Helper()
 	stamped := map[string]map[string]string{}
 	for polName, status := range outcomes {
@@ -157,7 +167,7 @@ func podRawWithOutcomes(t *testing.T, name, namespace string, outcomes map[strin
 			"annotations": map[string]string{kyverno.AnnotationImageVerifyOutcomes: string(outcomesJSON)},
 		},
 		"spec": map[string]any{
-			"containers": []any{map[string]any{"name": "app", "image": "ghcr.io/kyverno/test-verify-image:signed"}},
+			"containers": []any{map[string]any{"name": "app", "image": image}},
 		},
 	}
 	raw, err := json.Marshal(pod)
@@ -165,40 +175,8 @@ func podRawWithOutcomes(t *testing.T, name, namespace string, outcomes map[strin
 	return raw
 }
 
-// outcomeStatusFor reports the verification status the mutating phase recorded for a policy in the
-// image-verification-outcomes annotation it patches onto the object. An empty string means no verdict
-// was recorded, i.e. the policy never got as far as verifying an image. Note that a policy which does
-// not apply can still appear with an empty outcome (autogen variants share their parent's name), so
-// the status, not the presence of the name, is what says whether verification actually ran.
-func outcomeStatusFor(t *testing.T, patch []byte, policyName string) string {
-	t.Helper()
-	if len(patch) == 0 {
-		return ""
-	}
-	var ops []struct {
-		Path  string `json:"path"`
-		Value any    `json:"value"`
-	}
-	require.NoError(t, json.Unmarshal(patch, &ops))
-
-	annotationPath := "/metadata/annotations/" + strings.ReplaceAll(kyverno.AnnotationImageVerifyOutcomes, "/", "~1")
-	for _, op := range ops {
-		if op.Path != annotationPath {
-			continue
-		}
-		raw, ok := op.Value.(string)
-		require.True(t, ok, "outcomes annotation value should be a JSON string")
-		outcomes := map[string]struct {
-			Status string `json:"status"`
-		}{}
-		require.NoError(t, json.Unmarshal([]byte(raw), &outcomes))
-		return outcomes[policyName].Status
-	}
-	return ""
-}
-
-// podRawWithImage builds a Pod running the given image and no image-verification-outcomes annotation,
-// i.e. a pod that has not been through the mutating phase yet.
+// podRawWithImage builds a Pod running the given image, with no image-verification-outcomes
+// annotation. This is the normal shape the validating phase verifies.
 func podRawWithImage(t *testing.T, name, namespace, image string) []byte {
 	t.Helper()
 	pod := map[string]any{
@@ -214,53 +192,49 @@ func podRawWithImage(t *testing.T, name, namespace, image string) []byte {
 	return raw
 }
 
-// podRawNoOutcomes builds a Pod with no image-verification-outcomes annotation.
-func podRawNoOutcomes(t *testing.T, name, namespace string) []byte {
-	t.Helper()
-	return podRawWithImage(t, name, namespace, "ghcr.io/kyverno/test-verify-image:signed")
-}
-
-// TestValidate_MissingOutcomesAnnotation_FailsClosed proves the two-phase contract is enforced: if a
-// pod reaches the validating webhook without the outcomes annotation the mutating phase should have
-// stamped, the request is refused rather than admitted unverified.
-func TestValidate_MissingOutcomesAnnotation_FailsClosed(t *testing.T) {
-	createIvpolWithCleanup(t, newIvpol("require-outcomes"))
-	waitForPolicyReady(t, "require-outcomes", "")
+// TestValidate_UnverifiableImage_FailsClosed is the fail-closed baseline: when an image cannot be
+// verified (it is unsigned, and the hermetic run has no registry egress to complete the check
+// either), a Deny policy refuses the pod rather than admitting it unverified.
+func TestValidate_UnverifiableImage_FailsClosed(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("require-signed"))
+	waitForPolicyReady(t, "require-signed", "")
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawNoOutcomes(t, "unstamped", "default")
-	ctx := framework.ContextWithPolicies(context.Background(), "require-outcomes")
-	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("unstamped", "default", raw), "", time.Now())
+	raw := podRawWithImage(t, "unsigned-pod", "default", unverifiableImage)
+	ctx := framework.ContextWithPolicies(context.Background(), "require-signed")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("unsigned-pod", "default", raw), "", time.Now())
 
-	assert.False(t, resp.Allowed, "a pod without verification outcomes must not be admitted")
+	assert.False(t, resp.Allowed, "a pod whose image cannot be verified must not be admitted")
 }
 
-// TestValidate_PassOutcome_AdmitsPod is the baseline of the annotation contract: a verified image
-// carries a pass outcome and the pod is admitted.
-func TestValidate_PassOutcome_AdmitsPod(t *testing.T) {
-	createIvpolWithCleanup(t, newIvpol("verified-passes"))
-	waitForPolicyReady(t, "verified-passes", "")
+// TestValidate_StampedOutcomeIsNotTrusted proves the annotation-trust hardening from #16336: the
+// validating phase does its own image verification and never trusts a pre-stamped
+// image-verification-outcomes annotation. A pod forges a passing outcome for an image that does not
+// actually verify, and it is still denied. (A genuinely signed image being admitted is covered by
+// the registry-tagged tests, which can reach a registry to complete the signature check.)
+func TestValidate_StampedOutcomeIsNotTrusted(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("reverify-stamped"))
+	waitForPolicyReady(t, "reverify-stamped", "")
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawWithOutcomes(t, "app", "default", map[string]string{"verified-passes": "pass"})
-	ctx := framework.ContextWithPolicies(context.Background(), "verified-passes")
+	raw := podRawWithImageAndOutcomes(t, "app", "default", unverifiableImage, map[string]string{"reverify-stamped": "pass"})
+	ctx := framework.ContextWithPolicies(context.Background(), "reverify-stamped")
 	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "default", raw), "", time.Now())
 
-	assert.True(t, resp.Allowed, "a pod with a passing verification outcome must be admitted")
-	assert.Empty(t, resp.Warnings, "a passing outcome must not raise warnings")
+	assert.False(t, resp.Allowed, "a forged pass outcome must not be trusted; the image is re-verified and denied")
 }
 
-// TestValidate_WarnAction_AdmitsPodWithWarning covers the rollout path teams use before enforcing:
-// the same failing verification only warns when the policy is in Warn mode.
+// TestValidate_WarnAction_AdmitsPodWithWarning covers the rollout path teams use before enforcing: a
+// failing verification only warns, and does not block, when the policy is in Warn mode.
 func TestValidate_WarnAction_AdmitsPodWithWarning(t *testing.T) {
 	createIvpolWithCleanup(t, newIvpol("warn-only", admissionregistrationv1.Warn))
 	waitForPolicyReady(t, "warn-only", "")
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawWithOutcomes(t, "app", "default", map[string]string{"warn-only": "fail"})
+	raw := podRawWithImage(t, "app", "default", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "warn-only")
 	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "default", raw), "", time.Now())
 
@@ -268,21 +242,24 @@ func TestValidate_WarnAction_AdmitsPodWithWarning(t *testing.T) {
 	assert.NotEmpty(t, resp.Warnings, "a Warn policy must surface the failed verification as a warning")
 }
 
-// TestValidate_OutcomeMissingForPolicy_DeniesPod covers the case where the annotation exists but
-// carries no verdict for this policy (for example the policy was created between the two phases):
-// the policy is treated as not evaluated and the pod is denied rather than let through.
-func TestValidate_OutcomeMissingForPolicy_DeniesPod(t *testing.T) {
-	createIvpolWithCleanup(t, newIvpol("late-policy"))
-	waitForPolicyReady(t, "late-policy", "")
+// TestValidate_MultiplePolicies_DenyAndWarnEnforcedIndependently covers a pod matched by two cluster
+// policies at once: a Deny policy and a Warn policy. Both fail verification, so the request is blocked
+// by the Deny policy and still carries the Warn policy's warning, proving the per-policy actions are
+// aggregated rather than one overriding the other.
+func TestValidate_MultiplePolicies_DenyAndWarnEnforcedIndependently(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("enforce-signed"))
+	createIvpolWithCleanup(t, newIvpol("observe-signed", admissionregistrationv1.Warn))
+	waitForPolicyReady(t, "enforce-signed", "")
+	waitForPolicyReady(t, "observe-signed", "")
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	// The annotation only carries a verdict for some other policy.
-	raw := podRawWithOutcomes(t, "app", "default", map[string]string{"a-different-policy": "pass"})
-	ctx := framework.ContextWithPolicies(context.Background(), "late-policy")
+	raw := podRawWithImage(t, "app", "default", unverifiableImage)
+	ctx := framework.ContextWithPolicies(context.Background(), "enforce-signed", "observe-signed")
 	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "default", raw), "", time.Now())
 
-	assert.False(t, resp.Allowed, "a policy with no recorded verdict must not admit the pod")
+	assert.False(t, resp.Allowed, "the Deny policy must block the pod")
+	assert.NotEmpty(t, resp.Warnings, "the Warn policy must still surface its warning alongside the deny")
 }
 
 // TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide covers the hazard called out by the
@@ -298,7 +275,7 @@ func TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide(t *testing.T
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 	ctx := framework.ContextWithPolicies(context.Background(), "shared-name")
-	raw := podRawWithOutcomes(t, "app", "collide-ns", map[string]string{"shared-name": "fail"})
+	raw := podRawWithImage(t, "app", "collide-ns", unverifiableImage)
 
 	// The namespaced route must pick the namespaced (Deny) policy.
 	nsResp := h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "collide-ns", raw), "", time.Now())
@@ -310,30 +287,27 @@ func TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide(t *testing.T
 	assert.NotEmpty(t, clusterResp.Warnings, "the cluster Warn policy must surface a warning")
 }
 
-// TestMutateNamespaced_PolicyDoesNotApplyAcrossNamespaces mirrors the validate-phase scoping check on
-// the mutating route: a namespaced policy must not even be evaluated for a pod in another namespace,
-// so no verification runs and no outcomes annotation is stamped.
-func TestMutateNamespaced_PolicyDoesNotApplyAcrossNamespaces(t *testing.T) {
-	framework.CreateNamespace(t, testEnv.KubeClient, "mutate-a")
-	framework.CreateNamespace(t, testEnv.KubeClient, "mutate-b")
-	createNivpolWithCleanup(t, newNivpol("mutate-crossns", "mutate-a"))
-	waitForPolicyReady(t, "mutate-crossns", "mutate-a")
+// TestMutate_IsNoOp confirms the mutating webhook no longer verifies images or stamps an outcome
+// annotation (issue #16336): verification moved entirely to the validating phase. Even a pod whose
+// image would fail verification is admitted unchanged, with no patch, by the mutating route.
+func TestMutate_IsNoOp(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("mutate-noop"))
+	waitForPolicyReady(t, "mutate-noop", "")
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawNoOutcomes(t, "app", "mutate-b")
-	ctx := framework.ContextWithPolicies(context.Background(), "mutate-crossns")
-	resp := h.MutateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "mutate-b", raw), "", time.Now())
+	raw := podRawWithImage(t, "app", "default", unverifiableImage)
+	ctx := framework.ContextWithPolicies(context.Background(), "mutate-noop")
+	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "default", raw), "", time.Now())
 
-	assert.True(t, resp.Allowed, "the mutating route must admit a pod no namespaced policy applies to")
-	assert.Empty(t, outcomeStatusFor(t, resp.Patch, "mutate-crossns"),
-		"a policy from another namespace must not verify the image")
+	assert.True(t, resp.Allowed, "the mutating route must admit the pod")
+	assert.Empty(t, resp.Patch, "the mutating route must not patch the pod (no verification, no stamped outcome)")
 }
 
-// TestMutate_MatchConditionNotMet_SkipsBeforeVerification covers the common "only enforce on
-// production workloads" shape: a pod that does not satisfy the policy matchConditions is admitted
-// without the policy being evaluated at all, so no image is ever pulled and no verdict is recorded.
-func TestMutate_MatchConditionNotMet_SkipsBeforeVerification(t *testing.T) {
+// TestValidate_MatchConditionNotMet_SkipsVerification covers the common "only enforce on production
+// workloads" shape: a pod that does not satisfy the policy matchConditions is not evaluated at all, so
+// its image (which would otherwise fail verification) is never pulled and the pod is admitted.
+func TestValidate_MatchConditionNotMet_SkipsVerification(t *testing.T) {
 	policy := newIvpol("prod-only")
 	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
 		Name:       "check-prod-label",
@@ -345,19 +319,19 @@ func TestMutate_MatchConditionNotMet_SkipsBeforeVerification(t *testing.T) {
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
 	// The pod carries no prod label, so the match condition is not met.
-	raw := podRawNoOutcomes(t, "dev-app", "default")
+	raw := podRawWithImage(t, "dev-app", "default", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "prod-only")
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("dev-app", "default", raw), "", time.Now())
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("dev-app", "default", raw), "", time.Now())
 
 	assert.True(t, resp.Allowed, "a pod outside the policy match conditions must be admitted")
-	assert.Empty(t, outcomeStatusFor(t, resp.Patch, "prod-only"),
-		"a policy whose match conditions are not met must not verify the image")
+	assert.Empty(t, resp.Warnings, "a policy whose match conditions are not met must not verify the image or warn")
 }
 
-// TestMutate_PolicyExceptionSkipsVerification covers the break-glass path: a PolicyException naming
-// the policy exempts the matching pod, and the recorded outcome is a skip rather than a verification
-// verdict, so the image is never pulled.
-func TestMutate_PolicyExceptionSkipsVerification(t *testing.T) {
+// TestValidate_PolicyExceptionSkipsVerification covers the break-glass path: a PolicyException naming
+// the policy exempts the matching pod, so the validating phase skips verification for it. The image
+// is one that would otherwise fail to verify, so admission proves the exception short-circuited
+// before the image was pulled rather than the image happening to pass.
+func TestValidate_PolicyExceptionSkipsVerification(t *testing.T) {
 	exception := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "allow-migration-pod", Namespace: "default"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
@@ -379,18 +353,17 @@ func TestMutate_PolicyExceptionSkipsVerification(t *testing.T) {
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawNoOutcomes(t, "skipped-pod", "default")
+	raw := podRawWithImage(t, "skipped-pod", "default", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "exception-verify")
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("skipped-pod", "default", raw), "", time.Now())
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("skipped-pod", "default", raw), "", time.Now())
 
 	assert.True(t, resp.Allowed, "an exempted pod must be admitted")
-	assert.Equal(t, "skip", outcomeStatusFor(t, resp.Patch, "exception-verify"),
-		"the exempted pod must record a skip rather than a verification verdict")
+	assert.Empty(t, resp.Warnings, "an exempted pod must not raise warnings")
 }
 
 // TestMutate_ResourceOutsideMatchConstraints_NotEvaluated confirms matchConstraints filtering reaches
 // the handler: a policy scoped to pods records nothing for a namespace admission request.
-func TestMutate_ResourceOutsideMatchConstraints_NotEvaluated(t *testing.T) {
+func TestValidate_ResourceOutsideMatchConstraints_NotEvaluated(t *testing.T) {
 	createIvpolWithCleanup(t, newIvpol("pods-only"))
 	waitForPolicyReady(t, "pods-only", "")
 
@@ -404,11 +377,10 @@ func TestMutate_ResourceOutsideMatchConstraints_NotEvaluated(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := framework.ContextWithPolicies(context.Background(), "pods-only")
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.NamespaceAdmissionRequest("some-namespace", nsRaw), "", time.Now())
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.NamespaceAdmissionRequest("some-namespace", nsRaw), "", time.Now())
 
 	assert.True(t, resp.Allowed, "a resource outside the policy match constraints must be admitted")
-	assert.Empty(t, outcomeStatusFor(t, resp.Patch, "pods-only"),
-		"a policy scoped to pods must not verify images for a namespace")
+	assert.Empty(t, resp.Warnings, "a policy scoped to pods must not verify images for a namespace")
 }
 
 // TestImageValidatingPolicy_ReconcilesClusterAndNamespaced guards the single-reconciler invariant the
@@ -424,9 +396,9 @@ func TestImageValidatingPolicy_ReconcilesClusterAndNamespaced(t *testing.T) {
 }
 
 // TestValidateNamespaced_PolicyDoesNotApplyAcrossNamespaces is the core scoping regression: a
-// NamespacedImageValidatingPolicy in ns-a must not enforce against a pod in ns-b. The ns-b pod even
-// carries a stamped "fail" outcome for that policy as a trap; correct namespace scoping filters the
-// ns-a policy out so the trap is never consulted, and the pod is admitted.
+// NamespacedImageValidatingPolicy in ns-a must not enforce against a pod in ns-b. The pod runs an
+// image that would fail verification, so admission proves the ns-a policy was scoped out rather than
+// evaluated.
 func TestValidateNamespaced_PolicyDoesNotApplyAcrossNamespaces(t *testing.T) {
 	framework.CreateNamespace(t, testEnv.KubeClient, "team-a")
 	framework.CreateNamespace(t, testEnv.KubeClient, "team-b")
@@ -435,8 +407,7 @@ func TestValidateNamespaced_PolicyDoesNotApplyAcrossNamespaces(t *testing.T) {
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	// Pod in team-b carries a fail verdict for the team-a policy; scoping must ignore it.
-	raw := podRawWithOutcomes(t, "app", "team-b", map[string]string{"req-crossns": "fail"})
+	raw := podRawWithImage(t, "app", "team-b", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "req-crossns")
 	resp := h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "team-b", raw), "", time.Now())
 
@@ -452,7 +423,7 @@ func TestValidateNamespaced_PolicyAppliesInOwnNamespace(t *testing.T) {
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawWithOutcomes(t, "app", "team-own", map[string]string{"req-ownns": "fail"})
+	raw := podRawWithImage(t, "app", "team-own", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "req-ownns")
 	resp := h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "team-own", raw), "", time.Now())
 
@@ -469,7 +440,7 @@ func TestValidateClustered_PolicyAppliesInEveryNamespace(t *testing.T) {
 	ctx := framework.ContextWithPolicies(context.Background(), "cluster-require-signed")
 
 	for _, ns := range []string{"default", "kube-system"} {
-		raw := podRawWithOutcomes(t, "app", ns, map[string]string{"cluster-require-signed": "fail"})
+		raw := podRawWithImage(t, "app", ns, unverifiableImage)
 		resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", ns, raw), "", time.Now())
 		assert.Falsef(t, resp.Allowed, "cluster policy must deny an unverified pod in namespace %q", ns)
 	}
@@ -485,7 +456,7 @@ func TestValidateNamespaced_IgnoresClusterPolicy(t *testing.T) {
 
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 
-	raw := podRawWithOutcomes(t, "app", "route-ns", map[string]string{"cluster-only": "fail"})
+	raw := podRawWithImage(t, "app", "route-ns", unverifiableImage)
 	ctx := framework.ContextWithPolicies(context.Background(), "cluster-only")
 	resp := h.ValidateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "route-ns", raw), "", time.Now())
 
