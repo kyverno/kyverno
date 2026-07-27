@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas
+spec:
+  failurePolicy: Fail
+  rules:
+    - name: check-min-replicas
+      context:
+        - name: existingDeployments
+          globalReference:
+            name: gctxentry-inline-deployments
+            jmesPath: "length(@)"
+      match:
+        all:
+          - resources:
+              kinds:
+                - Deployment
+      preconditions:
+        all:
+          - key: "{{ request.operation }}"
+            operator: AnyIn
+            value:
+              - CREATE
+              - UPDATE
+      validate:
+        failureAction: Enforce
+        deny:
+          conditions:
+            any:
+              - key: "{{ existingDeployments }}"
+                operator: Equal
+                value: 0

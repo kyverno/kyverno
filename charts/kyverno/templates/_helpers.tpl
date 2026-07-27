@@ -38,6 +38,9 @@
 {{- with .autoUpdateWebhooks -}}
   {{- $flags = append $flags (print "--autoUpdateWebhooks=" .enabled) -}}
 {{- end -}}
+{{- with .excludeBootstrapResources -}}
+  {{- $flags = append $flags (print "--excludeBootstrapResources=" .enabled) -}}
+{{- end -}}
 {{- with .backgroundScan -}}
   {{- $flags = append $flags (print "--backgroundScan=" .enabled) -}}
   {{- $flags = append $flags (print "--backgroundScanWorkers=" .backgroundScanWorkers) -}}
