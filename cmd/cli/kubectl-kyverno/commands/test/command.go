@@ -150,7 +150,7 @@ func testCommandExecute(
 					filteredResults = append(filteredResults, res)
 				}
 			}
-			if len(filteredResults) == 0 {
+			if len(filteredResults) == 0 && len(test.Test.Checks) == 0 {
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
