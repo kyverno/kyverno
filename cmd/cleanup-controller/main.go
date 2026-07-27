@@ -384,13 +384,7 @@ func main() {
 						kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
-							func(name string) *corev1.Namespace {
-								ns, err := nsLister.Get(name)
-								if err != nil {
-									return nil
-								}
-								return ns
-							},
+							celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient),
 							restMapper,
 							libCtx,
 							matching.NewMatcher(),
