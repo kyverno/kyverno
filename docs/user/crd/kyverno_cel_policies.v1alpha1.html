@@ -1729,6 +1729,37 @@ and reinvocation of mutations occurs on a per binding basis.</p>
     
     
       <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations that are surfaced
+as properties in policy report results. auditAnnotations are evaluated after the mutations have been
+applied successfully. The results of evaluating the expressions are attached to the report result as
+properties with the annotation key.
+If the expression evaluates to an empty string or null the annotation will not be included.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>webhookConfiguration</code>
           
           </br>
@@ -5114,7 +5145,10 @@ resources without a namespace are treated as cluster-scoped.</p>
   <p><p>Identity may contain the issuer and/or the subject found in the transparency
 log.
 Issuer/Subject uses a strict match, while IssuerRegExp and SubjectRegExp
-apply a regexp for matching.</p>
+apply a regexp for matching.
+For a dynamic subject, use SubjectExpression which accepts a CEL expression
+evaluated at admission time. The result is used as a regexp match against the
+certificate SAN URI, so it can be either a literal string or a regexp pattern.</p>
 </p>
 
   
@@ -5233,6 +5267,34 @@ apply a regexp for matching.</p>
           
 
           <p>SubjectRegExp specifies a regular expression to match the subject for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subjectExpression</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectExpression defines a CEL expression that evaluates to the subject string,
+matched as a regexp against the certificate SAN URI. Mutually exclusive with SubjectRegExp.</p>
 
 
           
@@ -7523,6 +7585,37 @@ mutations are evaluated in order, and are reinvoked according to
 the reinvocationPolicy.
 The mutations of a policy are invoked for each binding of this policy
 and reinvocation of mutations occurs on a per binding basis.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>auditAnnotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.AuditAnnotation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AuditAnnotations contains CEL expressions which are used to produce audit annotations that are surfaced
+as properties in policy report results. auditAnnotations are evaluated after the mutations have been
+applied successfully. The results of evaluating the expressions are attached to the report result as
+properties with the annotation key.
+If the expression evaluates to an empty string or null the annotation will not be included.</p>
 
 
           
