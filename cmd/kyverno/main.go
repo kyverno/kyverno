@@ -709,6 +709,7 @@ func main() {
 		}
 
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+		nsResolver := celengine.NewNamespaceResolver(setup.Logger.WithName("ns-resolver"), nsLister, setup.KubeClient)
 
 		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
@@ -773,38 +774,20 @@ func main() {
 			}
 			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
-				func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
+				nsResolver,
 				matching.NewMatcher(),
 			), metrics.AdmissionRequest)
 
 			ivpolEngine = ivpolengine.NewMetricWrapper(ivpolengine.NewEngine(
 				ivpolProvider,
-				func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
+				nsResolver,
 				matching.NewMatcher(),
 				setup.RegistrySecretLister,
 				setup.ImageVerifyCacheClient,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
-				func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				},
+				nsResolver,
 				matching.NewMatcher(),
 				typeConverter,
 				contextProvider,
