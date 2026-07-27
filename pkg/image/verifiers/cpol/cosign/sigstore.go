@@ -13,12 +13,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
-	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
 var (
@@ -196,19 +196,7 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 }
 
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
-	tufClient, err := tuf.NewFromEnv(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("initializing tuf: %w", err)
-	}
-	targetBytes, err := tufClient.GetTarget("trusted_root.json")
-	if err != nil {
-		return nil, fmt.Errorf("error getting targets: %w", err)
-	}
-	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error creating trusted root: %w", err)
-	}
-	return trustedRoot, nil
+	return sigstoretuf.TrustedRoot(ctx)
 }
 
 func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]any, error) {

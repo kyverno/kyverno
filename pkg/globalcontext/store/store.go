@@ -1,35 +1,57 @@
 package store
 
 import (
+	"errors"
 	"sync"
 )
 
+var ErrStoreFull = errors.New("global context store is full")
+
 type Store interface {
-	Set(key string, val Entry)
+	CheckCapacity(key string) error
+	Set(key string, val Entry) error
 	Get(key string) (Entry, bool)
 	Delete(key string)
 }
 
 type store struct {
 	sync.RWMutex
-	store map[string]Entry
+	store      map[string]Entry
+	maxEntries int
 }
 
-func New() Store {
+func New(maxEntries int) Store {
+	if maxEntries < 0 {
+		maxEntries = 0
+	}
 	return &store{
-		store: make(map[string]Entry),
+		store:      make(map[string]Entry),
+		maxEntries: maxEntries,
 	}
 }
 
-func (l *store) Set(key string, val Entry) {
+func (l *store) CheckCapacity(key string) error {
+	l.RLock()
+	defer l.RUnlock()
+	if _, exists := l.store[key]; !exists && l.maxEntries > 0 && len(l.store) >= l.maxEntries {
+		return ErrStoreFull
+	}
+	return nil
+}
+
+func (l *store) Set(key string, val Entry) error {
 	l.Lock()
-	defer l.Unlock()
-	old := l.store[key]
-	// If the key already exists, stop it before replacing it
+	old, exists := l.store[key]
+	if !exists && l.maxEntries > 0 && len(l.store) >= l.maxEntries {
+		l.Unlock()
+		return ErrStoreFull
+	}
+	l.store[key] = val
+	l.Unlock()
 	if old != nil {
 		old.Stop()
 	}
-	l.store[key] = val
+	return nil
 }
 
 func (l *store) Get(key string) (Entry, bool) {
@@ -41,10 +63,10 @@ func (l *store) Get(key string) (Entry, bool) {
 
 func (l *store) Delete(key string) {
 	l.Lock()
-	defer l.Unlock()
 	entry := l.store[key]
+	delete(l.store, key)
+	l.Unlock()
 	if entry != nil {
 		entry.Stop()
 	}
-	delete(l.store, key)
 }
