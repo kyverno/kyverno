@@ -373,7 +373,7 @@ func Test_NewPolicyExceptionEvents_CELPolicyException(t *testing.T) {
 
 	assert.Len(t, events, 2)
 	assert.Equal(t, policiesv1beta1.GroupVersion.String(), events[0].Regarding.APIVersion)
-	assert.Equal(t, "CELPolicyException", events[0].Regarding.Kind)
+	assert.Equal(t, "PolicyException", events[0].Regarding.Kind)
 	assert.Equal(t, "skip-dev", events[0].Regarding.Name)
 	assert.Equal(t, kyvernov1.GroupVersion.String(), events[1].Regarding.APIVersion)
 }
