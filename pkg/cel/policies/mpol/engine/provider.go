@@ -121,6 +121,10 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		// admission-disabled policies are never triggered by admission requests.
+		if !mpol.Policy.GetSpec().AdmissionEnabled() {
+			continue
+		}
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetSpec().MatchConstraints
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: matchConstraints}, attr, namespace); err != nil || !ok {
@@ -132,7 +136,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 				continue
 			}
 		}
-		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+		matchedPolicies = append(matchedPolicies, PolicyKey(mpol.Policy))
 	}
 	return matchedPolicies
 }

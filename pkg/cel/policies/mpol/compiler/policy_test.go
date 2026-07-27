@@ -7,6 +7,8 @@ import (
 	"time"
 
 	cel2 "github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -14,16 +16,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/managedfields"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	auditinternal "k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/apiserver/pkg/authentication/user"
-
-	"github.com/google/cel-go/common/types/ref"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
 
@@ -139,6 +139,45 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
+	})
+
+	t.Run("successful evaluation with audit annotations", func(t *testing.T) {
+		patchedObj := &unstructured.Unstructured{}
+		p := &Policy{
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: patchedObj,
+					err:    nil,
+				},
+			},
+			auditAnnotations: map[string]cel2.Program{
+				"resource-name": &fakeProgram{refVal: types.String("nginx")},
+				"empty":         &fakeProgram{refVal: types.String("")},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.Equal(t, patchedObj, res.PatchedResource)
+		assert.Equal(t, map[string]string{"resource-name": "nginx"}, res.AuditAnnotations)
+	})
+
+	t.Run("audit annotation evaluation error", func(t *testing.T) {
+		p := &Policy{
+			patchers: []Patcher{
+				&fakePatcher{
+					retVal: &unstructured.Unstructured{},
+					err:    nil,
+				},
+			},
+			auditAnnotations: map[string]cel2.Program{
+				"bad": &fakeProgram{err: errors.New("eval failed")},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.ErrorContains(t, res.Error, "failed to evaluate auditAnnotation \"bad\"")
 	})
 }
 

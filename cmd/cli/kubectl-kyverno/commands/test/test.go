@@ -17,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -42,10 +43,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +55,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type TestResponse struct {
@@ -64,6 +66,9 @@ type TestResponse struct {
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+	crdProcessor := data.NewCRDProcessor(nil)
+	data.InjectProcessor(crdProcessor)
+
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
@@ -232,6 +237,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 
 	var cmResolver engineapi.ConfigmapResolver
 	var restMapper meta.RESTMapper
+	var crdPaths []string
 	if len(testCase.Test.ClusterResources) > 0 {
 		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
 
@@ -244,7 +250,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
 			}
 			if len(src.Spec.CRDs) > 0 {
-				for _, crdFullPath := range path.GetFullPaths(src.Spec.CRDs, testDir, isGit) {
+				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
+				crdPaths = append(crdPaths, crdFullPaths...)
+
+				for _, crdFullPath := range crdFullPaths {
 					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
 						return &apiextensionsv1.CustomResourceDefinition{}
 					})
@@ -352,15 +361,26 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
+				resPolicyNamespace, resPolicyName := "", res.Policy
+				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
+					resPolicyNamespace, resPolicyName = ns, name
+					// Reject invalid forms like "ns/name/extra".
+					if strings.Contains(resPolicyName, "/") {
+						continue
+					}
+				}
+				if resPolicyName == "" || policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
+					continue
+				}
+
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
-								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						} else { // clone or data
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
@@ -375,9 +395,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 							}
 							if len(genClone) != 0 {
 								if isGit {
-									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 								} else {
-									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}
@@ -442,6 +462,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Out:                               io.Discard,
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
+			CrdPaths:                          crdPaths,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -526,6 +547,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
+			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -636,17 +658,29 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		// this informer technically lives for the duration of the cli command..
+		// maybe we can tolerate the fact that we don't have proper closure of it ?
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
+		imageverifycache.DisabledImageVerifyCache(),
 	)
+
 	if restMapper == nil {
 		var mapErr error
 		restMapper, mapErr = utils.GetRESTMapper(dclient)
@@ -689,7 +723,7 @@ func applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -715,13 +749,15 @@ func applyImageValidatingPolicies(
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -818,6 +854,13 @@ func applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := "resource matched"
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = "resource did not match"
 			}

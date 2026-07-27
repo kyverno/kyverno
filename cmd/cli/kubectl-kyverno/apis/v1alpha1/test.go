@@ -150,10 +150,23 @@ type GlobalContextEntryValue struct {
 
 // ValidateAPICallResponses validates mock HTTP entries before a test run.
 func ValidateAPICallResponses(entries []APICallResponseEntry) error {
+	seen := make(map[string]struct{}, len(entries))
 	for i := range entries {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
+		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// silently discard earlier entries, so we surface it as a validation error.
+		resolvedURL := entries[i].ResolvedURL()
+		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
+		key := resolvedURL
+		if method != "" {
+			key = method + ":" + resolvedURL
+		}
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }

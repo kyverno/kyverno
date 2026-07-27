@@ -31,6 +31,7 @@ type Engine interface {
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
 type EngineResponse struct {
@@ -93,7 +94,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
@@ -154,7 +155,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, false)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -177,7 +178,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
@@ -186,6 +187,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	startTime := time.Now()
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
+		if target {
+			targetConstraints := mpol.Policy.GetTargetMatchConstraints()
+			if len(targetConstraints.ResourceRules) > 0 {
+				constraints = targetConstraints.MatchResources
+			}
+		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
@@ -194,7 +201,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	}
-	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+	var result *compiler.EvaluationResult
+	if target {
+		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+	} else {
+		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+	}
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		return ruleResponse, nil
@@ -256,19 +268,58 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			)
 		}
 	} else {
-		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		// Surface evaluated audit annotations as report result properties on successful evaluation.
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
-	pols := e.provider.Fetch(context.TODO(), true)
-	for _, p := range pols {
-		if p.Policy.GetName() == policyName {
-			return p, nil
-		}
+	policies := e.GetCompiledPolicies(policyName)
+	if policy, ok := policies[policyName]; ok {
+		return policy, nil
 	}
 	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
+}
+
+func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
+	expectedNames := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		expectedNames[name] = struct{}{}
+	}
+
+	policies := make(map[string]Policy, len(expectedNames))
+	for _, mutateExisting := range []bool{false, true} {
+		compiledPolicies := e.provider.Fetch(context.TODO(), mutateExisting)
+		for _, policy := range compiledPolicies {
+			name := policy.Policy.GetName()
+			key := PolicyKey(policy.Policy)
+			if len(expectedNames) > 0 {
+				// index by whichever identifier the caller used: the stable
+				// policy key (namespace/name) or the bare name. Never overwrite
+				// a recorded match so lookups stay stable when autogenerated
+				// variants or same-named policies share an identifier.
+				if _, ok := expectedNames[key]; ok {
+					if _, exists := policies[key]; !exists {
+						policies[key] = policy
+					}
+				}
+				if _, ok := expectedNames[name]; ok {
+					if _, exists := policies[name]; !exists {
+						policies[name] = policy
+					}
+				}
+				continue
+			}
+			if _, ok := policies[key]; !ok {
+				policies[key] = policy
+			}
+			if _, ok := policies[name]; !ok {
+				policies[name] = policy
+			}
+		}
+	}
+	return policies
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {

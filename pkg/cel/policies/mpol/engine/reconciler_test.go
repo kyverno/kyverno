@@ -8,12 +8,14 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -23,40 +25,59 @@ import (
 type fakeClient struct {
 	client.Client
 	policy *policiesv1beta1.MutatingPolicy
+	nmpol  *policiesv1beta1.NamespacedMutatingPolicy
 	err    error
 }
 
-func (f *fakeClient) Get(_ context.Context, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+func (f *fakeClient) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 	if f.err != nil {
 		return f.err
 	}
-	*obj.(*policiesv1beta1.MutatingPolicy) = *f.policy
-	return nil
+	switch o := obj.(type) {
+	case *policiesv1beta1.MutatingPolicy:
+		if f.policy != nil && key.Name == f.policy.Name && key.Namespace == f.policy.Namespace {
+			*o = *f.policy
+			return nil
+		}
+	case *policiesv1beta1.NamespacedMutatingPolicy:
+		if f.nmpol != nil && key.Name == f.nmpol.Name && key.Namespace == f.nmpol.Namespace {
+			*o = *f.nmpol
+			return nil
+		}
+	}
+	return apierrors.NewNotFound(schema.GroupResource{}, "")
 }
 
 func TestReconcile(t *testing.T) {
 	ctx := context.Background()
-	name := types.NamespacedName{Namespace: "default", Name: "test-policy"}
 
-	//t.Run("policy not found", func(t *testing.T) {
-	//	rec := newReconciler(
-	//		&fakeClient{err: errors.ErrUnsupported(policiesv1alpha1.Resource("mutatingpolicies"), "test-policy")},
-	//		compiler.NewCompiler(), nil, false,
-	///	)
-	//	res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
-	//	assert.NoError(t, err)
-	//	assert.Equal(t, reconcile.Result{}, res)
-	//})
-
-	t.Run("successful reconciliation", func(t *testing.T) {
+	t.Run("successful reconciliation of cluster-scoped MutatingPolicy", func(t *testing.T) {
 		mp := &policiesv1beta1.MutatingPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 		}
 		rec := newReconciler(
 			&fakeClient{policy: mp},
 			compiler.NewCompiler(),
 			nil, false,
 		)
+		// Cluster-scoped: no namespace in request.
+		name := types.NamespacedName{Name: "test-policy"}
+		res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
+		assert.NoError(t, err)
+		assert.Equal(t, reconcile.Result{}, res)
+	})
+
+	t.Run("successful reconciliation of NamespacedMutatingPolicy", func(t *testing.T) {
+		nmp := &policiesv1beta1.NamespacedMutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol", Namespace: "test-ns"},
+		}
+		rec := newReconciler(
+			&fakeClient{nmpol: nmp},
+			compiler.NewCompiler(),
+			nil, false,
+		)
+		// Namespaced: namespace in request.
+		name := types.NamespacedName{Namespace: "test-ns", Name: "test-nmpol"}
 		res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
 		assert.NoError(t, err)
 		assert.Equal(t, reconcile.Result{}, res)
@@ -251,15 +272,60 @@ func TestMatchesMutateExisting(t *testing.T) {
 			},
 			expectedNames: []string{},
 		},
+		{
+			name: "namespaced policy returns stable policy key",
+			policies: map[string][]Policy{
+				"default/policy4": {
+					{
+						Policy: &policiesv1beta1.NamespacedMutatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "policy4", Namespace: "default"},
+							Spec: policiesv1beta1.MutatingPolicySpec{
+								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+									MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+										Enabled: &trueBool,
+									},
+								},
+								MatchConstraints: &admissionregistrationv1.MatchResources{},
+							},
+						},
+						CompiledPolicy: &compiler.Policy{},
+					},
+				},
+			},
+			expectedNames: []string{"default/policy4"},
+		},
+		{
+			name: "admission-disabled policy is never matched by admission requests",
+			policies: map[string][]Policy{
+				"test/policy5": {
+					{
+						Policy: &policiesv1beta1.MutatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "policy5"},
+							Spec: policiesv1beta1.MutatingPolicySpec{
+								EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+									Admission: &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+									MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+										Enabled: &trueBool,
+									},
+								},
+								MatchConstraints: &admissionregistrationv1.MatchResources{},
+							},
+						},
+						CompiledPolicy: &compiler.Policy{},
+					},
+				},
+			},
+			expectedNames: []string{},
+		},
 	}
 
-	compiler := mpolcompiler.NewCompiler()
+	comp := compiler.NewCompiler()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for k, l := range tt.policies {
 				for i, p := range l {
-					c, _ := compiler.Compile(p.Policy, nil)
+					c, _ := comp.Compile(p.Policy, nil)
 					tt.policies[k][i].CompiledPolicy = c
 				}
 			}
