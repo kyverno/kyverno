@@ -279,6 +279,30 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 	}
 }
 
+func TestImageVerificationMetadata_ScopesPoliciesAndRules(t *testing.T) {
+	image := "registry.example.com/app:latest"
+	first := ImageVerificationMetadata{}
+	first.Add(image, ImageVerificationPass)
+	first.AddScoped("", "policy-one", "verify", image, ImageVerificationPass)
+	second := ImageVerificationMetadata{}
+	second.AddScoped("", "policy-two", "verify", image, ImageVerificationFail)
+	first.Merge(second)
+
+	assert.Equal(t, ImageVerificationPass, first.ScopedImageVerificationStatus("", "policy-one", "verify", image))
+	assert.Equal(t, ImageVerificationFail, first.ScopedImageVerificationStatus("", "policy-two", "verify", image))
+	assert.Equal(t, ImageVerificationFail, first.ScopedImageVerificationStatus("", "policy-one", "other-rule", image))
+
+	patches, err := first.Patches(true, logr.Discard())
+	assert.NoError(t, err)
+	assert.Len(t, patches, 2)
+	assert.Equal(t, `{"registry.example.com/app:latest":"pass"}`, patches[0].Value.(string))
+	value := patches[1].Value.(string)
+	parsed, err := ParseImageMetadata(value)
+	assert.NoError(t, err)
+	assert.Equal(t, ImageVerificationPass, parsed.ScopedImageVerificationStatus("", "policy-one", "verify", image))
+	assert.Equal(t, ImageVerificationFail, parsed.ScopedImageVerificationStatus("", "policy-two", "verify", image))
+}
+
 func Test_makeAnnotationKeyForJSONPatch(t *testing.T) {
 	tests := []struct {
 		name string
