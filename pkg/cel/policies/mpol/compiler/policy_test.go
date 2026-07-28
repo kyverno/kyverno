@@ -9,6 +9,8 @@ import (
 	cel2 "github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -139,6 +141,62 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
+	})
+
+	t.Run("full-exemption exception takes precedence over partial exceptions", func(t *testing.T) {
+		// Regression test for https://github.com/kyverno/kyverno/issues/16053:
+		// When both a partial exception (with Images) and a full-exemption exception
+		// (no Images, no AllowedValues) match, the full exemption must win and the
+		// policy must be skipped.
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// empty → full exemption
+			},
+		}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{MatchConditions: []cel2.Program{}, Exception: partialEx},
+				{MatchConditions: []cel2.Program{}, Exception: fullEx},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+
+		assert.NotNil(t, res)
+		assert.Nil(t, res.Error)
+		assert.Nil(t, res.PatchedResource)
+		assert.NotEmpty(t, res.Exceptions)
+	})
+
+	t.Run("full-exemption exception takes precedence over partial exceptions (reversed order)", func(t *testing.T) {
+		partialEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				Images: []string{"nginx:*"},
+			},
+		}
+		fullEx := &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				// empty → full exemption
+			},
+		}
+		p := &Policy{
+			exceptions: []compiler.Exception{
+				{MatchConditions: []cel2.Program{}, Exception: fullEx},
+				{MatchConditions: []cel2.Program{}, Exception: partialEx},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+
+		assert.NotNil(t, res)
+		assert.Nil(t, res.Error)
+		assert.Nil(t, res.PatchedResource)
+		assert.NotEmpty(t, res.Exceptions)
 	})
 
 	t.Run("successful evaluation with audit annotations", func(t *testing.T) {
