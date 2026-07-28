@@ -89,6 +89,65 @@ func TestMutate_BackgroundScan_UserInfoUsernameIsAvailable(t *testing.T) {
 	assert.Assert(t, !hasUserInfoError(err, resp), "request.userInfo.username must be available for MAP background scan")
 }
 
+// noSuchKey reports whether any rule failed with a "no such key: <field>" evaluation error,
+// which is what happens when an omitempty userInfo field is dropped during a background scan.
+func noSuchKey(field string, err error, resp engineapi.EngineResponse) bool {
+	want := "no such key: " + field
+	if err != nil && strings.Contains(err.Error(), want) {
+		return true
+	}
+	for _, r := range resp.PolicyResponse.Rules {
+		if strings.Contains(r.Message(), want) {
+			return true
+		}
+	}
+	return false
+}
+
+// The same omitempty drop that hid request.userInfo.username also hides groups and uid during
+// background scans (#14281 residual). A policy referencing either must evaluate without a
+// "no such key" error when the scanner passes an empty UserInfo.
+func TestValidate_BackgroundScan_GroupsAndUIDAreAvailable(t *testing.T) {
+	resource, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion": "v1", "kind": "Node", "metadata": {"name": "node-1"}}`))
+	assert.NilError(t, err)
+	nodeGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
+
+	cases := []struct {
+		field      string
+		expression string
+	}{
+		// the standard "exclude kubelet requests" shape from the Kubernetes VAP docs
+		{"groups", `!("system:masters" in request.userInfo.groups)`},
+		{"uid", `request.userInfo.uid != "known-uid"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "ref-" + tc.field},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+					Validations: []admissionregistrationv1.Validation{{Expression: tc.expression}},
+				},
+			}
+			policyData := engineapi.NewValidatingAdmissionPolicyData(policy)
+
+			resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, &authenticationv1.UserInfo{}, true)
+			assert.NilError(t, err)
+			assert.Assert(t, !noSuchKey(tc.field, err, resp), "request.userInfo.%s must be available during background scan", tc.field)
+			assert.Equal(t, engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Status(), "the synthetic scan user must not be a privileged group / known uid")
+		})
+	}
+}
+
+func TestResolveUser_DefaultsGroupsAndUIDWhenEmpty(t *testing.T) {
+	u := ResolveUser(&authenticationv1.UserInfo{})
+	assert.Assert(t, len(u.GetGroups()) > 0, "groups must be defaulted so request.userInfo.groups is present")
+	assert.Assert(t, u.GetUID() != "", "uid must be defaulted so request.userInfo.uid is present")
+	// the synthetic group must not be a real privileged group
+	for _, g := range u.GetGroups() {
+		assert.Assert(t, g != "system:masters" && g != "system:authenticated", "synthetic group must not be privileged: %s", g)
+	}
+}
+
 func TestResolveUser_PreservesProvidedFieldsWhenUsernameEmpty(t *testing.T) {
 	// A caller may supply groups/uid/extra without a username (the CLI accepts a userInfo with
 	// only groups). Those fields must be kept; only the username is defaulted.
