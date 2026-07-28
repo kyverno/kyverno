@@ -10,6 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
@@ -73,9 +74,9 @@ func (iv *imageVerifier) Verify(
 
 		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
 		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
-		if err == nil && !changed {
+		if err == nil && !changed && iv.isPreviouslyVerified(image) {
 			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-			iv.ivm.Add(image, engineapi.ImageVerificationPass)
+			iv.addImageVerificationMetadata(image, engineapi.ImageVerificationPass)
 			continue
 		}
 
@@ -128,12 +129,24 @@ func (iv *imageVerifier) Verify(
 
 		if ruleResp != nil {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-				iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
+				iv.addImageVerificationMetadata(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
 			}
 			responses = append(responses, ruleResp)
 		}
 	}
 	return patches, responses
+}
+
+func (iv *imageVerifier) isPreviouslyVerified(image string) bool {
+	policy := iv.policyContext.Policy()
+	status, err := engineutils.IsImageVerifiedForPolicy(iv.policyContext.OldResource(), policy.GetNamespace(), policy.GetName(), iv.rule.Name, image, iv.logger)
+	return err == nil && (status == engineapi.ImageVerificationPass || status == engineapi.ImageVerificationSkip)
+}
+
+func (iv *imageVerifier) addImageVerificationMetadata(image string, status engineapi.ImageVerificationMetadataStatus) {
+	policy := iv.policyContext.Policy()
+	iv.ivm.Add(image, status)
+	iv.ivm.AddScoped(policy.GetNamespace(), policy.GetName(), iv.rule.Name, image, status)
 }
 
 func (iv *imageVerifier) verifyImage(
