@@ -36,6 +36,8 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
+	github.com/kyverno/pkg/certmanager v0.0.10
+	github.com/kyverno/pkg/tls v0.0.9
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
 	github.com/kyverno/sdk v0.0.0-20260703121625-e0dc6fb8661a
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
