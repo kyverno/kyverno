@@ -43,11 +43,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -55,13 +54,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type TestResponse struct {
-	Trigger         map[string][]engineapi.EngineResponse
-	Target          map[string][]engineapi.EngineResponse
-	SkippedPolicies map[string]string
+	Trigger map[string][]engineapi.EngineResponse
+	// TriggerByOperation holds the responses of the additional evaluation runs
+	// performed for test results that declare an explicit admission operation.
+	// The outer key is the operation (CREATE, UPDATE or DELETE), the inner key
+	// is the resource key.
+	TriggerByOperation map[string]map[string][]engineapi.EngineResponse
+	Target             map[string][]engineapi.EngineResponse
+	SkippedPolicies    map[string]string
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
@@ -360,15 +366,26 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
+				resPolicyNamespace, resPolicyName := "", res.Policy
+				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
+					resPolicyNamespace, resPolicyName = ns, name
+					// Reject invalid forms like "ns/name/extra".
+					if strings.Contains(resPolicyName, "/") {
+						continue
+					}
+				}
+				if resPolicyName == "" || policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
+					continue
+				}
+
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
-								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 							} else {
-								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
 							}
 						} else { // clone or data
 							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
@@ -383,9 +400,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 							}
 							if len(genClone) != 0 {
 								if isGit {
-									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 								} else {
-									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
 								}
 							}
 						}
@@ -413,13 +430,32 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
-		Trigger:         map[string][]engineapi.EngineResponse{},
-		Target:          map[string][]engineapi.EngineResponse{},
-		SkippedPolicies: skippedPolicyNames,
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target:             map[string][]engineapi.EngineResponse{},
+		SkippedPolicies:    skippedPolicyNames,
 	}
-	for _, resource := range uniques {
+	// validate the operations declared on test results and collect the distinct
+	// explicit operations, each of which triggers a dedicated evaluation run
+	if _, err := processor.NormalizeValuesOperation(vars.GlobalOperation()); err != nil {
+		return nil, err
+	}
+	explicitOperations := sets.New[string]()
+	for _, res := range testCase.Test.Results {
+		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
+			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
+		}
+		if res.Operation == "" {
+			continue
+		}
+		if res.IsDeletingPolicy {
+			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
+		}
+		explicitOperations.Insert(res.Operation)
+	}
+	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
+		pp := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -431,6 +467,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
+			Operation:                         operation,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,
@@ -452,7 +489,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
@@ -473,14 +510,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				operation,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 			}
 			ers = append(ers, ivpols...)
 		}
-
-		if len(results.DeletingPolicies) != 0 {
+		// deleting policies are not admission driven, they are only evaluated in
+		// the default run
+		if defaultRun && len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
@@ -500,10 +539,29 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 			ers = append(ers, dpols...)
 		}
-
+		return ers, nil
+	}
+	for _, resource := range uniques {
 		resourceKey := generateResourceKey(resource)
+		// default run, honoring the values file operation when set
+		ers, err := evalResource(resource, "", true)
+		if err != nil {
+			return nil, err
+		}
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
+		// one additional run per distinct operation explicitly declared on results
+		for _, operation := range sets.List(explicitOperations) {
+			ers, err := evalResource(resource, operation, false)
+			if err != nil {
+				return nil, err
+			}
+			engineResponses = append(engineResponses, ers...)
+			if testResponse.TriggerByOperation[operation] == nil {
+				testResponse.TriggerByOperation[operation] = map[string][]engineapi.EngineResponse{}
+			}
+			testResponse.TriggerByOperation[operation][resourceKey] = ers
+		}
 	}
 
 	for _, jp := range jsonPayloads {
@@ -559,6 +617,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				restMapper,
 				gceMap,
+				"",
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
@@ -641,22 +700,35 @@ func applyImageValidatingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		// this informer technically lives for the duration of the cli command..
+		// maybe we can tolerate the fact that we don't have proper closure of it ?
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
+		imageverifycache.DisabledImageVerifyCache(),
 	)
+
 	if restMapper == nil {
 		var mapErr error
 		restMapper, mapErr = utils.GetRESTMapper(dclient)
@@ -685,6 +757,7 @@ func applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -692,14 +765,14 @@ func applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -725,13 +798,15 @@ func applyImageValidatingPolicies(
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -828,6 +903,13 @@ func applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := "resource matched"
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = "resource did not match"
 			}

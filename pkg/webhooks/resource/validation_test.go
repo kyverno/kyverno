@@ -15,9 +15,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	log "github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 )
 
@@ -2076,7 +2076,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	eng := engine.NewEngine(
 		cfg,
 		jp,
@@ -2178,7 +2178,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx = ctx.WithPolicy(&policy)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New(nil, "", "", "", false)
 	eng := engine.NewEngine(
 		cfg,
 		jp,

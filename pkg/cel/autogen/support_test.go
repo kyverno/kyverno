@@ -52,6 +52,7 @@ func TestCanAutoGen(t *testing.T) {
 		},
 	}, {
 		name: "with namespace selector",
+		want: true,
 		match: &admissionregistrationv1.MatchResources{
 			NamespaceSelector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
