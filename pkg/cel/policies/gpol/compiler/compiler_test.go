@@ -159,4 +159,38 @@ func TestCompile(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
+
+	t.Run("should_compile_successfully_with_valid_audit_annotation", func(t *testing.T) {
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "triggeredBy",
+						ValueExpression: "'namespace/' + object.metadata.namespace",
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		res, errs := comp.Compile(pol, nil)
+		assert.NotNil(t, res)
+		assert.Nil(t, errs)
+	})
+
+	t.Run("should_fail_when_audit_annotation_expression_is_invalid", func(t *testing.T) {
+		pol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "triggeredBy",
+						ValueExpression: "invalid ++ expression",
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		res, errs := comp.Compile(pol, nil)
+		assert.Nil(t, res)
+		assert.NotNil(t, errs)
+	})
 }
