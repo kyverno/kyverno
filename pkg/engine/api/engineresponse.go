@@ -294,22 +294,28 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 }
 
 // failureActionForRule resolves the effective failure action for the rule with the given name
-// within the supplied rule set, falling back to the spec-level override and action when that
-// rule sets none.
+// within the supplied rule set. If the rule is found but sets no explicit per-rule action, it
+// falls back to the spec-level override and action. If the rule name cannot be resolved at all
+// (e.g. the computed rule set does not contain it), it falls back to GetValidationFailureAction
+// so that an unresolvable name never silently degrades an Enforce policy to Audit.
 func (er EngineResponse) failureActionForRule(spec *kyvernov1.Spec, rules []kyvernov1.Rule, name string) kyvernov1.ValidationFailureAction {
 	for _, r := range rules {
 		if r.Name != name {
 			continue
 		}
+		// Rule found: use its explicit per-rule action if set.
 		if action, ok := er.ruleAction(r); ok {
 			return action
 		}
-		break
+		// Rule found but no per-rule action: fall back to spec-level.
+		if action, ok := er.matchOverride(spec.ValidationFailureActionOverrides); ok {
+			return action
+		}
+		return spec.ValidationFailureAction
 	}
-	if action, ok := er.matchOverride(spec.ValidationFailureActionOverrides); ok {
-		return action
-	}
-	return spec.ValidationFailureAction
+	// Rule name not found in computed set: use the policy-wide action as a safe fallback
+	// so that a name resolution miss cannot cause an Enforce policy to fail open.
+	return er.GetValidationFailureAction()
 }
 
 // HasEnforcedFailure reports whether any rule that failed resolves to an Enforce action. The
