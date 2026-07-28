@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"errors"
-	"sort"
-	"strings"
 	"testing"
 
+	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,9 +17,9 @@ func TestCreatePodsSuccess(t *testing.T) {
 	client := kubefake.NewSimpleClientset()
 	namespace = "test"
 
-	errs := createPods(context.Background(), client, namespace, 3)
-	if len(errs) != 0 {
-		t.Fatalf("expected no errors, got %d: %v", len(errs), errs)
+	err := createPods(context.Background(), client, namespace, 3)
+	if err != nil {
+		t.Fatalf("expected no errors, got %v", err)
 	}
 
 	pods, err := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
@@ -49,22 +48,25 @@ func TestCreatePodsCollectsPerPodErrors(t *testing.T) {
 		return false, nil, nil
 	})
 
-	errs := createPods(context.Background(), client, namespace, 4)
+	err := createPods(context.Background(), client, namespace, 4)
+	if err == nil {
+		t.Fatal("expected aggregated error, got nil")
+	}
+
+	errs := multierr.Errors(err)
 	if len(errs) != len(failedPods) {
 		t.Fatalf("expected %d errors, got %d: %v", len(failedPods), len(errs), errs)
 	}
-
-	got := make([]string, 0, len(errs))
+	got := map[string]struct{}{}
 	for _, err := range errs {
-		got = append(got, err.Error())
+		got[err.Error()] = struct{}{}
 	}
-	sort.Strings(got)
-
-	want := []string{
+	for _, want := range []string{
 		"perf-testing-pod-1: boom-1",
 		"perf-testing-pod-3: boom-3",
-	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("unexpected errors:\nwant:\n%s\n\ngot:\n%s", strings.Join(want, "\n"), strings.Join(got, "\n"))
+	} {
+		if _, ok := got[want]; !ok {
+			t.Fatalf("missing expected error %q in %v", want, got)
+		}
 	}
 }

@@ -5,11 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
+	"go.uber.org/multierr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,8 +71,10 @@ func main() {
 				}
 				os.Exit(0)
 			}
-			for _, err := range createPods(context.TODO(), client, namespace, count) {
-				fmt.Println("failed to create the pod: ", err)
+			if err := createPods(context.TODO(), client, namespace, count); err != nil {
+				for _, podErr := range multierr.Errors(err) {
+					fmt.Println("failed to create the pod: ", podErr)
+				}
 			}
 		case "replicasets":
 			if delete {
@@ -114,7 +116,7 @@ func main() {
 	}
 }
 
-func createPods(ctx context.Context, client kubernetes.Interface, namespace string, count int) []error {
+func createPods(ctx context.Context, client kubernetes.Interface, namespace string, count int) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, count)
 
@@ -139,10 +141,7 @@ func createPods(ctx context.Context, client kubernetes.Interface, namespace stri
 	for err := range errCh {
 		errs = append(errs, err)
 	}
-	sort.Slice(errs, func(i, j int) bool {
-		return errs[i].Error() < errs[j].Error()
-	})
-	return errs
+	return multierr.Combine(errs...)
 }
 
 func newPod(i string) *corev1.Pod {
