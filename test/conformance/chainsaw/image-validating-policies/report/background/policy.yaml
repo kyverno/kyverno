@@ -33,6 +33,8 @@ spec:
   failurePolicy: Ignore
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

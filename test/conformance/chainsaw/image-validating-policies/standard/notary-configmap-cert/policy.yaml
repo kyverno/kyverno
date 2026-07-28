@@ -24,6 +24,8 @@ spec:
         resource.get("v1", "configmaps", object.metadata.namespace, "keys")
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

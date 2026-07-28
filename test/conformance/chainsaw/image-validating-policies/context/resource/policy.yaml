@@ -25,6 +25,8 @@ spec:
         Deployment labels must be env=prod
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

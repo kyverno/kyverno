@@ -18,6 +18,8 @@ spec:
         resources: ["pods", "pods/ephemeralcontainers"]
   matchImageReferences:
     - glob: "*"
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

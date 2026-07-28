@@ -22,6 +22,8 @@ spec:
         Deployment must be have images from ghcr and images should be tagged
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

@@ -149,7 +149,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 `
 )
 
-func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
+func Test_ImageVerifyEngine_MutatingPinsDigest(t *testing.T) {
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -163,6 +163,43 @@ func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
 		Context: libs.NewFakeContextProvider(),
 	}
 	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	if assert.Len(t, patches, 1) {
+		assert.Equal(t, "replace", patches[0].Operation)
+		assert.Equal(t, "/spec/containers/0/image", patches[0].Path)
+		assert.Equal(t, signedImage, patches[0].Value.(string)[:len(signedImage)])
+		assert.Contains(t, patches[0].Value, "@sha256:")
+	}
+}
+
+func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
+	falseVal := false
+	disabledIvpol := ivpol.DeepCopy()
+	disabledIvpol.Spec.ValidationConfigurations.MutateDigest = &falseVal
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:  disabledIvpol,
+				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
+			},
+		}, nil
+	})
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)

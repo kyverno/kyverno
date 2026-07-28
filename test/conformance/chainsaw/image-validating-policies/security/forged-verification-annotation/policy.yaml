@@ -13,6 +13,8 @@ spec:
         resources: ["pods"]
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
   attestors:
     - name: notary
       notary:

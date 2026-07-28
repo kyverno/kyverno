@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
@@ -20,6 +21,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -133,10 +135,11 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // could forge and that would be trusted if the mutating webhook was ever
 // skipped (see https://github.com/kyverno/kyverno/issues/16336).
 //
-// HandleMutating is therefore limited to true mutation responsibilities
-// (e.g. pinning image tags to digests). No such mutation is implemented
-// for ImageValidatingPolicy yet, so this returns the resource unchanged
-// with no patches and no policy results.
+// HandleMutating is therefore limited to true mutation responsibilities:
+// for every policy with mutateDigest enabled (the default) that matches the
+// request, it pins the tag of images matched by the policy's
+// matchImageReferences to their resolved digest. No signature or
+// attestation verification is performed here.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// load objects
@@ -148,7 +151,104 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	if response.Resource.Object == nil {
 		response.Resource = &oldObject
 	}
-	return response, nil, nil
+	// fetch compiled policies
+	policies, err := e.provider.Fetch(ctx)
+	if err != nil {
+		return response, nil, err
+	}
+	// default dry run
+	dryRun := false
+	if request.Request.DryRun != nil {
+		dryRun = *request.Request.DryRun
+	}
+	// create admission attributes
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.Request.Kind),
+		request.Request.Namespace,
+		request.Request.Name,
+		schema.GroupVersionResource(request.Request.Resource),
+		request.Request.SubResource,
+		admission.Operation(request.Request.Operation),
+		nil,
+		dryRun,
+		admissionpolicy.NewUser(request.Request.UserInfo),
+	)
+	// resolve namespace
+	var namespace runtime.Object
+	if ns := request.Request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+	// evaluate policies
+	var relevant []Policy
+	if predicate != nil {
+		for _, policy := range policies {
+			if !predicate(policy.Policy) {
+				continue
+			}
+			relevant = append(relevant, policy)
+		}
+	} else {
+		relevant = policies
+	}
+	patches, err := e.handleMutation(ctx, relevant, attr, &request.Request, namespace, *response.Resource, request.Context)
+	if err != nil {
+		return response, nil, err
+	}
+	return response, patches, nil
+}
+
+func (e *engineImpl) handleMutation(
+	ctx context.Context,
+	policies []Policy,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	resource unstructured.Unstructured,
+	libctx libs.Context,
+) ([]jsonpatch.JsonPatchOperation, error) {
+	// leave remote and name options blank, each compiled policy will provide
+	// its own credentials or the default global ones.
+	ictx, err := imagedataloader.NewImageContext(e.lister, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	cfg := config.NewDefaultConfiguration(false)
+	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
+
+	var patches []jsonpatch.JsonPatchOperation
+	seen := map[string]bool{}
+	for _, ivpol := range policies {
+		validationCfg := ivpol.Policy.GetSpec().ValidationConfigurations
+		if validationCfg.MutateDigest != nil && !*validationCfg.MutateDigest {
+			continue
+		}
+		matches, err := e.matchPolicy(ivpol, attr, namespace)
+		if err != nil {
+			return nil, err
+		}
+		if !matches {
+			continue
+		}
+		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
+		if errList != nil {
+			// compile errors are surfaced by the validating webhook, skip mutation
+			continue
+		}
+		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, cfg)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range polPatches {
+			if seen[p.Path] {
+				continue
+			}
+			seen[p.Path] = true
+			patches = append(patches, p)
+		}
+	}
+	return patches, nil
 }
 
 func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
