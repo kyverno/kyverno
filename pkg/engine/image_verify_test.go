@@ -944,16 +944,21 @@ func Test_MarkImageVerified(t *testing.T) {
 
 	patches, err := verifiedImages.Patches(false, logr.Discard())
 	assert.NilError(t, err)
-	assert.Equal(t, len(patches), 2)
+	assert.Equal(t, len(patches), 3)
 
 	resource := testApplyPatches(t, patches)
 	patchedAnnotations := resource.GetAnnotations()
-	assert.Equal(t, len(patchedAnnotations), 1)
+	assert.Equal(t, len(patchedAnnotations), 2)
 
 	json := patchedAnnotations[kyverno.AnnotationImageVerify]
 	assert.Assert(t, json != "")
 
 	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
+	assert.NilError(t, err)
+	assert.Equal(t, verified, engineapi.ImageVerificationPass)
+
+	policy := policyContext.Policy()
+	verified, err = engineutils.IsImageVerifiedForPolicy(resource, policy.GetNamespace(), policy.GetName(), "attest", image, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, engineapi.ImageVerificationPass)
 }
