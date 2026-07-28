@@ -141,27 +141,21 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
 		}
-		bundles = append(bundles, &verificationBundle{ProtoBundle: b})
+
+		verifBundle := &verificationBundle{ProtoBundle: b}
+		if dsseEnvelope := b.Bundle.GetDsseEnvelope(); dsseEnvelope != nil && dsseEnvelope.PayloadType == "application/vnd.in-toto+json" {
+			var intotoStatement in_toto.Statement //nolint:staticcheck
+			if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err == nil {
+				verifBundle.DSSE_Envelope = &intotoStatement
+			}
+		}
+		bundles = append(bundles, verifBundle)
 	}
 	if predicateType != "" {
 		filteredBundles := make([]*verificationBundle, 0)
 		for _, b := range bundles {
-			dsseEnvelope := b.ProtoBundle.Bundle.GetDsseEnvelope()
-			if dsseEnvelope != nil {
-				if dsseEnvelope.PayloadType != "application/vnd.in-toto+json" {
-					continue
-				}
-				var intotoStatement in_toto.Statement //nolint:staticcheck
-				if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err != nil {
-					continue
-				}
-
-				if intotoStatement.PredicateType == predicateType {
-					filteredBundles = append(filteredBundles, &verificationBundle{
-						ProtoBundle:   b.ProtoBundle,
-						DSSE_Envelope: &intotoStatement,
-					})
-				}
+			if b.DSSE_Envelope != nil && b.DSSE_Envelope.PredicateType == predicateType {
+				filteredBundles = append(filteredBundles, b)
 			}
 		}
 		return filteredBundles, desc, nil
@@ -262,18 +256,18 @@ func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]an
 	if len(bundles) == 0 {
 		return []map[string]any{}, nil
 	}
-	var err error
-	var statement map[string]any
-	var intotostatement in_toto.Statement //nolint:staticcheck
-	decodedStatements := make([]map[string]any, len(bundles))
-	for i, b := range bundles {
-		intotostatement = *b.Bundle.DSSE_Envelope
-		statement, err = data.ToMap(intotostatement)
+	decodedStatements := make([]map[string]any, 0, len(bundles))
+	for _, b := range bundles {
+		if b.Bundle == nil || b.Bundle.DSSE_Envelope == nil {
+			continue
+		}
+		intotostatement := *b.Bundle.DSSE_Envelope
+		statement, err := data.ToMap(intotostatement)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to decode statement: %v", intotostatement.Type)
 		}
 		statement["type"] = intotostatement.PredicateType
-		decodedStatements[i] = statement
+		decodedStatements = append(decodedStatements, statement)
 	}
 	return decodedStatements, nil
 }
