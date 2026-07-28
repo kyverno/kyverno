@@ -368,6 +368,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if annotations != nil {
 		resource = *resource.DeepCopy()
 		delete(annotations, kyverno.AnnotationImageVerify)
+		delete(annotations, kyverno.AnnotationImageVerifyScoped)
 		resource.SetAnnotations(annotations)
 	}
 	policyCtx, err := engine.NewPolicyContext(s.jp, resource, kyvernov1.Create, nil, s.config)
