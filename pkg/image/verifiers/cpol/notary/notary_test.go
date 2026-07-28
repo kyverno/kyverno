@@ -62,7 +62,7 @@ func TestNotaryImageVerification(t *testing.T) {
 		Cert:     cert,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &notaryVerifier{}

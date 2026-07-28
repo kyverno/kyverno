@@ -153,7 +153,7 @@ func TestCosignInvalidSignatureAlgorithm(t *testing.T) {
 		SignatureAlgorithm: "sha1",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -170,7 +170,7 @@ func TestCosignKeyless(t *testing.T) {
 		IgnoreSCT: true,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -196,7 +196,7 @@ func TestRekorPubkeys(t *testing.T) {
 		IgnoreSCT:   true,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -217,7 +217,7 @@ func TestIgnoreTlogsandIgnoreSCT(t *testing.T) {
 		ImageRef: "ghcr.io/kyverno/test-verify-image",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -252,7 +252,7 @@ func TestCTLogsPubkeys(t *testing.T) {
 		CTLogsPubKey: wrongPubKey,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -331,7 +331,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEstG5Xl7UxkQsmLUxdmS85HLgYBFyc/P/oQ22iazkKm8P
 		TSACertChain: freeTSACertChain,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -349,7 +349,7 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 `,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -361,7 +361,7 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 	assert.NilError(t, err)
 }
 func TestBuildCosignOptionsUsesSignedTimestamps(t *testing.T) {
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 
 	tests := []struct {
 		name             string
