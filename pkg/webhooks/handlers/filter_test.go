@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type mockConfiguration struct {
@@ -23,6 +24,7 @@ type mockConfiguration struct {
 func (m *mockConfiguration) GetDefaultRegistry() string               { return "" }
 func (m *mockConfiguration) GetEnableDefaultRegistryMutation() bool   { return false }
 func (m *mockConfiguration) GetGenerateSuccessEvents() bool           { return false }
+func (m *mockConfiguration) GetSuccessEventActions() sets.Set[string] { return sets.New[string]() }
 func (m *mockConfiguration) GetWebhook() config.WebhookConfig         { return config.WebhookConfig{} }
 func (m *mockConfiguration) GetWebhookAnnotations() map[string]string { return nil }
 func (m *mockConfiguration) GetWebhookLabels() map[string]string      { return nil }

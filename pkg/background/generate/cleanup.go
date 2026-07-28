@@ -15,28 +15,23 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) (err error) {
+func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) error {
 	// handle data policy/rule deletion
 	if ur.Status.GeneratedResources != nil {
 		c.log.V(4).Info("policy/rule no longer exists, deleting the downstream resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy)
 		var errs []error
-		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, e := range ur.Status.GeneratedResources {
 			if err := c.client.DeleteResource(context.TODO(), e.GetAPIVersion(), e.GetKind(), e.GetNamespace(), e.GetName(), false, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				failedDownstreams = append(failedDownstreams, e)
 				errs = append(errs, err)
 			}
 		}
 
 		if len(errs) != 0 {
-			c.log.Error(multierr.Combine(errs...), "failed to clean up downstream resources on policy deletion")
-			_, err = c.statusControl.Failed(ur.GetName(),
-				fmt.Sprintf("failed to clean up downstream resources on policy deletion: %v", multierr.Combine(errs...)),
-				failedDownstreams)
-		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
+			combined := multierr.Combine(errs...)
+			c.log.Error(combined, "failed to clean up downstream resources on policy deletion")
+			return fmt.Errorf("failed to clean up downstream resources on policy deletion: %w", combined)
 		}
-		return
+		return nil
 	}
 
 	if policy == nil {
@@ -71,25 +66,17 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			return nil
 		}
 		var errs []error
-		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, downstream := range downstreams {
 			spec := common.ResourceSpecFromUnstructured(downstream)
 			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				failedDownstreams = append(failedDownstreams, spec)
 				errs = append(errs, err)
 			} else {
 				logger.Info("downstream resource deleted", "spec", spec.String())
 			}
 		}
 		if len(errs) != 0 {
-			_, err = c.statusControl.Failed(ur.GetName(),
-				fmt.Sprintf("failed to clean up downstream resources on source deletion: %v", multierr.Combine(errs...)),
-				failedDownstreams)
-		} else {
-			_, err = c.statusControl.Success(ur.GetName(), nil)
-		}
-		if err != nil {
-			logger.Error(err, "failed to update ur status")
+			combined := multierr.Combine(errs...)
+			return fmt.Errorf("failed to clean up downstream resources on source deletion: %w", combined)
 		}
 	}
 
@@ -128,7 +115,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 	if generatePattern.GetKind() != "" {
 		// Fetch downstream resources using trigger uid label
 		c.log.V(4).Info("fetching downstream resource by the UID", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-		dsList, err := common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+		dsList, err := common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +125,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			delete(selector, common.GenerateTriggerUIDLabel)
 			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+			dsList, err = common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +143,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			kindSelector[k] = v
 		}
 		c.log.V(4).Info("fetching downstream cloneList resources by the UID", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-		dsList, err := common.FindDownstream(c.client, apiVersion, kind, kindSelector)
+		dsList, err := common.FindDownstream(context.TODO(), c.client, apiVersion, kind, kindSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +152,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 			delete(kindSelector, common.GenerateTriggerUIDLabel)
 			kindSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", apiVersion, "kind", kind, "selector", kindSelector)
-			dsList, err = common.FindDownstream(c.client, apiVersion, kind, kindSelector)
+			dsList, err = common.FindDownstream(context.TODO(), c.client, apiVersion, kind, kindSelector)
 			if err != nil {
 				return nil, err
 			}

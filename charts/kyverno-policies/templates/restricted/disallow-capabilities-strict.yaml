@@ -11,8 +11,8 @@ metadata:
     {{- end }}
     policies.kyverno.io/title: Disallow Capabilities (Strict)
     policies.kyverno.io/category: Pod Security Standards (Restricted)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/minversion: 1.6.0
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}

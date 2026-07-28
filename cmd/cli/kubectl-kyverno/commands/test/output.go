@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -179,11 +179,17 @@ func printTestResult(
 ) error {
 	testCount := 1
 	for _, test := range tests {
+		// results declaring an explicit operation are checked against the
+		// responses of the dedicated evaluation run for that operation
+		trigger := responses.Trigger
+		if test.Operation != "" {
+			trigger = responses.TriggerByOperation[test.Operation]
+		}
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
 		if test.Resources != nil {
 			for _, r := range test.Resources {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						nsAndName := strings.Split(r, "/")
@@ -201,7 +207,7 @@ func printTestResult(
 				}
 			}
 			for _, resourceSpec := range test.ResourceSpecs {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						if resourceSpec.Group == "" {
@@ -229,7 +235,7 @@ func printTestResult(
 			for r := range responses.Target {
 				resources = append(resources, r)
 			}
-			for r := range responses.Trigger {
+			for r := range trigger {
 				resources = append(resources, r)
 			}
 		}
@@ -237,8 +243,8 @@ func printTestResult(
 		for _, resource := range resources {
 			var rows []table.Row
 			var resourceSkipped bool
-			if _, ok := responses.Trigger[resource]; ok {
-				for _, response := range responses.Trigger[resource] {
+			if _, ok := trigger[resource]; ok {
+				for _, response := range trigger[resource] {
 					polNameNs := strings.Split(test.Policy, "/")
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
@@ -271,6 +277,11 @@ func printTestResult(
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
+							if len(generatedResources) == 0 {
+								ok, message, reason := checkRuleResultOnly(test, response, rule)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+								rows = append(rows, resourceRows...)
+							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 

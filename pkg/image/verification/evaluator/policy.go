@@ -8,16 +8,17 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -49,7 +50,8 @@ type compiledPolicy struct {
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
-	creds                *policiesv1beta1.Credentials
+	authOpts             []remote.Option
+	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 }
@@ -115,16 +117,37 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context}
+		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
 		data[engine.ObjectKey] = request
 	}
+
 	images, err := engine.ExtractImages(data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImagesKey] = images
+	filteredImages := make(map[string][]string, len(images))
+	imgList := []string{}
+	for category, imgs := range images {
+		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
+		for _, img := range imgs {
+			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+				return nil, err
+			} else if apply {
+				filteredImages[category] = append(filteredImages[category], img)
+				imgList = append(imgList, img)
+			}
+		}
+	}
+
+	// when we get here, we will be initialized with the global opts from the compiled policy
+	// or from the credentials configured on the policy itself. the latter replaces the first
+	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
+		return nil, err
+	}
+
+	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
@@ -138,19 +161,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	}
 	data[engine.AttestorsKey] = attestors
 
-	imgList := []string{}
-	for _, v := range images {
-		for _, img := range v {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
-				return nil, err
-			} else if apply {
-				imgList = append(imgList, img)
-			}
-		}
-	}
-	if err := ictx.AddImages(ctx, imgList, imageverify.GetRemoteOptsFromPolicy(c.creds)...); err != nil {
-		return nil, err
-	}
 	for i, v := range c.validations {
 		out, _, err := v.Program.ContextEval(ctx, data)
 		if err != nil {
@@ -172,18 +182,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
-			auditAnnotations := make(map[string]string, 0)
-			for key, annotation := range c.auditAnnotations {
-				out, _, err := annotation.ContextEval(ctx, data)
-				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
-				}
-				// evaluate only when rule fails
-				if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
-					auditAnnotations[key] = outcome
-				} else if err != nil {
-					return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
-				}
+			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+			if err != nil {
+				return nil, err
 			}
 			return &EvaluationResult{
 				Result:           outcome,
@@ -196,7 +197,27 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
-	return &EvaluationResult{Result: true}, nil
+	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
+	auditAnnotations := make(map[string]string, len(c.auditAnnotations))
+	for key, annotation := range c.auditAnnotations {
+		out, _, err := annotation.ContextEval(ctx, data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate auditAnnotation '%s': %w", key, err)
+		}
+		if outcome, err := utils.ConvertToNative[string](out); err == nil && outcome != "" {
+			auditAnnotations[key] = outcome
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to convert auditAnnotation '%s' expression: %w", key, err)
+		}
+	}
+	return auditAnnotations, nil
 }
 
 func (p *compiledPolicy) match(

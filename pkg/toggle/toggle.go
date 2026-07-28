@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+var defaultPolicyHTTPBlocklist = []string{
+	"169.254.169.254",          // AWS/GCP/Azure metadata service
+	"169.254.169.253",          // GCP metadata service alternate
+	"metadata.google.internal", // GCP metadata service hostname
+	"127.0.0.0/8",              // IPv4 loopback
+	"::1/128",                  // IPv6 loopback
+}
+
 const (
 	// protect managed resource
 	ProtectManagedResourcesFlagName    = "protectManagedResources"
@@ -49,28 +57,12 @@ const (
 	defaultAllowHTTPInNamespacedPolicies     = false
 	// http blocklist / allowlist flag names
 	HTTPBlocklistFlagName    = "httpBlocklist"
-	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post calls. Overrides the built-in defaults when set. Example: '10.0.0.0/8,metadata.google.internal'."
+	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post calls. Overrides the built-in defaults when set. Example: '169.254.169.254,metadata.google.internal'."
 	httpBlocklistEnvVar      = "FLAG_HTTP_BLOCKLIST"
 	HTTPAllowlistFlagName    = "httpAllowlist"
 	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
 )
-
-// defaultHTTPBlocklist mirrors DefaultBlockedCIDRs + DefaultBlockedHosts from
-// github.com/kyverno/sdk/cel/libs/http. Duplicated here to avoid an import cycle.
-var defaultHTTPBlocklist = []string{
-	"127.0.0.0/8",
-	"::1/128",
-	"169.254.0.0/16",
-	"fe80::/10",
-	"10.0.0.0/8",
-	"172.16.0.0/12",
-	"192.168.0.0/16",
-	"fc00::/7",
-	"100.64.0.0/10",
-	"metadata.google.internal",
-	"metadata.internal",
-}
 
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
@@ -81,7 +73,7 @@ var (
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
-	HTTPBlocklist                     = newStringSliceFlag(defaultHTTPBlocklist, httpBlocklistEnvVar)
+	HTTPBlocklist                     = newStringSliceFlag(append([]string{}, defaultPolicyHTTPBlocklist...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
 )
 
@@ -91,7 +83,7 @@ type ToggleFlag interface {
 
 type Toggle interface {
 	ToggleFlag
-	enabled() bool
+	Enabled() bool
 }
 
 type toggle struct {
@@ -116,7 +108,7 @@ func (t *toggle) Parse(in string) error {
 	}
 }
 
-func (t *toggle) enabled() bool {
+func (t *toggle) Enabled() bool {
 	if t.value != nil {
 		return *t.value
 	}

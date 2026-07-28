@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: block-ephemeral-containers
+spec:
+  description: >-
+    An ImageValidatingPolicy that explicitly opts into the "pods/ephemeralcontainers"
+    subresource (see https://github.com/kyverno/kyverno/issues/16275) must be
+    evaluated -- and can deny -- requests that add an ephemeral (debug) container
+    to an existing pod, not just pod CREATE/UPDATE requests.
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: block-ephemeral-containers
+  - name: create pod
+    try:
+    - apply:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: create ephemeral container
+    try:
+    - script:
+        content: if kubectl -n test-ivpol-subresource-namespace debug test-pod --image=busybox:1.35 --target=busybox -- /bin/sh -c true; then exit 1; else exit 0; fi;
+        # check:
+        #   ($error): >-
+        #     admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy block-ephemeral-containers failed: Ephemeral (debug) containers are not permitted.

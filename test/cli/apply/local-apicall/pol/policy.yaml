@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-configmap-value
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: verify-configmap-data
+      match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      context:
+        - name: config_env
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.object.metadata.namespace}}/configmaps/{{request.object.metadata.name}}-config"
+            jmesPath: "data.environment"
+      validate:
+        message: >-
+          Deployment {{request.object.metadata.name}} must have a ConfigMap
+          with environment set to production.
+        deny:
+          conditions:
+            any:
+            - key: "{{ config_env }}"
+              operator: NotEquals
+              value: "production"

@@ -56,7 +56,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.backgroundController.priorityClassName }}
+      {{- with .Values.backgroundController.priorityClassName | default .Values.global.priorityClassName }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       {{- with .Values.backgroundController.hostNetwork }}

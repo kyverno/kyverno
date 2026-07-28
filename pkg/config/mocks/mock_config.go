@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	v10 "k8s.io/api/core/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	sets "k8s.io/apimachinery/pkg/util/sets"
 )
 
 // MockConfiguration is a mock of Configuration interface.
@@ -77,6 +78,20 @@ func (m *MockConfiguration) GetGenerateSuccessEvents() bool {
 func (mr *MockConfigurationMockRecorder) GetGenerateSuccessEvents() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenerateSuccessEvents", reflect.TypeOf((*MockConfiguration)(nil).GetGenerateSuccessEvents))
+}
+
+// GetSuccessEventActions mocks base method.
+func (m *MockConfiguration) GetSuccessEventActions() sets.Set[string] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuccessEventActions")
+	ret0, _ := ret[0].(sets.Set[string])
+	return ret0
+}
+
+// GetSuccessEventActions indicates an expected call of GetSuccessEventActions.
+func (mr *MockConfigurationMockRecorder) GetSuccessEventActions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuccessEventActions", reflect.TypeOf((*MockConfiguration)(nil).GetSuccessEventActions))
 }
 
 // GetMatchConditions mocks base method.

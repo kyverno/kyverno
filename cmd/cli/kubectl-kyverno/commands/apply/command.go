@@ -47,31 +47,37 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/spf13/cobra"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []string
-	invalid []string
+	skipped []PolicyDiagnostic
+	invalid []PolicyDiagnostic
+}
+
+type PolicyDiagnostic struct {
+	name   string
+	reason string
 }
 
 type ApplyCommandConfig struct {
@@ -113,7 +119,7 @@ type ApplyCommandConfig struct {
 	BatchSize                 int
 	ContinueOnError           bool
 	ShowPerformance           bool
-	CrdPath                   string
+	CrdPaths                  []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -173,6 +179,11 @@ func Command() *cobra.Command {
 								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
 								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+							}
+						}
+						if rule.RuleType() == engineapi.Generation {
+							if rule.Status() == engineapi.RuleStatusError {
+								fmt.Fprintln(out, "\nerror while applying generate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror:", rule.Message())
 							}
 						}
 					}
@@ -246,7 +257,9 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.BatchSize, "batch-size", 100, "Number of resources to fetch per API call")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnError, "continue-on-error", true, "Continue processing despite resource loading errors")
 	cmd.Flags().BoolVar(&applyCommandConfig.ShowPerformance, "show-performance", false, "Show resource loading performance metrics")
-	cmd.Flags().StringVar(&applyCommandConfig.CrdPath, "crd-path", "", "crd path to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-paths", []string{}, "List of paths to CRD files to be used for apply command")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.CrdPaths, "crd-path", nil, "Deprecated: use --crd-paths instead")
+	_ = cmd.Flags().MarkDeprecated("crd-path", "use --crd-paths instead")
 	return cmd
 }
 
@@ -265,6 +278,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
+
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
@@ -277,6 +291,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	variables, err := variables.New(out, nil, "", c.ValuesFile, nil, c.Variables...)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
+	}
+	if _, err := processor.NormalizeValuesOperation(variables.GlobalOperation()); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	var store store.Store
 
@@ -336,10 +353,36 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+
+	// Separate GlobalContextEntry resources from regular resources
+	var gctxEntries []*kyvernov2.GlobalContextEntry
+	resources, gctxEntries, err = extractGlobalContextEntries(resources)
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
+	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
+		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to create local resource client: %w", err)
+		}
+		store.AllowApiCall(true)
+
+		if len(gctxEntries) > 0 && dClient != nil {
+			gctxStore, err := buildGlobalContextStore(context.Background(), gctxEntries, dClient, jmespath.New(config.NewDefaultConfiguration(false)))
+			if err != nil {
+				return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to build global context store: %w", err)
+			}
+			store.SetGlobalContextStore(gctxStore)
+		}
+	}
+
 	var exceptions []*kyvernov2.PolicyException
-	var celexceptions []*policiesv1beta1.PolicyException
+	var celExceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
+		results := exception.SelectFrom(resources)
+		exceptions = results.Exceptions
+		celExceptions = results.CELExceptions
 	} else {
 		results, err := exception.Load(c.Exception...)
 		if err != nil {
@@ -347,13 +390,13 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		}
 		if results != nil {
 			exceptions = results.Exceptions
-			celexceptions = results.CELExceptions
+			celExceptions = results.CELExceptions
 		}
 	}
 
 	if c.exceptionsWithinPolicies {
 		exceptions = append(exceptions, polexs...)
-		celexceptions = append(celexceptions, celpolexs...)
+		celExceptions = append(celExceptions, celpolexs...)
 	}
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
@@ -372,7 +415,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		policyRulesCount += len(envoyPols)
 		policyRulesCount += len(httpPols)
 		exceptionsCount := len(exceptions)
-		exceptionsCount += len(celexceptions)
+		exceptionsCount += len(celExceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, resourceCount, exceptionsCount)
@@ -413,7 +456,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		parameterResources,
 		jsonPayloads,
 		exceptions,
-		celexceptions,
+		celExceptions,
 		&skippedInvalidPolicies,
 		dClient,
 		userInfo,
@@ -422,17 +465,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celexceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celexceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celexceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -509,9 +552,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, pol.GetName())
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			}
 			continue
 		}
@@ -554,7 +597,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -595,7 +638,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
-			CrdPath:                           c.CrdPath,
+			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -625,6 +668,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -633,23 +677,34 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		// This informer will automatically die at the end of this function and thats ok,
+		// we don't care about it past applying image validating policies anyways
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		imageverifycache.DisabledImageVerifyCache(),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -670,6 +725,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -677,14 +733,14 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -707,13 +763,15 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -766,7 +824,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, err
 	}
 
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -806,6 +864,13 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = fmt.Sprintf("%s did not match", payloadType)
 			}
@@ -1139,6 +1204,7 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targe
 	}
 	var err error
 	var dClient dclient.Interface
+
 	if c.Cluster {
 		restConfig, err := config.CreateClientConfigWithContext(c.KubeConfig, c.Context)
 		if err != nil {
@@ -1190,6 +1256,15 @@ func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool) error
 	return nil
 }
 
+func hasStdinPath(paths []string) bool {
+	for _, path := range paths {
+		if path == "-" {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1197,7 +1272,7 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.PolicyPaths) == 0 {
 		return fmt.Errorf("require policy")
 	}
-	if (len(c.PolicyPaths) > 0 && c.PolicyPaths[0] == "-") && len(c.ResourcePaths) > 0 && c.ResourcePaths[0] == "-" {
+	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
@@ -1206,8 +1281,15 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	if len(c.ResourcePaths) == 0 && len(c.JSONPaths) == 0 && len(c.HTTPPayloadPaths) == 0 && len(c.EnvoyPayloadPaths) == 0 && !c.Cluster {
 		return fmt.Errorf("resource file(s) or cluster required")
 	}
-	if strings.TrimSpace(c.CrdPath) != "" && strings.TrimSpace(c.KubeConfig) != "" {
-		return fmt.Errorf("crdpath and kubeconfig flags are mutually exclusive, please use only one of them")
+	normalized := make([]string, 0, len(c.CrdPaths))
+	for _, p := range c.CrdPaths {
+		if strings.TrimSpace(p) != "" {
+			normalized = append(normalized, p)
+		}
+	}
+	c.CrdPaths = normalized
+	if len(c.CrdPaths) != 0 && strings.TrimSpace(c.KubeConfig) != "" {
+		return fmt.Errorf("crd-paths and kubeconfig flags are mutually exclusive, please use only one of them")
 	}
 	return nil
 }
@@ -1218,6 +1300,48 @@ type WarnExitCodeError struct {
 
 func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
+}
+
+func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
+	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
+	allResources = append(allResources, resources...)
+	allResources = append(allResources, targetResources...)
+	allResources = append(allResources, parameterResources...)
+
+	gvrToListKind := make(map[schema.GroupVersionResource]string)
+	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from
+	// each resource's TypeMeta. This avoids relying on inferKindFromResourceName,
+	// which mishandles multi-word kinds such as ClusterRole ("clusterroles" → "Clusterrol").
+	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
+	var discoveryGVRs []schema.GroupVersionResource
+	seen := make(map[schema.GroupVersionResource]bool)
+
+	objects := make([]runtime.Object, 0, len(allResources))
+	for _, r := range allResources {
+		objects = append(objects, r.DeepCopy())
+		gvk := r.GroupVersionKind()
+		if gvk.Kind == "" || gvk.Version == "" {
+			return nil, fmt.Errorf("resource %s/%s is missing TypeMeta (apiVersion=%q kind=%q)", r.GetNamespace(), r.GetName(), r.GetAPIVersion(), gvk.Kind)
+		}
+		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+		if !seen[gvr] {
+			seen[gvr] = true
+			gvrToListKind[gvr] = gvk.Kind + "List"
+			gvrToGVK[gvr] = gvk
+			discoveryGVRs = append(discoveryGVRs, gvr)
+		}
+	}
+
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
+	if err != nil {
+		return nil, err
+	}
+	disco := dclient.NewFakeDiscoveryClient(discoveryGVRs)
+	for gvr, gvk := range gvrToGVK {
+		disco.AddGVRToGVKMapping(gvr, gvk)
+	}
+	fakeClient.SetDiscovery(disco)
+	return fakeClient, nil
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {

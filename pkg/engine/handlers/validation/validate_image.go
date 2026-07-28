@@ -85,8 +85,8 @@ func (h validateImageHandler) Process(
 				image := imageInfo.String()
 
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
-					logger.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)
-					return resource, nil
+					logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
+					continue
 				}
 
 				logger.V(4).Info("validating image", "image", image)

@@ -2,12 +2,37 @@ package admissionpolicygenerator
 
 import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains the handler functions for MAP and bindings resources.
+func (c *controller) addMAPV1(obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	c.enqueueMutatingPolicyByOwner(obj)
+}
+
+func (c *controller) updateMAPV1(old, obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	c.enqueueMutatingPolicyByOwnerOnChange(old.Spec, obj.Spec, obj)
+}
+
+func (c *controller) deleteMAPV1(obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	c.enqueueMutatingPolicyByOwner(obj)
+}
+
+func (c *controller) addMAPbindingV1(obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
+	c.enqueueMutatingPolicyByOwner(obj)
+}
+
+func (c *controller) updateMAPbindingV1(old, obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
+	c.enqueueMutatingPolicyByOwnerOnChange(old.Spec, obj.Spec, obj)
+}
+
+func (c *controller) deleteMAPbindingV1(obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
+	c.enqueueMutatingPolicyByOwner(obj)
+}
+
 func (c *controller) addMAPAlpha(obj *admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
 	c.enqueueMutatingPolicyByOwner(obj)
 }

@@ -1,0 +1,32 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+    name: clusterresources
+spec:
+    resources:
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            labels:
+                kubernetes.io/metadata.name: origin-namespace
+            name: origin-namespace
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            labels:
+                kubernetes.io/metadata.name: target-namespace-1
+                label-key: label-value
+            name: target-namespace-1
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            labels:
+                kubernetes.io/metadata.name: target-namespace-2
+                label-key: label-value
+            name: target-namespace-2
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            labels:
+                kubernetes.io/metadata.name: other-namespace
+            name: other-namespace

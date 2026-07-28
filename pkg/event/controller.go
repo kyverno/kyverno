@@ -102,9 +102,16 @@ func (gen *controller) Add(infos ...Info) {
 			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
 			continue
 		}
-		if info.Reason == PolicyApplied && !gen.cfg.GetGenerateSuccessEvents() {
-			logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-			continue
+		if info.Reason == PolicyApplied {
+			if !gen.cfg.GetGenerateSuccessEvents() {
+				logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
+				continue
+			}
+			actions := gen.cfg.GetSuccessEventActions()
+			if actions.Len() > 0 && !actions.Has(string(info.Action)) {
+				logger.V(6).Info("skipping event creation, action not in successEventActions", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
+				continue
+			}
 		}
 
 		gen.emitEvent(info)

@@ -1,0 +1,63 @@
+policyType: ValidatingPolicy
+podSecurityStandard: restricted
+includeOtherPolicies:
+  - require-non-root-groups
+
+# Global default — applies to all policies unless overridden
+vpolExclude:
+  excludeResourceRules:
+    - apiGroups:
+        - ""
+      apiVersions:
+        - v1
+      operations:
+        - CREATE
+      resources:
+        - pods
+      resourceNames:
+        - debug-pod
+  excludeNamespaces:
+    - kube-system
+  excludeSubjects:
+    - kind: Group
+      name: system:masters
+
+# Per-policy overrides — completely replace vpolExclude for that policy
+vpolExcludeByPolicy:
+  # Override: replaces global default entirely (kube-system NOT excluded here)
+  disallow-host-path:
+    excludeResourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+        resourceNames:
+          - sample
+    excludeNamespaces:
+      - monitoring
+    excludeSubjects:
+      - kind: ServiceAccount
+        namespace: kube-system
+        name: default
+  # Additional per-policy override
+  disallow-host-namespaces:
+    excludeNamespaces:
+      - ingress-nginx
+    excludeSubjects:
+      - kind: User
+        name: admin@example.com
+      - kind: Group
+        name: system:nodes
+      - kind: ServiceAccount
+        namespace: monitoring
+        name: prometheus
+    matchConditions:
+      - name: exclude-temp-resources
+        expression: "!object.metadata.name.startsWith('temp-')"
+  # Empty override: explicitly disables global excludes for this policy
+  disallow-privileged-containers: {}

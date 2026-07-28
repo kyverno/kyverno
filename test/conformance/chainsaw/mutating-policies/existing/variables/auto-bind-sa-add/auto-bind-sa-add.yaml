@@ -1,0 +1,60 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: auto-bind-sa-add
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConditions:
+    - expression: |-
+        request.object.metadata.?annotations[?'rbac.example.com/auto-bind'].orValue('') == 'true'
+      name: has-auto-bind-annotation
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - serviceaccounts
+  mutations:
+    - jsonPatch:
+        expression: |-
+          has(object.subjects) ?
+            [JSONPatch{
+              op: "add",
+              path: "/subjects/-",
+              value: dyn({
+                "kind": dyn("ServiceAccount"),
+                "name": dyn(variables.saName),
+                "namespace": dyn(variables.saNamespace)
+              })
+            }] :
+            [JSONPatch{
+              op: "add",
+              path: "/subjects",
+              value: [dyn({
+                "kind": dyn("ServiceAccount"),
+                "name": dyn(variables.saName),
+                "namespace": dyn(variables.saNamespace)
+              })]
+            }]
+      patchType: JSONPatch
+  targetMatchConstraints:
+    resourceRules:
+      - apiGroups:
+          - rbac.authorization.k8s.io
+        apiVersions:
+          - v1
+        resources:
+          - clusterrolebindings
+        resourceNames:
+        - test-crb
+  variables:
+    - expression: request.object.metadata.name
+      name: saName
+    - expression: request.object.metadata.namespace
+      name: saNamespace
