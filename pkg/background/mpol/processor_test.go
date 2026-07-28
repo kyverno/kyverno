@@ -2,6 +2,7 @@ package mpol
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -30,28 +32,6 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
-type fakeContext struct{}
-
-func (f *fakeContext) GenerateResources(string, []map[string]any) error        { return nil }
-func (f *fakeContext) GetGlobalReference(name, projection string) (any, error) { return name, nil }
-func (f *fakeContext) GetImageData(image string) (map[string]any, error) {
-	return map[string]any{"test": image}, nil
-}
-func (f *fakeContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ListResources(apiVersion, resource, namespace string) (*unstructured.UnstructuredList, error) {
-	return &unstructured.UnstructuredList{}, nil
-}
-func (f *fakeContext) GetGeneratedResources() []*unstructured.Unstructured { return nil }
-func (f *fakeContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{}, nil
-}
-func (f *fakeContext) ClearGeneratedResources() {}
-func (f *fakeContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
-	panic("not implemented")
-}
-
 var (
 	kyvernoClient = versioned.Clientset{}
 	client        = dclient.NewEmptyFakeClient()
@@ -60,7 +40,6 @@ var (
 		Group:   "kyverno.io",
 		Version: "v1",
 	}})
-	ctx           = &fakeContext{}
 	statusControl = common.NewStatusControl(&kyvernoClient, nil)
 	reportsConfig = reportutils.NewReportingConfig([]string{})
 )
@@ -93,7 +72,7 @@ func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amd
 }
 
 func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
-	return mpolengine.Policy{}, nil
+	return mpolengine.Policy{CompiledPolicy: &mpolcompiler.Policy{}}, nil
 }
 
 func (f *fakeEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.Policy {
@@ -283,6 +262,57 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 	assert.Equal(t, 1, len(result["*"]))
 }
 
+func TestCollectGVK_PreservesSubresourceRoute(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+
+	assert.Len(t, result["*"], 1)
+	for item := range result["*"] {
+		assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, item.parentResource)
+		assert.Equal(t, "resize", item.subresource)
+	}
+}
+
+func TestResolveTargetRoute_Subresource(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+	p := &processor{mapper: mapper}
+	pod := unstructured.Unstructured{}
+	pod.SetAPIVersion("v1")
+	pod.SetKind("Pod")
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/resize"},
+				},
+			},
+		}},
+	}
+
+	resource, subresource, err := p.resolveTargetRoute(pod, constraints)
+
+	assert.NoError(t, err)
+	assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, resource)
+	assert.Equal(t, "resize", subresource)
+}
+
 // TestGetPolicy_NamespacedMutatingPolicy verifies that GetPolicy resolves a
 // "namespace/name" UR policy key to a NamespacedMutatingPolicy without hitting
 // the cluster-scoped MutatingPolicy API (which rejects "/" in resource names).
@@ -391,4 +421,118 @@ func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
 	assert.Equal(t, "mypol", result.GetName())
 	assert.Equal(t, "test-ns", result.GetNamespace())
 	assert.False(t, sc.failedCalled, "UR should not be marked failed when policy is found via fallback")
+}
+
+func TestGetTargetsFromExpression_DeleteUsesOldObject(t *testing.T) {
+	oldLibCtx := libs.LibraryContext
+	libCtx := libs.NewFakeContextProvider()
+	libs.LibraryContext = libCtx
+	defer func() {
+		libs.LibraryContext = oldLibCtx
+	}()
+
+	target := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "trigger-cm",
+			"namespace": "default",
+		},
+	}}
+	assert.NoError(t, libCtx.AddResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}, target))
+
+	eng := &fakeEngine{}
+	p := NewProcessor(
+		dclient.NewEmptyFakeClient(),
+		fake.NewSimpleClientset(),
+		eng,
+		meta.NewDefaultRESTMapper(nil),
+		&libs.FakeContextProvider{},
+		&fakeStatusControl{},
+		event.NewFake(),
+	)
+
+	trigger := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "trigger-cm",
+			"namespace": "default",
+		},
+	}
+	raw, err := json.Marshal(trigger)
+	assert.NoError(t, err)
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mypol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: "resource.Get(object.apiVersion, object.kind.lowerAscii() + 's', object.metadata.namespace, object.metadata.name)",
+			},
+		},
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						OldObject: runtime.RawExtension{Raw: raw},
+					},
+					Operation: admissionv1.Delete,
+				},
+			},
+		},
+	}
+
+	targets, err := p.getTargetsFromExpression(context.Background(), ur, mpol)
+	assert.NoError(t, err)
+	if assert.NotNil(t, targets) {
+		if assert.Len(t, targets.Items, 1) {
+			assert.Equal(t, "ConfigMap", targets.Items[0].GetKind())
+		}
+	}
+}
+
+func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mypol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: "{'kind': object.kind}",
+			},
+		},
+	}
+
+	sc := &fakeStatusControl{}
+	p := NewProcessor(
+		dclient.NewEmptyFakeClient(),
+		fake.NewSimpleClientset(mpol),
+		&fakeEngine{},
+		meta.NewDefaultRESTMapper(nil),
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-invalid", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+					},
+					Operation: admissionv1.Delete,
+				},
+			},
+		},
+	}
+
+	err := p.Process(ur)
+	assert.NoError(t, err)
+	assert.True(t, sc.failedCalled, "expected UR to be marked failed for invalid expression input")
 }
