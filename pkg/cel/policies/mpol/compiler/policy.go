@@ -166,20 +166,30 @@ func (p *Policy) evaluate(
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		fullExemptionFound := false
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, data, polex.MatchConditions)
 			if err != nil {
+				if fullExemptionFound {
+					// exception already granted; a broken later exception must not negate it
+					continue
+				}
 				return &EvaluationResult{Error: err}
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
-				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
-				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+				if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
+					fullExemptionFound = true
+				} else if !fullExemptionFound {
+					// partial scopes are irrelevant once a full exemption is granted
+					allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+					allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+				}
 			}
 		}
 		// if there are matched exceptions and no allowed images, no need to evaluate the policy
 		// as the resource is excluded from policy evaluation
-		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
+		if fullExemptionFound {
 			return &EvaluationResult{Exceptions: matchedExceptions}
 		}
 	}
