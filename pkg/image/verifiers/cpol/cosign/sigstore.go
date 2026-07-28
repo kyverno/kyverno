@@ -56,9 +56,12 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 		return nil, errors.Wrapf(err, "failed to build policy: %v", opts.ImageRef)
 	}
 	verifyOpts := buildVerifyOptions(opts)
-	trustedMaterial, err := getTrustedRoot(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get trusted root: %v", opts.ImageRef)
+	trustedMaterial := opts.TrustedMaterial
+	if trustedMaterial == nil {
+		trustedMaterial, err = getTrustedRoot(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get trusted root: %v", opts.ImageRef)
+		}
 	}
 	results, err := verifyBundles(bundles, desc, trustedMaterial, policy, verifyOpts)
 	if err != nil {
