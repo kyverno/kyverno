@@ -63,6 +63,15 @@ const maxTrustedRootJSONSize = 1 << 20 // 1 MiB
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
 
+type tsaTrustedMaterial struct {
+	*root.BaseTrustedMaterial
+	timestampingAuthority *root.SigstoreTimestampingAuthority
+}
+
+func (t tsaTrustedMaterial) TimestampingAuthorities() []root.TimestampingAuthority {
+	return []root.TimestampingAuthority{t.timestampingAuthority}
+}
+
 // countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
 // using a cheap byte scan, so we can reject oversized chains before doing the
 // expensive PEM/ASN.1 parsing work.
@@ -161,6 +170,18 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			opts.TSAIntermediateCertificates = intermediates
 			opts.TSARootCertificates = roots
 			opts.UseSignedTimestamps = true
+			if opts.TrustedMaterial != nil && len(roots) > 0 {
+				trustedMaterials := root.TrustedMaterialCollection{opts.TrustedMaterial}
+				for _, tsaRoot := range roots {
+					tsa := &root.SigstoreTimestampingAuthority{
+						Root:          tsaRoot,
+						Intermediates: intermediates,
+						Leaf:          opts.TSACertificate,
+					}
+					trustedMaterials = append(trustedMaterials, tsaTrustedMaterial{BaseTrustedMaterial: &root.BaseTrustedMaterial{}, timestampingAuthority: tsa})
+				}
+				opts.TrustedMaterial = trustedMaterials
+			}
 		}
 	}
 
