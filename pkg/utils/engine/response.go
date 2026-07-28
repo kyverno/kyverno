@@ -16,9 +16,9 @@ func IsResponseSuccessful(engineReponses []engineapi.EngineResponse) bool {
 }
 
 // BlockRequest returns true when:
-// 1. a policy fails (i.e. creates a violation) and the failing rule resolves to 'enforce'
-//    (per-rule failureAction takes precedence; falls back to policy-wide action)
-// 2. a policy has a processing error and failurePolicy is set to 'Fail'
+//  1. a policy fails (i.e. creates a violation) and the failing rule resolves to 'enforce'
+//     (per-rule failureAction takes precedence; falls back to policy-wide action)
+//  2. a policy has a processing error and failurePolicy is set to 'Fail'
 func BlockRequest(er engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType) bool {
 	if er.HasEnforcedFailure() {
 		return true
