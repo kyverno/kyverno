@@ -123,6 +123,65 @@ func TestNoTargetMatchConstraintPolicy(t *testing.T) {
 	}
 }
 
+func TestPolicyKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		polName   string
+		policy    policiesv1beta1.MutatingPolicyLike
+		want      bool
+	}{
+		{
+			name:      "cluster-scoped policy matches by name",
+			namespace: "",
+			polName:   "cluster-pol",
+			policy:    makeMutatingPolicy("cluster-pol", ""),
+			want:      true,
+		},
+		{
+			name:      "cluster-scoped policy does not match different name",
+			namespace: "",
+			polName:   "cluster-pol",
+			policy:    makeMutatingPolicy("other-pol", ""),
+			want:      false,
+		},
+		{
+			name:      "namespaced policy matches by namespace and name",
+			namespace: "default",
+			polName:   "ns-pol",
+			policy:    makeMutatingPolicy("ns-pol", "default"),
+			want:      true,
+		},
+		{
+			name:      "namespaced policy does not match wrong namespace",
+			namespace: "default",
+			polName:   "ns-pol",
+			policy:    makeMutatingPolicy("ns-pol", "kube-system"),
+			want:      false,
+		},
+		{
+			name:      "namespaced policy does not match wrong name",
+			namespace: "default",
+			polName:   "ns-pol",
+			policy:    makeMutatingPolicy("other-pol", "default"),
+			want:      false,
+		},
+		{
+			name:      "cluster-scoped key does not match namespaced policy with same name",
+			namespace: "",
+			polName:   "my-pol",
+			policy:    makeMutatingPolicy("my-pol", "default"),
+			want:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pred := PolicyKey(tt.namespace, tt.polName)
+			assert.Equal(t, tt.want, pred(tt.policy))
+		})
+	}
+}
+
 func TestAnd(t *testing.T) {
 	alwaysTrue := func(policiesv1beta1.MutatingPolicyLike) bool { return true }
 	alwaysFalse := func(policiesv1beta1.MutatingPolicyLike) bool { return false }
