@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -66,6 +67,12 @@ type RuleResponse struct {
 	skipReason SkipReason
 	// properties are the additional properties from the rule that will be added to the policy report result
 	properties map[string]string
+	// validationFailureAction is the effective failureAction resolved for this rule.
+	// It is populated by the engine for validate rules so that the admission block
+	// decision honors each rule's own action instead of a single policy-wide action.
+	// A nil value means no per-rule action was resolved and the policy-level action
+	// should be used as a fallback.
+	validationFailureAction *kyvernov1.ValidationFailureAction
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus, properties map[string]string) *RuleResponse {
@@ -153,6 +160,13 @@ func (r RuleResponse) WithProperties(m map[string]string) *RuleResponse {
 	return &r
 }
 
+// WithValidationFailureAction records the effective failureAction resolved for this
+// rule so that the admission block decision can honor each rule's action independently.
+func (r RuleResponse) WithValidationFailureAction(action kyvernov1.ValidationFailureAction) *RuleResponse {
+	r.validationFailureAction = &action
+	return &r
+}
+
 func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
@@ -207,6 +221,12 @@ func (r *RuleResponse) EmitWarning() bool {
 
 func (r *RuleResponse) Properties() map[string]string {
 	return r.properties
+}
+
+// ValidationFailureAction returns the effective failureAction resolved for this rule,
+// or nil if the engine did not resolve a per-rule action (e.g. non-validate rules).
+func (r *RuleResponse) ValidationFailureAction() *kyvernov1.ValidationFailureAction {
+	return r.validationFailureAction
 }
 
 // HasStatus checks if rule status is in a given list

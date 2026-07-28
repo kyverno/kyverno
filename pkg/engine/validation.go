@@ -79,6 +79,15 @@ func (e *engine) validate(
 			engineapi.Validation,
 		)
 		matchedResource = resource
+		// Stamp each validate rule response with its effective failureAction so the
+		// admission block decision honors each rule's action independently instead of
+		// collapsing the whole policy to a single action (issue #16557).
+		if rule.HasValidate() {
+			action := engineapi.ResolveValidationFailureAction(rule.Validation, policy.GetSpec(), policyContext.NamespaceLabels(), matchedResource.GetNamespace())
+			for i := range ruleResp {
+				ruleResp[i] = *ruleResp[i].WithValidationFailureAction(action)
+			}
+		}
 		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)
 		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount() > 0 {
 			break
