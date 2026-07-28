@@ -596,9 +596,10 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		}
-		if mpol.Spec.MutateExistingEnabled() && mpol.Spec.BackgroundEnabled() &&
-			(mpol.Spec.TargetMatchConstraints == nil || mpol.Spec.TargetMatchConstraints.Expression == "") {
-			logger.V(4).Info("creating UR for mutating policy background scan", "name", mpol.GetName())
+		// .background only controls background-scan reporting; it never gates
+		// mutate-existing execution (https://github.com/kyverno/kyverno/issues/16090).
+		if mpol.Spec.MutateExistingEnabled() {
+			logger.V(4).Info("creating UR for mutating policy on policy event or background scan", "name", mpol.GetName())
 			if err := pc.createURForMutatingPolicy(mpol); err != nil {
 				logger.Error(err, "failed to create UR for mutating policy", "name", mpol.GetName())
 				errs = append(errs, err)
@@ -616,10 +617,9 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		}
-		if nmpol.Spec.MutateExistingEnabled() && nmpol.Spec.BackgroundEnabled() &&
-			(nmpol.Spec.TargetMatchConstraints == nil || nmpol.Spec.TargetMatchConstraints.Expression == "") {
+		if nmpol.Spec.MutateExistingEnabled() {
 			policyKey := nmpol.GetNamespace() + "/" + nmpol.GetName()
-			logger.V(4).Info("creating UR for namespaced mutating policy background scan", "name", policyKey)
+			logger.V(4).Info("creating UR for namespaced mutating policy on policy event or background scan", "name", policyKey)
 			if err := pc.createURForNamespacedMutatingPolicy(nmpol); err != nil {
 				logger.Error(err, "failed to create UR for namespaced mutating policy", "name", policyKey)
 				errs = append(errs, err)
@@ -697,7 +697,8 @@ func (pc *policyController) requeuePolicies() {
 	}
 	if mpols, err := pc.mpolLister.List(labels.Everything()); err == nil {
 		for _, mpol := range mpols {
-			if mpol.Spec.MutateExistingEnabled() && mpol.Spec.BackgroundEnabled() &&
+			// .background never gates mutate-existing execution; it only controls reporting.
+			if mpol.Spec.MutateExistingEnabled() &&
 				(mpol.Spec.TargetMatchConstraints == nil || mpol.Spec.TargetMatchConstraints.Expression == "") {
 				pc.enqueuePolicy(engineapi.NewMutatingPolicy(mpol))
 			}
@@ -707,7 +708,7 @@ func (pc *policyController) requeuePolicies() {
 	}
 	if nmpols, err := pc.nmpolLister.List(labels.Everything()); err == nil {
 		for _, nmpol := range nmpols {
-			if nmpol.Spec.MutateExistingEnabled() && nmpol.Spec.BackgroundEnabled() &&
+			if nmpol.Spec.MutateExistingEnabled() &&
 				(nmpol.Spec.TargetMatchConstraints == nil || nmpol.Spec.TargetMatchConstraints.Expression == "") {
 				pc.enqueuePolicy(engineapi.NewNamespacedMutatingPolicy(nmpol))
 			}
