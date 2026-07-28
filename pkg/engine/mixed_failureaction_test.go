@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	webhookutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"gotest.tools/assert"
 )
 
@@ -49,7 +49,7 @@ func runMixed(t *testing.T, rulesJSON string, podJSON []byte) bool {
 	resource, err := kubeutils.BytesToUnstructured(podJSON)
 	assert.NilError(t, err)
 	pc := newPolicyContext(t, *resource, kyvernov1.Create, nil).WithPolicy(&policy)
-	er := testValidate(context.TODO(), registryclient.NewOrDie(), pc, cfg, nil)
+	er := testValidate(context.TODO(), registryclient.New(nil, "", "", "", false), pc, cfg, nil)
 	return webhookutils.BlockRequest(er, kyvernov1.Fail)
 }
 
