@@ -34,6 +34,7 @@ spec:
         - --port={{ .Values.admissionController.service.port }}
         - --path=health/liveness
         - --https
+        - --insecure-skip-verify
   {{- with .Values.test.nodeSelector | default .Values.global.nodeSelector }}
   nodeSelector:
     {{- tpl (toYaml .) $ | nindent 4 }}
