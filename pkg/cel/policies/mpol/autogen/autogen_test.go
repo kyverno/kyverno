@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -444,6 +445,11 @@ func TestAutogenIntegration(t *testing.T) {
 		policy := &policiesv1beta1.MutatingPolicy{
 			Spec: policiesv1beta1.MutatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"team": "platform",
+						},
+					},
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -494,6 +500,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.True(t, exists)
 		assert.Len(t, deploymentAutogen.Targets, 1)
 		assert.Equal(t, "deployments", deploymentAutogen.Targets[0].Resource)
+		assert.Equal(t, policy.Spec.MatchConstraints.NamespaceSelector, deploymentAutogen.Spec.MatchConstraints.NamespaceSelector)
 
 		assert.Len(t, deploymentAutogen.Spec.Mutations, 1)
 		convertedExpr := deploymentAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
@@ -505,6 +512,11 @@ func TestAutogenIntegration(t *testing.T) {
 		policy := &policiesv1beta1.MutatingPolicy{
 			Spec: policiesv1beta1.MutatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"team": "platform",
+						},
+					},
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -555,6 +567,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.True(t, exists)
 		assert.Len(t, cronjobAutogen.Targets, 1)
 		assert.Equal(t, "cronjobs", cronjobAutogen.Targets[0].Resource)
+		assert.Equal(t, policy.Spec.MatchConstraints.NamespaceSelector, cronjobAutogen.Spec.MatchConstraints.NamespaceSelector)
 
 		assert.Len(t, cronjobAutogen.Spec.Mutations, 1)
 		convertedExpr := cronjobAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
