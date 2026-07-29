@@ -208,11 +208,12 @@ func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
 	assert.Empty(t, patches)
 }
 
-// A malformed image reference must not cause the mutating webhook to deny the request.
-// Digest pinning is best effort: the failure is recorded as a policy result and the
-// admission decision is left to the validating webhook. Mirrors ClusterPolicy, where a
-// failing handleMutateDigest appends a RuleError instead of returning an error.
-func Test_ImageVerifyEngine_MutatingMalformedImageDoesNotFail(t *testing.T) {
+// A malformed image reference is recorded as an error result against the policy rather than
+// returned as an error from the engine, so the remaining policies still contribute their
+// patches. Mirrors ClusterPolicy, where a failing handleMutateDigest appends a RuleError and
+// continues. Turning that result into a denial is the webhook handler's job (see
+// mutationResponse), which is why the engine itself returns no error here.
+func Test_ImageVerifyEngine_MutatingMalformedImageIsRecordedAsPolicyError(t *testing.T) {
 	badPod := `{
 	"apiVersion": "v1",
 	"kind": "Pod",

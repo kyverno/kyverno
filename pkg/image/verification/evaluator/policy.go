@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
@@ -213,6 +212,14 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 // to its resolved digest, provided the image does not already carry a digest. It only
 // applies to images extracted from well-known container fields (containers, initContainers,
 // ephemeralContainers) of the resource, mirroring the built-in CEL image extractors.
+//
+// An image that cannot be resolved is an error, not a silent skip: the caller records it
+// against the policy and the webhook denies the request when the policy's validationActions
+// include Deny, so an unreachable registry cannot quietly admit an unpinned image.
+//
+// Resolution is per image. The returned patches cover every image that could be pinned even
+// when the returned error is non-nil, so one unresolvable image does not cost the others their
+// digest, matching how ClusterPolicy pins each image independently.
 func (c *compiledPolicy) MutateDigest(
 	ctx context.Context,
 	ictx imagedataloader.ImageContext,
@@ -250,6 +257,7 @@ func (c *compiledPolicy) MutateDigest(
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
+	var errs []error
 	for _, infos := range imagesByCategory {
 		for _, info := range infos {
 			if info.Digest != "" {
@@ -264,13 +272,12 @@ func (c *compiledPolicy) MutateDigest(
 			}
 			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
 			if err != nil {
-				// mutation is best-effort digest pinning, not verification: if the image
-				// can't be resolved (unreachable registry, bad reference, ...) skip the
-				// patch instead of failing the whole (potentially unrelated) admission
-				// request. The validating webhook still runs signature/attestation
-				// verification against the original tag and will deny/audit as configured
-				// if the image truly can't be resolved.
-				logging.WithName("ivpol/mutateDigest").Error(err, "failed to resolve image digest, skipping mutation", "image", image)
+				// Record the failure and carry on: an image that cannot be resolved must not
+				// cost the images that can their digest. ClusterPolicy pins each image
+				// independently for the same reason, appending a RuleError for the one it
+				// could not resolve while keeping the patches for the rest
+				// (pkg/engine/internal/imageverifier.go).
+				errs = append(errs, fmt.Errorf("failed to resolve digest for image %s: %w", image, err))
 				continue
 			}
 			patches = append(patches, jsonpatch.JsonPatchOperation{
@@ -280,7 +287,7 @@ func (c *compiledPolicy) MutateDigest(
 			})
 		}
 	}
-	return patches, nil
+	return patches, multierr.Combine(errs...)
 }
 
 func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {

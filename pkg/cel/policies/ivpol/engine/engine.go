@@ -145,11 +145,14 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // matchImageReferences to their resolved digest. No signature or
 // attestation verification is performed here.
 //
-// Digest pinning is best effort and never blocks admission on its own. A
-// policy whose digests cannot be resolved yields an error result rather than
-// an error return, so the remaining policies still get their patches and the
-// admission decision is left to the validating webhook, which evaluates the
-// same policies and attributes any failure to them.
+// Digest pinning is not best effort. A policy whose digests cannot be resolved
+// yields an error result rather than an error return, so the remaining policies
+// still contribute their patches, but that result is surfaced by the webhook
+// handler and denies the request when the policy's validationActions include
+// Deny. This mirrors ClusterPolicy, where a failing handleMutateDigest appends a
+// RuleError that blocks the request under failurePolicy Fail
+// (pkg/engine/internal/imageverifier.go). Failing open here would silently admit
+// unpinned images, which is the very problem this handler exists to fix.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// load objects
@@ -249,12 +252,13 @@ func (e *engineImpl) handleMutation(
 		}
 		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, e.configuration)
 		if err != nil {
-			// Digest pinning is best effort: record the failure as a policy result and
-			// carry on with the remaining policies rather than failing the admission
-			// request. This mirrors ClusterPolicy, where a failing handleMutateDigest
-			// appends a RuleError and continues (pkg/engine/internal/imageverifier.go).
-			// Whether the resource is admitted is decided by the validating webhook,
-			// which evaluates the same policy and reports the error against it.
+			// Record the failure as a policy result and carry on with the remaining
+			// policies rather than returning an error, which would abandon their
+			// patches and deny with an unattributed message. This mirrors
+			// ClusterPolicy, where a failing handleMutateDigest appends a RuleError
+			// and continues (pkg/engine/internal/imageverifier.go). The webhook
+			// handler turns this result into a denial when the policy's
+			// validationActions include Deny.
 			logging.WithName("ivpol/mutateDigest").Error(err, "failed to update digest",
 				"policy", ivpol.Policy.GetName())
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
@@ -263,7 +267,8 @@ func (e *engineImpl) handleMutation(
 				Exceptions: ivpol.Exceptions,
 				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", err, nil),
 			})
-			continue
+			// deliberately no continue: MutateDigest resolves each image on its own, so
+			// the images it did pin keep their patch even though another one failed
 		}
 		for _, p := range polPatches {
 			if seen[p.Path] {
