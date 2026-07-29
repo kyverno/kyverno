@@ -43,11 +43,12 @@ type Engine interface {
 type NamespaceResolver = engine.NamespaceResolver
 
 type engineImpl struct {
-	provider   Provider
-	nsResolver NamespaceResolver
-	matcher    matching.Matcher
-	lister     corev1listers.SecretLister
-	ivCache    imageverifycache.Client
+	provider      Provider
+	nsResolver    NamespaceResolver
+	matcher       matching.Matcher
+	lister        corev1listers.SecretLister
+	ivCache       imageverifycache.Client
+	configuration config.Configuration
 }
 
 func NewEngine(
@@ -56,13 +57,15 @@ func NewEngine(
 	matcher matching.Matcher,
 	lister corev1listers.SecretLister,
 	ivCache imageverifycache.Client,
+	configuration config.Configuration,
 ) Engine {
 	return &engineImpl{
-		provider:   provider,
-		nsResolver: nsResolver,
-		matcher:    matcher,
-		lister:     lister,
-		ivCache:    ivCache,
+		provider:      provider,
+		nsResolver:    nsResolver,
+		matcher:       matcher,
+		lister:        lister,
+		ivCache:       ivCache,
+		configuration: configuration,
 	}
 }
 
@@ -214,7 +217,6 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, err
 	}
-	cfg := config.NewDefaultConfiguration(false)
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
 
 	var patches []jsonpatch.JsonPatchOperation
@@ -236,7 +238,7 @@ func (e *engineImpl) handleMutation(
 			// compile errors are surfaced by the validating webhook, skip mutation
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, cfg)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, e.configuration)
 		if err != nil {
 			return nil, err
 		}
