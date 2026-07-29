@@ -788,6 +788,7 @@ func main() {
 				matching.NewMatcher(),
 				setup.RegistrySecretLister,
 				setup.ImageVerifyCacheClient,
+				setup.Configuration,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
