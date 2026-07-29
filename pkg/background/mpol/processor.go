@@ -178,18 +178,12 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	if ns := mpol.GetNamespace(); ns != "" {
 		scopePredicate = mpolengine.NamespacedPolicy(ns)
 	}
-	for _, target := range targets.Items {
-		object := &target
-		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), "", object.GetNamespace(), object.GetName()) {
+	for _, target := range targets {
+		object := &target.object
+		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), target.subresource, object.GetNamespace(), object.GetName()) {
 			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
 			continue
 		}
-		mapping, err := p.mapper.RESTMapping(target.GroupVersionKind().GroupKind(), target.GroupVersionKind().Version)
-		if err != nil {
-			failures = append(failures, fmt.Errorf("failed to get resource version for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
-			continue
-		}
-
 		// Build the AdmissionRequest for this target. For background-only scans there is no
 		// real admission request, so we construct a synthetic one from the target resource.
 		// Operation is Update (background scans mutate already-existing resources).
