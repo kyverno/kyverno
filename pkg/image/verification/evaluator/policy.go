@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
@@ -263,7 +264,14 @@ func (c *compiledPolicy) MutateDigest(
 			}
 			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
 			if err != nil {
-				return nil, err
+				// mutation is best-effort digest pinning, not verification: if the image
+				// can't be resolved (unreachable registry, bad reference, ...) skip the
+				// patch instead of failing the whole (potentially unrelated) admission
+				// request. The validating webhook still runs signature/attestation
+				// verification against the original tag and will deny/audit as configured
+				// if the image truly can't be resolved.
+				logging.WithName("ivpol/mutateDigest").Error(err, "failed to resolve image digest, skipping mutation", "image", image)
+				continue
 			}
 			patches = append(patches, jsonpatch.JsonPatchOperation{
 				Operation: "replace",
