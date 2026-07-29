@@ -118,7 +118,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 			return nil, err
 		}
 		for _, resource := range resourceList {
-			key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s/%s/%s", resource.GroupVersionKind().String(), resource.GetNamespace(), resource.GetName())
 			resourceMap[key] = resource.DeepCopy()
 		}
 
@@ -134,7 +134,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 				return nil, err
 			}
 			for _, resource := range subResourceList {
-				key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+				key := fmt.Sprintf("%s/%s/%s", resource.GroupVersionKind().String(), resource.GetNamespace(), resource.GetName())
 				resourceMap[key] = resource.DeepCopy()
 			}
 		}
@@ -154,9 +154,8 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	} else {
 		for _, resourcePath := range rf.ResourcePaths {
 			lenOfResource := len(resources)
-			for rn, rr := range resourceMap {
-				s := strings.Split(rn, "-")
-				if s[2] == resourcePath {
+			for _, rr := range resourceMap {
+				if rr.GetName() == resourcePath {
 					resources = append(resources, rr)
 				}
 			}
@@ -319,7 +318,7 @@ func (rf *ResourceFetcher) listResources(
 			continue
 		}
 		for _, resource := range resourceList.Items {
-			key := fmt.Sprintf("%s-%s-%s", gvk.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s/%s/%s", gvk.String(), resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(gvk)
 			result[key] = resource.DeepCopy()
 		}
@@ -358,7 +357,7 @@ func (rf *ResourceFetcher) listResources(
 				continue
 			}
 
-			key := fmt.Sprintf("%s-%s-%s", subGVK.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s/%s/%s", subGVK.String(), resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
 			result[key] = resource.DeepCopy()
 		}
