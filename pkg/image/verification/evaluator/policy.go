@@ -14,13 +14,16 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +42,7 @@ type EvaluationResult struct {
 
 type CompiledPolicy interface {
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
+	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
@@ -202,6 +206,88 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, err
 	}
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+// MutateDigest pins the tag of every image matched by the policy's matchImageReferences
+// to its resolved digest, provided the image does not already carry a digest. It only
+// applies to images extracted from well-known container fields (containers, initContainers,
+// ephemeralContainers) of the resource, mirroring the built-in CEL image extractors.
+//
+// An image that cannot be resolved is an error, not a silent skip: the caller records it
+// against the policy and the webhook denies the request when the policy's validationActions
+// include Deny, so an unreachable registry cannot quietly admit an unpinned image.
+//
+// Resolution is per image. The returned patches cover every image that could be pinned even
+// when the returned error is non-nil, so one unresolvable image does not cost the others their
+// digest, matching how ClusterPolicy pins each image independently.
+func (c *compiledPolicy) MutateDigest(
+	ctx context.Context,
+	ictx imagedataloader.ImageContext,
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	resource unstructured.Unstructured,
+	cfg config.Configuration,
+) ([]jsonpatch.JsonPatchOperation, error) {
+	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return nil, nil
+	}
+	// skip mutation if the resource matches an exception; the validating webhook
+	// will skip the corresponding validation for the same resource
+	for _, polex := range c.exceptions {
+		match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return nil, nil
+		}
+	}
+
+	// images are extracted from the well-known container fields directly (rather than
+	// through the policy's CEL image extractors) because we need the JSON pointer to the
+	// image reference within the resource in order to build a patch
+	imagesByCategory, err := apiutils.ExtractImagesFromResource(resource, nil, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	var patches []jsonpatch.JsonPatchOperation
+	var errs []error
+	for _, infos := range imagesByCategory {
+		for _, info := range infos {
+			if info.Digest != "" {
+				// already pinned to a digest, nothing to do
+				continue
+			}
+			image := info.String()
+			if apply, err := matching.MatchImage(image, c.matchImageReferences...); err != nil {
+				return nil, err
+			} else if !apply {
+				continue
+			}
+			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
+			if err != nil {
+				// Record the failure and carry on: an image that cannot be resolved must not
+				// cost the images that can their digest. ClusterPolicy pins each image
+				// independently for the same reason, appending a RuleError for the one it
+				// could not resolve while keeping the patches for the rest
+				// (pkg/engine/internal/imageverifier.go).
+				errs = append(errs, fmt.Errorf("failed to resolve digest for image %s: %w", image, err))
+				continue
+			}
+			patches = append(patches, jsonpatch.JsonPatchOperation{
+				Operation: "replace",
+				Path:      info.Pointer,
+				Value:     image + "@" + data.Digest,
+			})
+		}
+	}
+	return patches, multierr.Combine(errs...)
 }
 
 func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
