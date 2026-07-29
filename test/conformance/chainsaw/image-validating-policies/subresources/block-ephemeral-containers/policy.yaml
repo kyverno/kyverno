@@ -20,6 +20,8 @@ spec:
     - glob: "*"
   validationConfigurations:
     mutateDigest: false
+    verifyDigest: false
+    required: false
   attestors:
     - name: notary
       notary:

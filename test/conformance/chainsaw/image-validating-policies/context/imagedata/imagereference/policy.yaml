@@ -24,6 +24,8 @@ spec:
     - glob: ghcr.io/*
   validationConfigurations:
     mutateDigest: false
+    verifyDigest: false
+    required: false
   attestors:
     - name: notary
       notary:
