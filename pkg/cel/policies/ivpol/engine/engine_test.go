@@ -208,6 +208,45 @@ func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
 	assert.Empty(t, patches)
 }
 
+// A malformed image reference must not cause the mutating webhook to deny the request.
+// Digest pinning is best effort: the failure is recorded as a policy result and the
+// admission decision is left to the validating webhook. Mirrors ClusterPolicy, where a
+// failing handleMutateDigest appends a RuleError instead of returning an error.
+func Test_ImageVerifyEngine_MutatingMalformedImageDoesNotFail(t *testing.T) {
+	badPod := `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {"name": "test-pod", "namespace": ""},
+	"spec": {
+	   "containers": [{"name": "nginx", "image": "ghcr.io/kyverno/test-verify-image::signed"}]
+	}
+ }
+`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(badPod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, patches)
+	// the failure is surfaced as an error result attributed to the policy, not swallowed
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, ivpol.GetName(), resp.Policies[0].Policy.GetName())
+		assert.Equal(t, engineapi.RuleStatusError, resp.Policies[0].Result.Status())
+		assert.Contains(t, resp.Policies[0].Result.Message(), "failed to update digest")
+	}
+}
+
 func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-forged-annotation"},

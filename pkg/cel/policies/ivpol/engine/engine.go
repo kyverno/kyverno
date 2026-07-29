@@ -14,6 +14,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"golang.org/x/exp/maps"
@@ -143,6 +144,12 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // request, it pins the tag of images matched by the policy's
 // matchImageReferences to their resolved digest. No signature or
 // attestation verification is performed here.
+//
+// Digest pinning is best effort and never blocks admission on its own. A
+// policy whose digests cannot be resolved yields an error result rather than
+// an error return, so the remaining policies still get their patches and the
+// admission decision is left to the validating webhook, which evaluates the
+// same policies and attributes any failure to them.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
 	var response eval.ImageVerifyEngineResponse
 	// load objects
@@ -195,10 +202,11 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	} else {
 		relevant = policies
 	}
-	patches, err := e.handleMutation(ctx, relevant, attr, &request.Request, namespace, *response.Resource, request.Context)
+	patches, responses, err := e.handleMutation(ctx, relevant, attr, &request.Request, namespace, *response.Resource, request.Context)
 	if err != nil {
 		return response, nil, err
 	}
+	response.Policies = append(response.Policies, responses...)
 	return response, patches, nil
 }
 
@@ -210,16 +218,17 @@ func (e *engineImpl) handleMutation(
 	namespace runtime.Object,
 	resource unstructured.Unstructured,
 	libctx libs.Context,
-) ([]jsonpatch.JsonPatchOperation, error) {
+) ([]jsonpatch.JsonPatchOperation, []eval.ImageVerifyPolicyResponse, error) {
 	// leave remote and name options blank, each compiled policy will provide
 	// its own credentials or the default global ones.
 	ictx, err := imagedataloader.NewImageContext(e.lister, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
 
 	var patches []jsonpatch.JsonPatchOperation
+	var responses []eval.ImageVerifyPolicyResponse
 	seen := map[string]bool{}
 	for _, ivpol := range policies {
 		validationCfg := ivpol.Policy.GetSpec().ValidationConfigurations
@@ -228,7 +237,7 @@ func (e *engineImpl) handleMutation(
 		}
 		matches, err := e.matchPolicy(ivpol, attr, namespace)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !matches {
 			continue
@@ -240,7 +249,21 @@ func (e *engineImpl) handleMutation(
 		}
 		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, e.configuration)
 		if err != nil {
-			return nil, err
+			// Digest pinning is best effort: record the failure as a policy result and
+			// carry on with the remaining policies rather than failing the admission
+			// request. This mirrors ClusterPolicy, where a failing handleMutateDigest
+			// appends a RuleError and continues (pkg/engine/internal/imageverifier.go).
+			// Whether the resource is admitted is decided by the validating webhook,
+			// which evaluates the same policy and reports the error against it.
+			logging.WithName("ivpol/mutateDigest").Error(err, "failed to update digest",
+				"policy", ivpol.Policy.GetName())
+			responses = append(responses, eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", err, nil),
+			})
+			continue
 		}
 		for _, p := range polPatches {
 			if seen[p.Path] {
@@ -250,7 +273,7 @@ func (e *engineImpl) handleMutation(
 			patches = append(patches, p)
 		}
 	}
-	return patches, nil
+	return patches, responses, nil
 }
 
 func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
