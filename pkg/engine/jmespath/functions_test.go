@@ -1790,3 +1790,41 @@ func Test_MD5(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, str, "def42e1abd2462df1f9f0a4b3d488221")
 }
+
+func Test_Random(t *testing.T) {
+	t.Run("valid pattern", func(t *testing.T) {
+		jp, err := jmespathInterface.Query("random('[a-z0-9]{8}')")
+		assert.NilError(t, err)
+
+		result, err := jp.Search("")
+		assert.NilError(t, err)
+
+		str, ok := result.(string)
+		assert.Assert(t, ok)
+		assert.Equal(t, len(str), 8)
+	})
+
+	t.Run("empty pattern", func(t *testing.T) {
+		jp, err := jmespathInterface.Query("random('')")
+		assert.NilError(t, err)
+
+		_, err = jp.Search("")
+		assert.Assert(t, err != nil)
+	})
+
+	t.Run("nil argument", func(t *testing.T) {
+		jp, err := jmespathInterface.Query("random(missing_field)")
+		assert.NilError(t, err)
+
+		_, err = jp.Search(map[string]any{})
+		assert.Assert(t, err != nil)
+	})
+
+	t.Run("non-string argument", func(t *testing.T) {
+		jp, err := jmespathInterface.Query("random(`123`)")
+		assert.NilError(t, err)
+
+		_, err = jp.Search("")
+		assert.Assert(t, err != nil)
+	})
+}
