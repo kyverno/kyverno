@@ -43,6 +43,7 @@ type CompiledPolicy interface {
 
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
+	verifyDigest         bool
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
@@ -143,6 +144,21 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
+	if c.verifyDigest {
+		for _, img := range imgList {
+			ref, err := name.ParseReference(img, c.nameOpts...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse image reference %s: %w", img, err)
+			}
+			if _, ok := ref.(name.Digest); !ok {
+				return &EvaluationResult{
+					Result:  false,
+					Message: fmt.Sprintf("image %s does not have a digest", img),
+				}, nil
+			}
+		}
+	}
+
 	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
 		return nil, err
 	}
