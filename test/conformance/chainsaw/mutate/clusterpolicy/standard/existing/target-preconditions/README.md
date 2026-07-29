@@ -8,7 +8,7 @@ This test creates three `ConfigMap`s:
 It then creates a `ClusterPolicy` with a mutate existing rule targeting the previously created `ConfigMap`s.
 
 The policy rule uses preconditions on the trigger resource to match only `ConfigMap`s with the `trigger` name.
-The policy rule also uses preconditions on target resources to match only `ConfigMap`s with he label `foo: bar`.
+The policy rule also uses preconditions on target resources to match only `ConfigMap`s with the label `foo: bar`.
 The policy mutates target resources passing preconditions by copying the `data.content` from the trigger `ConfigMap` to the target `ConfigMap`.
 
 Finally, the test creates the trigger config map.

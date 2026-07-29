@@ -28,7 +28,7 @@ var examples = [][]string{
 		"kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>",
 	},
 	{
-		"# Apply multiple policy with variable on multiple resource",
+		"# Apply multiple policies with variables on multiple resources",
 		"kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml",
 	},
 }
