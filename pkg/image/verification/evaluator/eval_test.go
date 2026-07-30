@@ -146,33 +146,3 @@ func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {
 	assert.False(t, result[policy.Name].Result)
 	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
 }
-
-func Test_Eval_VerifyDigest_False_NonMatchingImage_Passes(t *testing.T) {
-	// verifyDigest: false -- policy should not reject images without digest.
-	// Using a non-matching image to avoid network calls in unit tests;
-	// the verifyDigest=false path is also covered by the compiler wiring
-	// which defaults verifyDigest to true when nil.
-	policy := &policiesv1beta1.ImageValidatingPolicy{
-		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policieskyvernoio.EvaluationModeJSON,
-			},
-			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
-				VerifyDigest: func() *bool { b := false; return &b }(),
-			},
-			MatchImageReferences: []policiesv1beta1.MatchImageReference{
-				{Glob: "ghcr.io/*"},
-			},
-			ImageExtractors: []policiesv1beta1.ImageExtractor{
-				{Name: "bar", Expression: "[object.foo.bar]"},
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{Expression: "true"},
-			},
-		},
-	}
-
-	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(nonMatchingImage), nil, nil, nil)
-	assert.NoError(t, err)
-	assert.True(t, result[policy.Name].Result)
-}
