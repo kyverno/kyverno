@@ -727,6 +727,7 @@ func applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	if restMapper == nil {

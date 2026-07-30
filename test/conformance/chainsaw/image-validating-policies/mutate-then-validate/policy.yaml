@@ -1,0 +1,31 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-mutate-then-validate
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 20
+  failurePolicy: Fail
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  matchImageReferences:
+    - glob: ghcr.io/**
+  validationConfigurations:
+    mutateDigest: true
+    verifyDigest: false
+    required: false
+  attestors: []
+  validations:
+    # this validation only passes if the image reference already contains a
+    # digest, proving the validating webhook receives the object *after* the
+    # mutating webhook has pinned the tag to a digest, not the original
+    # tag-only reference submitted by the client.
+    - expression: >-
+        images.containers.map(image, image.contains('@sha256:')).all(e, e)
+      message: image must already be pinned to a digest by the mutating webhook
