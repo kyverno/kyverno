@@ -22,13 +22,17 @@ type lib struct {
 	ivpol   policiesv1beta1.ImageValidatingPolicyLike
 	lister  corev1listers.SecretLister
 	ivCache imageverifycache.Client
+	ledger  *VerificationLedger
 }
 
 func Latest() *version.Version {
 	return versions.KyvernoLatest
 }
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister, logger logr.Logger, ivCache imageverifycache.Client) cel.EnvOption {
+// Lib builds the image verification CEL library. The ledger is shared with the
+// caller, which reads it back after evaluation to enforce
+// validationConfigurations.required; pass nil when that enforcement is not needed.
+func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister, logger logr.Logger, ivCache imageverifycache.Client, ledger *VerificationLedger) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
 		logger:  logger,
@@ -37,6 +41,7 @@ func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policies
 		ivpol:   ivpol,
 		lister:  lister,
 		ivCache: ivCache,
+		ledger:  ledger,
 	})
 }
 
@@ -59,7 +64,7 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, c.ivCache, env.CELTypeAdapter())
+	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, c.ivCache, env.CELTypeAdapter(), c.ledger)
 	if err != nil {
 		return nil, err
 	}

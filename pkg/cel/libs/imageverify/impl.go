@@ -45,6 +45,7 @@ type ivfuncs struct {
 	ivCache         imageverifycache.Client
 	authOpts        []remote.Option
 	nameOpts        []name.Option
+	ledger          *VerificationLedger
 }
 
 func ImageVerifyCELFuncs(
@@ -54,6 +55,7 @@ func ImageVerifyCELFuncs(
 	lister corev1listers.SecretLister,
 	ivCache imageverifycache.Client,
 	adapter types.Adapter,
+	ledger *VerificationLedger,
 ) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
@@ -88,6 +90,7 @@ func ImageVerifyCELFuncs(
 		ivCache:         ivCache,
 		nameOpts:        nameOpts,
 		authOpts:        authOpts[:],
+		ledger:          ledger,
 	}, nil
 }
 
@@ -135,6 +138,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image signature verification cache hit", "image", image, "policy", f.policy.GetName())
+				f.ledger.Record(image, true)
 				return f.NativeToValue(len(attestors))
 			}
 		}
@@ -178,6 +182,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
+		f.ledger.Record(image, count > 0)
 		return f.NativeToValue(count)
 	}
 }
@@ -208,6 +213,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
+				f.ledger.Record(image, true)
 				return f.NativeToValue(len(attestors))
 			}
 		}
@@ -257,6 +263,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
+		f.ledger.Record(image, count > 0)
 		return f.NativeToValue(count)
 	}
 }

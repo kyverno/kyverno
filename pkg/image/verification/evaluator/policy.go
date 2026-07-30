@@ -10,9 +10,11 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
@@ -59,6 +61,8 @@ type compiledPolicy struct {
 	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
+	validationConfig     policiesv1alpha1.ValidationConfiguration
+	ledger               *imageverify.VerificationLedger
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
@@ -146,6 +150,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
+	// the ledger is bound into the CEL environment at compile time, so clear it
+	// before the verification functions start writing this evaluation's outcomes
+	c.ledger.Reset()
+
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
 	result, err := c.checkDigests(imgList)
@@ -207,6 +215,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
+
+	if err := c.enforceRequired(imgList); err != nil {
+		return &EvaluationResult{Result: false, Message: err.Error()}, nil
+	}
+
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		return nil, err
@@ -234,6 +247,27 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 	}
 
 	return nil, nil
+}
+
+// enforceRequired ensures every matched image passed a signature or attestation check.
+// CEL expressions returning true is insufficient: they might skip verification entirely.
+// This checks the verification ledger that signature/attestation functions write to.
+// Only images matched by matchImageReferences and extracted by imageExtractors are checked.
+func (c *compiledPolicy) enforceRequired(images []string) error {
+	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
+		return nil
+	}
+	for _, image := range images {
+		verified, attempted := c.ledger.Status(image)
+		if verified {
+			continue
+		}
+		if attempted {
+			return fmt.Errorf("image %s failed signature or attestation verification", image)
+		}
+		return fmt.Errorf("image %s is not verified: the policy performed no signature or attestation check on it", image)
+	}
+	return nil
 }
 
 // MutateDigest pins the tag of every image matched by the policy's matchImageReferences
