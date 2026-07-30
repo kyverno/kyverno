@@ -97,7 +97,7 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *controller) reconcile(ctx context.Context, event policyEvent) error {
+func (c *controller) reconcile(ctx context.Context, event policyEvent) {
 	switch event.eventType {
 	case policyChangesMetric.PolicyCreated:
 		c.registerPolicyChangesMetricAddPolicy(ctx, logger, event.cur)
@@ -106,7 +106,6 @@ func (c *controller) reconcile(ctx context.Context, event policyEvent) error {
 	case policyChangesMetric.PolicyDeleted:
 		c.registerPolicyChangesMetricDeletePolicy(ctx, logger, event.cur)
 	}
-	return nil
 }
 
 func (c *controller) report(ctx context.Context, observer metric.Observer) error {
