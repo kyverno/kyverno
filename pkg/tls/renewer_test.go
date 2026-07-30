@@ -290,6 +290,7 @@ func TestDecodeTLSSecret_AllCAs(t *testing.T) {
 	assert.True(t, cert.IsCA, "returned cert should be a CA since all certs are CAs")
 	assert.Equal(t, caCert.Raw, cert.Raw, "should return first cert as fallback")
 	assertKeyMatchesCert(t, key, cert)
+}
 
 func TestDecodeTLSSecret_NoCerts(t *testing.T) {
 	caKey, _ := generateTestCACert(t)
