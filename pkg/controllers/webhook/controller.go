@@ -1564,8 +1564,15 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 }
 
 // ivpolsNeedingMutation filters ivpol/nivpol policies to those that actually
-// require a mutating webhook (i.e. MutateDigest or VerifyDigest is enabled).
-// Both fields default to true when nil, so an unset spec always qualifies.
+// require a mutating webhook, i.e. those with MutateDigest enabled (it defaults
+// to true when nil, so an unset spec always qualifies).
+//
+// VerifyDigest is deliberately not considered here: digest pinning is the only
+// mutation the ivpol mutating webhook performs. Asserting that an image carries
+// a digest is a validation concern handled by the validating webhook (mirroring
+// v1, where VerifyDigest is enforced in the validate_image handler), so a policy
+// with mutateDigest disabled and verifyDigest enabled would otherwise get a
+// mutating webhook that can never produce a patch.
 func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.GenericPolicy {
 	result := make([]engineapi.GenericPolicy, 0, len(policies))
 	for _, p := range policies {
@@ -1574,9 +1581,7 @@ func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.Gener
 			continue
 		}
 		spec := ivpol.GetSpec()
-		mutateDigest := spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest
-		verifyDigest := spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest
-		if mutateDigest || verifyDigest {
+		if spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest {
 			result = append(result, p)
 		}
 	}
