@@ -182,7 +182,9 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
-		f.ledger.Record(image, count > 0)
+		if len(attestors) > 0 {
+			f.ledger.Record(image, count > 0)
+		}
 		return f.NativeToValue(count)
 	}
 }
@@ -263,7 +265,9 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
-		f.ledger.Record(image, count > 0)
+		if len(attestors) > 0 {
+			f.ledger.Record(image, count > 0)
+		}
 		return f.NativeToValue(count)
 	}
 }

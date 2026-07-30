@@ -3,8 +3,10 @@ package imageverify
 // VerificationLedger records, per image, whether a real cryptographic signature
 // or attestation check succeeded during a single policy evaluation.
 
-// Only the verification CEL functions write to the ledger, and only when a check
-// actually succeeded, so a policy author cannot forge an entry.
+// Only the verification CEL functions write to the ledger, so a policy author cannot forge an entry.
+// The ledger records both successful and failed verification attempts to distinguish "never checked"
+// from "checked and failed".
+//
 // Once an image is verified it stays verified, which keeps the outcome
 // independent of the order a policy's expressions happen to run in, and stops an
 // expression from clearing a genuine verification by re-checking the same image
