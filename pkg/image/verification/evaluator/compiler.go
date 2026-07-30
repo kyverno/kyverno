@@ -76,9 +76,9 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 
 	// shared with the image verification CEL library: it writes verification
 	// outcomes into it, Evaluate reads them back to enforce validationConfigurations.required
-	ledger := imageverify.NewVerificationLedger()
+	verifications := imageverify.NewImageVerificationResults()
 
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, ledger)
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, verifications)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -183,11 +183,11 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		exceptions:           compiledExceptions,
 		variables:            variables,
 		validationConfig:     spec.ValidationConfigurations,
-		ledger:               ledger,
+		verifications:        verifications,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, ledger *imageverify.VerificationLedger) (*environment.EnvSet, *engine.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, verifications *imageverify.ImageVerificationResults) (*environment.EnvSet, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -239,7 +239,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			imageverify.Latest(), c.ictx, ivpol, c.lister,
 			logging.WithName("ivpol/imageverify").WithValues("policy", ivpol.GetName(), "namespace", namespace),
 			c.ivCache,
-			ledger,
+			verifications,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

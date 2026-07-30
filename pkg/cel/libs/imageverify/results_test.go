@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVerificationLedger_StatusDistinguishesNeverCheckedFromFailed(t *testing.T) {
+func TestImageVerificationResults_StatusDistinguishesNeverCheckedFromFailed(t *testing.T) {
 	t.Parallel()
-	l := NewVerificationLedger()
+	l := NewImageVerificationResults()
 
 	// never recorded
 	verified, attempted := l.Status("ghcr.io/kyverno/unseen:latest")
@@ -26,17 +26,17 @@ func TestVerificationLedger_StatusDistinguishesNeverCheckedFromFailed(t *testing
 	assert.True(t, attempted)
 }
 
-// A policy's expressions all share one ledger, so an image verified by one
+// A policy's expressions all share one set of results, so an image verified by one
 // expression must stay verified when a later expression checks it against a
 // different attestor and fails. Without this the verdict would depend on the
 // order the expressions happen to be written in.
-func TestVerificationLedger_RecordIsMonotonic(t *testing.T) {
+func TestImageVerificationResults_RecordIsMonotonic(t *testing.T) {
 	t.Parallel()
 	const image = "ghcr.io/kyverno/test-verify-image:signed"
 
 	t.Run("success then failure", func(t *testing.T) {
 		t.Parallel()
-		l := NewVerificationLedger()
+		l := NewImageVerificationResults()
 		l.Record(image, true)
 		l.Record(image, false)
 		verified, _ := l.Status(image)
@@ -45,7 +45,7 @@ func TestVerificationLedger_RecordIsMonotonic(t *testing.T) {
 
 	t.Run("failure then success", func(t *testing.T) {
 		t.Parallel()
-		l := NewVerificationLedger()
+		l := NewImageVerificationResults()
 		l.Record(image, false)
 		l.Record(image, true)
 		verified, _ := l.Status(image)
@@ -53,13 +53,13 @@ func TestVerificationLedger_RecordIsMonotonic(t *testing.T) {
 	})
 }
 
-// The ledger is bound into the CEL environment at compile time. If a compiled
+// The results are bound into the CEL environment at compile time. If a compiled
 // policy were ever reused across resources, stale entries would let an unverified
 // image through, so Reset must actually clear the verified state.
-func TestVerificationLedger_ResetClearsVerifiedState(t *testing.T) {
+func TestImageVerificationResults_ResetClearsVerifiedState(t *testing.T) {
 	t.Parallel()
 	const image = "ghcr.io/kyverno/test-verify-image:signed"
-	l := NewVerificationLedger()
+	l := NewImageVerificationResults()
 	l.Record(image, true)
 
 	l.Reset()
@@ -74,11 +74,11 @@ func TestVerificationLedger_ResetClearsVerifiedState(t *testing.T) {
 	assert.True(t, verified)
 }
 
-// The ledger is optional at the API boundary, so every method has to tolerate a
+// The results are optional at the API boundary, so every method has to tolerate a
 // nil receiver rather than panicking inside a CEL function.
-func TestVerificationLedger_NilReceiverIsSafe(t *testing.T) {
+func TestImageVerificationResults_NilReceiverIsSafe(t *testing.T) {
 	t.Parallel()
-	var l *VerificationLedger
+	var l *ImageVerificationResults
 	assert.NotPanics(t, func() {
 		l.Record("ghcr.io/kyverno/test-verify-image:signed", true)
 		l.Reset()

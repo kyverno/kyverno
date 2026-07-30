@@ -10,14 +10,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func policyWithLedger(required *bool, recorded map[string]bool) *compiledPolicy {
-	ledger := imageverify.NewVerificationLedger()
+func policyWithVerifications(required *bool, recorded map[string]bool) *compiledPolicy {
+	verifications := imageverify.NewImageVerificationResults()
 	for image, ok := range recorded {
-		ledger.Record(image, ok)
+		verifications.Record(image, ok)
 	}
 	return &compiledPolicy{
 		validationConfig: policiesv1alpha1.ValidationConfiguration{Required: required},
-		ledger:           ledger,
+		verifications:    verifications,
 	}
 }
 
@@ -26,7 +26,7 @@ func policyWithLedger(required *bool, recorded map[string]bool) *compiledPolicy 
 // expression is a constant or tolerates a zero verification count.
 func TestEnforceRequired_DeniesImageThatWasNeverChecked(t *testing.T) {
 	t.Parallel()
-	c := policyWithLedger(nil, nil)
+	c := policyWithVerifications(nil, nil)
 
 	err := c.enforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"})
 
@@ -38,7 +38,7 @@ func TestEnforceRequired_DeniesImageThatWasNeverChecked(t *testing.T) {
 func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 	t.Parallel()
 	image := "ghcr.io/kyverno/test-verify-image:unsigned"
-	c := policyWithLedger(nil, map[string]bool{image: false})
+	c := policyWithVerifications(nil, map[string]bool{image: false})
 
 	err := c.enforceRequired([]string{image})
 
@@ -50,7 +50,7 @@ func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 func TestEnforceRequired_AllowsVerifiedImage(t *testing.T) {
 	t.Parallel()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
-	c := policyWithLedger(nil, map[string]bool{image: true})
+	c := policyWithVerifications(nil, map[string]bool{image: true})
 
 	assert.NoError(t, c.enforceRequired([]string{image}))
 }
@@ -59,7 +59,7 @@ func TestEnforceRequired_AllowsVerifiedImage(t *testing.T) {
 // only inspect image metadata would break.
 func TestEnforceRequired_DisabledSkipsTheCheck(t *testing.T) {
 	t.Parallel()
-	c := policyWithLedger(ptr.To(false), nil)
+	c := policyWithVerifications(ptr.To(false), nil)
 
 	assert.NoError(t, c.enforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}))
 }
@@ -70,7 +70,7 @@ func TestEnforceRequired_DeniesWhenOnlySomeImagesAreVerified(t *testing.T) {
 	t.Parallel()
 	verified := "ghcr.io/kyverno/test-verify-image:signed"
 	unverified := "ghcr.io/kyverno/other:latest"
-	c := policyWithLedger(nil, map[string]bool{verified: true})
+	c := policyWithVerifications(nil, map[string]bool{verified: true})
 
 	err := c.enforceRequired([]string{verified, unverified})
 
@@ -83,7 +83,7 @@ func TestEnforceRequired_DeniesWhenOnlySomeImagesAreVerified(t *testing.T) {
 // nothing has nothing to require and must not deny.
 func TestEnforceRequired_NoMatchedImagesPasses(t *testing.T) {
 	t.Parallel()
-	c := policyWithLedger(nil, nil)
+	c := policyWithVerifications(nil, nil)
 
 	assert.NoError(t, c.enforceRequired(nil))
 }

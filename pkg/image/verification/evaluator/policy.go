@@ -62,7 +62,7 @@ type compiledPolicy struct {
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 	validationConfig     policiesv1alpha1.ValidationConfiguration
-	ledger               *imageverify.VerificationLedger
+	verifications        *imageverify.ImageVerificationResults
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
@@ -150,9 +150,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	// the ledger is bound into the CEL environment at compile time, so clear it
+	// verification results are bound into the CEL environment at compile time, so clear them
 	// before the verification functions start writing this evaluation's outcomes
-	c.ledger.Reset()
+	c.verifications.Reset()
 
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
@@ -251,14 +251,14 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 
 // enforceRequired ensures every matched image passed a signature or attestation check.
 // CEL expressions returning true is insufficient: they might skip verification entirely.
-// This checks the verification ledger that signature/attestation functions write to.
+// This checks the verification results that signature/attestation functions write to.
 // Only images matched by matchImageReferences and extracted by imageExtractors are checked.
 func (c *compiledPolicy) enforceRequired(images []string) error {
 	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
 		return nil
 	}
 	for _, image := range images {
-		verified, attempted := c.ledger.Status(image)
+		verified, attempted := c.verifications.Status(image)
 		if verified {
 			continue
 		}
