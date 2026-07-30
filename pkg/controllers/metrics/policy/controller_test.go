@@ -6,9 +6,9 @@ import (
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernoconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	kyvernoconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyChangesMetric "github.com/kyverno/kyverno/pkg/metrics/policychanges"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +61,7 @@ func TestController(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-cpol"},
 	}
 	c.addPolicy(p)
-	
+
 	event, quit := c.queue.Get()
 	assert.False(t, quit)
 	assert.Equal(t, p, event.cur)
@@ -118,11 +118,11 @@ func TestController(t *testing.T) {
 	c.queue.Add(event)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	
+
 	// Should process the queued item and return true
 	res := c.processNextWorkItem(ctx)
 	assert.True(t, res)
-	
+
 	c.queue.ShutDown()
 	res = c.processNextWorkItem(ctx)
 	assert.False(t, res)
@@ -137,7 +137,7 @@ func TestReport(t *testing.T) {
 
 	ctrl := NewController(cpolInformer, polInformer)
 	c := ctrl.(*controller)
-	
+
 	// We just ensure report doesn't panic. Detailed metric reporting is tested in metrics pkg.
 	err := c.report(context.Background(), nil)
 	assert.NoError(t, err)
