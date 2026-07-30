@@ -165,7 +165,7 @@ func Test_Eval_RequiredDeniesPolicyThatVerifiesNothing(t *testing.T) {
 	require.NotNil(t, result[p.Name])
 	assert.False(t, result[p.Name].Result, "an image that no expression verified must not be admitted")
 	assert.Contains(t, result[p.Name].Message, signedImage)
-	assert.Contains(t, result[p.Name].Message, "no signature or attestation check")
+	assert.Contains(t, result[p.Name].Message, "no policy performed a signature or attestation check")
 }
 
 // Opting out has to keep working, otherwise policies that legitimately only

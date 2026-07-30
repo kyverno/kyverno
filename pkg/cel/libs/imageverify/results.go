@@ -1,26 +1,26 @@
 package imageverify
 
+import "sync"
+
 // ImageVerificationResults records, per image, whether a real cryptographic
-// signature or attestation check succeeded during a single policy evaluation.
-// It is the ImageValidatingPolicy analogue of v1's ImageVerificationMetadata
-// (pkg/engine/api/imageverifymetadata.go), which serves the same purpose for
-// ClusterPolicy.
+// signature or attestation check succeeded. IVPOL analogue of CPOL's
+// ImageVerificationMetadata (pkg/engine/api/imageverifymetadata.go).
 //
-// It exists because validationConfigurations.required cannot trust the result of
-// a CEL expression: the expression is precisely what required is meant to
-// distrust. The evidence is produced inside the verification functions and has to
-// be read back afterwards, so it is recorded here instead.
+// required can't trust a CEL expression's return value (that's exactly what it
+// exists to distrust) so verification functions record the real outcome here
+// instead, for EnforceRequired to read back.
 //
-// Only the verification CEL functions write to it, so a policy author cannot
-// forge an entry. Both successful and failed attempts are recorded, so that an
-// image no expression ever checked can be told apart from one that was checked
-// and rejected.
+// One instance is shared by every policy compiled for the same admission request,
+// so a wildcard required policy can see verifications done by other policies in
+// that request. It's bound into the CEL environment at compile time, so a compiled
+// policy belongs to that request and must not be cached/reused across requests.
 //
-// Once an image is verified it stays verified. That keeps the outcome independent
-// of the order a policy's expressions happen to run in, and stops an expression
-// from clearing a genuine verification by re-checking the same image against, for
-// example, an empty attestor list.
+// Only verification functions write to it (not exposed to CEL), and Record is
+// monotonic so a later no-op check can't clear an earlier genuine verification.
+// Both success and failure are recorded, to tell "never checked" apart from
+// "checked and failed".
 type ImageVerificationResults struct {
+	mu       sync.RWMutex
 	verified map[string]bool
 }
 
@@ -35,6 +35,8 @@ func (r *ImageVerificationResults) Record(image string, verified bool) {
 	if r == nil {
 		return
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.verified == nil {
 		r.verified = make(map[string]bool)
 	}
@@ -42,26 +44,15 @@ func (r *ImageVerificationResults) Record(image string, verified bool) {
 }
 
 // Status reports whether image passed verification, and whether it was checked at
-// all. The two are separate because an image no expression ever tried to verify
-// is a different failure from one that was checked and rejected, and the caller
+// all. The two are separate because an image no policy tried to verify is a
+// different failure from one that was checked and rejected, and the caller
 // reports them with different messages.
 func (r *ImageVerificationResults) Status(image string) (verified bool, attempted bool) {
 	if r == nil {
 		return false, false
 	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	v, ok := r.verified[image]
 	return v, ok
-}
-
-// Reset discards all recorded results and must be called at the start of every
-// evaluation. These results are bound into the CEL environment when the policy is
-// compiled, so a compiled policy reused across resources would otherwise carry
-// earlier verifications forward and admit an unverified image. Compilation is
-// per-request today, but relying on that would make this fail open the moment a
-// compiled policy cache is introduced.
-func (r *ImageVerificationResults) Reset() {
-	if r == nil {
-		return
-	}
-	clear(r.verified)
 }

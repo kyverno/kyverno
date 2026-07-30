@@ -40,10 +40,17 @@ type EvaluationResult struct {
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
+	// MatchedImages is the set matchImageReferences selected -- what EnforceRequired
+	// checks, once every policy in the request has been evaluated.
+	MatchedImages []string
 }
 
 type CompiledPolicy interface {
+	// Evaluate does not enforce validationConfigurations.required: the evidence may
+	// still come from another policy later in the same request. Call
+	// EnforceRequired on every passing policy only after all have evaluated.
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
+	EnforceRequired(images []string) error
 	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
 }
 
@@ -150,9 +157,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
-	// verification results are bound into the CEL environment at compile time, so clear them
-	// before the verification functions start writing this evaluation's outcomes
-	c.verifications.Reset()
+	// not reset: verification results are shared across the request, an earlier
+	// policy's verification must stay visible to the catch-all required policy
 
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
@@ -210,21 +216,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 				AuditAnnotations: auditAnnotations,
 				Index:            i,
 				Error:            err,
+				MatchedImages:    imgList,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
 
-	if err := c.enforceRequired(imgList); err != nil {
-		return &EvaluationResult{Result: false, Message: err.Error()}, nil
-	}
-
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	// required is enforced by the caller via EnforceRequired, not here
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList}, nil
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {
@@ -249,11 +253,12 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 	return nil, nil
 }
 
-// enforceRequired ensures every matched image passed a signature or attestation check.
-// CEL expressions returning true is insufficient: they might skip verification entirely.
-// This checks the verification results that signature/attestation functions write to.
-// Only images matched by matchImageReferences and extracted by imageExtractors are checked.
-func (c *compiledPolicy) enforceRequired(images []string) error {
+// EnforceRequired checks images (the policy's own matched set) against the
+// request-scoped verification results, so the evidence can come from any policy
+// in the request -- the catch-all model. Must be called only after every policy
+// in the request has evaluated, or a catch-all run first would deny images a
+// later policy verifies.
+func (c *compiledPolicy) EnforceRequired(images []string) error {
 	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
 		return nil
 	}
@@ -265,7 +270,7 @@ func (c *compiledPolicy) enforceRequired(images []string) error {
 		if attempted {
 			return fmt.Errorf("image %s failed signature or attestation verification", image)
 		}
-		return fmt.Errorf("image %s is not verified: the policy performed no signature or attestation check on it", image)
+		return fmt.Errorf("image %s is not verified: no policy performed a signature or attestation check on it", image)
 	}
 	return nil
 }

@@ -28,11 +28,11 @@ func TestEnforceRequired_DeniesImageThatWasNeverChecked(t *testing.T) {
 	t.Parallel()
 	c := policyWithVerifications(nil, nil)
 
-	err := c.enforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"})
+	err := c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"})
 
 	require.Error(t, err, "required defaults to true, so an unchecked image must be rejected")
 	assert.Contains(t, err.Error(), "ghcr.io/kyverno/test-verify-image:signed")
-	assert.Contains(t, err.Error(), "no signature or attestation check")
+	assert.Contains(t, err.Error(), "no policy performed a signature or attestation check")
 }
 
 func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
@@ -40,7 +40,7 @@ func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:unsigned"
 	c := policyWithVerifications(nil, map[string]bool{image: false})
 
-	err := c.enforceRequired([]string{image})
+	err := c.EnforceRequired([]string{image})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed signature or attestation verification",
@@ -52,7 +52,7 @@ func TestEnforceRequired_AllowsVerifiedImage(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	c := policyWithVerifications(nil, map[string]bool{image: true})
 
-	assert.NoError(t, c.enforceRequired([]string{image}))
+	assert.NoError(t, c.EnforceRequired([]string{image}))
 }
 
 // Opting out has to be honoured, otherwise existing policies that legitimately
@@ -61,7 +61,7 @@ func TestEnforceRequired_DisabledSkipsTheCheck(t *testing.T) {
 	t.Parallel()
 	c := policyWithVerifications(ptr.To(false), nil)
 
-	assert.NoError(t, c.enforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}))
+	assert.NoError(t, c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}))
 }
 
 // Every matched image must be verified, not just one of them, so a pod that
@@ -72,7 +72,7 @@ func TestEnforceRequired_DeniesWhenOnlySomeImagesAreVerified(t *testing.T) {
 	unverified := "ghcr.io/kyverno/other:latest"
 	c := policyWithVerifications(nil, map[string]bool{verified: true})
 
-	err := c.enforceRequired([]string{verified, unverified})
+	err := c.EnforceRequired([]string{verified, unverified})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), unverified)
@@ -85,5 +85,5 @@ func TestEnforceRequired_NoMatchedImagesPasses(t *testing.T) {
 	t.Parallel()
 	c := policyWithVerifications(nil, nil)
 
-	assert.NoError(t, c.enforceRequired(nil))
+	assert.NoError(t, c.EnforceRequired(nil))
 }

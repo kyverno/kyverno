@@ -1,6 +1,7 @@
 package imageverify
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,25 +54,31 @@ func TestImageVerificationResults_RecordIsMonotonic(t *testing.T) {
 	})
 }
 
-// The results are bound into the CEL environment at compile time. If a compiled
-// policy were ever reused across resources, stale entries would let an unverified
-// image through, so Reset must actually clear the verified state.
-func TestImageVerificationResults_ResetClearsVerifiedState(t *testing.T) {
+// The results are shared by every policy in an admission request, so they must be
+// safe to write from more than one goroutine even though policies are evaluated
+// sequentially today.
+func TestImageVerificationResults_ConcurrentRecordAndStatus(t *testing.T) {
 	t.Parallel()
 	const image = "ghcr.io/kyverno/test-verify-image:signed"
 	l := NewImageVerificationResults()
-	l.Record(image, true)
 
-	l.Reset()
+	var wg sync.WaitGroup
+	for i := range 50 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			l.Record(image, i%2 == 0)
+		}()
+		go func() {
+			defer wg.Done()
+			l.Status(image)
+		}()
+	}
+	wg.Wait()
 
 	verified, attempted := l.Status(image)
-	assert.False(t, verified, "a verification from a previous evaluation must not carry over")
-	assert.False(t, attempted)
-
-	// still usable afterwards
-	l.Record(image, true)
-	verified, _ = l.Status(image)
 	assert.True(t, verified)
+	assert.True(t, attempted)
 }
 
 // The results are optional at the API boundary, so every method has to tolerate a
@@ -81,7 +88,6 @@ func TestImageVerificationResults_NilReceiverIsSafe(t *testing.T) {
 	var l *ImageVerificationResults
 	assert.NotPanics(t, func() {
 		l.Record("ghcr.io/kyverno/test-verify-image:signed", true)
-		l.Reset()
 		verified, attempted := l.Status("ghcr.io/kyverno/test-verify-image:signed")
 		assert.False(t, verified)
 		assert.False(t, attempted)

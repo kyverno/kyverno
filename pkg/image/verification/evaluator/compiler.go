@@ -44,7 +44,15 @@ import (
 var ivpolCompilerVersion = version.MajorMinor(1, 0)
 
 type Compiler interface {
-	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
+	// Compile builds a policy for a single admission request. results must be the
+	// same instance across every Compile() call in that request: verification CEL
+	// functions write to it, EnforceRequired reads it back, which is how a wildcard
+	// required policy sees verifications from other policies in the request.
+	//
+	// nil is safe but private (no cross-policy sharing) -- fine for Validate and
+	// digest mutation, which don't call EnforceRequired. The returned policy is
+	// bound to results and must not be cached/reused across requests.
+	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException, *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler(ictx imagedataloader.ImageContext, lister corev1listers.SecretLister, reqGVR *metav1.GroupVersionResource, ivCache imageverifycache.Client) Compiler {
@@ -63,7 +71,7 @@ type compilerImpl struct {
 	ivCache imageverifycache.Client
 }
 
-func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException, verifications *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 
 	spec := ivpolicy.GetSpec()
@@ -74,9 +82,10 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
 	}
 
-	// shared with the image verification CEL library: it writes verification
-	// outcomes into it, Evaluate reads them back to enforce validationConfigurations.required
-	verifications := imageverify.NewImageVerificationResults()
+	// keep required failing closed rather than reading from nil
+	if verifications == nil {
+		verifications = imageverify.NewImageVerificationResults()
+	}
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, verifications)
 	if err != nil {
