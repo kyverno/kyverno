@@ -17,6 +17,7 @@ import (
 )
 
 type mockPolicyRuleMetrics struct {
+	failRegister bool
 }
 
 func (m *mockPolicyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error {
@@ -24,11 +25,15 @@ func (m *mockPolicyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy
 }
 
 func (m *mockPolicyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
+	if m.failRegister {
+		return nil, assert.AnError
+	}
 	return nil, nil
 }
 
 type mockMetricsManager struct {
 	metrics.MetricsConfigManager
+	failRegister bool
 }
 
 func (m *mockMetricsManager) Config() kyvernoconfig.MetricsConfiguration {
@@ -39,7 +44,7 @@ func (m *mockMetricsManager) RecordPolicyChanges(ctx context.Context, policyVali
 }
 
 func (m *mockMetricsManager) PolicyRuleMetrics() metrics.PolicyRuleMetrics {
-	return &mockPolicyRuleMetrics{}
+	return &mockPolicyRuleMetrics{failRegister: m.failRegister}
 }
 
 func TestController(t *testing.T) {
@@ -158,4 +163,21 @@ func TestRunWorker(t *testing.T) {
 
 	// Should not block and cover worker loop
 	ctrl.Run(ctx, 1)
+}
+
+func TestErrors(t *testing.T) {
+	metrics.SetManager(&mockMetricsManager{failRegister: true})
+	client := fake.NewSimpleClientset()
+	informerFactory := kyvernov1informers.NewSharedInformerFactory(client, time.Minute)
+
+	cpolInformer := informerFactory.Kyverno().V1().ClusterPolicies()
+	polInformer := informerFactory.Kyverno().V1().Policies()
+
+	// this should cover the failRegister branch
+	ctrl := NewController(cpolInformer, polInformer)
+	c := ctrl.(*controller)
+
+	// these should cover the deleted object type failure branches
+	c.deletePolicy("invalid")
+	c.deleteNsPolicy("invalid")
 }
