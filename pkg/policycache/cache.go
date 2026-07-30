@@ -60,6 +60,24 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 			result = append(result, c.store.get(ValidateEnforce, gvr, subresource, namespace.Name)...)
 		}
 	}
+	// also surface the audit rules of enforce policies that emit warnings.
+	// A policy with at least one enforce rule is stored under ValidateEnforce and never under
+	// ValidateAuditWarn, so the audit rules of a mixed audit+enforce policy would never emit a warning.
+	// Pull those enforce policies, keep only the ones that opt into warnings, and reduce each to its
+	// audit rules for the namespace.
+	if pkey == ValidateAuditWarn {
+		enforce := c.store.get(ValidateEnforce, gvr, subresource, "")
+		if namespace != nil {
+			enforce = append(enforce, c.store.get(ValidateEnforce, gvr, subresource, namespace.Name)...)
+		}
+		for _, policy := range enforce {
+			if emitWarning := policy.GetSpec().EmitWarning; emitWarning != nil && *emitWarning {
+				if keep, filtered := checkValidationFailureActionOverrides(false, namespace, policy); keep {
+					result = append(result, filtered)
+				}
+			}
+		}
+	}
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
 		result = filterPolicies(pkey, result, namespace)
 	}

@@ -107,10 +107,16 @@ type staticProvider struct {
 	libCxt   libs.Context
 }
 
+// Fetch mirrors the cluster reconciler's Fetch: mutateExisting=false returns
+// every policy (a mutate-existing policy still runs on admission by default),
+// while mutateExisting=true returns only the mutate-existing policies. Filtering
+// the false case down to non-mutate-existing policies would drop them from the
+// CLI admission path and from the background reports scanner, both of which build
+// this provider and call Fetch(ctx, false).
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var filtered []Policy
 	for _, pol := range p.policies {
-		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
+		if !mutateExisting || pol.Policy.GetSpec().MutateExistingEnabled() {
 			filtered = append(filtered, pol)
 		}
 	}
@@ -121,6 +127,10 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
+		// admission-disabled policies are never triggered by admission requests.
+		if !mpol.Policy.GetSpec().AdmissionEnabled() {
+			continue
+		}
 		matcher := matching.NewMatcher()
 		matchConstraints := mpol.Policy.GetSpec().MatchConstraints
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: matchConstraints}, attr, namespace); err != nil || !ok {
@@ -132,7 +142,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 				continue
 			}
 		}
-		matchedPolicies = append(matchedPolicies, mpol.Policy.GetName())
+		matchedPolicies = append(matchedPolicies, PolicyKey(mpol.Policy))
 	}
 	return matchedPolicies
 }
