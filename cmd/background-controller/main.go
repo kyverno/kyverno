@@ -236,11 +236,14 @@ func main() {
 				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
-		) // this controller only subscribe to events, nothing is returned...
-		policymetricscontroller.NewController(
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			&wg,
+		)
+		policyMetricsCtrl := internal.NewController(
+			policymetricscontroller.ControllerName,
+			policymetricscontroller.NewController(
+				kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+				kyvernoInformer.Kyverno().V1().Policies(),
+			),
+			policymetricscontroller.Workers,
 		)
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
@@ -437,6 +440,7 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
+		policyMetricsCtrl.Run(signalCtx, setup.Logger, &wg)
 		if polexController != nil {
 			polexController.Run(signalCtx, setup.Logger, &wg)
 		}
