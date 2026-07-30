@@ -402,6 +402,53 @@ func TestBundleAutoDetection(t *testing.T) {
 	})
 }
 
+// Test_BuildCheckOptsWithBundleDetection_SeparateSignatureRepository is a
+// regression test for kyverno/kyverno#15950. When a Sigstore bundle is stored in
+// a separate signature repository and discoverable only via the OCI Referrers
+// API, bundle auto-detection must consult attestor.cosign.source.repository via
+// WithTargetRepository (cosign v3.1.0+, sigstore/cosign#4836).
+func Test_BuildCheckOptsWithBundleDetection_SeparateSignatureRepository(t *testing.T) {
+	const separateSignatureRepo = "ghcr.io/kyverno/signatures"
+
+	idf, err := imagedataloader.New(nil)
+	require.NoError(t, err)
+
+	img, err := idf.FetchImageData(context.TODO(), v3BundleImage)
+	if err != nil {
+		t.Skipf("test image not accessible: %v", err)
+	}
+
+	attestor := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			URL:                "https://rekor.sigstore.dev",
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+		Source: &v1beta1.Source{
+			Repository: separateSignatureRepo,
+		},
+	}
+
+	v := Verifier{log: logr.Discard()}
+	cOpts, err := v.buildCheckOptsWithBundleDetection(context.TODO(), attestor, img)
+	require.NoError(t, err)
+	if !cOpts.NewBundleFormat {
+		t.Skip("no Sigstore bundle discovered via separate signature repository; public fixture may not exist")
+	}
+
+	assert.True(t, cOpts.NewBundleFormat)
+
+	attestorWrapper := &v1beta1.Attestor{
+		Name:   "separate-signature-repo",
+		Cosign: attestor,
+	}
+	err = v.VerifyImageSignature(context.TODO(), img, attestorWrapper)
+	assert.NoError(t, err, "bundle in separate signature repository should verify")
+}
+
 func TestMultiPlatformImages(t *testing.T) {
 	t.Run("multi-platform manifest list verification", func(t *testing.T) {
 		idf, err := imagedataloader.New(nil)

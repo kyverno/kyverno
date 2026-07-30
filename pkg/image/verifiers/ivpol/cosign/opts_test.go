@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -206,6 +207,13 @@ func TestCheckOptions_WithSource(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotEmpty(t, opts.RegistryClientOpts)
+
+	// Regression for kyverno/kyverno#15950: source.repository must configure
+	// WithTargetRepository so cosign v3.1.0+ can discover referrer-based bundles
+	// in a separate signature repository.
+	targetRepo := ociremote.TargetRepositoryFromOptions(opts.RegistryClientOpts...)
+	require.NotEqual(t, name.Repository{}, targetRepo)
+	assert.Equal(t, "ghcr.io/example/signatures", targetRepo.Name())
 }
 
 func TestCheckOptions_MissingRekorURL(t *testing.T) {
