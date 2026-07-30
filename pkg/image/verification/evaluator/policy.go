@@ -47,6 +47,7 @@ type CompiledPolicy interface {
 
 type compiledPolicy struct {
 	failurePolicy        admissionregistrationv1.FailurePolicyType
+	verifyDigest         bool
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
@@ -147,6 +148,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
+	result, err := c.checkDigests(imgList)
+	if result != nil || err != nil {
+		return result, err
+	}
+
 	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
 		return nil, err
 	}
@@ -206,6 +212,28 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, err
 	}
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {
+	if !c.verifyDigest {
+		return nil, nil
+	}
+
+	for _, img := range imgList {
+		ref, err := name.ParseReference(img, c.nameOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse image reference %s: %w", img, err)
+		}
+
+		if _, ok := ref.(name.Digest); !ok {
+			return &EvaluationResult{
+				Result:  false,
+				Message: fmt.Sprintf("image %s does not have a digest", img),
+			}, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // MutateDigest pins the tag of every image matched by the policy's matchImageReferences
