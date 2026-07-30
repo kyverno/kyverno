@@ -142,3 +142,20 @@ func TestReport(t *testing.T) {
 	err := c.report(context.Background(), nil)
 	assert.NoError(t, err)
 }
+
+func TestRunWorker(t *testing.T) {
+	metrics.SetManager(&mockMetricsManager{})
+	client := fake.NewSimpleClientset()
+	informerFactory := kyvernov1informers.NewSharedInformerFactory(client, time.Minute)
+
+	cpolInformer := informerFactory.Kyverno().V1().ClusterPolicies()
+	polInformer := informerFactory.Kyverno().V1().Policies()
+
+	ctrl := NewController(cpolInformer, polInformer)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	// Should not block and cover worker loop
+	ctrl.Run(ctx, 1)
+}

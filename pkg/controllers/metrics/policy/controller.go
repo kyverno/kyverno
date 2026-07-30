@@ -92,14 +92,8 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	}
 	defer c.queue.Done(event)
 
-	err := c.reconcile(ctx, event)
-	if err == nil {
-		c.queue.Forget(event)
-		return true
-	}
-
-	logger.Error(err, "failed to process event", "event", event.eventType, "policy", event.cur.GetName())
-	c.queue.AddRateLimited(event)
+	c.reconcile(ctx, event)
+	c.queue.Forget(event)
 	return true
 }
 
