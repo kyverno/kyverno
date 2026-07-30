@@ -341,7 +341,10 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			}
 			// Update the downstream resource in place with the newly rendered
 			// content so trigger updates are propagated without deleting and
-			// recreating it.
+			// recreating it. The UPDATE API requires UID and resourceVersion to
+			// match the existing object; copy them from the fetched resource.
+			item.SetUID(existing.GetUID())
+			item.SetResourceVersion(existing.GetResourceVersion())
 			generatedRes, err := cp.client.UpdateResource(
 				context.TODO(),
 				item.GetAPIVersion(),
