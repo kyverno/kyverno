@@ -6,12 +6,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GenericException abstracts the exception type (PolicyException, PolicyException)
+// GenericException abstracts PolicyException resources from the
+// kyverno.io and policies.kyverno.io API groups.
 type GenericException interface {
 	metav1.Object
-	// GetAPIVersion returns policy API version
+	// GetAPIVersion returns the exception API version.
 	GetAPIVersion() string
-	// GetKind returns policy kind
+	// GetKind returns the canonical Kubernetes resource kind.
 	GetKind() string
 	// AsException returns the policy exception
 	AsException() *kyvernov2.PolicyException
