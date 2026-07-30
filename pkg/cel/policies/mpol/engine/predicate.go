@@ -65,9 +65,9 @@ func And(conditions ...Predicate) Predicate {
 	}
 }
 
-// PolicyKey returns a Predicate that matches a policy by its exact namespace and
-// name. For cluster-scoped policies pass an empty string for namespace.
-func PolicyKey(namespace, name string) Predicate {
+// MatchPolicy returns a Predicate that matches a policy by its exact namespace
+// and name. For cluster-scoped policies pass an empty string for namespace.
+func MatchPolicy(namespace, name string) Predicate {
 	return And(NamespacedPolicy(namespace), MatchNames(name))
 }
 
