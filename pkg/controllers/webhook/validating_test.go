@@ -1136,6 +1136,59 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		"each policy's namespaceSelector must survive")
 }
 
+func TestBuildWebhookRules_MutatingPoliciesWithDifferentObjectSelectorsGetSeparateWebhooks(t *testing.T) {
+	// Regression test for https://github.com/kyverno/kyverno/issues/16855: two MutatingPolicies with
+	// identical resource rules, no matchConditions, and different objectSelector.matchLabels must not
+	// be combined into one webhook, or one policy's objectSelector silently overwrites the other's.
+	newPolicy := func(name string, matchLabels map[string]string) *policiesv1beta1.MutatingPolicy {
+		return &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ObjectSelector: &metav1.LabelSelector{MatchLabels: matchLabels},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps", "secrets"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewMutatingPolicy(newPolicy("mutate-runner-scale-set-listener", map[string]string{"app.kubernetes.io/component": "runner-scale-set-listener"})),
+		engineapi.NewMutatingPolicy(newPolicy("mutate-restart-pods-on-config-change", map[string]string{"kyverno.io/watch": "true"})),
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.MutatingPolicyWebhookName,
+		"/mpol",
+		0,
+		nil,
+		policies,
+		NewExpressionCache(),
+	)
+
+	assert.Len(t, webhooks, 2, "policies with different objectSelectors need their own webhook")
+	selectors := make([]string, 0, len(webhooks))
+	for _, webhook := range webhooks {
+		selectors = append(selectors, webhook.ObjectSelector.MatchLabels["app.kubernetes.io/component"]+webhook.ObjectSelector.MatchLabels["kyverno.io/watch"])
+	}
+	assert.ElementsMatch(t, []string{"runner-scale-set-listener", "true"}, selectors,
+		"each policy's objectSelector must survive")
+}
+
 func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 	// Policies are grouped by the selectors they resolve to, so a realistic mix (most policies set
 	// no selector at all, the rest reuse a handful of the same selectors) stays on a small number
