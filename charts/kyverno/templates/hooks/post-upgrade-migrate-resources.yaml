@@ -86,8 +86,8 @@ metadata:
     # retry Pods do not linger and trigger false Pod-in-error alerts.
     # `hook-failed` is intentionally omitted so a permanently failed
     # migration (all retries exhausted) is preserved for debugging.
-    # Matches the pattern already used by the ClusterRole / ServiceAccount
-    # below. See kyverno/kyverno#15552.
+    # Matches the pattern already used by the ServiceAccount above.
+    # See kyverno/kyverno#15552.
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "200"
 spec:
