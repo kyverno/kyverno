@@ -70,4 +70,8 @@ To access reports-server, use:
 ⚠️  WARNING: PolicyExceptions are disabled by default. To enable them, set '--enablePolicyException' to true.
 {{- end }}
 
+{{- if and .Values.crds.install (or .Values.crds.groups.kyverno.clusterpolicies .Values.crds.groups.kyverno.policies .Values.crds.groups.kyverno.cleanuppolicies .Values.crds.groups.kyverno.clustercleanuppolicies) }}
+⚠️  WARNING: The legacy kyverno.io policy types (ClusterPolicy, Policy, ClusterCleanupPolicy, CleanupPolicy) are deprecated and will be removed in a future release. Migrate to the policies.kyverno.io policy types (ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy, DeletingPolicy and their namespaced variants). See https://kyverno.io/docs/guides/migration-to-cel/ for the migration guide.
+{{- end }}
+
 💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/docs/installation/#security-vs-operability to understand the risks.
