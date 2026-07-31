@@ -46,7 +46,16 @@ type imageExtractor struct {
 
 func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Configuration) (map[string]ImageInfo, error) {
 	imageInfo := map[string]ImageInfo{}
-	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg, []string{}); err != nil {
+	var query jmespath.Query
+	if i.JMESPath != "" {
+		jp := jmespath.New(cfg)
+		var err error
+		query, err = jp.Query(i.JMESPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid jmespath %s: %v", i.JMESPath, err)
+		}
+	}
+	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, query, &imageInfo, cfg, []string{}); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
@@ -59,6 +68,7 @@ func extract(
 	valuePath string,
 	fields []string,
 	jmesPath string,
+	jmesQuery jmespath.Query,
 	imageInfos *map[string]ImageInfo,
 	cfg config.Configuration,
 	pullSecrets []string,
@@ -70,13 +80,13 @@ func extract(
 		switch typedObj := obj.(type) {
 		case []interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, jmesQuery, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
 		case map[string]interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, jmesQuery, imageInfos, cfg, pullSecrets); err != nil {
 					return err
 				}
 			}
@@ -113,14 +123,8 @@ func extract(
 			logging.V(4).Info("image information is not present", "pointer", pointer)
 			return nil
 		}
-		if jmesPath != "" {
-			// TODO: should be injected
-			jp := jmespath.New(cfg)
-			q, err := jp.Query(jmesPath)
-			if err != nil {
-				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
-			}
-			result, err := q.Search(value)
+		if jmesQuery != nil {
+			result, err := jmesQuery.Search(value)
 			if err != nil {
 				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
 			}
@@ -139,7 +143,7 @@ func extract(
 		return nil
 	}
 	currentPath := fields[0]
-	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets)
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, jmesQuery, imageInfos, cfg, pullSecrets)
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
