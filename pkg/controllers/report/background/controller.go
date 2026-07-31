@@ -2,6 +2,7 @@ package background
 
 import (
 	"context"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -604,6 +605,19 @@ func (c *controller) scanInterval(kind string, policies ...engineapi.GenericPoli
 	return delay
 }
 
+func jitterInterval(duration time.Duration) time.Duration {
+	if duration <= 0 {
+		return duration
+	}
+	maxJitter := float64(duration) * 0.10
+	offset := (rand.Float64()*2 - 1) * maxJitter // #nosec G404
+	jittered := time.Duration(float64(duration) + offset)
+	if jittered <= 0 {
+		return duration
+	}
+	return jittered
+}
+
 func (c *controller) needsReconcile(
 	namespace string,
 	name string,
@@ -1056,7 +1070,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	} else {
 		defer func() {
-			c.queue.AddAfter(key, interval)
+			c.queue.AddAfter(key, jitterInterval(interval))
 		}()
 		if needsReconcile {
 			// update the hash if we got a new one

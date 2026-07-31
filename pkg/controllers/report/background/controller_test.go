@@ -154,3 +154,14 @@ func Test_policyMatchKinds_cachesByResourceVersion(t *testing.T) {
 	cpol.ResourceVersion = "2"
 	assert.Equal(t, []string{"Secret"}, c.policyMatchKinds(cpol), "changing resourceVersion should invalidate the cache")
 }
+
+func Test_jitterInterval(t *testing.T) {
+	assert.Equal(t, time.Duration(0), jitterInterval(0))
+
+	base := 1 * time.Hour
+	for i := 0; i < 50; i++ {
+		j := jitterInterval(base)
+		assert.True(t, j >= 54*time.Minute, "jittered duration should be >= 90% of base")
+		assert.True(t, j <= 66*time.Minute, "jittered duration should be <= 110% of base")
+	}
+}
