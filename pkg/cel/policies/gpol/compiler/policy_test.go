@@ -26,6 +26,7 @@ type mockProgram struct {
 	err    error
 }
 
+func (m *mockProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (m *mockProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return m.retVal, nil, m.err
 }
