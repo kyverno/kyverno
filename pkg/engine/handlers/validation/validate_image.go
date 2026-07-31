@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -90,7 +91,7 @@ func (h validateImageHandler) Process(
 				}
 				logger.V(4).Info("validating image", "image", image)
 				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
-					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
+					failedErrors = append(failedErrors, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
 				} else if v == engineapi.ImageVerificationPass {
@@ -109,6 +110,7 @@ func (h validateImageHandler) Process(
 			seen[e] = struct{}{}
 			uniq = append(uniq, e)
 		}
+		sort.Strings(uniq)
 		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(uniq, "; "))
 	}
 
