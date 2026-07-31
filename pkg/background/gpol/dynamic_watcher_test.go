@@ -630,6 +630,102 @@ func TestDeleteDownstreams(t *testing.T) {
 	}
 }
 
+func TestCleanupStaleDownstreams(t *testing.T) {
+	makeCached := func(obj *unstructured.Unstructured, labels map[string]string) Resource {
+		obj.SetLabels(labels)
+		return Resource{
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
+			Labels:    labels,
+			Data:      obj,
+		}
+	}
+
+	gvr1 := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	triggerUID := types.UID("trigger-123")
+	managedLabels := map[string]string{
+		common.GeneratePolicyLabel:     "p1",
+		common.GenerateTriggerUIDLabel: string(triggerUID),
+	}
+	otherTriggerLabels := map[string]string{
+		common.GeneratePolicyLabel:     "p1",
+		common.GenerateTriggerUIDLabel: "other-uid",
+	}
+
+	tests := []struct {
+		name           string
+		desired        []*unstructured.Unstructured
+		dynamicW       map[schema.GroupVersionResource]*watcher
+		wantDeleted    []string
+		wantCacheSizes map[schema.GroupVersionResource]int
+	}{
+		{
+			name:    "still desired resource is kept",
+			desired: []*unstructured.Unstructured{makeUnstructured("", "", "v1", "ConfigMap", "cm1", "ns1", "uid1", managedLabels)},
+			dynamicW: map[schema.GroupVersionResource]*watcher{
+				gvr1: {metadataCache: map[types.UID]Resource{
+					"uid1": makeCached(makeUnstructured("", "", "v1", "ConfigMap", "cm1", "ns1", "uid1", managedLabels), managedLabels),
+				}},
+			},
+			wantDeleted:    nil,
+			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 1},
+		},
+		{
+			name:    "empty desired set deletes trigger downstreams only",
+			desired: nil,
+			dynamicW: map[schema.GroupVersionResource]*watcher{
+				gvr1: {metadataCache: map[types.UID]Resource{
+					"uid1": makeCached(makeUnstructured("", "", "v1", "ConfigMap", "cm1", "ns1", "uid1", managedLabels), managedLabels),
+					"uid2": makeCached(makeUnstructured("", "", "v1", "ConfigMap", "cm2", "ns2", "uid2", otherTriggerLabels), otherTriggerLabels),
+				}},
+			},
+			wantDeleted:    []string{"ConfigMap/ns1/cm1"},
+			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 1},
+		},
+		{
+			name:    "renamed downstream deletes stale one",
+			desired: []*unstructured.Unstructured{makeUnstructured("", "", "v1", "ConfigMap", "cm-new", "ns1", "uid-new", managedLabels)},
+			dynamicW: map[schema.GroupVersionResource]*watcher{
+				gvr1: {metadataCache: map[types.UID]Resource{
+					"uid1": makeCached(makeUnstructured("", "", "v1", "ConfigMap", "cm-old", "ns1", "uid1", managedLabels), managedLabels),
+				}},
+			},
+			wantDeleted:    []string{"ConfigMap/ns1/cm-old"},
+			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 0},
+		},
+		{
+			name:    "unmanaged resource is not deleted",
+			desired: nil,
+			dynamicW: map[schema.GroupVersionResource]*watcher{
+				gvr1: {metadataCache: map[types.UID]Resource{
+					"uid1": makeCached(makeUnstructured("", "", "v1", "ConfigMap", "cm1", "ns1", "uid1", map[string]string{"foo": "bar"}), map[string]string{"foo": "bar"}),
+				}},
+			},
+			wantDeleted:    nil,
+			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &MockClient{}
+			wm := &WatchManager{
+				policyRefs:      map[string][]schema.GroupVersionResource{"p1": {gvr1}},
+				dynamicWatchers: tt.dynamicW,
+				client:          client,
+				log:             logging.WithName("test"),
+			}
+
+			wm.CleanupStaleDownstreams("p1", &v1.ResourceSpec{UID: triggerUID}, tt.desired)
+
+			assert.ElementsMatch(t, tt.wantDeleted, client.deleted)
+			for gvr, wantSize := range tt.wantCacheSizes {
+				assert.Equal(t, wantSize, len(wm.dynamicWatchers[gvr].metadataCache))
+			}
+		})
+	}
+}
+
 func TestRemoveWatchersForPolicy(t *testing.T) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 
