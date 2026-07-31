@@ -80,18 +80,19 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func main() {
 	var (
-		dumpPayload              bool
-		serverIP                 string
-		servicePort              int
-		webhookServerPort        int
-		maxQueuedEvents          int
-		interval                 time.Duration
-		renewBefore              time.Duration
-		maxAPICallResponseLength int64
-		apiCallTimeout           time.Duration
-		autoDeleteWebhooks       bool
-		tlsKeyAlgorithm          string
-		maxGlobalContextEntries  int
+		dumpPayload                  bool
+		serverIP                     string
+		servicePort                  int
+		webhookServerPort            int
+		maxQueuedEvents              int
+		interval                     time.Duration
+		renewBefore                  time.Duration
+		maxAPICallResponseLength     int64
+		apiCallTimeout               time.Duration
+		autoDeleteWebhooks           bool
+		tlsKeyAlgorithm              string
+		maxGlobalContextEntries      int
+		disableCertManagerController bool
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -113,6 +114,7 @@ func main() {
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
 	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
+	flagset.BoolVar(&disableCertManagerController, "disableCertManagerController", false, "Disable the in-process certificate manager controller.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -274,18 +276,21 @@ func main() {
 					tlsSecretName,
 					keyAlgorithm,
 				)
-				certController := internal.NewController(
-					certmanager.ControllerName,
-					certmanager.NewController(
-						caSecret,
-						tlsSecret,
-						renewer,
-						caSecretName,
-						tlsSecretName,
-						config.KyvernoNamespace(),
-					),
-					certmanager.Workers,
-				)
+				var certController internal.Controller
+				if !disableCertManagerController {
+					certController = internal.NewController(
+						certmanager.ControllerName,
+						certmanager.NewController(
+							caSecret,
+							tlsSecret,
+							renewer,
+							caSecretName,
+							tlsSecretName,
+							config.KyvernoNamespace(),
+						),
+						certmanager.Workers,
+					)
+				}
 				policyValidatingWebhookController := internal.NewController(
 					policyWebhookControllerName,
 					genericwebhookcontroller.NewController(
@@ -415,7 +420,9 @@ func main() {
 				}
 				// start leader controllers
 				var wg wait.Group
-				certController.Run(ctx, logger, &wg)
+				if certController != nil {
+					certController.Run(ctx, logger, &wg)
+				}
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
 				cleanupController.Run(ctx, logger, &wg)
