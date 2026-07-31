@@ -15,6 +15,7 @@ func TestWarning(t *testing.T) {
 		{"Policy", "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy"},
 		{"ClusterCleanupPolicy", "DeletingPolicy"},
 		{"CleanupPolicy", "NamespacedDeletingPolicy"},
+		{"PolicyException", "PolicyException (policies.kyverno.io)"},
 	}
 	for _, tt := range tests {
 		warning := Warning(tt.kind)

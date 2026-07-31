@@ -110,7 +110,7 @@ crds:
   groups:
 
     # -- Install CRDs in group `kyverno.io`.
-    # Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`)
+    # Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`, `PolicyException`)
     # are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types
     # (see https://kyverno.io/docs/guides/migration-to-cel/).
     kyverno:

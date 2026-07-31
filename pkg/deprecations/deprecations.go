@@ -15,6 +15,7 @@ var replacements = map[string]string{
 	"Policy":               "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy",
 	"ClusterCleanupPolicy": "DeletingPolicy",
 	"CleanupPolicy":        "NamespacedDeletingPolicy",
+	"PolicyException":      "PolicyException",
 }
 
 // Warning returns a deprecation warning for the given legacy kyverno.io kind,
