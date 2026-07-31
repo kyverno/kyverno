@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -59,6 +60,8 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 
 type MockClient struct {
 	deleted  []string
+	created  []string
+	updated  []string
 	err      error
 	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
 }
@@ -105,12 +108,14 @@ func (m *MockClient) DeleteResource(ctx context.Context, apiVersion string, kind
 	return m.err
 }
 func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	m.created = append(m.created, fmt.Sprintf("%s/%s", kind, namespace))
 	return nil, nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
+	m.updated = append(m.updated, fmt.Sprintf("%s/%s", kind, namespace))
 	return makeUnstructured("", "", "", "", "", "", "", nil), nil
 }
 func (m *MockClient) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
@@ -155,6 +160,7 @@ func TestSyncWatchers(t *testing.T) {
 		setupWM            func() *WatchManager
 		generatedResources []*unstructured.Unstructured
 		wantErr            bool
+		assert             func(*testing.T, *WatchManager)
 	}{
 		{
 			name:    "RESTMapping error",
@@ -193,6 +199,41 @@ func TestSyncWatchers(t *testing.T) {
 			},
 			generatedResources: []*unstructured.Unstructured{makeUnstructured("", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
 			wantErr:            false,
+		},
+		{
+			name:    "refreshes invalidated cache entry",
+			polName: "p1",
+			setupWM: func() *WatchManager {
+				resource := makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)
+				return &WatchManager{
+					log:    logging.WithName("test"),
+					client: &MockClient{},
+					restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+						return &meta.RESTMapping{Resource: gvr}, nil
+					}},
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr: {
+							watcher: watch.MockWatcher{StopFunc: func() {}},
+							metadataCache: map[types.UID]Resource{
+								resource.GetUID(): {
+									Name:      resource.GetName(),
+									Namespace: resource.GetNamespace(),
+									Hash:      "",
+									Data:      resource,
+								},
+							},
+						},
+					},
+					policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr}},
+					refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+				}
+			},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("2", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			wantErr:            false,
+			assert: func(t *testing.T, wm *WatchManager) {
+				cached := wm.dynamicWatchers[gvr].metadataCache["uid1"]
+				assert.NotEmpty(t, cached.Hash)
+			},
 		},
 		{
 			name: "startWatcher error",
@@ -332,6 +373,9 @@ func TestSyncWatchers(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+			if tc.assert != nil {
+				tc.assert(t, wm)
 			}
 		})
 	}
@@ -1060,6 +1104,33 @@ func TestHandleDelete_SourceDeleted(t *testing.T) {
 	}
 }
 
+func TestHandleDelete_InvalidatedDownstreamDoesNotRecreate(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp}
+	downstream := makeUnstructured("1", "", "v1", "ConfigMap", "test-cm", "default", "downstream-uid", labels)
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {
+				metadataCache: map[types.UID]Resource{
+					downstream.GetUID(): {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+						Data:      downstream,
+					},
+				},
+			},
+		},
+	}
+
+	wm.handleDelete(downstream, gvr)
+
+	assert.Empty(t, client.created)
+}
+
 // fullMockClient is a purpose-built mock that allows controlling both
 // ListResource and DeleteResource return values independently.
 type fullMockClient struct {
@@ -1174,6 +1245,42 @@ func TestHandleUpdate(t *testing.T) {
 
 		obj := makeObj("uid", "pod", "default", nil)
 		wm.handleUpdate(obj, gvr)
+	})
+
+	t.Run("invalidated downstream does not revert", func(t *testing.T) {
+		policyName := "test-policy"
+		labels := map[string]string{
+			kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel: policyName,
+		}
+		old := makeObj("down-uid", "down-pod", "default", labels)
+		old.Object["data"] = map[string]any{"value": "old"}
+		updated := old.DeepCopy()
+		updated.Object["data"] = map[string]any{"value": "new"}
+		client := &MockClient{}
+		wm := &WatchManager{
+			client: client,
+			policyRefs: map[string][]schema.GroupVersionResource{
+				policyName: {gvr},
+			},
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {
+					metadataCache: map[types.UID]Resource{
+						old.GetUID(): {
+							Name:      old.GetName(),
+							Namespace: old.GetNamespace(),
+							Labels:    old.GetLabels(),
+							Hash:      reportutils.CalculateResourceHash(*old),
+							Data:      old,
+						},
+					},
+				},
+			},
+		}
+
+		wm.InvalidateDownstreams(policyName, nil)
+		wm.handleUpdate(updated, gvr)
+		assert.Empty(t, client.updated)
 	})
 }
 
