@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRclientAdapter_ForRef_Integration(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -39,8 +38,7 @@ func TestRclientAdapter_ForRef_Integration(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_InvalidImage(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -54,8 +52,7 @@ func TestRclientAdapter_ForRef_InvalidImage(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_NonExistentImage(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -69,8 +66,7 @@ func TestRclientAdapter_ForRef_NonExistentImage(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_WithDigest(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -94,8 +90,7 @@ func TestRclientAdapter_ForRef_WithDigest(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_WithTagAndDigest(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -119,8 +114,7 @@ func TestRclientAdapter_ForRef_WithTagAndDigest(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_IdentifierParsingEdgeCases(t *testing.T) {
-	client, err := registryclient.New()
-	require.NoError(t, err)
+	client := registryclient.New(nil, "", "", "", false)
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)

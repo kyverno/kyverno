@@ -47,6 +47,7 @@ func (v *verifier) VerifySignature(ctx context.Context, opts verifiers.Options) 
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
 
+	// verify image signatures is a wrapper around a cosign function of the same name
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
