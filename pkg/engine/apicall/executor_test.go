@@ -151,6 +151,47 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 	assert.Equal(t, gotAuth, "")
 }
 
+func Test_ExecuteServiceCall_MaxResponseLengthExceeded(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("12345678901234567890"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(10, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
+}
+
+func Test_ExecuteServiceCall_WithinMaxResponseLength(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("12345"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(10, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	data, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.Equal(t, string(data), "12345")
+}
+
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
