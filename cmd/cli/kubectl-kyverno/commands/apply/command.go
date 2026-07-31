@@ -698,6 +698,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
