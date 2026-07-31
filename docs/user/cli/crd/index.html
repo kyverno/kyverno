@@ -1675,6 +1675,24 @@ string
 </tr>
 <tr>
 <td>
+<code>operation</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operation mentions the admission operation to simulate when applying policies
+on the resources of this test result. Possible values are CREATE, UPDATE and
+DELETE. If unset, the operation defaults to CREATE, or to the operation
+declared via the <code>request.operation</code> global value in the values file.
+For UPDATE, both object and oldObject are set to the resource. For DELETE,
+object is null and oldObject is set to the resource, mirroring the API server.
+It is not supported for deleting policies and JSON payloads.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patchedResources</code><br/>
 <em>
 string

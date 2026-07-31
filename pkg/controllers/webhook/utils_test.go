@@ -933,13 +933,30 @@ func TestIvpolsNeedingMutation(t *testing.T) {
 			expectedCount: 1,
 		},
 		{
-			name: "VerifyDigest true -- needs mutation",
+			// VerifyDigest is a validation concern (the validating webhook asserts the
+			// image carries a digest); it never requires a mutating webhook, which can
+			// only ever pin digests.
+			name: "VerifyDigest true but MutateDigest false -- does not need mutation",
 			ivpols: []engineapi.GenericPolicy{
 				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
 					Spec: policiesv1beta1.ImageValidatingPolicySpec{
 						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
 							MutateDigest: &falseVal,
 							VerifyDigest: &trueVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "nil MutateDigest defaults to true even when VerifyDigest is false -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: nil,
+							VerifyDigest: &falseVal,
 						},
 					},
 				}),

@@ -136,7 +136,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else if result == nil {
-		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil))
+		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		keys := make([]string, 0, len(result.Exceptions))
