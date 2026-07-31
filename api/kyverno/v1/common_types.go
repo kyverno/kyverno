@@ -176,6 +176,11 @@ type ImageRegistry struct {
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
 	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty"`
+
+	// CatchError is an optional toggle that, if set to true, captures any error
+	// that occurs during image metadata fetching and returns it in the context variable.
+	// +optional
+	CatchError bool `json:"catchError,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
