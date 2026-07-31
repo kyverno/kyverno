@@ -62,11 +62,11 @@ func NewCELGenerateController(
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
 	log logr.Logger,
-	configuration ...config.Configuration,
+	configuration config.Configuration,
 ) *CELGenerateController {
 	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
 	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
-	ctrl := &CELGenerateController{
+	return &CELGenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		restMapper:    restMapper,
@@ -77,11 +77,8 @@ func NewCELGenerateController(
 		statusControl: statusControl,
 		eventGen:      eventGen,
 		log:           log,
+		configuration: configuration,
 	}
-	if len(configuration) > 0 {
-		ctrl.configuration = configuration[0]
-	}
-	return ctrl
 }
 
 func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {

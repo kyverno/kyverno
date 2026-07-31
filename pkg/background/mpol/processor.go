@@ -78,9 +78,9 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
-	configuration ...config.Configuration,
+	configuration config.Configuration,
 ) *processor {
-	p := &processor{
+	return &processor{
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		engine:        mpolEngine,
@@ -88,11 +88,8 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		eventGen:      eventGen,
+		configuration: configuration,
 	}
-	if len(configuration) > 0 {
-		p.configuration = configuration[0]
-	}
-	return p
 }
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {

@@ -102,7 +102,8 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
-		event.NewFake())
+		event.NewFake(),
+		nil)
 
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -153,6 +154,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -294,6 +296,7 @@ func TestProcess_NilAdmissionRequest_DoesNotPanic(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	// UR has no AdmissionRequest — this is the background-scan case.
@@ -409,6 +412,7 @@ func TestGetPolicy_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -437,6 +441,7 @@ func TestProcess_EmptyPolicyKey(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -473,6 +478,7 @@ func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	// UR uses bare name (as created by webhook handler), with AdmissionRequest carrying the namespace.
@@ -525,6 +531,7 @@ func TestGetTargetsFromExpression_DeleteUsesOldObject(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	trigger := map[string]any{
@@ -590,6 +597,7 @@ func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
