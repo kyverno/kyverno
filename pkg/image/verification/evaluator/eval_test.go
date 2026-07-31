@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -28,6 +29,9 @@ var (
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
 				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: func() *bool { b := false; return &b }(),
 			},
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{
@@ -112,4 +116,33 @@ func Test_Eval(t *testing.T) {
 	assert.True(t, len(result) == 1)
 	assert.False(t, result[ivpol.Name].Result)
 	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
+}
+
+func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: func() *bool { b := true; return &b }(),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{Glob: "ghcr.io/*"},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "bar", Expression: "[object.foo.bar]"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result[policy.Name])
+	assert.False(t, result[policy.Name].Result)
+	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
 }
