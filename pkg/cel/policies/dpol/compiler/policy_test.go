@@ -17,14 +17,16 @@ import (
 
 type valueProgram struct{}
 
-func (v *valueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return nil, nil, nil }
+func (v *valueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error)                 { return nil, nil, nil }
+func (v *valueProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (v *valueProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.String("test"), nil, nil
 }
 
 type errorProgram struct{}
 
-func (e *errorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return nil, nil, nil }
+func (e *errorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error)                 { return nil, nil, nil }
+func (e *errorProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (e *errorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced variable error")
 }
@@ -34,6 +36,7 @@ type trueProgram struct{}
 func (t *trueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
+func (t *trueProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (t *trueProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
@@ -43,6 +46,7 @@ type falseProgram struct{}
 func (f *falseProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(false), nil, nil
 }
+func (f *falseProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (f *falseProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(false), nil, nil
 }
@@ -52,6 +56,7 @@ type evalErrorProgram struct{}
 func (e *evalErrorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced match error")
 }
+func (e *evalErrorProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (e *evalErrorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced match error")
 }
@@ -143,6 +148,7 @@ type boolProgram struct {
 func (b *boolProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, nil
 }
+func (b *boolProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (b *boolProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(b.result), nil, nil
 }
@@ -152,6 +158,7 @@ type errorEvalProgram struct{}
 func (e *errorEvalProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, nil
 }
+func (e *errorEvalProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 func (e *errorEvalProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("eval error")
 }
@@ -160,6 +167,9 @@ type errorConvertProgram struct{}
 
 func (e *errorConvertProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, nil
+}
+func (e *errorConvertProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult {
+	return nil
 }
 func (e *errorConvertProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.String("notBool"), nil, nil
