@@ -40,6 +40,10 @@ func (m *mockProgram) Eval(any) (ref.Val, *cel2.EvalDetails, error) {
 	return m.retVal, nil, m.err
 }
 
+func (m *mockProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel2.EvalResult {
+	return nil
+}
+
 // FakeContextWithDeadline provides context with deadline and cancel
 func FakeContextWithDeadline(duration time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), duration)

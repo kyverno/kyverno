@@ -32,6 +32,9 @@ func (m *mockProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalD
 func (m *mockProgram) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 	return m.retVal, nil, m.err
 }
+func (m *mockProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult {
+	return nil
+}
 
 var (
 	gvk     = schema.GroupVersionKind{Group: "", Version: "", Kind: ""}
