@@ -89,8 +89,8 @@ func (h validateImageHandler) Process(
 					continue
 				}
 				logger.V(4).Info("validating image", "image", image)
-				if v, err := validateImage(policyContext, imageVerify, imageInfo, logger); err != nil {
-					failedErrors = append(failedErrors, err.Error())
+				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
+					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
 				} else if v == engineapi.ImageVerificationPass {
@@ -123,7 +123,7 @@ func (h validateImageHandler) Process(
 	}
 }
 
-func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
+func validateImage(ctx engineapi.PolicyContext, rule string, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
 	var verified engineapi.ImageVerificationMetadataStatus
 	var err error
 	image := imageInfo.String()
@@ -133,7 +133,8 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 	}
 	newResource := ctx.NewResource()
 	if imageVerify.Required && newResource.Object != nil {
-		verified, err = engineutils.IsImageVerified(newResource, image, log)
+		policy := ctx.Policy()
+		verified, err = engineutils.IsImageVerifiedForPolicy(newResource, policy.GetNamespace(), policy.GetName(), rule, image, log)
 		if err != nil {
 			return engineapi.ImageVerificationFail, err
 		}
