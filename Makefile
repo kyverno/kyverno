@@ -63,6 +63,7 @@ GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
 GOLANGCI_LINT_VERSION              ?= v2.11.4
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+TASK_MANIFEST                      ?= $(TOOLS_DIR)/task-manifest
 KUBE_VERSION                       ?= v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
@@ -1244,3 +1245,11 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+$(TASK_MANIFEST):
+	@echo Install task-manifest... >&2
+	@cd ./hack/task-manifest && GOBIN=$(TOOLS_DIR) go install
+
+.PHONY: task-manifest
+task-manifest: $(TASK_MANIFEST) ## Generate a machine-readable (JSON) index of all documented make targets
+	@$(TASK_MANIFEST) -out task-manifest.json
