@@ -34,19 +34,29 @@ etc). The packages under `pkg/webhooks/resource/`, `pkg/webhooks/policy/`,
    (`ResourceHandlers`, `PolicyHandlers`, `ExceptionHandlers`,
    `CELExceptionHandlers`, `GlobalContextHandlers`, or the static
    `handlers.Verify` func) backs the route, and which `failurePolicy`
-   string (`"ignore"`, `"fail"`, or `""`/`"all"`) is baked into the closure
-   via `handlerFunc`.
+   string is baked into the closure via `handlerFunc`. The legacy resource
+   webhooks use `"ignore"`, `"fail"` and `"all"` (see
+   `registerWebhookHandlers` / `registerWebhookHandlersWithAll`); every
+   other route passes `""`, because it does not filter policies by
+   failure policy at all.
 2. `handlers.WithAdmission` (the outermost, always-last-attached wrapper)
    reads and JSON-decodes the HTTP body into an `admissionv1.AdmissionReview`,
    builds the internal `handlers.AdmissionRequest` (embedding the raw
    `AdmissionRequest` plus `URLParams` taken from the httprouter path
    parameter), and calls the inner `AdmissionHandler` chain.
-3. The chain built in `server.go` runs, in this order, before
-   `WithAdmission` is reached (i.e. this is the order requests actually
-   flow through, since each `With*` wraps the previous handler):
-   `WithFilter` → `WithProtection` → `WithDump` → `WithRoles` →
+3. The `AdmissionHandler` middlewares then run. **Each `With*` wraps the
+   handler it is called on, so a request executes them in the reverse of
+   the order they are chained in `server.go`.** For a typical resource
+   route chained as
+   `.WithFilter().WithProtection().WithDump().WithRoles()
+   [.WithOperationFilter()].WithMetrics().WithTopLevelGVK().WithAdmission()`,
+   the actual execution order is:
+
+   `WithTopLevelGVK` → `WithMetrics` →
    [`WithOperationFilter` / `WithSubResourceFilter`, only on some routes] →
-   `WithMetrics` → `WithTopLevelGVK` → `WithAdmission`.
+   `WithRoles` → `WithDump` → `WithProtection` → `WithFilter` →
+   `Handler.Execute`.
+
    See "Middleware Chain" below for what each step does.
 4. The innermost function (built by `handlerFunc` in `server.go`) calls
    `Handler.Execute(ctx, logger, request, failurePolicy, startTime)`.
@@ -160,40 +170,23 @@ etc). The packages under `pkg/webhooks/resource/`, `pkg/webhooks/policy/`,
 
 All middleware lives in `handlers/` and is attached via `With*` methods
 that both apply the behavior and wrap it in `WithTrace` for an OpenTelemetry
-span. Requests flow through them in the order they are chained in
-`server.go`, which for a typical resource webhook route is:
+span.
 
-1. **`WithFilter`** (`filter.go`) — short-circuits to an allowed response
-   (`admissionutils.ResponseSuccess`) before any policy work happens, if the
-   request's user/group/role is in the configured exclusions, the
-   resource/namespace matches configmap-based resource filters, or the
-   resource `Kind` is a Kyverno-internal reporting kind (`AdmissionReport`,
-   `ClusterAdmissionReport`, `BackgroundScanReport`,
-   `ClusterBackgroundScanReport`, `UpdateRequest` — see
-   `utils.ExcludeKyvernoResources`). This prevents Kyverno's own reporting
-   CRs from recursively triggering policy evaluation.
-2. **`WithProtection`** (`protect.go`, only enabled when the
-   `ProtectManagedResources` toggle is on) — rejects mutations to
-   resources labeled `app.kubernetes.io/managed-by: kyverno` unless the
-   requesting user is a `system:serviceaccount:<kyverno-namespace>:*`
-   service account (namespace-controller deletions are always allowed
-   through, to permit namespace cleanup).
-3. **`WithDump`** (`dump.go`, only when `DebugModeOptions.DumpPayload` is
-   set) — logs the full (secret-redacted) request/response payload at
-   `V(4)` after the inner chain runs. Debug-only; never enabled by default.
-4. **`WithRoles`** (`enrich.go`) — resolves the requesting user's Roles and
-   ClusterRoles via `userinfo.GetRoleRef` and attaches them to the request.
-   Policies with role-based match/exclude conditions depend on this having
-   already run.
-5. **`WithOperationFilter`** / **`WithSubResourceFilter`** (`filter.go`,
-   only on specific routes — e.g. mutating webhooks are filtered to
-   Create/Update/Connect only, policy/exception/globalcontext webhooks
-   filter to empty sub-resource) — an additional early-exit filter beyond
-   `WithFilter`.
-6. **`WithMetrics`** (`metrics.go`) — records admission metrics
-   (allowed/denied, namespace, operation, kind, latency) via
-   `metrics.GetAdmissionMetrics()`. No-ops if metrics aren't configured.
-7. **`WithTopLevelGVK`** (`enrich.go`) — resolves the *top-level* GVK for
+**Each `With*` returns a handler that runs its own logic and then calls the
+handler it wrapped, so requests execute the middlewares in the reverse of
+the order they are chained in `server.go`.** The list below is in
+*execution* order for a typical resource webhook route; read the chain in
+`server.go` bottom-up to match it.
+
+1. **`WithAdmission`** (`admission.go`) — the outermost wrapper and the
+   only `HttpHandler` in the chain. Reads and JSON-decodes the HTTP body
+   into an `admissionv1.AdmissionReview`, builds the internal
+   `handlers.AdmissionRequest` (the raw `AdmissionRequest` plus
+   `URLParams` from the httprouter path parameter), invokes the
+   `AdmissionHandler` chain, and writes the JSON response. It applies its
+   own `WithMetrics`/`WithTrace` at the HTTP-handler level, distinct from
+   the `AdmissionHandler`-level `WithMetrics` below.
+2. **`WithTopLevelGVK`** (`enrich.go`) — resolves the *top-level* GVK for
    the request's GVR via discovery (`dclient.IDiscovery.GetGVKFromGVR`) and
    attaches it to `request.GroupVersionKind`. This matters because
    `request.Kind` from the raw `AdmissionRequest` can be a sub-resource or
@@ -201,24 +194,52 @@ span. Requests flow through them in the order they are chained in
    cache key off the canonical top-level kind; several handlers
    (`resource`, `vpol`, `mpol`, `gpol`, `ivpol`) rely on
    `request.GroupVersionKind` rather than `request.Kind` for cache lookups.
-8. **`WithAdmission`** (`admission.go`) — the outermost `HttpHandler`
-   wrapper; not part of the `AdmissionHandler` chain above but the thing
-   that produces it. Parses the HTTP body/AdmissionReview, invokes the full
-   `AdmissionHandler` chain, and writes the JSON response. It also applies
-   its own `WithMetrics`/`WithTrace` at the HTTP-handler level (distinct
-   from step 6, which is at the `AdmissionHandler` level).
+3. **`WithMetrics`** (`metrics.go`) — records admission metrics
+   (allowed/denied, namespace, operation, kind, latency) via
+   `metrics.GetAdmissionMetrics()`. No-ops if metrics aren't configured.
+4. **`WithOperationFilter`** / **`WithSubResourceFilter`** (`filter.go`,
+   only on specific routes — e.g. mutating webhooks are filtered to
+   Create/Update/Connect only, policy/exception/globalcontext webhooks
+   filter to empty sub-resource) — an early-exit filter independent of
+   `WithFilter`.
+5. **`WithRoles`** (`enrich.go`) — resolves the requesting user's Roles and
+   ClusterRoles via `userinfo.GetRoleRef` and sets `request.Roles` /
+   `request.ClusterRoles`.
+6. **`WithDump`** (`dump.go`, only when `DebugModeOptions.DumpPayload` is
+   set) — logs the full (secret-redacted) request/response payload at
+   `V(4)` after the inner chain returns. Debug-only; never enabled by
+   default.
+7. **`WithProtection`** (`protect.go`, only enabled when the
+   `ProtectManagedResources` toggle is on) — rejects mutations to
+   resources labeled `app.kubernetes.io/managed-by: kyverno` unless the
+   requesting user is a `system:serviceaccount:<kyverno-namespace>:*`
+   service account (namespace-controller deletions are always allowed
+   through, to permit namespace cleanup).
+8. **`WithFilter`** (`filter.go`) — the last gate before the handler.
+   Short-circuits to an allowed response (`admissionutils.ResponseSuccess`)
+   if the request's user/group/role is in the configured exclusions
+   (`config.IsExcluded`), the resource/namespace matches configmap-based
+   resource filters (`config.ToFilter`), or the resource `Kind` is a
+   Kyverno-internal reporting kind (`AdmissionReport`,
+   `ClusterAdmissionReport`, `BackgroundScanReport`,
+   `ClusterBackgroundScanReport`, `UpdateRequest` — see
+   `utils.ExcludeKyvernoResources`). This prevents Kyverno's own reporting
+   CRs from recursively triggering policy evaluation.
+9. `Handler.Execute` — the actual admission logic.
 
-Order matters: `WithFilter` and `WithProtection` must run before expensive
-work (role resolution, GVK discovery, policy evaluation) so filtered/
-protected requests short-circuit cheaply. `WithRoles` must run before any
-handler that needs `request.Roles`/`request.ClusterRoles` (i.e. before
-`Execute`). `WithTopLevelGVK` must run before `Execute` for the same
-reason. Policy/exception/globalcontext webhooks (which validate Kyverno's
-own CRDs, not arbitrary resources) skip `WithRoles`/`WithTopLevelGVK`/
-`WithProtection`/`WithOperationFilter` — they only need
-`WithDump`/`WithSubResourceFilter`/`WithMetrics`/`WithAdmission` — because
-role- and GVK-based policy matching doesn't apply when the "resource" being
-admitted is itself a policy object.
+**Why this order:** `withFilter` reads `request.Roles`/`request.ClusterRoles`
+(via `config.IsExcluded`) and `request.GroupVersionKind` (via
+`config.ToFilter`), so `WithRoles` and `WithTopLevelGVK` **must** run
+before it — which is exactly what the chaining produces. When adding a
+middleware that populates a field on `AdmissionRequest`, chain it *after*
+(i.e. outside) every middleware that reads that field.
+
+Policy, exception, CEL-exception and globalcontext webhooks — which admit
+Kyverno's own CRDs rather than arbitrary resources — skip `WithFilter`,
+`WithRoles`, `WithTopLevelGVK` and `WithProtection` entirely; they chain
+only `WithDump`, `WithSubResourceFilter` (validating routes),
+`WithMetrics` and `WithAdmission`, because role- and GVK-based policy
+matching doesn't apply when the object being admitted is itself a policy.
 
 ## FailurePolicy Ignore/Fail Routing
 
@@ -227,7 +248,9 @@ Kyverno registers separate webhook paths per `failurePolicy` value
 plus fine-grained `<base>/ignore/finegrained/*policy` and
 `<base>/fail/finegrained/*policy` variants, and an unqualified `<base>`
 ("all") variant for the legacy resource mutate/validate webhooks. The
-`failurePolicy` string ("ignore", "fail", or "") is baked into the
+`failurePolicy` string — `"ignore"`, `"fail"` or `"all"` on these legacy
+routes, and `""` on every other route, which does no such filtering — is
+baked into the
 `Handler.Execute` call via `handlerFunc`'s closure and passed through to
 `resourceHandlers.retrieveAndCategorizePolicies` → `filterPolicies`, which
 filters the policy-cache result set to only policies whose own
