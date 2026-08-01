@@ -81,7 +81,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
@@ -94,7 +94,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("NMPOL"),
