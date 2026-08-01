@@ -173,6 +173,20 @@ Kyverno runs as multiple controllers in a Kubernetes cluster:
 
 Controller code is primarily in `pkg/controllers/`. Webhook handlers are in `pkg/webhooks/`. The policy engine is in `pkg/engine/`.
 
+## Per-Directory AGENTS.md (for AI Agents)
+
+For detailed context on high-traffic areas, see:
+
+- `pkg/engine/AGENTS.md` — Policy engine internals, rule evaluation, context building
+- `pkg/webhooks/AGENTS.md` — Admission webhook handlers, policy-type-specific logic
+- `pkg/controllers/AGENTS.md` — Controller implementations, reconciliation patterns
+- `pkg/controllers/webhook/AGENTS.md` — Webhook configuration controller
+- `test/conformance/AGENTS.md` — Chainsaw conformance test structure and running
+
+## Path → Test Suite Map
+
+See `test-conformance-map.yaml` for a machine-readable mapping from source paths to test suites (unit, CLI, helm, conformance sub-suites). Used by AI agents for scoped regression test selection.
+
 ## API Design Rules
 
 - API types live in `api/` with versioned packages
