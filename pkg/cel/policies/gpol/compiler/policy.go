@@ -25,6 +25,7 @@ import (
 
 type Policy struct {
 	namespace        string
+	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
 	generations      []Generation
@@ -233,6 +234,8 @@ func (p *Policy) match(
 	}
 	if err := multierr.Combine(errs...); err == nil {
 		return true, nil
+	} else if p.failurePolicy == admissionregistrationv1.Ignore {
+		return false, nil
 	} else {
 		return false, err
 	}

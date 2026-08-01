@@ -22,7 +22,7 @@ func TestCompile(t *testing.T) {
 		}
 		comp := NewCompiler()
 
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
@@ -40,7 +40,7 @@ func TestCompile(t *testing.T) {
 		}
 		comp := NewCompiler()
 
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})
@@ -57,7 +57,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})
@@ -73,7 +73,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})
@@ -95,7 +95,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, polexs)
+		res, errs := comp.Compile(pol, polexs, admissionregistrationv1.Fail)
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})
@@ -117,7 +117,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, polexs)
+		res, errs := comp.Compile(pol, polexs, admissionregistrationv1.Fail)
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
@@ -155,7 +155,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
@@ -172,7 +172,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.NotNil(t, res)
 		assert.Nil(t, errs)
 	})
@@ -189,7 +189,7 @@ func TestCompile(t *testing.T) {
 			},
 		}
 		comp := NewCompiler()
-		res, errs := comp.Compile(pol, nil)
+		res, errs := comp.Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})

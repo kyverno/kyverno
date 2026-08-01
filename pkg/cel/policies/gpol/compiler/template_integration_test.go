@@ -36,7 +36,7 @@ metadata:
 `,
 			},
 		})
-		compiled, errs := NewCompiler().Compile(pol, nil)
+		compiled, errs := NewCompiler().Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, errs)
 		assert.NotNil(t, compiled)
 	})
@@ -45,13 +45,13 @@ metadata:
 			Expression: `generator.Apply("ns", [])`,
 			Template:   &v1beta1.GenerationTemplate{Value: "apiVersion: v1\nkind: ConfigMap"},
 		})
-		compiled, errs := NewCompiler().Compile(pol, nil)
+		compiled, errs := NewCompiler().Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, compiled)
 		assert.Contains(t, errs.ToAggregate().Error(), "only one of expression or template")
 	})
 	t.Run("rejects entry with neither expression nor template", func(t *testing.T) {
 		pol := newPolicy(v1beta1.Generation{})
-		compiled, errs := NewCompiler().Compile(pol, nil)
+		compiled, errs := NewCompiler().Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, compiled)
 		assert.Contains(t, errs.ToAggregate().Error(), "one of expression or template must be set")
 	})
@@ -67,7 +67,7 @@ metadata:
 `,
 			},
 		})
-		compiled, errs := NewCompiler().Compile(pol, nil)
+		compiled, errs := NewCompiler().Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, compiled)
 		assert.Contains(t, errs.ToAggregate().Error(), "spec.generate[0].template.value")
 		assert.Contains(t, errs.ToAggregate().Error(), "invalid placeholder expression")
@@ -86,7 +86,7 @@ data:
 `,
 			},
 		})
-		compiled, errs := NewCompiler().Compile(pol, nil)
+		compiled, errs := NewCompiler().Compile(pol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, compiled)
 		assert.Contains(t, errs.ToAggregate().Error(), "placeholders are not supported in mapping keys")
 	})
@@ -100,7 +100,7 @@ func TestEvaluateTemplateGeneration(t *testing.T) {
 
 	evaluate := func(t *testing.T, policy v1beta1.GeneratingPolicyLike) (*EvaluationResult, error) {
 		t.Helper()
-		compiled, errs := NewCompiler().Compile(policy, nil)
+		compiled, errs := NewCompiler().Compile(policy, nil, admissionregistrationv1.Fail)
 		require.Nil(t, errs)
 		return compiled.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 	}

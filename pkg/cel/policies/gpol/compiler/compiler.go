@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/transform"
 	"github.com/kyverno/sdk/extensions/cel/libs/x509"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -37,7 +38,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
+	Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException, failurePolicy admissionregistrationv1.FailurePolicyType) (*Policy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -153,7 +154,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 	return extendedBase, variablesProvider, nil
 }
 
-func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException, failurePolicy admissionregistrationv1.FailurePolicyType) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
@@ -223,6 +224,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	}
 	return &Policy{
 		namespace:        policy.GetNamespace(),
+		failurePolicy:    failurePolicy,
 		matchConditions:  matchConditions,
 		variables:        variables,
 		generations:      generations,

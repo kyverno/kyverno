@@ -254,4 +254,165 @@ func TestPolicyEvaluate(t *testing.T) {
 		assert.Nil(t, result.GeneratedResources)
 		assert.NotEmpty(t, result.Exceptions)
 	})
+
+	t.Run("failurePolicy=Ignore swallows matchCondition error and skips policy", func(t *testing.T) {
+		// Regression test for https://github.com/kyverno/kyverno/issues/16883:
+		// When failurePolicy is Ignore, a CEL runtime error in a matchCondition must
+		// be swallowed (treated as a non-match) rather than propagated to the caller.
+		policy := &Policy{
+			failurePolicy: v1.Ignore,
+			matchConditions: []cel.Program{
+				&mockProgram{retVal: types.String("not-a-bool")}, // triggers convertToNative error
+			},
+			variables:   map[string]cel.Program{},
+			generations: []Generation{},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("ignore-match-err")
+		res.SetNamespace("ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.Nil(t, result)
+		assert.NoError(t, err)
+	})
+
+	t.Run("failurePolicy=Fail propagates matchCondition error", func(t *testing.T) {
+		// With the default failurePolicy (Fail), a CEL runtime error in a matchCondition
+		// must still be returned as an error.
+		policy := &Policy{
+			failurePolicy: v1.Fail,
+			matchConditions: []cel.Program{
+				&mockProgram{retVal: types.String("not-a-bool")}, // triggers convertToNative error
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("fail-match-err")
+		res.SetNamespace("ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.Nil(t, result)
+		assert.Error(t, err)
+	})
+
+	t.Run("compiled real GeneratingPolicy with failurePolicy=Ignore swallows CEL matchCondition error", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConditions: []v1.MatchCondition{
+					{
+						Name:       "error-triggering-condition",
+						Expression: "int(object.metadata.name) > 0",
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("default", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap")}])`,
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		compiled, errList := comp.Compile(gpol, nil, v1.Ignore)
+		assert.Nil(t, errList)
+		assert.NotNil(t, compiled)
+
+		res.SetGroupVersionKind(gvk)
+		res.SetName("non-integer-name")
+		res.SetNamespace("default")
+
+		result, err := compiled.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Nil(t, result)
+		assert.NoError(t, err, "CEL matchCondition error should be swallowed when failurePolicy is Ignore")
+	})
+
+	t.Run("compiled real GeneratingPolicy with failurePolicy=Fail propagates CEL matchCondition error", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConditions: []v1.MatchCondition{
+					{
+						Name:       "error-triggering-condition",
+						Expression: "int(object.metadata.name) > 0",
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("default", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap")}])`,
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		compiled, errList := comp.Compile(gpol, nil, v1.Fail)
+		assert.Nil(t, errList)
+		assert.NotNil(t, compiled)
+
+		res.SetGroupVersionKind(gvk)
+		res.SetName("non-integer-name")
+		res.SetNamespace("default")
+
+		result, err := compiled.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Nil(t, result)
+		assert.Error(t, err, "CEL matchCondition error should be returned when failurePolicy is Fail")
+	})
+
+	t.Run("compiled real NamespacedGeneratingPolicy with failurePolicy=Ignore swallows CEL matchCondition error", func(t *testing.T) {
+		ngpol := &v1beta1.NamespacedGeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConditions: []v1.MatchCondition{
+					{
+						Name:       "error-triggering-condition",
+						Expression: "int(object.metadata.name) > 0",
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("default", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap")}])`,
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		compiled, errList := comp.Compile(ngpol, nil, v1.Ignore)
+		assert.Nil(t, errList)
+		assert.NotNil(t, compiled)
+
+		res.SetGroupVersionKind(gvk)
+		res.SetName("non-integer-name")
+		res.SetNamespace("default")
+
+		result, err := compiled.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Nil(t, result)
+		assert.NoError(t, err, "CEL matchCondition error should be swallowed when failurePolicy is Ignore")
+	})
+
+	t.Run("compiled real NamespacedGeneratingPolicy with failurePolicy=Fail propagates CEL matchCondition error", func(t *testing.T) {
+		ngpol := &v1beta1.NamespacedGeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConditions: []v1.MatchCondition{
+					{
+						Name:       "error-triggering-condition",
+						Expression: "int(object.metadata.name) > 0",
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("default", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap")}])`,
+					},
+				},
+			},
+		}
+		comp := NewCompiler()
+		compiled, errList := comp.Compile(ngpol, nil, v1.Fail)
+		assert.Nil(t, errList)
+		assert.NotNil(t, compiled)
+
+		res.SetGroupVersionKind(gvk)
+		res.SetName("non-integer-name")
+		res.SetNamespace("default")
+
+		result, err := compiled.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+		assert.Nil(t, result)
+		assert.Error(t, err, "CEL matchCondition error should be returned when failurePolicy is Fail")
+	})
 }
