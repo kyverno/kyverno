@@ -111,8 +111,9 @@ func TestPolicyEvaluate(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("returns error if main matchCondition fails evaluation", func(t *testing.T) {
+	t.Run("returns error if main matchCondition fails evaluation and failurePolicy is Fail", func(t *testing.T) {
 		policy := &Policy{
+			failurePolicy: v1.Fail,
 			matchConditions: []cel.Program{
 				&mockProgram{retVal: types.String("bad-type")},
 			},
@@ -125,6 +126,23 @@ func TestPolicyEvaluate(t *testing.T) {
 
 		assert.Nil(t, result)
 		assert.Error(t, err)
+	})
+
+	t.Run("ignores error if main matchCondition fails evaluation and failurePolicy is Ignore", func(t *testing.T) {
+		policy := &Policy{
+			failurePolicy: v1.Ignore,
+			matchConditions: []cel.Program{
+				&mockProgram{retVal: types.String("bad-type")},
+			},
+		}
+		res.SetGroupVersionKind(gvk)
+		res.SetName("bad-match-ignore")
+		res.SetNamespace("ns")
+
+		result, err := policy.Evaluate(context.TODO(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+
+		assert.Nil(t, result)
+		assert.NoError(t, err)
 	})
 
 	t.Run("returns error if generation expression fails evaluation", func(t *testing.T) {
