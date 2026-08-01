@@ -105,12 +105,14 @@ must enqueue a `cache.ExplicitKey`** (see `policystatus` and
   `queue.AddAfter` (used by `report/aggregate` with a 10s delay).
 - `AddExplicitEventHandlers(logger, informer, queue, parseKey)` — enqueues a
   `cache.ExplicitKey` produced by `parseKey`, for custom key formats.
-- Deletes go through `kubeutils.GetObjectWithTombstone` in the untyped
-  `AddEventHandlers` path, so `DeletedFinalStateUnknown` tombstones are
-  unwrapped; the typed `AddEventHandlersT` path does a bare type assertion
-  instead, so typed delete handlers must call
-  `kubeutils.GetObjectWithTombstone` themselves if they care (several do —
-  see `admissionpolicygenerator/cpol.go`, `metrics/policy`).
+- Deletes go through `kubeutils.GetObjectWithTombstone` in
+  `AddEventHandlers`, so `DeletedFinalStateUnknown` tombstones are
+  unwrapped before the delete callback runs. The typed `AddEventHandlersT`
+  wraps its callbacks and then delegates to `AddEventHandlers`, so typed
+  delete handlers get an already-unwrapped object too and do **not** need
+  to call `GetObjectWithTombstone` themselves. Only code that registers
+  handlers directly on an informer, bypassing these helpers, has to handle
+  tombstones itself.
 
 ### `controllerutils` write helpers
 
