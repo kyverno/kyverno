@@ -57,7 +57,7 @@ func newFakeImageVerificationHandler(t *testing.T, ctx context.Context) (ImageVe
 		configuration,
 		jp,
 		adapters.Client(dclientInstance),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil, "", false),
 		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(configMapResolver),
 		exceptions.New(peLister),

@@ -23,7 +23,7 @@ import (
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
 	rclient := registryclient.New(nil, "", "", "", false)
-	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
+	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil, "", false)
 
 	tests := []struct {
 		name        string
@@ -199,7 +199,7 @@ func TestRegistryClientFactory_GetClient(t *testing.T) {
 			// Reset tracking for each test
 			trackingLister.accessed = make(map[string]bool)
 
-			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister)
+			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister, "", false)
 
 			client, err := factory.GetClient(context.Background(), tt.creds, tt.resourceNamespace, tt.imagePullSecrets)
 			assert.NilError(t, err, tt.description)
@@ -280,7 +280,7 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 				accessed:     make(map[string]bool),
 			}
 
-			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister)
+			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister, "", false)
 
 			client, err := factory.GetClient(context.Background(), nil, tt.resourceNamespace, tt.imagePullSecrets)
 			assert.NilError(t, err, tt.description)
@@ -301,6 +301,74 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRegistryClientFactory_GetClient_UsesGlobalHelpers(t *testing.T) {
+	// creds == nil with imagePullSecrets present must still use the factory's global
+	// registryCredentialHelpers/allowInsecureRegistry, not a hardcoded "" / false.
+	tests := []struct {
+		name                      string
+		registryCredentialHelpers string
+		allowInsecureRegistry     bool
+		expectInsecure            bool
+	}{
+		{
+			name:                      "global helpers and insecure flag are used",
+			registryCredentialHelpers: "amazon,default",
+			allowInsecureRegistry:     true,
+			expectInsecure:            true,
+		},
+		{
+			name:                      "empty helpers and secure flag stay off",
+			registryCredentialHelpers: "",
+			allowInsecureRegistry:     false,
+			expectInsecure:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, nil, tt.registryCredentialHelpers, tt.allowInsecureRegistry)
+
+			// SDK client is opaque, so check the factory's own fields instead.
+			concrete, ok := factory.(*registryClientFactory)
+			assert.Assert(t, ok, "factory should be a *registryClientFactory")
+			assert.Equal(t, concrete.registryCredentialHelpers, tt.registryCredentialHelpers)
+			assert.Equal(t, concrete.allowInsecureRegistry, tt.allowInsecureRegistry)
+
+			client, err := factory.GetClient(context.Background(), nil, "ns", []string{"some-pull-secret"})
+			assert.NilError(t, err)
+			assert.Assert(t, client != nil)
+
+			// creds is nil but imagePullSecrets is set: must build a new client, not return the
+			// passthrough global one.
+			_, isGlobal := client.(*mockRegistryClient)
+			assert.Assert(t, !isGlobal, "should create a new client when imagePullSecrets is set")
+
+			// NameOptions() only ever carries name.Insecure, and only when allowInsecureRegistry
+			// reached registryclient.New as true.
+			assert.Equal(t, len(client.NameOptions()) > 0, tt.expectInsecure,
+				"NameOptions() should reflect the factory's allowInsecureRegistry, not a hardcoded false")
+		})
+	}
+}
+
+func TestRegistryClientFactory_GetClient_ExplicitCredsIgnoreGlobalFields(t *testing.T) {
+	// creds != nil must stay unaffected by the new global fields - explicit policy-level
+	// credentials still take precedence.
+	factory := DefaultRegistryClientFactory(&mockRegistryClient{}, nil, "amazon", true)
+
+	creds := &kyvernov1.ImageRegistryCredentials{
+		Providers:             []kyvernov1.ImageRegistryCredentialsProvidersType{kyvernov1.ACR},
+		AllowInsecureRegistry: false,
+	}
+
+	client, err := factory.GetClient(context.Background(), creds, "ns", nil)
+	assert.NilError(t, err)
+	assert.Assert(t, client != nil)
+
+	assert.Assert(t, len(client.NameOptions()) == 0,
+		"explicit creds.AllowInsecureRegistry=false must win over the global allowInsecureRegistry=true")
 }
 
 // mockRegistryClient implements engineapi.RegistryClient for testing
