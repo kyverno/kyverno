@@ -63,6 +63,7 @@ GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
 GOLANGCI_LINT_VERSION              ?= v2.11.4
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+CHANGE_SCOPE                       ?= $(TOOLS_DIR)/change-scope
 KUBE_VERSION                       ?= v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
 ifeq ($(GOOS), darwin)
@@ -1244,3 +1245,11 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+$(CHANGE_SCOPE):
+	@echo Install change-scope... >&2
+	@cd ./hack/change-scope && GOBIN=$(TOOLS_DIR) go install
+
+.PHONY: change-scope
+change-scope: $(CHANGE_SCOPE) ## Classify changed files vs main into structured change-scope metadata (JSON)
+	@git diff --name-only $(shell git merge-base HEAD origin/main 2>/dev/null || echo HEAD)... | $(CHANGE_SCOPE)
