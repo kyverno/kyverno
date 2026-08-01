@@ -474,3 +474,18 @@ func TestEntry_ConcurrentAccess(t *testing.T) {
 	// Should not panic or race
 	assert.Equal(t, "initial", e.projected["test"])
 }
+
+func TestEntry_Stop_Idempotent(t *testing.T) {
+	count := 0
+	var stopOnce sync.Once
+	stop := func() {
+		stopOnce.Do(func() {
+			count++
+		})
+	}
+
+	e := &entry{stop: stop}
+	e.Stop()
+	e.Stop()
+	assert.Equal(t, 1, count)
+}

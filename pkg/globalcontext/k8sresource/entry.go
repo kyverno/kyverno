@@ -66,11 +66,14 @@ func New(
 	logger.V(4).Info("using DynamicInformer", "gvr", gvr)
 
 	var group wait.Group
+	var stopOnce sync.Once
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
-		cancel()
-		// Wait for the group to terminate
-		group.Wait()
+		stopOnce.Do(func() {
+			cancel()
+			// Wait for the group to terminate
+			group.Wait()
+		})
 	}
 
 	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
