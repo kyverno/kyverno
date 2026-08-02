@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -28,6 +29,9 @@ func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, re
 		return admissionutils.Response(request.UID, err)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
+	if warning := deprecations.Warning(request.Kind.Kind); warning != "" {
+		warnings = append(warnings, warning)
+	}
 	errs := polex.Validate()
 	return admissionutils.Response(request.UID, errs.ToAggregate(), warnings...)
 }
