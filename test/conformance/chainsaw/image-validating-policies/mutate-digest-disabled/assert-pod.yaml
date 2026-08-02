@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mutate-digest-disabled-pod
+  namespace: default
+spec:
+  containers:
+    - name: test
+      image: ghcr.io/kyverno/test-verify-image:signed-keyless
