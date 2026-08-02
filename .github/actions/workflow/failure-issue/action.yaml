@@ -59,9 +59,12 @@ runs:
            * reports a single result and the individual failing instances are
            * lost. This recovers them from the jobs API.
            *
-           * Requires `actions: read`, which a calling workflow must grant on the
-           * job that invokes this action; a composite action cannot grant it.
-           * Callers without it get a 403. Any error is reported via
+           * The calling workflow declares `actions: read` to make the read
+           * intent explicit; a composite action cannot grant permissions
+           * itself. On a public repository the call succeeds even without it
+           * (workflow job data is publicly readable — observed on this repo
+           * with a token holding only `issues: write` + `metadata: read`); on
+           * a private repository it would 403. Any error is reported via
            * core.warning() — visible in the run summary, where CI diagnostics
            * belong — and the issue body is left exactly as it would have been
            * without this addition.
