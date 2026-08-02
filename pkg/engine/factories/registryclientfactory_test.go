@@ -392,7 +392,12 @@ func (m *mockRegistryClient) FetchImageDescriptor(ctx context.Context, ref strin
 }
 
 func (m *mockRegistryClient) Keychain() authn.Keychain {
-	return authn.DefaultKeychain
+	// nil models a global client with no credentials to preserve, so GetClient's
+	// `global.Keychain() != nil` guard skips WithKeychain and the secrets keychain
+	// stays first. This isolates secret prefixing/lister access from ambient
+	// credential resolution. The real-production global keychain path is covered
+	// by mockGlobalClient, which overrides this method.
+	return nil
 }
 
 func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, []name.Option, error) {
