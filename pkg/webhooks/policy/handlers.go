@@ -12,6 +12,7 @@ import (
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
@@ -91,6 +92,10 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
+		}
+		if warning := deprecations.Warning(request.Kind.Kind); warning != "" {
+			logger.V(2).Info(warning, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			warnings = append(warnings, warning)
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
