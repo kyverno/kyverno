@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-
 func Test_Policy_Name(t *testing.T) {
 	subject := Policy{
 		ObjectMeta: metav1.ObjectMeta{
