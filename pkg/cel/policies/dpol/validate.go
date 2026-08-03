@@ -1,6 +1,7 @@
 package dpol
 
 import (
+	"github.com/aptible/supercronic/cronexpr"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -29,6 +30,14 @@ func Validate(dpol v1beta1.DeletingPolicyLike) ([]string, error) {
 
 	if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
+	}
+
+	// Validate the schedule with the same parser the deleting controller uses to
+	// compute execution times, so a policy that is admitted can always be scheduled.
+	if spec.Schedule == "" {
+		err = append(err, field.Required(field.NewPath("spec").Child("schedule"), "schedule is required"))
+	} else if _, parseErr := cronexpr.Parse(spec.Schedule); parseErr != nil {
+		err = append(err, field.Invalid(field.NewPath("spec").Child("schedule"), spec.Schedule, "schedule spec in the deletingPolicy is not in proper cron format: "+parseErr.Error()))
 	}
 
 	if dpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {

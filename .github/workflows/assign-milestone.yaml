@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Automatically assigns the release milestone (e.g. "Kyverno Release 1.19.0")
+# to every merged pull request included in a release, at the time the
+# release tag is pushed. The milestone computed from the actual git history
+# of the release is authoritative, so it overrides any milestone a PR may
+# already have (e.g. a speculative/target milestone set before merge that
+# turned out to not match the release the PR actually shipped in).
+#
+# This replaces the old approach of requiring a milestone to be set on every
+# pull request before merge.
+
+name: Assign milestone
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  assign-milestone:
+    # only run for final release tags (vX.Y.Z), skip pre-releases (e.g. v1.19.0-rc.1)
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Assign milestone to merged pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected tag format: $RELEASE_TAG"
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          milestone_title="Kyverno Release ${version}"
+          echo "Release tag: $RELEASE_TAG -> milestone: $milestone_title"
+
+          # find the previous release tag to build the commit range from.
+          #
+          # patch releases (vX.Y.Z, Z>0) live on a release-* branch together with
+          # their predecessor, so `git tag --merged` can walk the branch history
+          # to find the previous patch tag directly.
+          #
+          # minor releases (vX.Y.0) are tagged on main, but the previous minor's
+          # final tag (vX.(Y-1).0) was cut on its own release-* branch and is not
+          # an ancestor of main, so `git tag --merged` can't find it. Instead,
+          # derive it via version math and use the merge-base of the two tags as
+          # the start of the commit range, so we only pick up commits that
+          # actually landed on main since the two release lines diverged.
+          IFS='.' read -r major minor patch <<< "$version"
+
+          if [[ "$patch" == "0" ]]; then
+            previous_tag=$(git tag --list 'v*' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | grep -B1 -x "$RELEASE_TAG" \
+              | head -n1)
+            if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
+              echo "::error::Could not determine previous release tag for $RELEASE_TAG"
+              exit 1
+            fi
+            range_start=$(git merge-base "$previous_tag" "$RELEASE_TAG")
+          else
+            previous_tag=$(git tag --list 'v*' --merged "$RELEASE_TAG" \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | grep -B1 -x "$RELEASE_TAG" \
+              | head -n1)
+
+            if [[ -z "$previous_tag" || "$previous_tag" == "$RELEASE_TAG" ]]; then
+              echo "::error::Could not determine previous release tag for $RELEASE_TAG"
+              exit 1
+            fi
+            range_start="$previous_tag"
+          fi
+          echo "Previous release tag: $previous_tag"
+
+          milestone_number=$(gh api "repos/${GITHUB_REPOSITORY}/milestones?state=all&per_page=100" \
+            --jq ".[] | select(.title == \"${milestone_title}\") | .number" | head -n1)
+
+          if [[ -z "$milestone_number" ]]; then
+            echo "::error::Milestone \"${milestone_title}\" does not exist. Create it before releasing, or the release notes will be missing pull requests."
+            exit 1
+          fi
+          echo "Milestone number: $milestone_number"
+
+          pr_numbers=$(git log "${range_start}..${RELEASE_TAG}" --format='%H' \
+            | xargs -I{} gh api "repos/${GITHUB_REPOSITORY}/commits/{}/pulls" --jq '.[].number' \
+            | sort -un)
+
+          if [[ -z "$pr_numbers" ]]; then
+            echo "No pull requests found between $previous_tag and $RELEASE_TAG."
+            exit 0
+          fi
+
+          for pr in $pr_numbers; do
+            current_milestone=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" --jq '.milestone.title // ""')
+            if [[ "$current_milestone" == "$milestone_title" ]]; then
+              echo "PR #${pr} already correctly milestoned \"${milestone_title}\", skipping."
+              continue
+            fi
+            if [[ -n "$current_milestone" ]]; then
+              echo "PR #${pr} has milestone \"${current_milestone}\", but actually shipped in \"${milestone_title}\". Correcting it."
+            else
+              echo "Assigning milestone \"${milestone_title}\" to PR #${pr}."
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${pr}" -X PATCH -f "milestone=${milestone_number}" > /dev/null
+          done
