@@ -6,6 +6,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/libs/time"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/library"
@@ -78,6 +79,7 @@ func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.En
 		library.URLs(),
 		library.Quantity(),
 		library.SemverLib(library.SemverVersion(1)),
+		time.Lib(),
 	}
 
 	if enforce {
