@@ -135,8 +135,7 @@ func (t *TimeLib) time_parse(layout, value ref.Val) ref.Val {
 		return types.WrapErr(fmt.Errorf("value must be a string"))
 	}
 
-	_, err := strconv.ParseInt(layoutStr, 10, 64)
-	if err == nil {
+	if layoutStr == "0" {
 		epochTime, err := strconv.ParseInt(valueStr, 10, 64)
 		if err != nil {
 			return types.WrapErr(fmt.Errorf("invalid epoch timestamp: %w", err))
