@@ -15,7 +15,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 const cosignPayload = `{
@@ -360,6 +360,7 @@ IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
+
 func TestBuildCosignOptionsUsesSignedTimestamps(t *testing.T) {
 	rc := registryclient.New(nil, "", "", "", false)
 
