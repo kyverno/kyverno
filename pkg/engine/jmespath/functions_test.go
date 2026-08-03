@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 var jmespathInterface = newImplementation(config.NewDefaultConfiguration(false))

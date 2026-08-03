@@ -79,7 +79,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.83.0
 	gopkg.in/inf.v0 v0.9.1
-	gotest.tools v2.2.0+incompatible
+	gotest.tools/v3 v3.5.2
 	k8s.io/api v0.36.3
 	k8s.io/apiextensions-apiserver v0.36.3
 	k8s.io/apimachinery v0.36.3

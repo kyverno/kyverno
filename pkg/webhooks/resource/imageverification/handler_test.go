@@ -22,7 +22,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
