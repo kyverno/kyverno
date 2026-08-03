@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: data-sync-update-trigger-in-place
+spec:
+  # Regression test for https://github.com/kyverno/kyverno/issues/16742:
+  # a trigger UPDATE must update the downstream resource in place instead of
+  # deleting and recreating it.
+  concurrent: false
+  steps:
+  - name: create permissions
+    try:
+    - apply:
+        file: permissions.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-generating-policy-ready
+    use:
+      template: ../../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-update-trigger-in-place
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: create the trigger
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: check that the configmap is generated
+    try:
+    - assert:
+        file: downstream-assert.yaml
+  - name: update the trigger and check the downstream is updated in place
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          set -e
+          uid1=$(kubectl get configmap sync-update-trigger-in-place -n sync-update-trigger-in-place -o jsonpath='{.metadata.uid}')
+          kubectl annotate namespace sync-update-trigger-in-place quota=50 --overwrite
+          val=""
+          for i in $(seq 1 30); do
+            val=$(kubectl get configmap sync-update-trigger-in-place -n sync-update-trigger-in-place -o jsonpath='{.data.QUOTA}' 2>/dev/null || true)
+            if [ "$val" = "50" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$val" != "50" ]; then
+            echo "downstream was not updated with the new trigger data, got QUOTA=$val"
+            exit 1
+          fi
+          uid2=$(kubectl get configmap sync-update-trigger-in-place -n sync-update-trigger-in-place -o jsonpath='{.metadata.uid}')
+          if [ "$uid1" != "$uid2" ]; then
+            echo "downstream was recreated instead of updated in place: uid changed from $uid1 to $uid2"
+            exit 1
+          fi

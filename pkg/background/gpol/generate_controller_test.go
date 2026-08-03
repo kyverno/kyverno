@@ -12,11 +12,13 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,6 +42,21 @@ func (e *testEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, cach
 		Policies: []gpolengine.GeneratingPolicyResponse{{
 			Policy: p.Policy,
 			Result: rule,
+		}},
+	}, nil
+}
+
+type countingEngine struct {
+	calls int
+}
+
+func (e *countingEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+	e.calls++
+	return gpolengine.EngineResponse{
+		Trigger: &unstructured.Unstructured{},
+		Policies: []gpolengine.GeneratingPolicyResponse{{
+			Policy: p.Policy,
+			Result: engineapi.RulePass("rule", engineapi.Generation, "ok", nil),
 		}},
 	}, nil
 }
@@ -81,6 +98,54 @@ func (c *triggerClient) GetResource(_ context.Context, apiVersion string, kind s
 		return c.trigger.DeepCopy(), nil
 	}
 	return nil, nil
+}
+
+func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
+	policyName := "test-gpol"
+	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"resourceFilters": "[ConfigMap,tenant-a,*]",
+		},
+	})
+
+	engine := &countingEngine{}
+	controller := &CELGenerateController{
+		client: &triggerClient{
+			MockClient: &MockClient{},
+			trigger:    trigger,
+		},
+		context:       libs.NewFakeContextProvider(),
+		engine:        engine,
+		provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
+		watchManager:  &WatchManager{},
+		statusControl: testStatusControl{},
+		eventGen:      testEventGen{},
+		log:           logging.WithName("test-gpol-controller"),
+		configuration: cfg,
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-filtered-trigger"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "rule",
+				Trigger: kyvernov1.ResourceSpec{
+					APIVersion: trigger.GetAPIVersion(),
+					Kind:       trigger.GetKind(),
+					Namespace:  trigger.GetNamespace(),
+					Name:       trigger.GetName(),
+					UID:        trigger.GetUID(),
+				},
+			}},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+	assert.Zero(t, engine.calls)
 }
 
 func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstream(t *testing.T) {

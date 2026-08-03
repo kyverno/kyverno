@@ -3026,8 +3026,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -8152,9 +8153,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -13000,8 +13001,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -18183,9 +18185,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
