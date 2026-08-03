@@ -186,3 +186,15 @@ func TestUpdatePolicyStatuses_DowngradesUnconfiguredPolicyWhenWatchdogHealthy(t 
 	assert.False(t, got.IsReady(),
 		"when health is confirmed and the policy is not configured in any webhook, it is correctly marked NotReady")
 }
+
+func TestBuildForJSONPoliciesMutation_Coverage(t *testing.T) {
+	c := newStatusTestController(nil, nil, nil, nil)
+	err := c.buildForJSONPoliciesMutation(context.Background(), config.NewDefaultConfiguration(false), nil, nil)
+	assert.NoError(t, err)
+}
+
+func TestBuildForJSONPoliciesValidation_Coverage(t *testing.T) {
+	c := newStatusTestController(nil, nil, nil, nil)
+	err := c.buildForJSONPoliciesValidation(context.Background(), config.NewDefaultConfiguration(false), nil, nil)
+	assert.NoError(t, err)
+}
