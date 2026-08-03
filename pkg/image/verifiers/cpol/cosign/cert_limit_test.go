@@ -15,7 +15,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // generateTestRootCA creates a self-signed root CA certificate for testing.
