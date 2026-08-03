@@ -39,7 +39,7 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		return libs.NewContextProvider(
 			dclient,
 			lister,
-			gctxstore.New(),
+			gctxstore.New(0),
 			restMapper,
 			true,
 		)
