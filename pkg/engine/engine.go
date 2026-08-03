@@ -72,7 +72,7 @@ func (e *engine) Validate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(ctx, logger, e.client, policyContext, e.configuration) {
 		policyResponse := e.validate(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
@@ -91,7 +91,7 @@ func (e *engine) Mutate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(ctx, logger, e.client, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
 		response = response.
 			WithPatchedResource(patchedResource).
@@ -111,7 +111,7 @@ func (e *engine) Generate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(ctx, logger, e.client, policyContext, e.configuration) {
 		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
@@ -130,7 +130,7 @@ func (e *engine) VerifyAndPatchImages(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	ivm := engineapi.ImageVerificationMetadata{}
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(ctx, logger, e.client, policyContext, e.configuration) {
 		policyResponse, patchedResource, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
 		response, ivm = response.
 			WithPolicyResponse(policyResponse).
@@ -150,7 +150,7 @@ func (e *engine) ApplyBackgroundChecks(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(ctx, logger, e.client, policyContext, e.configuration) {
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
