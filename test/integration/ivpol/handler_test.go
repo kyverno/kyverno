@@ -5,6 +5,7 @@ package ivpol_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/test/integration/framework"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -192,6 +194,41 @@ func podRawWithImage(t *testing.T, name, namespace, image string) []byte {
 	return raw
 }
 
+// mutatePodRaw runs the mutating webhook route for an already built pod payload and returns the raw
+// admission response. The mutating route only pins image tags to digests, it never verifies (issue
+// #16336), so the response reflects digest pinning alone.
+func mutatePodRaw(t *testing.T, policyName, podName, namespace string, raw []byte) admissionv1.AdmissionResponse {
+	t.Helper()
+	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
+	ctx := framework.ContextWithPolicies(context.Background(), policyName)
+	return h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
+}
+
+// mutatePod runs the mutating webhook route for a pod carrying a single image.
+func mutatePod(t *testing.T, policyName, podName, namespace, image string) admissionv1.AdmissionResponse {
+	t.Helper()
+	return mutatePodRaw(t, policyName, podName, namespace, podRawWithImage(t, podName, namespace, image))
+}
+
+// podRawWithImages builds a Pod whose containers run the given images, in order, so a test can mix
+// resolvable and unresolvable references in one resource.
+func podRawWithImages(t *testing.T, name, namespace string, images ...string) []byte {
+	t.Helper()
+	containers := make([]any, 0, len(images))
+	for i, image := range images {
+		containers = append(containers, map[string]any{"name": fmt.Sprintf("app-%d", i), "image": image})
+	}
+	pod := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]any{"name": name, "namespace": namespace},
+		"spec":       map[string]any{"containers": containers},
+	}
+	raw, err := json.Marshal(pod)
+	require.NoError(t, err)
+	return raw
+}
+
 // TestValidate_UnverifiableImage_FailsClosed is the fail-closed baseline: when an image cannot be
 // verified (it is unsigned, and the hermetic run has no registry egress to complete the check
 // either), a Deny policy refuses the pod rather than admitting it unverified.
@@ -287,21 +324,56 @@ func TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide(t *testing.T
 	assert.NotEmpty(t, clusterResp.Warnings, "the cluster Warn policy must surface a warning")
 }
 
-// TestMutate_IsNoOp confirms the mutating webhook no longer verifies images or stamps an outcome
-// annotation (issue #16336): verification moved entirely to the validating phase. Even a pod whose
-// image would fail verification is admitted unchanged, with no patch, by the mutating route.
-func TestMutate_IsNoOp(t *testing.T) {
-	createIvpolWithCleanup(t, newIvpol("mutate-noop"))
-	waitForPolicyReady(t, "mutate-noop", "")
+// TestMutate_UnresolvableImage_Denies covers the fail closed half of digest pinning. The mutating
+// route pins tags to digests, so an image it cannot resolve means the policy's mutateDigest
+// guarantee cannot be honoured. Admitting the pod anyway would leave it running an unpinned tag
+// with no signal, which is the class of silent no-op that issue #16808 was about, so the request is
+// denied when the policy asks for Deny. This matches ClusterPolicy, where a failing
+// handleMutateDigest raises a RuleError that blocks under failurePolicy Fail.
+func TestMutate_UnresolvableImage_Denies(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("mutate-unresolvable"))
+	waitForPolicyReady(t, "mutate-unresolvable", "")
 
-	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
+	resp := mutatePod(t, "mutate-unresolvable", "app", "default", unverifiableImage)
 
-	raw := podRawWithImage(t, "app", "default", unverifiableImage)
-	ctx := framework.ContextWithPolicies(context.Background(), "mutate-noop")
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", "default", raw), "", time.Now())
+	assert.False(t, resp.Allowed, "an image whose digest cannot be resolved must not be admitted")
+	require.NotNil(t, resp.Result)
+	assert.Contains(t, resp.Result.Message, "failed to update digest",
+		"the denial must be attributed to digest pinning, not to signature verification")
+	assert.Empty(t, resp.Patch, "a denied request must carry no partial patch")
+}
 
-	assert.True(t, resp.Allowed, "the mutating route must admit the pod")
-	assert.Empty(t, resp.Patch, "the mutating route must not patch the pod (no verification, no stamped outcome)")
+// TestMutate_UnresolvableImage_AdmitsWithoutDenyAction is the fail open half: validationActions
+// governs whether a policy blocks, so a policy that only audits or warns must not have its digest
+// pinning failure turned into a denial by the mutating route.
+func TestMutate_UnresolvableImage_AdmitsWithoutDenyAction(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("mutate-unresolvable-warn", admissionregistrationv1.Warn))
+	waitForPolicyReady(t, "mutate-unresolvable-warn", "")
+
+	resp := mutatePod(t, "mutate-unresolvable-warn", "app", "default", unverifiableImage)
+
+	assert.True(t, resp.Allowed, "a warn only policy must not block on a digest pinning failure")
+	assert.Empty(t, resp.Patch, "an unresolvable image cannot be pinned, so there is nothing to patch")
+	assert.NotEmpty(t, resp.Warnings, "the failure must still be surfaced as a warning")
+}
+
+// TestMutate_DoesNotVerifyOrStampOutcomeAnnotation guards the invariant from issue #16336: the
+// mutating route pins digests but performs no verification and stamps no image verification outcome
+// annotation for the validating route to trust. The image here can never resolve, so the route
+// cannot have reached a registry; what matters is that the rejection is a digest pinning error and
+// that nothing was written to the pod. The successful pinning counterpart, which proves the patch
+// touches only the image field, lives in the registry tagged tests.
+func TestMutate_DoesNotVerifyOrStampOutcomeAnnotation(t *testing.T) {
+	createIvpolWithCleanup(t, newIvpol("mutate-no-stamp"))
+	waitForPolicyReady(t, "mutate-no-stamp", "")
+
+	resp := mutatePod(t, "mutate-no-stamp", "app", "default", unverifiableImage)
+
+	require.NotNil(t, resp.Result)
+	assert.NotContains(t, resp.Result.Message, "verifyImageSignatures",
+		"the mutating route must not run the policy's verification expressions")
+	assert.Empty(t, resp.Patch,
+		"the mutating route must never stamp an image verification outcome annotation (issue #16336)")
 }
 
 // TestValidate_MatchConditionNotMet_SkipsVerification covers the common "only enforce on production
