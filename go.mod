@@ -290,7 +290,6 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
 	github.com/jellydator/ttlcache/v3 v3.4.0 // indirect
 	github.com/jinzhu/copier v0.4.0
-	github.com/jmespath-community/go-jmespath v1.1.2-0.20240117150817-e430401a2172 // indirect
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
