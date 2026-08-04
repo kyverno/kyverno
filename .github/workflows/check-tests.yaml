@@ -88,9 +88,9 @@ jobs:
       - conformance-policy-library-tests
       - k6-tests
     permissions:
-      # Lets the failure issue list the individual failed job instances. The
-      # conformance matrix expands to ~290 of them, which the needs context
-      # collapses into a single row.
+      # Lets the failure issue list the individual failed job instances and
+      # embed each one's failing log excerpt. The conformance matrix expands
+      # to ~290 of them, which the needs context collapses into a single row.
       actions: read
       issues: write
     runs-on: ubuntu-slim
