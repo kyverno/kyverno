@@ -83,7 +83,7 @@ runs:
               // as passed.
               const failed = jobs
                 .filter(j => j.status === 'completed' && j.conclusion === 'failure')
-                .map(j => ({ id: j.id, name: j.name }));
+                .map(j => ({ id: j.id, name: j.name, url: j.html_url }));
               return { failed };
             } catch (err) {
               const reason = err.status === 403
@@ -175,9 +175,16 @@ runs:
             }
             const MAX = 50;
             const shown = result.failed.slice(0, MAX);
+            // Each name links to the job's detailed log in the Actions UI.
+            // GitHub expires those logs (default retention: 90 days), so the
+            // note names the date after which only the excerpts remain.
+            const expiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+              .toISOString().slice(0, 10);
             const lines = [
               '',
               `### Failed job instances (${result.failed.length})`,
+              '',
+              `_Each name links to the detailed log. GitHub expires these logs around ${expiry}; after that, the excerpts below are the surviving record._`,
               '',
             ];
             let spent = 0;
@@ -186,6 +193,9 @@ runs:
               const excerpt = i < EXCERPT_JOBS && spent < SECTION_BUDGET
                 ? await downloadLogExcerpt(job.id)
                 : null;
+              const summaryName = job.url
+                ? `<a href="${job.url}"><code>${escapeHtml(job.name)}</code></a>`
+                : `<code>${escapeHtml(job.name)}</code>`;
               if (excerpt && spent + excerpt.length <= SECTION_BUDGET) {
                 spent += excerpt.length;
                 const fence = fenceFor(excerpt);
@@ -195,7 +205,7 @@ runs:
                 lines.push(
                   '',
                   i === 0 ? '<details open>' : '<details>',
-                  `<summary><code>${escapeHtml(job.name)}</code> — failing log excerpt</summary>`,
+                  `<summary>${summaryName} — failing log excerpt</summary>`,
                   '',
                   fence + 'text',
                   excerpt,
@@ -205,7 +215,7 @@ runs:
                   ''
                 );
               } else {
-                lines.push(`- \`${job.name}\``);
+                lines.push(job.url ? `- [\`${job.name}\`](${job.url})` : `- \`${job.name}\``);
               }
             }
             if (result.failed.length > MAX) {
