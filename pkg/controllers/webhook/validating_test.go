@@ -928,6 +928,82 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 	assert.NotEqual(t, gpolWebhooks[0].Name, ngpolWebhooks[0].Name)
 }
 
+func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *testing.T) {
+	makeGpol := func(name string, syncEnabled bool) *policiesv1beta1.GeneratingPolicy {
+		spec := policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"namespaces"},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "opt-in",
+				Expression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
+			}},
+		}
+		if syncEnabled {
+			spec.EvaluationConfiguration = &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			}
+		}
+		return &policiesv1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       spec,
+		}
+	}
+
+	tests := []struct {
+		name               string
+		syncEnabled        bool
+		expectedExpression string
+	}{
+		{
+			// with synchronization enabled, UPDATE and DELETE requests must always
+			// reach Kyverno so a trigger that stops matching can have its
+			// downstream resources deleted (kyverno/kyverno#16832).
+			name:               "synchronize enabled wraps match conditions",
+			syncEnabled:        true,
+			expectedExpression: `request.operation != 'CREATE' || (object.metadata.?labels["opt-in"].orValue("") == "true")`,
+		},
+		{
+			name:               "synchronize disabled keeps match conditions",
+			syncEnabled:        false,
+			expectedExpression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gpol := makeGpol("gpol-optin", tt.syncEnabled)
+			expressionCache := NewExpressionCache()
+			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.GeneratingPolicyWebhookName,
+				"/gpol",
+				0,
+				nil,
+				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+				expressionCache,
+			)
+			assert.Len(t, webhooks, 1)
+			assert.Len(t, webhooks[0].MatchConditions, 1)
+			assert.Equal(t, "opt-in", webhooks[0].MatchConditions[0].Name)
+			assert.Equal(t, tt.expectedExpression, webhooks[0].MatchConditions[0].Expression)
+		})
+	}
+}
+
 func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
