@@ -489,3 +489,32 @@ func TestEntry_Stop_Idempotent(t *testing.T) {
 	e.Stop()
 	assert.Equal(t, 1, count)
 }
+
+func TestEntry_ListObjects_DeepCopy(t *testing.T) {
+	origMap := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name": "test-pod",
+		},
+	}
+	obj := &unstructured.Unstructured{Object: origMap}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj},
+	}
+
+	e := &entry{lister: lister}
+
+	result, err := e.listObjects()
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	// Mutate the original object map in place (simulating Informer cache update)
+	origMap["kind"] = "MutatedKind"
+
+	// Verify that returned object from listObjects retained its original state (deep copy)
+	retMap, ok := result[0].(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, "Pod", retMap["kind"])
+}

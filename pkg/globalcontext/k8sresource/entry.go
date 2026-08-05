@@ -185,9 +185,9 @@ func (e *entry) listObjects() ([]interface{}, error) {
 	list := make([]interface{}, 0, len(objs))
 	for _, obj := range objs {
 		// DynamicInformer returns *unstructured.Unstructured
-		// We can use its Object field directly which is already map[string]interface{}
+		// Return a deep copy of Object to prevent data races with Informer cache updates
 		if u, ok := obj.(*unstructured.Unstructured); ok {
-			list = append(list, u.Object)
+			list = append(list, u.DeepCopy().Object)
 		}
 	}
 	return list, nil

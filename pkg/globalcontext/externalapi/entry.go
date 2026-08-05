@@ -84,6 +84,10 @@ func New(
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
+				if ctx.Err() != nil {
+					// Context was canceled (e.g. Stop() called); ignore teardown errors to prevent false-positive error events
+					return
+				}
 				e.setData(nil, err)
 
 				logger.Error(err, "failed to get data from api caller")

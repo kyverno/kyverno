@@ -572,3 +572,55 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 	assert.Error(t, e.err)
 	assert.Equal(t, initialData, e.dataMap)
 }
+
+func TestEntry_Stop_SuppressesCanceledContextErrorEvents(t *testing.T) {
+	client := &blockingAPIClient{started: make(chan struct{})}
+	eventGen := event.NewFake()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: time.Millisecond},
+				RetryLimit:      1,
+			},
+		},
+	}
+
+	e, err := New(
+		context.Background(),
+		gce,
+		eventGen,
+		nil,
+		nil,
+		logr.Discard(),
+		client,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		false,
+		nil,
+	)
+	assert.NoError(t, err)
+
+	select {
+	case <-client.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for API call to start")
+	}
+
+	// Stop entry while API call is in-flight (cancelling context)
+	e.Stop()
+
+	// Verify no error events were generated due to context cancellation on stop
+	fakeEvents, ok := eventGen.(*event.Fake)
+	if ok {
+		assert.Empty(t, fakeEvents.Infos, "no error events should be generated when entry is stopped")
+	}
+}
