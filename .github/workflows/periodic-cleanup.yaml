@@ -15,7 +15,7 @@ jobs:
       contents: write
     steps:
       - name: Cleanup Stale Branches
-        uses: cbrgm/cleanup-stale-branches-action@4f003bd7643a6f8d1034b2e9c51015fd23c88c0b # v1.2.11
+        uses: cbrgm/cleanup-stale-branches-action@8e8d707397cb703ebb7d47e360c317eab7e508ae # v1.2.12
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
