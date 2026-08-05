@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-delete
+  labels:
+    kubernetes.io/legacy-token-invalid-since: "2024-01-01"
+type: kubernetes.io/service-account-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-skip
+type: kubernetes.io/service-account-token

@@ -46,8 +46,9 @@ global:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
 
-  # -- Global node labels for pod assignment. Non-global values will override the global value.
-  nodeSelector: {}
+  # -- Global node labels for pod assignment, applied to all chart workloads including controller Deployments, hook Jobs, and Helm test Pods. Non-global (controller) values will override the global value when non-empty. The default `kubernetes.io/os: linux` key is always merged into any user-supplied value and cannot be unset by design, because Kyverno images only run on Linux nodes.
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- Global List of node taints to tolerate. Non-global values will override the global value.
   tolerations: []
@@ -108,7 +109,10 @@ crds:
 
   groups:
 
-    # -- Install CRDs in group `kyverno.io`
+    # -- Install CRDs in group `kyverno.io`.
+    # Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`, `PolicyException`)
+    # are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types
+    # (see https://kyverno.io/docs/guides/migration-to-cel/).
     kyverno:
       cleanuppolicies: true
       clustercleanuppolicies: true
@@ -198,7 +202,7 @@ crds:
     # -- Security context for the pod
     podSecurityContext: {}
 
-    # -- Node labels for pod assignment
+    # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
     nodeSelector: {}
 
     # -- List of node taints to tolerate
@@ -544,6 +548,14 @@ metricsConfig:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
       disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_mutating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_generating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_image_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
@@ -620,7 +632,7 @@ test:
     # If not set, the token will have no audience restriction.
     audience: ""
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
    # -- Additional Pod annotations
@@ -655,7 +667,7 @@ webhooksCleanup:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -845,6 +857,9 @@ features:
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
+  excludeBootstrapResources:
+    # -- Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled.
+    enabled: false
   backgroundScan:
     # -- Enables the feature
     enabled: true
@@ -883,6 +898,8 @@ features:
     maxApiCallResponseLength: 2000000
     # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
     apiCallTimeout: 30s
+    # -- Maximum number of entries in the global context store. A value of 0 means unbounded.
+    maxGlobalContextEntries: 0
   logging:
     # -- Logging format
     format: text
@@ -1172,9 +1189,8 @@ admissionController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1652,9 +1668,8 @@ backgroundController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1866,6 +1881,12 @@ cleanupController:
         # If not set, the token will have no audience restriction.
         audience: ""
 
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources: []
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -2060,9 +2081,8 @@ cleanupController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -2396,9 +2416,8 @@ reportsController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
