@@ -14,9 +14,10 @@ import (
 )
 
 type EvaluationResult struct {
-	PatchedResource *unstructured.Unstructured
-	Exceptions      []*policiesv1beta1.PolicyException
-	Error           error
+	PatchedResource  *unstructured.Unstructured
+	Exceptions       []*policiesv1beta1.PolicyException
+	AuditAnnotations map[string]string
+	Error            error
 }
 
 func prepareData(
