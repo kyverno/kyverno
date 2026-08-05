@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
@@ -40,6 +40,7 @@ func Test_CreateClientConfig_LimitQPStoFloat32(t *testing.T) {
 	_, err := config.CreateClientConfig(cf, qps, 0)
 	assert.ErrorContains(t, err, "QPS")
 }
+
 func createMinimalKubeconfig(t *testing.T) string {
 	t.Helper()
 

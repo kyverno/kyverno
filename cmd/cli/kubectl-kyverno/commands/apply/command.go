@@ -54,9 +54,7 @@ import (
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/spf13/cobra"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -66,8 +64,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
 )
 
@@ -293,6 +292,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
+	if _, err := processor.NormalizeValuesOperation(variables.GlobalOperation()); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
 	var store store.Store
 
 	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
@@ -463,7 +465,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -666,6 +668,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -674,17 +677,28 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		// This informer will automatically die at the end of this function and thats ok,
+		// we don't care about it past applying image validating policies anyways
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -712,6 +726,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -719,14 +734,14 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -749,13 +764,15 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -848,6 +865,13 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = fmt.Sprintf("%s did not match", payloadType)
 			}

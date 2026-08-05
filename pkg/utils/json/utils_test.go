@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_JoinPatches(t *testing.T) {

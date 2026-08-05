@@ -122,6 +122,11 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		})
 	}
 
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), extendedCompiler, spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
 	useServerSideApply := false
 	if ec := spec.EvaluationConfiguration; ec != nil {
 		useServerSideApply = ec.UseServerSideApply
@@ -154,6 +159,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		targetMatchConditions: targetMatchConditions,
 		targetExpression:      targetExpression,
 		variables:             variables,
+		auditAnnotations:      auditAnnotations,
 		exceptions:            compiledExceptions,
 		matchConstraints:      policy.GetSpec().MatchConstraints,
 		patchers:              patchers,
@@ -209,6 +215,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libCtx},
 			imagedata.Latest(),
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		hash.Lib(
 			hash.Latest(),
