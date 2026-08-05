@@ -1,0 +1,25 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cnp-template-ns-victoria-scraping
+  namespace: cnp-template-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: cnp-template-ns
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app.kubernetes.io/name: vmagent
+        "k8s:io.kubernetes.pod.namespace": victoria
+    toPorts:
+    - ports:
+      - port: "9965"
+        protocol: TCP
+  egress:
+  - toEntities:
+    - kube-apiserver
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP

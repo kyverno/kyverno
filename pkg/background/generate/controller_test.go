@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -16,11 +17,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+// fakeListClient wraps dclient.Interface and overrides ListResource to return
+// pre-configured namespaces, simulating the live cluster state.
+type fakeListClient struct {
+	dclient.Interface
+	namespaces []unstructured.Unstructured
+}
+
+func (f *fakeListClient) ListResource(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return &unstructured.UnstructuredList{Items: f.namespaces}, nil
+}
 
 // fakeClusterPolicyLister returns NotFound for all policy lookups
 type fakeClusterPolicyLister struct {
@@ -541,6 +555,142 @@ func TestProcessUR_ApplyGenerateError_MultipleRules_StillFails(t *testing.T) {
 		"Failed() must be called when any rule fails")
 	assert.False(t, statusControl.successCalled,
 		"Success() must NOT be called when any rule fails")
+}
+
+// TestProcessUR_PhantomUID_DoesNotGenerateDownstream tests that when the
+// trigger resource's UID in the UpdateRequest does not match any live resource,
+// the controller does NOT generate downstream resources and instead marks
+// the UR as Failed.
+//
+// This is the regression test for issue #16566:
+// Generate rules were executing against resources from rejected admission
+// requests because GetResource() fell through to the admission request bytes
+// when UID-based lookup failed to match.
+func TestProcessUR_PhantomUID_DoesNotGenerateDownstream(t *testing.T) {
+	// Create a live namespace with a different UID and labels that DON'T match
+	// the policy's rule selector (layer=operational vs layer=business).
+	liveNamespace := unstructured.Unstructured{}
+	liveNamespace.SetAPIVersion("v1")
+	liveNamespace.SetKind("Namespace")
+	liveNamespace.SetName("test-ns")
+	liveNamespace.SetUID(types.UID("live-uid-999"))
+	liveNamespace.SetLabels(map[string]string{"layer": "operational"})
+
+	// Create the client that represents the live cluster state
+	fakeClient := &fakeListClient{
+		Interface:  dclient.NewEmptyFakeClient(),
+		namespaces: []unstructured.Unstructured{liveNamespace},
+	}
+
+	// Track whether Failed/Success was called
+	statusControl := &fakeStatusControl{}
+
+	// Create a policy with a generate rule that matches layer=business.
+	// The live namespace has layer=operational, so this rule should NOT match.
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-phantom-uid-policy",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "generate-configmap",
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"Namespace"},
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"layer": "business"},
+							},
+						},
+					},
+					Generation: &kyvernov1.Generation{
+						GeneratePattern: kyvernov1.GeneratePattern{
+							ResourceSpec: kyvernov1.ResourceSpec{
+								Kind:       "ConfigMap",
+								APIVersion: "v1",
+								Name:       "generated-cm-from-phantom",
+								Namespace:  "test-ns",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	policyLister := &fakeClusterPolicyLister{
+		policy: policy,
+	}
+
+	controller := &GenerateController{
+		client:        fakeClient,
+		statusControl: statusControl,
+		policyLister:  policyLister,
+		npolicyLister: &fakePolicyLister{},
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	// Create the phantom object JSON simulating a rejected Create request.
+	// The API server rejected this Create due to AlreadyExists, but the admission
+	// request still fired Kyverno's webhook, which created a UR with the phantom UID.
+	rejectedObjectJSON := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Namespace",
+		"metadata": {
+			"name": "test-ns",
+			"uid": "phantom-uid-111",
+			"labels": {"layer": "business"}
+		}
+	}`)
+
+	// Create the UR with the phantom UID and the rejected admission request object
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-phantom-uid",
+			Namespace: "kyverno",
+		},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "test-phantom-uid-policy",
+			RuleContext: []kyvernov2.RuleContext{
+				{
+					Rule: "generate-configmap",
+					Trigger: kyvernov1.ResourceSpec{
+						APIVersion: "v1",
+						Kind:       "Namespace",
+						Namespace:  "",
+						Name:       "test-ns",
+						UID:        "phantom-uid-111",
+					},
+				},
+			},
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: rejectedObjectJSON,
+						},
+					},
+					Operation: admissionv1.Create,
+				},
+			},
+		},
+		Status: kyvernov2.UpdateRequestStatus{},
+	}
+
+	// Process the UR - with the fix, GetResource detects the UID mismatch
+	// and returns nil, so ProcessUR marks the rule as Failed
+	err := controller.ProcessUR(ur)
+
+	assert.NoError(t, err, "ProcessUR should not return an error")
+
+	// CRITICAL: Failed() must be called because the phantom UID doesn't match
+	// any live resource. Success() must NOT be called.
+	assert.True(t, statusControl.failedCalled,
+		"Failed() must be called when trigger UID doesn't match any live resource")
+	assert.False(t, statusControl.successCalled,
+		"Success() must NOT be called when trigger UID is stale/phantom")
 }
 
 // Ensure fake types satisfy the required interfaces

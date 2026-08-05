@@ -8,7 +8,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
-	golangassert "gotest.tools/assert"
+	golangassert "gotest.tools/v3/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

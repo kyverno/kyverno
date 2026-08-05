@@ -4,6 +4,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -49,7 +50,7 @@ func Validate(gpol v1beta1.GeneratingPolicyLike) ([]string, error) {
 }
 
 func gpolExpressions(spec *v1beta1.GeneratingPolicySpec) []string {
-	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Generation))
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Generation)+len(spec.AuditAnnotations))
 	for _, v := range spec.Variables {
 		exprs = append(exprs, v.Expression)
 	}
@@ -57,7 +58,15 @@ func gpolExpressions(spec *v1beta1.GeneratingPolicySpec) []string {
 		exprs = append(exprs, mc.Expression)
 	}
 	for _, g := range spec.Generation {
-		exprs = append(exprs, g.Expression)
+		if g.Expression != "" {
+			exprs = append(exprs, g.Expression)
+		}
+		if g.Template != nil && g.Template.Interpolate == v1beta1.InterpolationModeCEL {
+			exprs = append(exprs, template.ExtractExpressions(g.Template.Value)...)
+		}
+	}
+	for _, a := range spec.AuditAnnotations {
+		exprs = append(exprs, a.ValueExpression)
 	}
 	return exprs
 }
