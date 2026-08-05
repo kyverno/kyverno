@@ -80,9 +80,9 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 		if ok {
 			return !resourceKey.Equal(resourceValue)
 		}
-			neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
-			return true
-		}
+		neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+		return true
+	}
 
 	if val, ok := value.(string); ok {
 		return !wildcard.Match(val, key)
