@@ -80,9 +80,9 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 		if ok {
 			return resourceKey.Equal(resourceValue)
 		}
-			eh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
-			return false
-		}
+		eh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+		return false
+	}
 
 	if val, ok := value.(string); ok {
 		return wildcard.Match(val, key)
