@@ -29,6 +29,7 @@ type entry struct {
 	dataMap     map[string]any
 	err         error
 	stop        func()
+	stopOnce    sync.Once
 	projections []store.Projection
 }
 
@@ -125,9 +126,7 @@ func (e *entry) Get(projection string) (any, error) {
 }
 
 func (e *entry) Stop() {
-	e.Lock()
-	defer e.Unlock()
-	e.stop()
+	e.stopOnce.Do(e.stop)
 }
 
 func (e *entry) setData(data any, err error) {
