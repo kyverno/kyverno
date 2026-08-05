@@ -92,9 +92,16 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// Resolve the namespace so that namespaceSelector matching in handlePolicy
+	// mirrors the admission path (Handle), which also calls nsResolver.
+	var namespace *corev1.Namespace
+	if ns := attr.GetNamespace(); ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, true)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched

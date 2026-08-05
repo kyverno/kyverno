@@ -502,6 +502,100 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
 		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
 	})
+
+	// Regression test for https://github.com/kyverno/kyverno/issues/16953:
+	// Evaluate() must resolve the namespace via nsResolver so that namespaceSelector
+	// in matchConstraints is correctly evaluated during mutate-existing background scans.
+	t.Run("Evaluate respects namespaceSelector via nsResolver", func(t *testing.T) {
+		mutateExisting := true
+		mpol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "add-label-production-only",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"*"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "production"},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		target := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap",
+			"metadata": map[string]interface{}{"name": "cm", "namespace": "production"},
+		}}
+		attr := admission.NewAttributesRecord(
+			target, nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			"production", "cm", schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			"", admission.Update, nil, false, &user.DefaultInfo{},
+		)
+		request := admissionv1.AdmissionRequest{Operation: admissionv1.Update, Name: "cm", Namespace: "production"}
+
+		// Sub-test 1: nsResolver returns a namespace with label env=production → policy should apply.
+		t.Run("applies mutation when namespace label matches selector", func(t *testing.T) {
+			nsRes := func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"env": "production"},
+					},
+				}
+			}
+			eng := NewEngine(provider, nsRes, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+			resp, err := eng.Evaluate(ctx, attr, request, predicate)
+			assert.NoError(t, err)
+			if assert.NotNil(t, resp.PatchedResource, "expected mutation to be applied for matching namespace") {
+				assert.Equal(t, "true", resp.PatchedResource.GetLabels()["mutated"])
+			}
+		})
+
+		// Sub-test 2: nsResolver returns a namespace WITHOUT the required label → policy should not apply.
+		t.Run("skips mutation when namespace label does not match selector", func(t *testing.T) {
+			nsRes := func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"env": "staging"},
+					},
+				}
+			}
+			eng := NewEngine(provider, nsRes, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+			resp, err := eng.Evaluate(ctx, attr, request, predicate)
+			assert.NoError(t, err)
+			assert.Nil(t, resp.PatchedResource, "expected no mutation for non-matching namespace")
+		})
+	})
 }
 
 func TestHandle(t *testing.T) {
