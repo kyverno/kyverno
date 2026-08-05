@@ -61,15 +61,14 @@ runs:
            * excerpts are fetched per job further down, with the same
            * fall-back behaviour.
            *
-           * The calling workflow declares `actions: read` to make the read
-           * intent explicit; a composite action cannot grant permissions
-           * itself. On a public repository the call succeeds even without it
-           * (workflow job data is publicly readable — observed on this repo
-           * with a token holding only `issues: write` + `metadata: read`); on
-           * a private repository it would 403. Any error is reported via
-           * core.warning() — visible in the run summary, where CI diagnostics
-           * belong — and the issue body is left exactly as it would have been
-           * without this addition.
+           * On a public repository the jobs API and job logs are readable
+           * with the default token — observed with one holding only
+           * `issues: write` + `metadata: read` — so callers need no extra
+           * permission. On a private repository the calling job must grant
+           * `actions: read`; a composite action cannot grant it for itself.
+           * Any error is reported via core.warning() — visible in the run
+           * summary, where CI diagnostics belong — and the issue body is
+           * left exactly as it would have been without this addition.
            *
            * @returns {Promise<{ failed: { id: number, name: string }[] } | { error: string }>}
            */
