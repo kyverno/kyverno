@@ -53,7 +53,7 @@ require (
 	github.com/sigstore/cosign/v3 v3.1.2
 	github.com/sigstore/k8s-manifest-sigstore v0.5.5-0.20251214123302-4152ec03ed3d
 	github.com/sigstore/rekor v1.5.3
-	github.com/sigstore/sigstore v1.10.8
+	github.com/sigstore/sigstore v1.10.9
 	github.com/sigstore/sigstore-go v1.3.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.10.8
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.8
@@ -113,6 +113,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/mark3labs/mcp-go v0.49.0 // indirect
+	github.com/miekg/dns v1.1.62 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
@@ -203,7 +204,7 @@ require (
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
-	github.com/coreos/go-oidc/v3 v3.19.0 // indirect
+	github.com/coreos/go-oidc/v3 v3.20.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
@@ -262,7 +263,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.30.0
 	github.com/google/certificate-transparency-go v1.3.3 // indirect
@@ -302,7 +303,6 @@ require (
 	github.com/lestrrat-go/httprc/v3 v3.0.5 // indirect
 	github.com/lestrrat-go/jwx/v3 v3.1.1 // indirect
 	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
-	github.com/letsencrypt/boulder v0.20260309.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -373,7 +373,6 @@ require (
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
-	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/formats v0.1.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
@@ -406,8 +405,8 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/api v0.286.0 // indirect
 	google.golang.org/genproto v0.0.0-20260406210006-6f92a3bedf2d // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260727163830-6c54dddc4772 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720155508-bb71a54f79dc // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/evanphx/json-patch.v4 v4.13.0
 	gopkg.in/ini.v1 v1.67.3 // indirect
