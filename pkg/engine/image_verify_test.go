@@ -27,7 +27,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
@@ -292,6 +292,7 @@ var cosignTestPolicyUpdated = `{
         ]
     }
 }`
+
 var attestationPayloads = [][]byte{
 	[]byte(`{"payloadType":"https://example.com/CodeReview/v1","payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZVR5cGUiOiJodHRwczovL2V4YW1wbGUuY29tL0NvZGVSZXZpZXcvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoiZ2hjci5pby9qaW1idWd3YWRpYS9wYXVzZTIiLCJkaWdlc3QiOnsic2hhMjU2IjoiYjMxYmZiNGQwMjEzZjI1NGQzNjFlMDA3OWRlYWFlYmVmYTRmODJiYTdhYTc2ZWY4MmU5MGI0OTM1YWQ1YjEwNSJ9fV0sInByZWRpY2F0ZSI6eyJhdXRob3IiOiJtYWlsdG86YWxpY2VAZXhhbXBsZS5jb20iLCJyZXBvIjp7ImJyYW5jaCI6Im1haW4iLCJ0eXBlIjoiZ2l0IiwidXJpIjoiaHR0cHM6Ly9naXRodWIuY29tL2V4YW1wbGUvbXktcHJvamVjdCJ9LCJyZXZpZXdlcnMiOlsibWFpbHRvOmJvYkBleGFtcGxlLmNvbSJdfX0=","signatures":[{"keyid":"","sig":"MEYCIQCrEr+vgPDmNCrqGDE/4z9iMLmCXMXcDlGKtSoiuMTSFgIhAN2riBaGk4accWzVl7ypi1XTRxyrPYHst8DesugPXgOf"}]}`),
 	[]byte(`{"payloadType":"cosign.sigstore.dev/attestation/v1","payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZVR5cGUiOiJjb3NpZ24uc2lnc3RvcmUuZGV2L2F0dGVzdGF0aW9uL3YxIiwic3ViamVjdCI6W3sibmFtZSI6ImdoY3IuaW8vamltYnVnd2FkaWEvcGF1c2UyIiwiZGlnZXN0Ijp7InNoYTI1NiI6ImIzMWJmYjRkMDIxM2YyNTRkMzYxZTAwNzlkZWFhZWJlZmE0ZjgyYmE3YWE3NmVmODJlOTBiNDkzNWFkNWIxMDUifX1dLCJwcmVkaWNhdGUiOnsiRGF0YSI6ImhlbGxvIVxuIiwiVGltZXN0YW1wIjoiMjAyMS0xMC0wNVQwNToxODoxMVoifX0=","signatures":[{"keyid":"","sig":"MEQCIF5r9lf55rnYNPByZ9v6bortww694UEPvmyBIelIDYbIAiBNTGX4V64Oj6jZVRpkJQRxdzKUPYqC5GZTb4oS6eQ6aQ=="}]}`),
@@ -716,7 +717,6 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 }
 
 func Test_RuleSelectorImageVerify(t *testing.T) {
-
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", testOtherKey)
 	spec := policyContext.Policy().GetSpec()
@@ -888,7 +888,7 @@ func Test_ExpandKeys(t *testing.T) {
 	assert.Equal(t, 1, len(as.Entries))
 	assert.DeepEqual(t, "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1", as.Entries[0].Keys.KMS)
 
-	as = internal.ExpandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
+	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet(testOtherKey, true, true, false))
 	assert.Equal(t, 2, len(as.Entries))
 	assert.DeepEqual(t, testOtherKey, as.Entries[0].Keys.PublicKeys)
 	assert.DeepEqual(t, &kyvernov1.SecretReference{Name: "testsecret", Namespace: "default"}, as.Entries[1].Keys.Secret)
@@ -944,16 +944,21 @@ func Test_MarkImageVerified(t *testing.T) {
 
 	patches, err := verifiedImages.Patches(false, logr.Discard())
 	assert.NilError(t, err)
-	assert.Equal(t, len(patches), 2)
+	assert.Equal(t, len(patches), 3)
 
 	resource := testApplyPatches(t, patches)
 	patchedAnnotations := resource.GetAnnotations()
-	assert.Equal(t, len(patchedAnnotations), 1)
+	assert.Equal(t, len(patchedAnnotations), 2)
 
 	json := patchedAnnotations[kyverno.AnnotationImageVerify]
 	assert.Assert(t, json != "")
 
 	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
+	assert.NilError(t, err)
+	assert.Equal(t, verified, engineapi.ImageVerificationPass)
+
+	policy := policyContext.Policy()
+	verified, err = engineutils.IsImageVerifiedForPolicy(resource, policy.GetNamespace(), policy.GetName(), "attest", image, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, engineapi.ImageVerificationPass)
 }
