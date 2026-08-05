@@ -325,6 +325,61 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 	}
 }
 
+func Test_ValidationElemCount_AssertOnly(t *testing.T) {
+	rawValidation := []byte(`{
+		"message": "namespace must have an env label",
+		"assert": {
+			"object": {
+				"metadata": {
+					"labels": {
+						"env": {}
+					}
+				}
+			}
+		}
+	}`)
+
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
+	assert.NilError(t, err)
+	assert.Equal(t, validationElemCount(&validation), 1)
+}
+
+func Test_ValidationElemCount_AssertAndForeach(t *testing.T) {
+	rawValidation := []byte(`{
+		"message": "namespace must have an env label",
+		"foreach": [{
+			"list": "['dummy']",
+			"deny": {}
+		}],
+		"assert": {
+			"object": {
+				"metadata": {
+					"labels": {
+						"env": {}
+					}
+				}
+			}
+		}
+	}`)
+
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
+	assert.NilError(t, err)
+	assert.Equal(t, validationElemCount(&validation), 2)
+}
+
+func Test_ValidationElemCount_Empty(t *testing.T) {
+	rawValidation := []byte(`{
+		"message": "namespace must have an env label"
+	}`)
+
+	var validation kyverno.Validation
+	err := json.Unmarshal(rawValidation, &validation)
+	assert.NilError(t, err)
+	assert.Equal(t, validationElemCount(&validation), 0)
+}
+
 func Test_Validate_Validate_Unsupported(t *testing.T) {
 	var err error
 	var validate kyverno.Validation

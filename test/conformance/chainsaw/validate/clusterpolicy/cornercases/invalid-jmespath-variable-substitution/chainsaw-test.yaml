@@ -33,7 +33,4 @@ spec:
             resource Pod/default/test was blocked due to the following policies 
             
             test-panic:
-              test-panic: 'failed to check deny conditions: failed to substitute variables in
-                condition key: failed to resolve image at path : jmespath value must be a string
-                image {{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[]
-                }}: <nil>'
+              test-panic: 'failed to check deny conditions: failed to substitute variables in condition key: failed to resolve image at path : jmespath value must be a string image {{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[] }}: <nil>'

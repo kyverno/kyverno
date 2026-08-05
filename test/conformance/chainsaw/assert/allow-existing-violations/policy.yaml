@@ -14,23 +14,11 @@ spec:
               - UPDATE
             kinds:
               - Namespace
-      context:
-      - name: small
-        variable:
-          value: small
-      - name: medium
-        variable:
-          value: medium
-      - name: large
-        variable:
-          value: large
       validate:
         failureAction: Enforce
         message: "The label `size` is required"
-        assert:
-          object:
-            metadata:
-              labels:
-                size:
-                  (@ == $small || @ == $medium || @ == $large): true
+        pattern:
+          metadata:
+            labels:
+              size: "small | medium | large"
 

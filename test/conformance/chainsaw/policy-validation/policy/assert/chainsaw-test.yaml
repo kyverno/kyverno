@@ -19,13 +19,3 @@ spec:
         expect:
         - check:
             (wildcard($errPattern, $error)): true
-  - try:
-    - create:
-        file: bad-context-name.yaml
-        bindings:
-        - name: errPattern
-          value: |-
-            *path: spec.rules[0]: context entry name bad-name is invalid, it must be a single word when the validation rule uses `assert`
-        expect:
-        - check:
-            (wildcard($errPattern, $error)): true

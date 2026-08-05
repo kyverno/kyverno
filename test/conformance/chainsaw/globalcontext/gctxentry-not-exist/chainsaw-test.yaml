@@ -39,7 +39,4 @@ spec:
                 resource Deployment/test-globalcontext-gctxentry-not-exist/new-deployment was blocked due to the following policies 
                 
                 cpol-gctxentry-not-exist:
-                  autogen-main-deployment-exists: 'failed to check deny conditions: failed to substitute
-                    variables in condition key: failed to resolve deploymentCount at path : failed
-                    to marshal APICall data for context entry deploymentCount: failed to fetch entry
-                    key=non-existent-gctx'
+                  autogen-main-deployment-exists: 'failed to check deny conditions: failed to substitute variables in condition key: failed to resolve deploymentCount at path : failed to marshal APICall data for context entry deploymentCount: failed to fetch entry key=non-existent-gctx'

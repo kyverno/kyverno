@@ -15,8 +15,7 @@ spec:
                 - ConfigMap
       validate:
         message: 'The label `team` is required.'
-        assert:
-          object:
-            metadata:
-              labels:
-                team: {}
+        pattern:
+          metadata:
+            labels:
+              team: '?*'

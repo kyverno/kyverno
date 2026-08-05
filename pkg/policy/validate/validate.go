@@ -220,6 +220,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
+	if v.DeprecatedAssert != nil && v.DeprecatedAssert.Value != nil {
+		count++
+	}
+
 	return count
 }
 

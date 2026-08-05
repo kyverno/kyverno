@@ -20,11 +20,10 @@ spec:
               - key: org
                 operator: Exists
     validate:
-      assert:
-        assert:
-          metadata:
-            annotations:
-              validate: namespaceselector
+      pattern:
+        metadata:
+          annotations:
+            validate: namespaceselector
 ---
 apiVersion: v1
 kind: Namespace

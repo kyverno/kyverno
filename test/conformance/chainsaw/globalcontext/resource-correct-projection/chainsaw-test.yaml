@@ -42,5 +42,4 @@ spec:
               resource Deployment/test-globalcontext-resource-correct-projections/new-deployment was blocked due to the following policies 
               
               cpol-resource-projections:
-                autogen-main-deployment-exists: 'validation error: rule autogen-main-deployment-exists
-                  failed'
+                autogen-main-deployment-exists: 'validation error: rule autogen-main-deployment-exists failed'

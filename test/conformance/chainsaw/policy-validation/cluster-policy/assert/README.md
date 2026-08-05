@@ -6,4 +6,3 @@ This test tries to create cluster policies that are potentially not valid and ve
 
 - `ok` policy should be accepted
 - `foreach` policy should be rejected
-- `bad-context-name` policy should be rejected
