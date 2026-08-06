@@ -70,7 +70,7 @@ runs:
            * summary, where CI diagnostics belong — and the issue body is
            * left exactly as it would have been without this addition.
            *
-           * @returns {Promise<{ failed: { id: number, name: string }[] } | { error: string }>}
+           * @returns {Promise<{ failed: { id: number, name: string, url: string }[] } | { error: string }>}
            */
           async function listFailedJobs() {
             try {
@@ -165,7 +165,7 @@ runs:
           }
 
           /**
-           * @param {{ failed: { id: number, name: string }[] } | { error: string }} result
+           * @param {{ failed: { id: number, name: string, url: string }[] } | { error: string }} result
            */
           async function formatFailedJobsSection(result) {
             // On error the body is left byte-identical to the pre-change output;
