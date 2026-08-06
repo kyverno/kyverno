@@ -71,36 +71,42 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 		return fmt.Errorf("getting image layers: %v", err)
 	}
 	for _, layer := range l {
-		lmt, err := layer.MediaType()
-		if err != nil {
-			return fmt.Errorf("getting layer media type: %v", err)
-		}
-		if lmt == internal.PolicyLayerMediaType {
-			blob, err := layer.Compressed()
+		err := func() error {
+			lmt, err := layer.MediaType()
 			if err != nil {
-				return fmt.Errorf("getting layer blob: %v", err)
+				return fmt.Errorf("getting layer media type: %v", err)
 			}
-			defer blob.Close()
-
-			layerBytes, err := io.ReadAll(blob)
-			if err != nil {
-				return fmt.Errorf("reading layer blob: %v", err)
-			}
-			policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes)
-			if err != nil {
-				return fmt.Errorf("unmarshaling layer blob: %v", err)
-			}
-			for _, policy := range policies {
-				policyBytes, err := policyutils.ToYaml(policy)
+			if lmt == internal.PolicyLayerMediaType {
+				blob, err := layer.Compressed()
 				if err != nil {
-					return fmt.Errorf("converting policy to yaml: %v", err)
+					return fmt.Errorf("getting layer blob: %v", err)
 				}
-				pp := filepath.Join(dir, policy.GetName()+".yaml")
-				fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
-				if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
-					return fmt.Errorf("creating file: %v", err)
+				defer blob.Close()
+
+				layerBytes, err := io.ReadAll(blob)
+				if err != nil {
+					return fmt.Errorf("reading layer blob: %v", err)
+				}
+				policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes)
+				if err != nil {
+					return fmt.Errorf("unmarshaling layer blob: %v", err)
+				}
+				for _, policy := range policies {
+					policyBytes, err := policyutils.ToYaml(policy)
+					if err != nil {
+						return fmt.Errorf("converting policy to yaml: %v", err)
+					}
+					pp := filepath.Join(dir, policy.GetName()+".yaml")
+					fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
+					if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
+						return fmt.Errorf("writing policy to disk: %v", err)
+					}
 				}
 			}
+			return nil
+		}()
+		if err != nil {
+			return err
 		}
 	}
 	fmt.Fprintf(os.Stderr, "Done.")
