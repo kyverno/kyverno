@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestDClient_ConstructionDoesNotPanicWithWildcardMutateExisting(t *testing.T) {
@@ -118,6 +119,62 @@ func TestDClient_ConfigMapListDoesNotPanic(t *testing.T) {
 	}, "ListResource on ConfigMap must not panic")
 
 	assert.NoError(t, err)
+}
+
+// TestDClient_CustomResourceNonStandardPluralListSucceeds verifies that a CR instance
+// is findable via resource.List when the CRD declares a plural name that differs from
+// what meta.UnsafeGuessKindToResource would produce.
+//
+// Concretely: kind "TeleportRoleV8" has CRD plural "teleportrolesv8", but the heuristic
+// produces "teleportrolev8s". Before the fix, resource.List with the correct CRD plural
+// returned an empty list because instances were stored under the wrong GVR key.
+func TestDClient_CustomResourceNonStandardPluralListSucceeds(t *testing.T) {
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "teleportrolesv8.resources.teleport.dev",
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "resources.teleport.dev",
+			Scope: apiextensionsv1.NamespaceScoped,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Plural:   "teleportrolesv8",
+				Singular: "teleportrolev8",
+				Kind:     "TeleportRoleV8",
+			},
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{Name: "v1", Served: true, Storage: true},
+			},
+		},
+	}
+
+	role := &unstructured.Unstructured{}
+	role.SetAPIVersion("resources.teleport.dev/v1")
+	role.SetKind("TeleportRoleV8")
+	role.SetName("my-team-dev-role")
+	role.SetNamespace("teleport")
+
+	cluster := fakeCluster{}
+	client, err := cluster.DClient([]runtime.Object{crd, role})
+	require.NoError(t, err)
+
+	// Query using the CRD-declared plural — this is exactly the GVR that CEL
+	// resource.List("resources.teleport.dev/v1", "teleportrolesv8", "teleport") uses.
+	list, err := client.GetDynamicInterface().
+		Resource(schema.GroupVersionResource{
+			Group:    "resources.teleport.dev",
+			Version:  "v1",
+			Resource: "teleportrolesv8",
+		}).
+		Namespace("teleport").
+		List(context.Background(), metav1.ListOptions{})
+
+	require.NoError(t, err)
+	assert.Len(t, list.Items, 1,
+		"resource.List should find the instance under the CRD-declared plural, not the heuristic guess")
 }
 
 // TestDClient_CRDListDoesNotPanic verifies the list behavior works for custom resources.
