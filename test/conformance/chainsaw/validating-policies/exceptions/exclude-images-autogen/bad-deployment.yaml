@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: public.ecr.aws/docker/library/ubuntu:latest
+        image: ubuntu:latest
         securityContext:
           seccompProfile:
             type: Unconfined

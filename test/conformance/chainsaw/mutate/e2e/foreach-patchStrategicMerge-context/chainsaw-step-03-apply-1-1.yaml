@@ -5,5 +5,5 @@ metadata:
   namespace: foreach-patchstrategicmerge-context-ns
 spec:
   containers:
-  - image: public.ecr.aws/docker/library/busybox
+  - image: busybox
     name: foreach-patchstrategicmerge-context-container

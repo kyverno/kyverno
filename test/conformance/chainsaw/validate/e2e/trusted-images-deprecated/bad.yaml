@@ -6,4 +6,4 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: public.ecr.aws/docker/library/ubuntu:bionic
+    image: ubuntu:bionic

@@ -6,5 +6,5 @@ metadata:
     cleanup.kyverno.io/ttl: 2023-07-19T120000Z
 spec:
   containers:
-  - image: public.ecr.aws/docker/library/nginx:latest
+  - image: nginx:latest
     name: nginx

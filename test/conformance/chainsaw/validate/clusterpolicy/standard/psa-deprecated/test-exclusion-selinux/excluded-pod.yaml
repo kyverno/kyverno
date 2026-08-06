@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: nginx1
-    image: public.ecr.aws/docker/library/nginx
+    image: nginx
     args:
     - sleep
     - 1d
@@ -14,7 +14,7 @@ spec:
         type: foo
   initContainers:
   - name: nginx2
-    image: public.ecr.aws/docker/library/nginx
+    image: nginx
     args:
     - sleep
     - 1d

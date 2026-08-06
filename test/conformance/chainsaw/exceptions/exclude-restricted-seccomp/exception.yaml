@@ -16,7 +16,7 @@ spec:
   podSecurity:
     - controlName: "Seccomp"
       images:
-      - public.ecr.aws/docker/library/nginx
+      - nginx
       restrictedField: "spec.containers[*].securityContext.seccompProfile.type"
       values:
       - "Unconfined"

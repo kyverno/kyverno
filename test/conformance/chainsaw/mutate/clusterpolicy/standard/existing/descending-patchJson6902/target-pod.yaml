@@ -6,9 +6,9 @@ metadata:
 spec:
   containers:
   - name: container1
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
   - name: container2
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
   - name: container3
-    image: public.ecr.aws/docker/library/busybox:latest
+    image: busybox:latest
 

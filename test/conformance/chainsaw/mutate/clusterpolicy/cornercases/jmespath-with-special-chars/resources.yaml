@@ -8,5 +8,5 @@ metadata:
 spec:
   containers:
     - name: busybox
-      image: public.ecr.aws/docker/library/busybox:stable
+      image: busybox:stable
       command: ["sleep", "600"]
