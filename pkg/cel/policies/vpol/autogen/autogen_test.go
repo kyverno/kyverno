@@ -357,6 +357,78 @@ func TestGenerateRuleForControllers(t *testing.T) {
 	}
 }
 
+func TestRewriteExceptions(t *testing.T) {
+	newException := func(expression string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "policy", Kind: "ValidatingPolicy"},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{Name: "match", Expression: expression},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		config     string
+		want       []string
+	}{
+		{
+			name:       "deployments containers expression is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "cronjobs containers expression is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"object.spec.jobTemplate.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "object.metadata.namespace is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.metadata.namespace == 'foo'")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.metadata.namespace == 'foo'"},
+		},
+		{
+			name:       "unknown config returns exceptions unmodified",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')")},
+			config:     "unknown",
+			want:       []string{"object.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rewritten, err := RewriteExceptions(test.exceptions, test.config)
+			assert.NoError(t, err)
+			got := make([]string, 0, len(rewritten))
+			for _, polex := range rewritten {
+				got = append(got, polex.Spec.MatchConditions[0].Expression)
+			}
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	t.Run("original exceptions are not mutated", func(t *testing.T) {
+		exceptions := []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')")}
+		_, err := RewriteExceptions(exceptions, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Equal(t, "object.spec.containers.exists(c, c.name == 'nginx')", exceptions[0].Spec.MatchConditions[0].Expression)
+	})
+
+	t.Run("empty exceptions returns as-is", func(t *testing.T) {
+		rewritten, err := RewriteExceptions(nil, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Nil(t, rewritten)
+	})
+}
+
 func TestGenerateCronJobRule(t *testing.T) {
 	tests := []struct {
 		policySpec    []byte
