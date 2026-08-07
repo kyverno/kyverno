@@ -78,6 +78,8 @@ type controller struct {
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
 	cephrLister    cache.GenericLister
+	polrLister     cache.GenericLister
+	cpolrLister    cache.GenericLister
 
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
@@ -140,42 +142,6 @@ func NewController(
 		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 	})
 
-	// Background cleanup goroutine removes cache entries for deleted reports every 10 seconds.
-	go func() {
-		for {
-			time.Sleep(time.Second * 10)
-			// List all existing reports to identify which ones still exist
-			reports, err := polrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list reports to clear the policy cache")
-				continue
-			}
-			clusterReports, err := cpolrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list cluster reports to clear the policy cache")
-				continue
-			}
-			// Build set of existing report UUIDs
-			reportsMap := make(map[string]struct{})
-			for _, r := range reports {
-				reportMeta := r.(*metav1.PartialObjectMetadata)
-				reportsMap[string(reportMeta.GetUID())] = struct{}{}
-			}
-			for _, cr := range clusterReports {
-				reportMeta := cr.(*metav1.PartialObjectMetadata)
-				reportsMap[string(reportMeta.GetUID())] = struct{}{}
-			}
-			// Remove cache entries for deleted reports
-			cacheMu.Lock()
-			for reportUID := range reportUUIDToPolicyCache {
-				if _, ok := reportsMap[reportUID]; !ok {
-					delete(reportUUIDToPolicyCache, reportUID)
-				}
-			}
-			cacheMu.Unlock()
-		}
-	}()
-
 	c := controller{
 		client:                  client,
 		dclient:                 dclient,
@@ -184,6 +150,8 @@ func NewController(
 		cpolLister:              cpolInformer.Lister(),
 		ephrLister:              ephrInformer.Lister(),
 		cephrLister:             cephrInformer.Lister(),
+		polrLister:              polrInformer.Lister(),
+		cpolrLister:             cpolrInformer.Lister(),
 		cacheMu:                 cacheMu,
 		reportUUIDToPolicyCache: reportUUIDToPolicyCache,
 		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -439,7 +407,45 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.backQueue, workers, maxRetries, c.backReconcile)
 	})
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		wait.UntilWithContext(ctx, c.cleanupPolicyCache, 10*time.Second)
+	})
 	group.Wait()
+}
+
+func (c *controller) cleanupPolicyCache(ctx context.Context) {
+	selector := labels.SelectorFromSet(labels.Set{
+		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+	})
+	// List all existing reports to identify which ones still exist
+	reports, err := c.polrLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to list reports to clear the policy cache")
+		return
+	}
+	clusterReports, err := c.cpolrLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to list cluster reports to clear the policy cache")
+		return
+	}
+	// Build set of existing report UUIDs
+	reportsMap := make(map[string]struct{})
+	for _, r := range reports {
+		reportMeta := r.(*metav1.PartialObjectMetadata)
+		reportsMap[string(reportMeta.GetUID())] = struct{}{}
+	}
+	for _, cr := range clusterReports {
+		reportMeta := cr.(*metav1.PartialObjectMetadata)
+		reportsMap[string(reportMeta.GetUID())] = struct{}{}
+	}
+	// Remove cache entries for deleted reports
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	for reportUID := range c.reportUUIDToPolicyCache {
+		if _, ok := reportsMap[reportUID]; !ok {
+			delete(c.reportUUIDToPolicyCache, reportUID)
+		}
+	}
 }
 
 func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {
