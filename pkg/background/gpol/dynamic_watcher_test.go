@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 )
 
 type mockRESTMapper struct {
@@ -58,9 +59,11 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 }
 
 type MockClient struct {
-	deleted  []string
-	err      error
-	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+	deleted   []string
+	err       error
+	deleteFn  func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+	updateFn  func(obj interface{})
+	listItems []unstructured.Unstructured
 }
 
 func (m *MockClient) GetKubeClient() kubernetes.Interface {
@@ -90,6 +93,9 @@ func (m *MockClient) ListResource(ctx context.Context, apiVersion string, kind s
 	if m.err != nil {
 		return nil, m.err
 	}
+	if m.listItems != nil {
+		return &unstructured.UnstructuredList{Items: m.listItems}, nil
+	}
 	item := makeUnstructured("", "", "", "", "", "", "", nil)
 	return &unstructured.UnstructuredList{
 		Items: []unstructured.Unstructured{
@@ -108,6 +114,9 @@ func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind
 	return nil, nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
+	if m.updateFn != nil {
+		m.updateFn(obj)
+	}
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1331,4 +1340,188 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	_, hasSecond := restarted.metadataCache["uid2"]
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
+}
+
+// TestHandleUpdate_DriftRevert_PreservesResourceVersion is the regression test for the
+// CustomResource sync bug: when a user tampers with a generated downstream, the revert must reuse
+// the live object's resourceVersion rather than clearing it. Kubernetes accepts a blind (no
+// resourceVersion) update for built-in resources, but rejects it for CustomResources
+// ("metadata.resourceVersion: must be specified for an update"), so clearing it silently broke sync
+// for every CRD downstream (e.g. a Kai Scheduler Queue). The cached copy carries an older
+// resourceVersion, so the fix uses the resourceVersion from the current watch event.
+func TestHandleUpdate_DriftRevert_PreservesResourceVersion(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
+	labels := map[string]string{common.GeneratePolicyLabel: "generate-user-namespace-resources"}
+	// The cached downstream (what sync restores to) carries the resourceVersion from when it was synced.
+	cached := makeUnstructured("100", "scheduling.run.ai", "v2", "Queue", "alice", "", "queue-uid", labels)
+	cachedHash := reportutils.CalculateResourceHash(*cached)
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{updateFn: func(obj interface{}) {
+		if u, ok := obj.(*unstructured.Unstructured); ok {
+			captured = u
+		}
+	}}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"queue-uid": {Name: "alice", Labels: labels, Hash: cachedHash, Data: cached},
+			}},
+		},
+	}
+
+	// The user tampers with the live downstream: same UID, a newer resourceVersion, and a spec change
+	// (extra annotation) so the hash differs from the cache and a revert is triggered.
+	live := cached.DeepCopy()
+	live.SetResourceVersion("205")
+	live.SetAnnotations(map[string]string{"tampered": "true"})
+	wm.handleUpdate(live, gvr)
+
+	require.NotNil(t, captured, "the revert must call UpdateResource")
+	assert.Equal(t, "205", captured.GetResourceVersion(),
+		"revert must use the live object's resourceVersion (CRD updates reject an empty one)")
+}
+
+// TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion is the regression test for the
+// same bug on the source-change propagation path: when the source changes, each downstream is updated,
+// and that update must carry the downstream's current resourceVersion. Otherwise propagation to a CRD
+// downstream fails the same way the drift revert did.
+func TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
+	// The source object is not in the metadata cache, which routes handleUpdate to the propagation path.
+	src := makeUnstructured("500", "scheduling.run.ai", "v2", "Queue", "source-queue", "", "src-uid", nil)
+	src.SetAnnotations(map[string]string{"tier": "free"})
+	// The current downstream, returned by the List, carries its own resourceVersion.
+	ds := makeUnstructured("305", "scheduling.run.ai", "v2", "Queue", "alice", "", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{
+		updateFn:  func(obj interface{}) { captured, _ = obj.(*unstructured.Unstructured) },
+		listItems: []unstructured.Unstructured{*ds},
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"ds-uid": {Name: "alice", Labels: ds.GetLabels(), Hash: "stale", Data: ds},
+			}},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	require.NotNil(t, captured, "propagation must call UpdateResource on the downstream")
+	assert.Equal(t, "305", captured.GetResourceVersion(),
+		"propagation must set the downstream's current resourceVersion (CRD updates reject an empty one)")
+}
+
+// TestSyncWatchers_OtherTriggersKeepTheirDownstreams covers the multi tenant shape: one policy that
+// generates for many namespaces. SyncWatchers is called once per trigger with only that trigger's
+// resources, so a trigger whose set is smaller must not be read as "the policy stopped generating
+// this kind". Before the fix it stopped the other kinds' watchers and deleted their downstreams
+// cluster wide, which silently killed synchronization for every other namespace after a background
+// controller restart (when one cacheRestore UpdateRequest per namespace is processed at once).
+func TestSyncWatchers_OtherTriggersKeepTheirDownstreams(t *testing.T) {
+	groups := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {{Name: "resourcequotas", Namespaced: true, Kind: "ResourceQuota"}},
+			},
+		},
+		{
+			Group: metav1.APIGroup{
+				Name:             "networking.k8s.io",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "networking.k8s.io/v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "networking.k8s.io/v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {{Name: "networkpolicies", Namespaced: true, Kind: "NetworkPolicy"}},
+			},
+		},
+	}
+
+	const policy = "generate-user-namespace-resources"
+	labels := map[string]string{common.GeneratePolicyLabel: policy}
+	rqGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "resourcequotas"}
+	npGVR := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
+
+	// Both kinds already have a running watcher, so SyncWatchers takes its "watcher already exists"
+	// path and only updates the cache, the way it does once the policy has generated at least once.
+	newWatcher := func() *watcher {
+		return &watcher{
+			watcher:       watch.MockWatcher{StopFunc: func() {}, ResultChanFunc: func() <-chan watch.Event { return nil }},
+			metadataCache: map[types.UID]Resource{},
+		}
+	}
+	mc := &MockClient{}
+	wm := &WatchManager{
+		log:             logging.WithName("test"),
+		client:          mc,
+		restMapper:      restmapper.NewDiscoveryRESTMapper(groups),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{rqGVR: newWatcher(), npGVR: newWatcher()},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
+	}
+
+	// Trigger "carol" generates a ResourceQuota and a NetworkPolicy.
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("10", "", "v1", "ResourceQuota", "tier-quota", "carol", "uid-rq-carol", labels),
+		makeUnstructured("11", "networking.k8s.io", "v1", "NetworkPolicy", "namespace-isolation", "carol", "uid-np-carol", labels),
+	}))
+
+	// Trigger "alice" only has a NetworkPolicy.
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("12", "networking.k8s.io", "v1", "NetworkPolicy", "namespace-isolation", "alice", "uid-np-alice", labels),
+	}))
+
+	_, rqWatched := wm.dynamicWatchers[rqGVR]
+	_, npWatched := wm.dynamicWatchers[npGVR]
+	assert.True(t, npWatched, "the NetworkPolicy watcher must stay")
+	assert.True(t, rqWatched, "carol's ResourceQuota is still generated, so its watcher must stay")
+	assert.Empty(t, mc.deleted, "syncing one trigger must not delete another trigger's downstreams")
+	assert.Contains(t, wm.policyRefs[policy], rqGVR, "the policy must still reference the ResourceQuota kind")
+}
+
+// TestSyncWatchers_StopsWatcherWhenPolicyHasNoDownstreamsLeft is the counterpart: once a kind really
+// has no generated resources left for the policy (the update path clears the cache before
+// regenerating), its watcher should be stopped rather than left running forever.
+func TestSyncWatchers_StopsWatcherWhenPolicyHasNoDownstreamsLeft(t *testing.T) {
+	const policy = "pol1"
+	stopped := false
+	oldGVR := schema.GroupVersionResource{Group: "old", Version: "v1", Resource: "res"}
+
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: &MockClient{},
+		restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr1}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			// No cached downstreams: the policy no longer generates this kind.
+			oldGVR: {watcher: watch.MockWatcher{StopFunc: func() { stopped = true }}, metadataCache: map[types.UID]Resource{}},
+			// The kind still generated, already watched, so no new watcher is started here.
+			gvr1: {
+				watcher:       watch.MockWatcher{StopFunc: func() {}, ResultChanFunc: func() <-chan watch.Event { return nil }},
+				metadataCache: map[types.UID]Resource{},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policy: {oldGVR}},
+		refCount:   map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+
+	require.NoError(t, wm.SyncWatchers(policy, []*unstructured.Unstructured{
+		makeUnstructured("1", "apps", "v1", "Pod", "n", "ns", "uid1", nil),
+	}))
+
+	assert.True(t, stopped, "a kind the policy no longer generates should have its watcher stopped")
+	assert.NotContains(t, wm.policyRefs[policy], oldGVR, "and should be dropped from the policy references")
 }
