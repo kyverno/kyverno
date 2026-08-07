@@ -26,6 +26,36 @@ func IsDeleteRequest(ctx engineapi.PolicyContext) bool {
 	return IsEmptyUnstructured(&newResource)
 }
 
+func CheckOperation(rule kyvernov1.Rule, expOperation kyvernov1.AdmissionOperation) bool {
+	// Check for expOperation in MatchResources.Any and MatchResources.All, in addition to MatchResources.Operations
+	if len(rule.MatchResources.Any) > 0 {
+		for _, anyRes := range rule.MatchResources.Any {
+			for _, op := range anyRes.Operations {
+				if op == expOperation {
+					return true
+				}
+			}
+		}
+	}
+
+	if len(rule.MatchResources.All) > 0 {
+		for _, anyRes := range rule.MatchResources.All {
+			for _, op := range anyRes.Operations {
+				if op == expOperation {
+					return true
+				}
+			}
+		}
+	}
+
+	for _, op := range rule.MatchResources.Operations {
+		if op == expOperation {
+			return true
+		}
+	}
+	return false
+}
+
 func IsEmptyUnstructured(u *unstructured.Unstructured) bool {
 	if u == nil {
 		return true
