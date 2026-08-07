@@ -24,7 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
@@ -154,7 +154,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			if p.GetTimeoutSeconds() != nil {
 				webhook.TimeoutSeconds = p.GetTimeoutSeconds()
 			}
-			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
+			if p.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = generateName(name+"-ignore-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
@@ -290,7 +290,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhookRules = append(webhookRules, match.RuleWithOperations)
 				}
 			}
-			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
+			if p.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhookIgnore.Rules = append(webhookIgnore.Rules, webhookRules...)
 			} else {
 				webhookFail.Rules = append(webhookFail.Rules, webhookRules...)

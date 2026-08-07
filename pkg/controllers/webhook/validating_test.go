@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -311,7 +312,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 				expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
 			}
-			webhooks := buildWebhookRules(
+			webhooks := buildWebhookRules(context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.ValidatingPolicyWebhookName,
@@ -376,7 +377,7 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 		for _, p := range generic {
 			cache.AddPolicyExpressions(extractGenericPolicy(p).GetMatchConditions())
 		}
-		return buildWebhookRules(
+		return buildWebhookRules(context.Background(),
 			config.NewDefaultConfiguration(false),
 			"", webhookName, queryPath,
 			0, nil, generic, cache,
@@ -632,7 +633,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 				expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
 			}
-			webhooks := buildWebhookRules(
+			webhooks := buildWebhookRules(context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.ImageValidatingPolicyValidateWebhookName,
@@ -716,7 +717,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 		expressionCache := NewExpressionCache()
 		ivpols := []engineapi.GenericPolicy{engineapi.NewImageValidatingPolicy(ivpol)}
 		expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
-		webhooks := buildWebhookRules(
+		webhooks := buildWebhookRules(context.Background(),
 			config.NewDefaultConfiguration(false),
 			"",
 			config.ImageValidatingPolicyValidateWebhookName,
@@ -900,7 +901,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 	}
 
 	expressionCache := NewExpressionCache()
-	gpolWebhooks := buildWebhookRules(
+	gpolWebhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.GeneratingPolicyWebhookName,
@@ -910,7 +911,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
 		expressionCache,
 	)
-	ngpolWebhooks := buildWebhookRules(
+	ngpolWebhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.NamespacedGeneratingPolicyWebhookName,
@@ -986,7 +987,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 			gpol := makeGpol("gpol-optin", tt.syncEnabled)
 			expressionCache := NewExpressionCache()
 			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
-			webhooks := buildWebhookRules(
+			webhooks := buildWebhookRules(context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.GeneratingPolicyWebhookName,
@@ -1055,9 +1056,9 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	expressionCache := NewExpressionCache()
 	cfg := config.NewDefaultConfiguration(false)
 
-	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
+	mpolWebhooks := buildWebhookRules(context.Background(), cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
 		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
-	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
+	nmpolWebhooks := buildWebhookRules(context.Background(), cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
 
 	assert.Len(t, mpolWebhooks, 1)
@@ -1136,7 +1137,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 		Spec:       spec,
 	})
 
-	webhooks := buildWebhookRules(
+	webhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
@@ -1192,7 +1193,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		engineapi.NewValidatingPolicy(newPolicy("policy-production", "production")),
 	}
 
-	webhooks := buildWebhookRules(
+	webhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.ValidatingPolicyWebhookName,
@@ -1251,7 +1252,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 		engineapi.NewValidatingPolicy(newPolicy("team-a", team)),
 	}
 
-	webhooks := buildWebhookRules(
+	webhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.ValidatingPolicyWebhookName,
@@ -1302,7 +1303,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		engineapi.NewNamespacedValidatingPolicy(newPolicy("policy-c", "team-b")),
 	}
 
-	webhooks := buildWebhookRules(
+	webhooks := buildWebhookRules(context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.NamespacedValidatingPolicyWebhookName,
