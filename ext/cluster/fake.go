@@ -72,6 +72,14 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	list := []schema.GroupVersionResource{}
 	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
+	// objWithGVR pairs an unstructured instance with the GVR it should be stored
+	// under in the fake tracker — resolved once and reused for the Create call.
+	type objWithGVR struct {
+		obj *unstructured.Unstructured
+		gvr schema.GroupVersionResource
+	}
+	var toCreate []objWithGVR
+
 	// Collect CRDs first so the REST mapper below can resolve CR instance plurals
 	// before the main loop processes them. Without this, meta.UnsafeGuessKindToResource
 	// produces wrong plurals for CRDs with non-standard plural names (e.g. kind
@@ -127,6 +135,15 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		if mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
 			plural = mapping.Resource
 		}
+
+		// Always collect unstructured instances with their resolved GVR so we can
+		// insert them into the tracker after the client is created. We do this before
+		// the duplicate-GVR check below because a CRD may have already registered the
+		// same GVR in the scheme/gvr maps — we still need to populate the tracker.
+		if obj, ok := o.(*unstructured.Unstructured); ok {
+			toCreate = append(toCreate, objWithGVR{obj: obj, gvr: plural})
+		}
+
 		if _, ok := gvr[plural]; ok {
 			continue
 		}
@@ -144,33 +161,21 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		list = append(list, plural)
 	}
 
-	// Create the fake client without pre-loading objects. Each non-CRD object is
-	// inserted below via Create so the tracker stores it under the GVR resolved
-	// above (CRD-declared plural) rather than the one tracker.Add would derive
-	// internally via UnsafeGuessKindToResource.
+	// Create the fake client without pre-loading objects. Each collected instance
+	// is inserted via Create so the tracker stores it under the GVR resolved above
+	// (CRD-declared plural) rather than what tracker.Add derives internally via
+	// UnsafeGuessKindToResource.
 	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr)
 
-	for _, o := range objects {
-		if _, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
-			continue
-		}
-		obj, ok := o.(*unstructured.Unstructured)
-		if !ok {
-			continue
-		}
-		gvk := obj.GroupVersionKind()
-		plural, _ := meta.UnsafeGuessKindToResource(gvk)
-		if mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
-			plural = mapping.Resource
-		}
-		ns := obj.GetNamespace()
-		ri := dyn.Resource(plural)
+	for _, item := range toCreate {
+		ns := item.obj.GetNamespace()
+		ri := dyn.Resource(item.gvr)
 		if ns != "" {
-			if _, err := ri.Namespace(ns).Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
+			if _, err := ri.Namespace(ns).Create(context.Background(), item.obj, metav1.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		} else {
-			if _, err := ri.Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
+			if _, err := ri.Create(context.Background(), item.obj, metav1.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		}
