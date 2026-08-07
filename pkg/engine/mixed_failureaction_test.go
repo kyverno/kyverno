@@ -9,7 +9,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // A single ClusterPolicy with two validate rules that have different per-rule failureAction
