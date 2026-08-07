@@ -157,6 +157,10 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 		}
 	}
 
+	if req.Method == "POST" && req.Header.Get("Content-Type") == "" {
+		req.Header.Add("Content-Type", "application/json")
+	}
+
 	return nil
 }
 
