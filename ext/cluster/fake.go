@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/openapi"
@@ -141,16 +142,12 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		list = append(list, plural)
 	}
 
-	allFakeObjects := make([]runtime.Object, 0, len(objects))
-	allFakeObjects = append(allFakeObjects, objects...)
-
-	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...)
-
-	// tracker.Add (called by the constructor above) always uses
-	// UnsafeGuessKindToResource to pick the storage key, so CR instances with
-	// non-standard plural names land under the wrong GVR. Re-insert them via
-	// Create, which routes through ObjectReaction → tracker.Create(gvr, obj, ns)
-	// and stores them under the explicit CRD-declared GVR instead.
+	// Build a remap table: CRD-declared GVR → guessed GVR (where tracker.Add
+	// actually stores objects). tracker.Add uses UnsafeGuessKindToResource, so
+	// for CRDs with non-standard plural names the two diverge. We wrap the
+	// dynamic interface below so that callers using the correct CRD plural are
+	// transparently redirected to the GVR the tracker knows about.
+	gvrRemap := make(map[schema.GroupVersionResource]schema.GroupVersionResource)
 	for _, o := range objects {
 		obj, ok := o.(*unstructured.Unstructured)
 		if !ok {
@@ -160,20 +157,18 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		guessed, _ := meta.UnsafeGuessKindToResource(gvk)
 		mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil || mapping.Resource == guessed {
-			continue // GVR is already correct; tracker.Add handled it fine
+			continue
 		}
-		ns := obj.GetNamespace()
-		ri := dyn.Resource(mapping.Resource)
-		if ns != "" {
-			if _, err := ri.Namespace(ns).Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
-				return nil, err
-			}
-		} else {
-			if _, err := ri.Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
-				return nil, err
-			}
-		}
+		gvrRemap[mapping.Resource] = guessed // teleportrolesv8 → teleportrolev8s
 	}
+
+	allFakeObjects := make([]runtime.Object, 0, len(objects))
+	allFakeObjects = append(allFakeObjects, objects...)
+
+	dyn := newRemappingDynamic(
+		fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...),
+		gvrRemap,
+	)
 
 	// Filter out CRDs from objects before converting for kube client
 	// CRDs are not regular Kubernetes resources and can't be converted
@@ -205,6 +200,29 @@ func (c fakeCluster) RESTMapper(crds []*apiextensionsv1.CustomResourceDefinition
 
 func (c fakeCluster) IsFake() bool {
 	return true
+}
+
+// remappingDynamic wraps a dynamic.Interface and redirects Resource() calls for
+// CRD-declared GVRs to the guessed GVR that tracker.Add actually used as the
+// storage key. This makes retrieval consistent with storage without requiring a
+// separate Create pass or any changes to how objects are loaded.
+type remappingDynamic struct {
+	dynamic.Interface
+	remap map[schema.GroupVersionResource]schema.GroupVersionResource
+}
+
+func newRemappingDynamic(dyn dynamic.Interface, remap map[schema.GroupVersionResource]schema.GroupVersionResource) dynamic.Interface {
+	if len(remap) == 0 {
+		return dyn
+	}
+	return &remappingDynamic{Interface: dyn, remap: remap}
+}
+
+func (d *remappingDynamic) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	if mapped, ok := d.remap[gvr]; ok {
+		gvr = mapped
+	}
+	return d.Interface.Resource(gvr)
 }
 
 func convertCRDToAPIGroupResources(crd *apiextensionsv1.CustomResourceDefinition) *restmapper.APIGroupResources {
