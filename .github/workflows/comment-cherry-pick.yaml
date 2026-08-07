@@ -43,6 +43,51 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           reaction: "+1"
 
+      - name: Normalize GitHub App private key
+        id: normalize-key
+        shell: bash
+        env:
+          RAW_APP_PRIVATE_KEY: ${{ secrets.PR_UPDATER_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          key="$RAW_APP_PRIVATE_KEY"
+          # Support secrets saved with escaped newlines.
+          key="${key//\\n/$'\n'}"
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            # Support secrets saved as base64-encoded PEM.
+            decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
+            decoded="${decoded//\\n/$'\n'}"
+            if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+              key="$decoded"
+            fi
+          fi
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            echo "PR_UPDATER_APP_PRIVATE_KEY does not look like a valid PEM private key." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$key"
+          {
+            echo "private_key<<EOF"
+            printf '%s\n' "$key"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.PR_UPDATER_APP_CLIENT_ID }}
+          private-key: ${{ steps.normalize-key.outputs.private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Check if PR is merged
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         id: check-merged
@@ -88,7 +133,7 @@ jobs:
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           message: |
             Commits from this PR will automatically be cherry-picked once this PR gets merged.
 
@@ -104,7 +149,7 @@ jobs:
         continue-on-error: true # Send failure comment to PR
         id: cherry-pick
         with:
-          github-token: ${{ secrets.PR_UPDATE_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           source-pr: ${{ github.event.issue.number }}
           source-pr-title: ${{ github.event.issue.title }}
           target-branches: ${{ steps.extract-branch.outputs.branch }}
@@ -114,7 +159,7 @@ jobs:
         if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           message: |
             :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
 
