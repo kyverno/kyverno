@@ -214,3 +214,89 @@ func TestParseKindSelector(t *testing.T) {
 		})
 	}
 }
+
+func TestGroupVersionMatches(t *testing.T) {
+	tests := []struct {
+		name                       string
+		groupVersion               string
+		serverResourceGroupVersion string
+		want                       bool
+	}{{
+		name:                       "wildcard group and version matches core group",
+		groupVersion:               "*/*",
+		serverResourceGroupVersion: "v1",
+		want:                       true,
+	}, {
+		name:                       "wildcard group and version matches named group",
+		groupVersion:               "*/*",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       true,
+	}, {
+		name:                       "wildcard group with fixed version matches named group",
+		groupVersion:               "*/v1",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       true,
+	}, {
+		name:                       "wildcard group with fixed version matches core group",
+		groupVersion:               "*/v1",
+		serverResourceGroupVersion: "v1",
+		want:                       true,
+	}, {
+		name:                       "wildcard group does not match a different version",
+		groupVersion:               "*/v2",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       false,
+	}, {
+		name:                       "fixed group with wildcard version matches",
+		groupVersion:               "apps/*",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       true,
+	}, {
+		name:                       "fixed group with wildcard version does not match a different group",
+		groupVersion:               "apps/*",
+		serverResourceGroupVersion: "batch/v1",
+		want:                       false,
+	}, {
+		name:                       "bare wildcard matches anything",
+		groupVersion:               "*",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       true,
+	}, {
+		name:                       "bare wildcard matches the core group",
+		groupVersion:               "*",
+		serverResourceGroupVersion: "v1",
+		want:                       true,
+	}, {
+		name:                       "exact core group version matches",
+		groupVersion:               "v1",
+		serverResourceGroupVersion: "v1",
+		want:                       true,
+	}, {
+		name:                       "exact group version matches",
+		groupVersion:               "apps/v1",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       true,
+	}, {
+		name:                       "exact group version does not match a different version",
+		groupVersion:               "apps/v1",
+		serverResourceGroupVersion: "apps/v2",
+		want:                       false,
+	}, {
+		name:                       "exact group version does not match a different group",
+		groupVersion:               "apps/v1",
+		serverResourceGroupVersion: "batch/v1",
+		want:                       false,
+	}, {
+		name:                       "core group version does not match a named group",
+		groupVersion:               "v1",
+		serverResourceGroupVersion: "apps/v1",
+		want:                       false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GroupVersionMatches(tt.groupVersion, tt.serverResourceGroupVersion); got != tt.want {
+				t.Errorf("GroupVersionMatches(%q, %q) = %v, want %v", tt.groupVersion, tt.serverResourceGroupVersion, got, tt.want)
+			}
+		})
+	}
+}
