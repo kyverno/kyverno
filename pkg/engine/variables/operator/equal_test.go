@@ -159,6 +159,43 @@ func TestEqualHandler_Evaluate(t *testing.T) {
 			value:    123,
 			expected: false,
 		},
+		// String key vs numeric value (issue #16358 - symmetry)
+		{
+			name:     "string key equal int value",
+			key:      "5",
+			value:    5,
+			expected: true,
+		},
+		{
+			name:     "string key equal int64 value",
+			key:      "5",
+			value:    int64(5),
+			expected: true,
+		},
+		{
+			name:     "string key equal float64 value",
+			key:      "5",
+			value:    float64(5),
+			expected: true,
+		},
+		{
+			name:     "string key equal fractional float64 value",
+			key:      "5.5",
+			value:    5.5,
+			expected: true,
+		},
+		{
+			name:     "string key not equal int value",
+			key:      "5",
+			value:    6,
+			expected: false,
+		},
+		{
+			name:     "non-numeric string key vs int value",
+			key:      "abc",
+			value:    5,
+			expected: false,
+		},
 		// Resource quantity comparisons
 		{
 			name:     "resource quantity equal",
@@ -258,6 +295,43 @@ func TestEqualHandler_Evaluate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := handler.Evaluate(tt.key, tt.value)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestEqualNotEqual_TypeSymmetry verifies that comparing logically equivalent
+// values produces the same result regardless of operand order, and that
+// NotEquals is always the negation of Equals (issue #16358).
+func TestEqualNotEqual_TypeSymmetry(t *testing.T) {
+	log := logr.Discard()
+	eq := NewEqualHandler(log, nil)
+	neq := NewNotEqualHandler(log, nil)
+
+	pairs := []struct {
+		name string
+		a, b interface{}
+	}{
+		{"string and int", "5", 5},
+		{"string and int64", "5", int64(5)},
+		{"string and float64", "5", float64(5)},
+		{"fractional string and float64", "5.5", 5.5},
+		{"non-equal string and int", "5", 6},
+		{"non-numeric string and int", "abc", 5},
+	}
+
+	for _, p := range pairs {
+		t.Run(p.name, func(t *testing.T) {
+			// Equals is order-independent.
+			assert.Equal(t, eq.Evaluate(p.a, p.b), eq.Evaluate(p.b, p.a),
+				"Equals should be symmetric for %v and %v", p.a, p.b)
+			// NotEquals is order-independent.
+			assert.Equal(t, neq.Evaluate(p.a, p.b), neq.Evaluate(p.b, p.a),
+				"NotEquals should be symmetric for %v and %v", p.a, p.b)
+			// NotEquals is the negation of Equals in both orders.
+			assert.Equal(t, eq.Evaluate(p.a, p.b), !neq.Evaluate(p.a, p.b),
+				"NotEquals should be the negation of Equals for %v and %v", p.a, p.b)
+			assert.Equal(t, eq.Evaluate(p.b, p.a), !neq.Evaluate(p.b, p.a),
+				"NotEquals should be the negation of Equals for %v and %v", p.b, p.a)
 		})
 	}
 }
