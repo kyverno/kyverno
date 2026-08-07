@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -76,7 +77,13 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 			}
 		}
 	}
-	compiled, errList := fp.compiler.Compile(policy, matchedExceptions)
+	failurePolicy := admissionregistrationv1.Fail
+	if getter, ok := policy.(interface {
+		GetFailurePolicy(bool) admissionregistrationv1.FailurePolicyType
+	}); ok {
+		failurePolicy = getter.GetFailurePolicy(false)
+	}
+	compiled, errList := fp.compiler.Compile(policy, matchedExceptions, failurePolicy)
 	if errList != nil {
 		return Policy{}, errList.ToAggregate()
 	}

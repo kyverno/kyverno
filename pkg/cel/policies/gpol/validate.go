@@ -6,6 +6,7 @@ import (
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -22,8 +23,16 @@ func Validate(gpol v1beta1.GeneratingPolicyLike) ([]string, error) {
 		return warnings, err.ToAggregate()
 	}
 
+	failurePolicy := admissionregistrationv1.Fail
+	if getter, ok := gpol.(interface {
+		GetFailurePolicy(bool) admissionregistrationv1.FailurePolicyType
+	}); ok {
+		failurePolicy = getter.GetFailurePolicy(false)
+	}
+
 	c := gpolcompiler.NewCompiler()
-	_, errList := c.Compile(gpol, nil)
+	_, errList := c.Compile(gpol, nil, failurePolicy)
+
 	if errList != nil {
 		err = errList
 	}

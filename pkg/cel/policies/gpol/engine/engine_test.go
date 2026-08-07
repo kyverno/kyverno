@@ -193,7 +193,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 		comp := compiler.NewCompiler()
-		compiledGpol, _ := comp.Compile(gpol, nil)
+		compiledGpol, _ := comp.Compile(gpol, nil, admissionregistrationv1.Fail)
 
 		pol := Policy{
 			Exceptions:     nil,
@@ -235,7 +235,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 		comp := compiler.NewCompiler()
-		_, errList := comp.Compile(ngpol, nil)
+		_, errList := comp.Compile(ngpol, nil, admissionregistrationv1.Fail)
 		assert.NotNil(t, errList, "namespace arg must be rejected at compile time for namespaced policies")
 	})
 
@@ -277,7 +277,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 		comp := compiler.NewCompiler()
-		compiledGpol, _ := comp.Compile(gpol, exceptions)
+		compiledGpol, _ := comp.Compile(gpol, exceptions, admissionregistrationv1.Fail)
 
 		pol := Policy{
 			Exceptions:     exceptions,
@@ -302,7 +302,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 		comp := compiler.NewCompiler()
-		compiledGpol, errs := comp.Compile(gpol, nil)
+		compiledGpol, errs := comp.Compile(gpol, nil, admissionregistrationv1.Fail)
 		assert.Nil(t, errs)
 
 		pol := Policy{
