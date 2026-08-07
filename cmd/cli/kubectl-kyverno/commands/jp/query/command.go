@@ -152,7 +152,11 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 	q, err := jp.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
+		var syntaxError gojmespath.SyntaxError
+		if errors.As(err, &syntaxError) {
+			return nil, fmt.Errorf("invalid JMESPath expression %q: %w\n%s", query, syntaxError, syntaxError.HighlightLocation())
+		}
+		return nil, fmt.Errorf("failed to compile JMESPath %q: %w", query, err)
 	}
 	result, err := q.Search(input)
 	if err != nil {
