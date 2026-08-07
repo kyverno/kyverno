@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -13,12 +15,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/admission"
+	admissionmatching "k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 )
 
 var (
@@ -152,11 +159,11 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 
 func Test_ImageVerifyEngine_MutatingPinsDigest(t *testing.T) {
 	engineRequest := engine.EngineRequest{
-		Request: v1.AdmissionRequest{
-			Operation: v1.Create,
+		Request: admissionv1.AdmissionRequest{
+			Operation: admissionv1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: apiruntime.RawExtension{
+			Object: runtime.RawExtension{
 				Raw: []byte(pod),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -293,12 +300,12 @@ func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *test
 		"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}
 	}`
 	engineRequest := engine.EngineRequest{
-		Request: v1.AdmissionRequest{
-			Operation:       v1.Update,
+		Request: admissionv1.AdmissionRequest{
+			Operation:       admissionv1.Update,
 			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object:          apiruntime.RawExtension{Raw: []byte(podWithForgedOutcome)},
+			Object:          runtime.RawExtension{Raw: []byte(podWithForgedOutcome)},
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
@@ -346,12 +353,12 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 	})
 	podWithoutAnnotation := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}}`
 	engineRequest := engine.EngineRequest{
-		Request: v1.AdmissionRequest{
-			Operation:       v1.Update,
+		Request: admissionv1.AdmissionRequest{
+			Operation:       admissionv1.Update,
 			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object:          apiruntime.RawExtension{Raw: []byte(podWithoutAnnotation)},
+			Object:          runtime.RawExtension{Raw: []byte(podWithoutAnnotation)},
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
@@ -408,13 +415,13 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 		"spec":{"ephemeralContainers":[{"name":"debugger","image":"docker.io/library/busybox:latest"}]}
 	}`
 	engineRequest := engine.EngineRequest{
-		Request: v1.AdmissionRequest{
-			Operation:       v1.Update,
+		Request: admissionv1.AdmissionRequest{
+			Operation:       admissionv1.Update,
 			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			SubResource:     "ephemeralcontainers",
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object:          apiruntime.RawExtension{Raw: []byte(ephemeralUpdateWithForgedOutcome)},
+			Object:          runtime.RawExtension{Raw: []byte(ephemeralUpdateWithForgedOutcome)},
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
@@ -425,4 +432,280 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
 		assert.Equal(t, "ephemeral container update must be blocked", resp.Policies[0].Result.Message())
 	}
+}
+
+func buildTestIvpol(t *testing.T, name string, shouldPass bool) Policy {
+	t.Helper()
+	expr := "true"
+	if !shouldPass {
+		expr = "false"
+	}
+	pol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: expr, Message: "test validation"},
+			},
+		},
+	}
+	return Policy{Policy: pol}
+}
+
+func buildBrokenTestIvpol(t *testing.T, name string) Policy {
+	t.Helper()
+	pol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "this is not valid cel &&& (((", Message: "broken"},
+			},
+		},
+	}
+	return Policy{Policy: pol}
+}
+
+func testEngineRequest(t *testing.T, image string) engine.EngineRequest {
+	t.Helper()
+
+	podJSON := fmt.Sprintf(
+		`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"%s"}]}}`,
+		image,
+	)
+
+	return engine.EngineRequest{
+		Request: admissionv1.AdmissionRequest{
+			Operation:       admissionv1.Create,
+			Kind:            metav1.GroupVersionKind{Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Version: "v1", Resource: "pods"},
+			Object:          runtime.RawExtension{Raw: []byte(podJSON)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+}
+
+func TestHandleValidation_ConcurrentEvaluation(t *testing.T) {
+	libs.LibraryContext = libs.NewFakeContextProvider()
+	const numPolicies = 20
+	policies := make([]Policy, numPolicies)
+	for i := range policies {
+		policies[i] = buildTestIvpol(t, fmt.Sprintf("ivpol-pass-%02d", i), true)
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Policies, numPolicies)
+	for _, r := range resp.Policies {
+		assert.Equal(t, engineapi.RuleStatusPass, r.Result.Status())
+	}
+}
+
+func TestHandleValidation_ConcurrentEvaluationMixedResults(t *testing.T) {
+	policies := []Policy{
+		buildTestIvpol(t, "pass-1", true),
+		buildTestIvpol(t, "fail-1", false),
+		buildTestIvpol(t, "pass-2", true),
+		buildTestIvpol(t, "fail-2", false),
+		buildTestIvpol(t, "pass-3", true),
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Policies, 5)
+
+	passCount, failCount := 0, 0
+	for _, r := range resp.Policies {
+		switch r.Result.Status() {
+		case engineapi.RuleStatusPass:
+			passCount++
+		case engineapi.RuleStatusFail:
+			failCount++
+		}
+	}
+	assert.Equal(t, 3, passCount)
+	assert.Equal(t, 2, failCount)
+}
+
+func TestHandleValidation_EmptyPolicies(t *testing.T) {
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return nil, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+}
+
+func TestHandleValidation_LargePolicySet(t *testing.T) {
+	const numPolicies = 100
+	policies := make([]Policy, numPolicies)
+	for i := range policies {
+		policies[i] = buildTestIvpol(t, fmt.Sprintf("ivpol-%03d", i), i%3 != 0)
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Policies, numPolicies, "all policies must be evaluated")
+
+	passCount, failCount := 0, 0
+	for _, r := range resp.Policies {
+		if r.Result.Status() == engineapi.RuleStatusPass {
+			passCount++
+		} else {
+			failCount++
+		}
+	}
+	assert.Equal(t, 34, failCount)
+	assert.Equal(t, 66, passCount)
+}
+
+func TestHandleValidation_DeterministicOrder(t *testing.T) {
+	const numPolicies = 20
+	const numRuns = 15
+
+	policies := make([]Policy, numPolicies)
+	for i := range policies {
+		policies[i] = buildTestIvpol(t, fmt.Sprintf("ivpol-%02d", i), true)
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	var first []string
+	for run := 0; run < numRuns; run++ {
+		resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, numPolicies)
+
+		names := make([]string, len(resp.Policies))
+		for i, r := range resp.Policies {
+			names[i] = r.Policy.GetName()
+		}
+		if run == 0 {
+			first = names
+		} else {
+			assert.Equal(t, first, names, "response order changed on run %d", run)
+		}
+	}
+}
+
+func TestHandleValidation_CompileError(t *testing.T) {
+	// one policy fails to compile; confirm it doesn't break the others
+	policies := []Policy{
+		buildTestIvpol(t, "good-1", true),
+		buildBrokenTestIvpol(t, "broken-compile"),
+		buildTestIvpol(t, "good-2", true),
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+	require.NoError(t, err) // compile errors are per-policy RuleErrors, not a hard failure
+	assert.Len(t, resp.Policies, 3)
+
+	var sawError bool
+	for _, r := range resp.Policies {
+		if r.Policy.GetName() == "broken-compile" {
+			assert.Equal(t, engineapi.RuleStatusError, r.Result.Status())
+			sawError = true
+		}
+	}
+	assert.True(t, sawError, "expected broken-compile policy to surface a RuleError")
+}
+
+func TestHandleValidation_ConcurrentEvaluation_RaceStress(t *testing.T) {
+	const numPolicies = 50
+	const iterations = 10
+
+	policies := make([]Policy, numPolicies)
+	for i := range policies {
+		policies[i] = buildTestIvpol(t, fmt.Sprintf("stress-%02d", i), i%2 == 0)
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) { return policies, nil })
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	for iter := 0; iter < iterations; iter++ {
+		resp, err := eng.HandleValidating(context.Background(), testEngineRequest(t, signedImage), nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, numPolicies)
+	}
+}
+
+type fakeMatcher struct {
+	matches bool
+	err     error
+}
+
+func (f fakeMatcher) Match(_ admissionmatching.MatchCriteria, _ admission.Attributes, _ runtime.Object) (bool, error) {
+	return f.matches, f.err
+}
+
+func TestFilterPolicies_NilMatcher(t *testing.T) {
+	pol := buildTestIvpol(t, "p1", true)
+	eng := &engineImpl{matcher: nil}
+
+	results, filtered := eng.filterPolicies([]Policy{pol}, nil, nil, false)
+
+	assert.Empty(t, results)
+	assert.Equal(t, []Policy{pol}, filtered)
+}
+
+func TestFilterPolicies_MatchError(t *testing.T) {
+	pol := buildTestIvpol(t, "p1", true)
+	eng := &engineImpl{matcher: fakeMatcher{err: errors.New("boom")}}
+
+	results, filtered := eng.filterPolicies([]Policy{pol}, nil, nil, false)
+
+	require.Len(t, results, 1)
+	assert.Equal(t, engineapi.RuleStatusError, results[0].Result.Status())
+	assert.Empty(t, filtered)
+}
+
+func TestFilterPolicies_IncludeUnmatched(t *testing.T) {
+	pol := buildTestIvpol(t, "p1", true)
+	eng := &engineImpl{matcher: fakeMatcher{matches: false}}
+
+	results, filtered := eng.filterPolicies([]Policy{pol}, nil, nil, true)
+
+	require.Len(t, results, 1)
+	assert.Equal(t, "p1", results[0].Policy.GetName())
+	assert.Empty(t, filtered)
 }
