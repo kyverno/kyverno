@@ -176,9 +176,7 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				nil,
 				nil,
 			},
-			want: map[string]interface{}{
-				"request.operation": "CREATE",
-			},
+			want:    map[string]interface{}{},
 			wantErr: false,
 		},
 		{
@@ -211,9 +209,7 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				nil,
 				nil,
 			},
-			want: map[string]interface{}{
-				"request.operation": "CREATE",
-			},
+			want:    map[string]interface{}{},
 			wantErr: false,
 		}, {
 			name: "values",
@@ -229,9 +225,8 @@ func TestVariables_ComputeVariables(t *testing.T) {
 				nil,
 			},
 			want: map[string]interface{}{
-				"baz":               "jee",
-				"foo":               "bar",
-				"request.operation": "CREATE",
+				"baz": "jee",
+				"foo": "bar",
 			},
 			wantErr: false,
 		}, {
