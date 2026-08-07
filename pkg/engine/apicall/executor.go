@@ -88,11 +88,6 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.name, err)
 	}
 	defer resp.Body.Close()
-	var w http.ResponseWriter
-
-	if a.config.maxAPICallResponseLength != 0 {
-		resp.Body = http.MaxBytesReader(w, resp.Body, a.config.maxAPICallResponseLength)
-	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(resp.Body)
@@ -103,11 +98,19 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		if _, ok := err.(*http.MaxBytesError); ok {
+	var body []byte
+	if a.config.maxAPICallResponseLength != 0 {
+		limitedReader := io.LimitReader(resp.Body, a.config.maxAPICallResponseLength+1)
+		body, err = io.ReadAll(limitedReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.name, err)
+		}
+		if int64(len(body)) > a.config.maxAPICallResponseLength {
 			return nil, fmt.Errorf("response length must be less than max allowed response length of %d", a.config.maxAPICallResponseLength)
-		} else {
+		}
+	} else {
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
 			return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.name, err)
 		}
 	}
