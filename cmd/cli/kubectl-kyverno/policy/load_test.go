@@ -1,7 +1,10 @@
 package policy
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -207,5 +210,84 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+func TestLoadHTTP(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantErr    bool
+	}{
+		{
+			name:       "successful fetch",
+			statusCode: http.StatusOK,
+			body: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-policy
+spec:
+  rules: []
+`,
+			wantErr: false,
+		},
+		{
+			name:       "non 200 response",
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			results, err := Load(nil, "", server.URL)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && len(results.Policies) != 1 {
+				t.Errorf("expected 1 policy, got %d", len(results.Policies))
+			}
+		})
+	}
+}
+
+func TestLoadHTTPTimeout(t *testing.T) {
+	oldTimeout := remoteHTTPTimeout
+	defer func() {
+		remoteHTTPTimeout = oldTimeout
+	}()
+
+	remoteHTTPTimeout = 100 * time.Millisecond
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
+	}))
+	defer server.Close()
+
+	_, err := Load(nil, "", server.URL)
+
+	assert.Error(t, err)
+	check := err
+	for {
+		if te, ok := check.(interface{ Timeout() bool }); ok && te.Timeout() {
+			break
+		}
+		if ue, ok := check.(interface{ Unwrap() error }); ok && ue.Unwrap() != nil {
+			check = ue.Unwrap()
+			continue
+		}
+		t.Fatalf("expected timeout error, got: %v", err)
 	}
 }
