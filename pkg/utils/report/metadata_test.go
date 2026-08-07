@@ -1,6 +1,7 @@
 package report
 
 import (
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -8,6 +9,8 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -360,4 +363,82 @@ func TestCleanupKyvernoLabels_NilLabels(t *testing.T) {
 	// Should not panic
 	CleanupKyvernoLabels(obj)
 	assert.Nil(t, obj.Labels)
+}
+
+func TestValidatingAdmissionPolicyBindingLabel_ShortName(t *testing.T) {
+	binding := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-binding"},
+	}
+	label := ValidatingAdmissionPolicyBindingLabel(binding)
+	assert.Equal(t, LabelPrefixValidatingAdmissionPolicyBinding+"my-binding", label)
+	namePart := strings.TrimPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+}
+
+func TestValidatingAdmissionPolicyBindingLabel_LongName(t *testing.T) {
+	// Some operators generate ValidatingAdmissionPolicyBinding names derived from CRD group names,
+	// which can exceed the 63-char Kubernetes label name limit.
+	longName := "biding-autoscale.dataplanegroups.konnectclouddataplanegroupconfig.konnect.konghq.com"
+	assert.Greater(t, len(longName), 63, "test precondition: name must be > 63 chars")
+
+	binding := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: longName},
+	}
+	label := ValidatingAdmissionPolicyBindingLabel(binding)
+
+	assert.True(t, strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding), "label must start with the validating binding prefix")
+	namePart := strings.TrimPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+	assert.NotEqual(t, longName, namePart, "long name should be hashed, not used as-is")
+}
+
+func TestMutatingAdmissionPolicyBindingLabel_ShortName(t *testing.T) {
+	binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-mutating-binding"},
+	}
+	label := MutatingAdmissionPolicyBindingLabel(&binding)
+	assert.Equal(t, LabelPrefixMutatingAdmissionPolicyBinding+"my-mutating-binding", label)
+	namePart := strings.TrimPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+}
+
+func TestMutatingAdmissionPolicyBindingLabel_LongName(t *testing.T) {
+	longName := "biding-autoscale.dataplanegroups.konnectclouddataplanegroupconfig.konnect.konghq.com"
+	assert.Greater(t, len(longName), 63, "test precondition: name must be > 63 chars")
+
+	binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: longName},
+	}
+	label := MutatingAdmissionPolicyBindingLabel(&binding)
+
+	assert.True(t, strings.HasPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding), "label must start with the mutating binding prefix")
+	namePart := strings.TrimPrefix(label, LabelPrefixMutatingAdmissionPolicyBinding)
+	assert.LessOrEqual(t, len(namePart), 63, "label name portion must be ≤ 63 chars")
+	assert.NotEqual(t, longName, namePart, "long name should be hashed, not used as-is")
+}
+
+func TestValidatingAdmissionPolicyBindingLabel_LongName_Deterministic(t *testing.T) {
+	longName := "biding-autoscale.dataplanegroups.konnectclouddataplanegroupconfig.konnect.konghq.com"
+	binding := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: longName},
+	}
+	assert.Equal(t, ValidatingAdmissionPolicyBindingLabel(binding), ValidatingAdmissionPolicyBindingLabel(binding),
+		"same binding name must always produce the same label")
+}
+
+func TestTruncateLabelName_ShortName(t *testing.T) {
+	assert.Equal(t, "short-name", normalizeLabelName("short-name"))
+}
+
+func TestTruncateLabelName_ExactlyAtLimit(t *testing.T) {
+	name := strings.Repeat("a", 63)
+	assert.Equal(t, name, normalizeLabelName(name))
+}
+
+func TestTruncateLabelName_OneOverLimit(t *testing.T) {
+	name := strings.Repeat("a", 64)
+	result := normalizeLabelName(name)
+	assert.LessOrEqual(t, len(result), 63)
+	// MD5 hex is always 32 chars
+	assert.Equal(t, 32, len(result))
 }
