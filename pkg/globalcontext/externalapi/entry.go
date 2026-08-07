@@ -49,12 +49,15 @@ func New(
 	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
+	var stopOnce sync.Once
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
-		// Send stop signal to informer's goroutine
-		cancel()
-		// Wait for the group to terminate
-		group.Wait()
+		stopOnce.Do(func() {
+			// Send stop signal to informer's goroutine
+			cancel()
+			// Wait for the group to terminate
+			group.Wait()
+		})
 	}
 
 	projections := make([]store.Projection, 0)
@@ -147,15 +150,17 @@ func (e *entry) setData(data any, err error) {
 			e.err = fmt.Errorf("data is not a byte array")
 			return
 		}
-		e.dataMap[""] = jsonData
+		newDataMap := make(map[string]any)
+		newDataMap[""] = jsonData
 		for _, projection := range e.projections {
 			result, err := projection.JP.Search(jsonData)
 			if err != nil {
 				e.err = err
 				return
 			}
-			e.dataMap[projection.Name] = result
+			newDataMap[projection.Name] = result
 		}
+		e.dataMap = newDataMap
 		e.err = nil
 	}
 }

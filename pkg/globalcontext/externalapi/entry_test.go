@@ -530,3 +530,45 @@ func TestEntry_SetData_MultipleScenarios(t *testing.T) {
 		})
 	}
 }
+
+func TestEntry_Stop_ConcurrentSetData(t *testing.T) {
+	stopped := false
+	e := &entry{
+		dataMap: make(map[string]any),
+		stop: func() {
+			stopped = true
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 100; i++ {
+			e.setData([]byte(`{"key":"val"}`), nil)
+		}
+		close(done)
+	}()
+
+	e.Stop()
+	assert.True(t, stopped)
+	<-done
+}
+
+func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
+	initialData := map[string]any{"": map[string]any{"key": "old"}}
+	e := &entry{
+		dataMap: initialData,
+		projections: []store.Projection{
+			{
+				Name: "failingProj",
+				JP: &mockJMESPathQuery{
+					err: fmt.Errorf("projection evaluation error"),
+				},
+			},
+		},
+	}
+
+	e.setData([]byte(`{"key":"new"}`), nil)
+
+	assert.Error(t, e.err)
+	assert.Equal(t, initialData, e.dataMap)
+}
