@@ -95,7 +95,11 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 				if err != nil {
 					return fmt.Errorf("converting policy to yaml: %v", err)
 				}
-				pp := filepath.Join(dir, policy.GetName()+".yaml")
+				name := policy.GetName()
+				pp, err := outputPath(dir, name)
+				if err != nil {
+					return fmt.Errorf("resolving output path for policy %q: %w", name, err)
+				}
 				fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
 				if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
 					return fmt.Errorf("creating file: %v", err)
@@ -105,4 +109,11 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	}
 	fmt.Fprintf(os.Stderr, "Done.")
 	return nil
+}
+
+// outputPath resolves the on-disk file for a pulled policy. The name comes from
+// image content, so it is joined with SecureJoin to keep the result inside dir
+// even if the name contains path traversal segments.
+func outputPath(dir, name string) (string, error) {
+	return securejoin.SecureJoin(dir, name+".yaml")
 }
