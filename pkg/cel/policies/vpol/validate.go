@@ -23,9 +23,9 @@ func Validate(vpol v1beta1.ValidatingPolicyLike) ([]string, error) {
 		return warnings, err.ToAggregate()
 	}
 
-	c := vpolcompiler.NewCompiler()
-	_, errList := c.Compile(vpol, nil)
-	if errList != nil {
+	compiler := compiler.NewCompiler()
+	_, errList := compiler.Compile(vpol, nil)
+	if len(errList) > 0 {
 		err = errList
 	}
 
