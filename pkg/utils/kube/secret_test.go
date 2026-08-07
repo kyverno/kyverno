@@ -65,6 +65,64 @@ func TestRedactSecret_WithAnnotations(t *testing.T) {
 	assert.Equal(t, "**REDACTED**", annotations["custom-annotation"])
 }
 
+func TestRedactSecret_AnnotationsWithoutData(t *testing.T) {
+	resource := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "annotated-secret",
+				"namespace": "default",
+				"annotations": map[string]interface{}{
+					"custom-annotation": "sensitive-value",
+				},
+			},
+		},
+	}
+
+	result, err := RedactSecret(resource)
+	require.NoError(t, err)
+
+	metadata, found, err := unstructured.NestedMap(result.Object, "metadata")
+	require.NoError(t, err)
+	assert.True(t, found)
+
+	annotations := metadata["annotations"].(map[string]interface{})
+	assert.Equal(t, "**REDACTED**", annotations["custom-annotation"])
+
+	_, found, err = unstructured.NestedMap(result.Object, "data")
+	require.NoError(t, err)
+	assert.False(t, found)
+}
+
+func TestRedactSecret_EmptyAnnotations(t *testing.T) {
+	// A Secret with an explicitly empty annotations map survives the
+	// unmarshal into corev1.Secret as a non-nil empty map, but is dropped
+	// by `omitempty` on re-marshal. The previous bare type assertion on
+	// the missing key panicked; redaction must instead be a no-op since
+	// there is nothing to redact.
+	resource := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":        "empty-annotations-secret",
+				"namespace":   "default",
+				"annotations": map[string]interface{}{},
+			},
+		},
+	}
+
+	result, err := RedactSecret(resource)
+	require.NoError(t, err)
+
+	assert.Equal(t, "empty-annotations-secret", result.GetName())
+	annotations, found, err := unstructured.NestedMap(result.Object, "metadata", "annotations")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Empty(t, annotations)
+}
+
 func TestRedactSecret_EmptyData(t *testing.T) {
 	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
