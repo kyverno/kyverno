@@ -1564,6 +1564,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.BackgroundScanInterval != nil {
+		in, out := &in.BackgroundScanInterval, &out.BackgroundScanInterval
+		*out = new(metav1.Duration)
+		**out = **in
+	}
 	if in.SchemaValidation != nil {
 		in, out := &in.SchemaValidation, &out.SchemaValidation
 		*out = new(bool)
