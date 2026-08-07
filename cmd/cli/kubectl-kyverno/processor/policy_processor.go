@@ -793,6 +793,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	case "CONNECT":
+		operation = kyvernov1.Connect
 	}
 	// an explicitly configured operation (e.g. from the test result entry) takes
 	// precedence over the values file
@@ -855,7 +857,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	}
 	// we need to get the resources back from the context to account for injected variables
 	switch operation {
-	case kyvernov1.Create:
+	case kyvernov1.Create, kyvernov1.Connect:
 		ret, err := policyContext.JSONContext().Query("request.object")
 		if err != nil {
 			return nil, err
