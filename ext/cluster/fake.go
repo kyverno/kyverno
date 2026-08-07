@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/openapi"
@@ -72,6 +73,24 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	list := []schema.GroupVersionResource{}
 	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
+	// Collect CRDs in a first pass so we can build a REST mapper before the main
+	// loop. The mapper lets us detect CRDs whose plural name does not match the
+	// lowercase-kind + "s" heuristic (e.g. TeleportRoleV8: CRD plural
+	// "teleportrolesv8", UnsafeGuessKindToResource gives "teleportrolev8s").
+	// Without this, resource.List on the correct plural returns empty because
+	// tracker.Add stores instances under the wrong key.
+	var collectedCRDs []*apiextensionsv1.CustomResourceDefinition
+	for _, o := range objects {
+		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+			collectedCRDs = append(collectedCRDs, crd)
+		}
+	}
+	crdAPIGroups := make([]*restmapper.APIGroupResources, 0, len(collectedCRDs))
+	for _, crd := range collectedCRDs {
+		crdAPIGroups = append(crdAPIGroups, convertCRDToAPIGroupResources(crd))
+	}
+	crdMapper := restmapper.NewDiscoveryRESTMapper(crdAPIGroups)
+
 	for _, o := range objects {
 		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
 			for _, version := range crd.Spec.Versions {
@@ -123,10 +142,33 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		list = append(list, plural)
 	}
 
+	// Build a remap table: CRD-declared GVR → guessed GVR (where tracker.Add
+	// actually stores objects). tracker.Add uses UnsafeGuessKindToResource, so
+	// for CRDs with non-standard plural names the two diverge. We wrap the
+	// dynamic interface below so that callers using the correct CRD plural are
+	// transparently redirected to the GVR the tracker knows about.
+	gvrRemap := make(map[schema.GroupVersionResource]schema.GroupVersionResource)
+	for _, o := range objects {
+		obj, ok := o.(*unstructured.Unstructured)
+		if !ok {
+			continue
+		}
+		gvk := obj.GroupVersionKind()
+		guessed, _ := meta.UnsafeGuessKindToResource(gvk)
+		mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil || mapping.Resource == guessed {
+			continue
+		}
+		gvrRemap[mapping.Resource] = guessed // teleportrolesv8 → teleportrolev8s
+	}
+
 	allFakeObjects := make([]runtime.Object, 0, len(objects))
 	allFakeObjects = append(allFakeObjects, objects...)
 
-	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...)
+	dyn := newRemappingDynamic(
+		fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...),
+		gvrRemap,
+	)
 
 	// Filter out CRDs from objects before converting for kube client
 	// CRDs are not regular Kubernetes resources and can't be converted
@@ -158,6 +200,29 @@ func (c fakeCluster) RESTMapper(crds []*apiextensionsv1.CustomResourceDefinition
 
 func (c fakeCluster) IsFake() bool {
 	return true
+}
+
+// remappingDynamic wraps a dynamic.Interface and redirects Resource() calls for
+// CRD-declared GVRs to the guessed GVR that tracker.Add actually used as the
+// storage key. This makes retrieval consistent with storage without requiring a
+// separate Create pass or any changes to how objects are loaded.
+type remappingDynamic struct {
+	dynamic.Interface
+	remap map[schema.GroupVersionResource]schema.GroupVersionResource
+}
+
+func newRemappingDynamic(dyn dynamic.Interface, remap map[schema.GroupVersionResource]schema.GroupVersionResource) dynamic.Interface {
+	if len(remap) == 0 {
+		return dyn
+	}
+	return &remappingDynamic{Interface: dyn, remap: remap}
+}
+
+func (d *remappingDynamic) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	if mapped, ok := d.remap[gvr]; ok {
+		gvr = mapped
+	}
+	return d.Interface.Resource(gvr)
 }
 
 func convertCRDToAPIGroupResources(crd *apiextensionsv1.CustomResourceDefinition) *restmapper.APIGroupResources {
