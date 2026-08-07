@@ -81,6 +81,10 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 		referenceWithTag = fmt.Sprintf("%s:%s", path, tag)
 	}
 
+	if len(strings.Split(path, "/")) == 1 {
+		path = fmt.Sprintf("library/%s", path)
+	}
+
 	imageInfo := &ImageInfo{
 		Registry:         registry,
 		Name:             name,
