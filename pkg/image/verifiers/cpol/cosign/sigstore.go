@@ -108,40 +108,46 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if !strings.HasPrefix(manifestDesc.ArtifactType, "application/vnd.dev.sigstore.bundle") {
 			continue
 		}
-		refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
-		}
-		layers, err := refImg.Layers()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		if len(layers) == 0 {
-			return nil, nil, fmt.Errorf("layers not found")
-		}
-		layer := layers[0]
-		layerSize, err := layer.Size()
+		err := func() error {
+			refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
+			if err != nil {
+				return fmt.Errorf("failed to fetch referrer image: %w", err)
+			}
+			layers, err := refImg.Layers()
+			if err != nil {
+				return fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			if len(layers) == 0 {
+				return fmt.Errorf("layers not found")
+			}
+			layer := layers[0]
+			layerSize, err := layer.Size()
+			if err != nil {
+				return err
+			}
+			if layerSize > maxLayerSize {
+				return fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
+			}
+			layerBytes, err := layer.Uncompressed()
+			if err != nil {
+				return fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			defer layerBytes.Close()
+			bundleBytes, err := io.ReadAll(layerBytes)
+			if err != nil {
+				return fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			b := &bundle.Bundle{}
+			err = b.UnmarshalJSON(bundleBytes)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal bundle: %w", err)
+			}
+			bundles = append(bundles, &verificationBundle{ProtoBundle: b})
+			return nil
+		}()
 		if err != nil {
 			return nil, nil, err
 		}
-		if layerSize > maxLayerSize {
-			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
-		}
-		layerBytes, err := layer.Uncompressed()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		defer layerBytes.Close()
-		bundleBytes, err := io.ReadAll(layerBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		b := &bundle.Bundle{}
-		err = b.UnmarshalJSON(bundleBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
-		}
-		bundles = append(bundles, &verificationBundle{ProtoBundle: b})
 	}
 	if predicateType != "" {
 		filteredBundles := make([]*verificationBundle, 0)
