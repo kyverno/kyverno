@@ -28,6 +28,31 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 	return generateRuleForControllers(*spec, actualControllers)
 }
 
+// RewriteExceptions rewrites PolicyException matchConditions using the same
+// field-path replacements applied to the policy spec for the given autogen
+// config, so exceptions match against the autogen'd controller's shape
+// instead of the original Pod-shaped policy.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	replacements := autogen.ReplacementsMap[config]
+	if len(replacements) == 0 || len(exceptions) == 0 {
+		return exceptions, nil
+	}
+	out := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polex := polex.DeepCopy()
+		data, err := json.Marshal(polex.Spec.MatchConditions)
+		if err != nil {
+			return nil, err
+		}
+		data = autogen.Apply(data, replacements...)
+		if err := json.Unmarshal(data, &polex.Spec.MatchConditions); err != nil {
+			return nil, err
+		}
+		out = append(out, polex)
+	}
+	return out, nil
+}
+
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
