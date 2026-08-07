@@ -3,8 +3,10 @@ package cosign
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -14,6 +16,12 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/policy"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+)
+
+var (
+	getBundles              = cosign.GetBundles
+	verifyImageSignatures   = cosign.VerifyImageSignatures
+	verifyImageAttestations = cosign.VerifyImageAttestations
 )
 
 type Verifier struct {
@@ -36,7 +44,7 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 	}
 
 	// Auto-detect if new bundle format (cosign v3) is actually present
-	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
+	newBundles, _, err := getBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
 	bundleDetected := len(newBundles) > 0 && err == nil
 	cOpts.NewBundleFormat = bundleDetected
 	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
@@ -94,9 +102,9 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var verified bool
 
 	if cOpts.NewBundleFormat {
-		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+		sigs, verified, err = verifyImageAttestations(ctx, image.NameRef(), cOpts)
 	} else {
-		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
+		sigs, verified, err = verifyImageSignatures(ctx, image.NameRef(), cOpts)
 	}
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
@@ -153,7 +161,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	sigs, verified, err := verifyAttestationsWithFallback(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -201,4 +209,32 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	return nil
+}
+
+func verifyAttestationsWithFallback(ctx context.Context, ref name.Reference, cOpts *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	v3Opts := *cOpts
+	v3Opts.NewBundleFormat = true
+
+	sigs, verified, err := verifyImageAttestations(ctx, ref, &v3Opts)
+	if err == nil && len(sigs) > 0 {
+		return sigs, verified, nil
+	}
+	if err != nil && !shouldFallbackToLegacyAttestations(err) {
+		return nil, false, err
+	}
+
+	legacyOpts := *cOpts
+	legacyOpts.NewBundleFormat = false
+	return verifyImageAttestations(ctx, ref, &legacyOpts)
+}
+
+func shouldFallbackToLegacyAttestations(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "manifest unknown") ||
+		strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "no matching attestations")
 }
