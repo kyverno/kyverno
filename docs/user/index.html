@@ -687,42 +687,6 @@ It&rsquo;s mutually exclusive with the URLPath field.</p>
 <p>
 <p>AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
 </p>
-<h3 id="kyverno.io/v1.Any">Any
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Validation">Validation</a>, 
-<a href="#kyverno.io/v2beta1.Validation">Validation</a>)
-</p>
-<p>
-<p>Any can be any type.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>Value</code><br/>
-<em>
-any
-</em>
-</td>
-<td>
-<p>
-(Members of <code>Value</code> are embedded into this type.)
-</p>
-<em>(Optional)</em>
-<p>Value contains the value of the Any object.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -5104,15 +5068,12 @@ CEL
 <td>
 <code>assert</code><br/>
 <em>
-<a href="#kyverno.io/v1.Any">
-Any
-</a>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Assert defines a kyverno-json assertion tree.
-Deprecated, kept only for backward compatibility but has no effect since 1.19.</p>
+<p>Assert defines a kyverno-json assertion tree.</p>
 </td>
 </tr>
 </tbody>
@@ -10665,18 +10626,6 @@ Generation
 </tr>
 <tr>
 <td>
-<code>reportProperties</code><br/>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>skipBackgroundRequests</code><br/>
 <em>
 bool
@@ -11066,15 +11015,12 @@ CEL
 <td>
 <code>assert</code><br/>
 <em>
-<a href="#kyverno.io/v1.Any">
-Any
-</a>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Assert defines a kyverno-json assertion tree.
-Deprecated, kept only for backward compatibility but has no effect since 1.19.</p>
+<p>Assert defines a kyverno-json assertion tree.</p>
 </td>
 </tr>
 </tbody>
