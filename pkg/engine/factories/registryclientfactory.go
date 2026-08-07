@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
@@ -11,6 +12,14 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+// keychainSource is implemented by registry clients that expose the
+// authn.Keychain used to resolve credentials. registryclient.Client (and
+// therefore the global registry client the admission controller builds at
+// startup) satisfies this.
+type keychainSource interface {
+	Keychain() authn.Keychain
+}
 
 func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretLister) engineapi.RegistryClientFactory {
 	return &registryClientFactory{
@@ -33,16 +42,26 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		return f.globalClient, nil
 	}
 
+	// preserve the global admission-controller keychain (IRSA, --registryCredentialHelpers,
+	// Kyverno deployment pull secrets) so that building a per-request client below doesn't
+	// silently drop it in favor of the policy/resource provided credentials. The global
+	// keychain is given the first chance to authenticate; policy/resource credentials are
+	// only used as a fallback.
+	opts := []registryclient.Option{registryclient.WithSecretLister(f.secretsLister, resourceNamespace)}
+	if global, ok := f.globalClient.(keychainSource); ok && global.Keychain() != nil {
+		opts = append(opts, registryclient.WithKeychain(global.Keychain()))
+	}
+
 	// the policy contains extra credentials apart from whats passed in imagePullSecrets
 	if creds != nil {
-		// turn the array of providers to a single comma separated string
-		strs := make([]string, len(creds.Providers))
-		for i, p := range creds.Providers {
-			strs[i] = string(p)
+		if len(creds.Providers) > 0 {
+			providers := make([]string, len(creds.Providers))
+			for i, p := range creds.Providers {
+				providers[i] = string(p)
+			}
+			opts = append(opts, registryclient.WithCredentialHelpers(providers...))
 		}
-		providers := strings.Join(strs, ",")
 
-		// create an array of secret names where we will accumulate whats in creds and imagePullSecrets
 		// creds.Secrets default to the Kyverno namespace, imagePullSecrets default to the resource namespace,
 		// so each list must be prefixed independently before merging.
 		secrets := make([]string, 0)
@@ -52,15 +71,23 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		if len(imagePullSecrets) > 0 {
 			secrets = append(secrets, prefixSecretNamespaces(imagePullSecrets, resourceNamespace)...)
 		}
+		if len(secrets) > 0 {
+			opts = append(opts, registryclient.WithImagePullSecrets(secrets...))
+		}
 
-		secretsJoined := strings.Join(secrets, ",")
-		client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, providers, creds.AllowInsecureRegistry)
+		if creds.AllowInsecureRegistry {
+			opts = append(opts, registryclient.WithAllowInsecureRegistry(true))
+		}
+
+		client := registryclient.New(opts...)
 		return adapters.RegistryClient(client), nil
 	}
 
 	// creds is nil. create a registry client with only the imagePullSecrets and no providers
-	secretsJoined := strings.Join(prefixSecretNamespaces(imagePullSecrets, resourceNamespace), ",")
-	client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", false)
+	if len(imagePullSecrets) > 0 {
+		opts = append(opts, registryclient.WithImagePullSecrets(prefixSecretNamespaces(imagePullSecrets, resourceNamespace)...))
+	}
+	client := registryclient.New(opts...)
 	return adapters.RegistryClient(client), nil
 }
 
