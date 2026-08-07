@@ -773,3 +773,31 @@ spec:
 		})
 	}
 }
+
+func TestCommandAggregatesFilterErrors(t *testing.T) {
+	out := bytes.NewBufferString("")
+
+	err := testCommandExecute(
+		out,
+		[]string{"."},
+		"kyverno-test.yaml",
+		"",
+		"invalid-filter-1,invalid-filter-2",
+		"",
+		false,
+		false,
+		false,
+		false,
+		false,
+	)
+
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "invalid-filter-1")
+	assert.Contains(t, err.Error(), "invalid-filter-2")
+
+	output := out.String()
+	assert.Contains(t, output, "Filter errors:")
+	assert.Contains(t, output, "invalid-filter-1")
+	assert.Contains(t, output, "invalid-filter-2")
+}

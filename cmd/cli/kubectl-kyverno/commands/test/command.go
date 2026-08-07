@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"go.uber.org/multierr"
 	"io"
 	"path/filepath"
 	"regexp"
@@ -91,11 +92,11 @@ func testCommandExecute(
 	// fetch resource filters
 	resourceFilters := filter.ExtractResourceFilters(testCase)
 	// parse filter
-	filter, errors := filter.ParseFilter(testCase)
-	if len(errors) > 0 {
+	parsedFilter, parseErrs := filter.ParseFilter(testCase)
+	if len(parseErrs) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Filter errors:")
-		for _, e := range errors {
+		for _, e := range parseErrs {
 			fmt.Fprintln(out, "  Error:", e)
 		}
 	}
@@ -110,26 +111,25 @@ func testCommandExecute(
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "No test yamls available")
 	}
-	if errs := tests.Errors(); len(errs) > 0 {
+	if parseErrs := tests.Errors(); len(parseErrs) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Test errors:")
-		for _, e := range errs {
+		for _, e := range parseErrs {
 			fmt.Fprintln(out, "  Path:", e.Path)
 			fmt.Fprintln(out, "    Error:", e.Err)
 		}
-		return fmt.Errorf("found %d errors after loading tests", len(errs))
+		return fmt.Errorf("found %d errors after loading tests", len(parseErrs))
 	}
 	if len(tests) == 0 {
 		if requireTests {
 			return fmt.Errorf("no tests found")
 		}
 
-		if len(errors) == 0 {
+		if len(parseErrs) == 0 {
 			return nil
-		} else {
-			// TODO aggregate errors
-			return errors[0]
 		}
+
+		return multierr.Combine(parseErrs...)
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table
@@ -142,7 +142,7 @@ func testCommandExecute(
 			// filter results
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
-				if filter.Apply(res) {
+				if parsedFilter.Apply(res) {
 					if len(resourceFilters) > 0 {
 						res.Resources = resourceFilters
 					}
