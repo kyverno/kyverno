@@ -122,10 +122,14 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 
 		if len(dsList.Items) == 0 {
 			// Fetch downstream resources using the trigger name label
-			delete(selector, common.GenerateTriggerUIDLabel)
-			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
-			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
-			dsList, err = common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
+			fallbackSelector := make(map[string]string, len(selector))
+			for k, v := range selector {
+				fallbackSelector[k] = v
+			}
+			delete(fallbackSelector, common.GenerateTriggerUIDLabel)
+			fallbackSelector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
+			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", fallbackSelector)
+			dsList, err = common.FindDownstream(context.TODO(), c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), fallbackSelector)
 			if err != nil {
 				return nil, err
 			}
