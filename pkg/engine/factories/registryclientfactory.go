@@ -12,16 +12,20 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretLister) engineapi.RegistryClientFactory {
+func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretLister, registryCredentialHelpers string, allowInsecureRegistry bool) engineapi.RegistryClientFactory {
 	return &registryClientFactory{
-		globalClient:  globalClient,
-		secretsLister: secretsLister,
+		globalClient:              globalClient,
+		secretsLister:             secretsLister,
+		registryCredentialHelpers: registryCredentialHelpers,
+		allowInsecureRegistry:     allowInsecureRegistry,
 	}
 }
 
 type registryClientFactory struct {
-	globalClient  engineapi.RegistryClient
-	secretsLister corev1listers.SecretLister
+	globalClient              engineapi.RegistryClient
+	secretsLister             corev1listers.SecretLister
+	registryCredentialHelpers string
+	allowInsecureRegistry     bool
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {
@@ -58,9 +62,10 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 		return adapters.RegistryClient(client), nil
 	}
 
-	// creds is nil. create a registry client with only the imagePullSecrets and no providers
+	// fall back to the global credential helpers so imagePullSecrets compose with
+	// --registryCredentialHelpers instead of replacing it
 	secretsJoined := strings.Join(prefixSecretNamespaces(imagePullSecrets, resourceNamespace), ",")
-	client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", false)
+	client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, f.registryCredentialHelpers, f.allowInsecureRegistry)
 	return adapters.RegistryClient(client), nil
 }
 

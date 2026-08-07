@@ -46,7 +46,7 @@ func NewEngine(
 		configuration,
 		jp,
 		adapters.Client(client),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.MustRegistryClient()), secretLister),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.MustRegistryClient()), secretLister, registryCredentialHelpers, allowInsecureRegistry),
 		ivCache,
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig), factories.WithGlobalContextStore(gctxStore)),
 		exceptionsSelector,
