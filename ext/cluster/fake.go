@@ -72,101 +72,84 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	list := []schema.GroupVersionResource{}
 	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
-	// Pass 1: register every CRD and collect them so we can build a REST mapper
-	// before processing CR instances. This is needed because the object list may
-	// contain instances before their CRD, and the order must not matter.
+	// Collect CRDs first so the REST mapper below can resolve CR instance plurals
+	// before the main loop processes them. Without this, meta.UnsafeGuessKindToResource
+	// produces wrong plurals for CRDs with non-standard plural names (e.g. kind
+	// TeleportRoleV8 has CRD plural "teleportrolesv8" but the heuristic gives
+	// "teleportrolev8s"), causing resource.List to return empty results at test time.
 	var collectedCRDs []*apiextensionsv1.CustomResourceDefinition
 	for _, o := range objects {
-		crd, ok := o.(*apiextensionsv1.CustomResourceDefinition)
-		if !ok {
-			continue
+		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+			collectedCRDs = append(collectedCRDs, crd)
 		}
-		collectedCRDs = append(collectedCRDs, crd)
-		for _, version := range crd.Spec.Versions {
-			if version.Storage {
-				crdGVR := schema.GroupVersionResource{
-					Group:    crd.Spec.Group,
-					Version:  version.Name,
-					Resource: crd.Spec.Names.Plural,
-				}
-				if _, exists := gvr[crdGVR]; !exists {
-					list = append(list, crdGVR)
-					crdGVK := schema.GroupVersionKind{
-						Group:   crd.Spec.Group,
-						Version: version.Name,
-						Kind:    crd.Spec.Names.Kind,
-					}
-					gvr[crdGVR] = crdGVK.Kind + "List"
-					gvrToGVK[crdGVR] = crdGVK
-
-					crdGVKList := crdGVK
-					crdGVKList.Kind += "List"
-					if !s.Recognizes(crdGVKList) {
-						s.AddKnownTypeWithName(crdGVKList, &unstructured.UnstructuredList{})
-					}
-				}
-			}
-		}
-
-		s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
 	}
-
-	// Build a REST mapper from the collected CRDs. This lets pass 2 resolve the
-	// GVR for CR instances using the CRD-declared plural rather than the heuristic
-	// meta.UnsafeGuessKindToResource, which produces the wrong plural for resources
-	// like TeleportRoleV8 (CRD plural "teleportrolesv8", guessed "teleportrolev8s").
 	crdAPIGroups := make([]*restmapper.APIGroupResources, 0, len(collectedCRDs))
 	for _, crd := range collectedCRDs {
 		crdAPIGroups = append(crdAPIGroups, convertCRDToAPIGroupResources(crd))
 	}
 	crdMapper := restmapper.NewDiscoveryRESTMapper(crdAPIGroups)
 
-	// Pass 2: register non-CRD object types in the scheme and GVR maps.
-	// Objects are NOT added to allFakeObjects here; they are inserted into the
-	// tracker via Create below so that the explicit CRD-declared GVR is used as
-	// the storage key rather than the UnsafeGuessKindToResource result.
 	for _, o := range objects {
-		if _, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+			for _, version := range crd.Spec.Versions {
+				if version.Storage {
+					crdGVR := schema.GroupVersionResource{
+						Group:    crd.Spec.Group,
+						Version:  version.Name,
+						Resource: crd.Spec.Names.Plural,
+					}
+					if _, exists := gvr[crdGVR]; !exists {
+						list = append(list, crdGVR)
+						crdGVK := schema.GroupVersionKind{
+							Group:   crd.Spec.Group,
+							Version: version.Name,
+							Kind:    crd.Spec.Names.Kind,
+						}
+						gvr[crdGVR] = crdGVK.Kind + "List"
+						gvrToGVK[crdGVR] = crdGVK
+
+						crdGVKList := crdGVK
+						crdGVKList.Kind += "List"
+						if !s.Recognizes(crdGVKList) {
+							s.AddKnownTypeWithName(crdGVKList, &unstructured.UnstructuredList{})
+						}
+					}
+				}
+			}
+
+			s.AddKnownTypeWithName(o.GetObjectKind().GroupVersionKind(), o)
 			continue
 		}
+
 		gvk := o.GetObjectKind().GroupVersionKind()
-
-		// Determine the correct GVR: prefer the CRD-declared plural over the guess.
-		var gvrKey schema.GroupVersionResource
+		// Prefer the CRD-declared plural; fall back to the heuristic for built-in types.
+		plural, _ := meta.UnsafeGuessKindToResource(gvk)
 		if mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
-			gvrKey = mapping.Resource
-		} else {
-			gvrKey, _ = meta.UnsafeGuessKindToResource(gvk)
+			plural = mapping.Resource
+		}
+		if _, ok := gvr[plural]; ok {
+			continue
 		}
 
-		// Always register the GVK in the scheme; the tracker needs it for List.
-		if !s.Recognizes(gvk) {
-			s.AddKnownTypeWithName(gvk, o)
-		}
+		s.AddKnownTypeWithName(gvk, o)
 		gvkList := gvk
 		gvkList.Kind += "List"
 		if !s.Recognizes(gvkList) {
 			s.AddKnownTypeWithName(gvkList, &unstructured.UnstructuredList{})
 		}
 
-		// Only add a new GVR entry if the CRD pass hasn't registered it already.
-		if _, ok := gvr[gvrKey]; !ok {
-			gvr[gvrKey] = gvkList.Kind
-			gvrToGVK[gvrKey] = gvk
-			list = append(list, gvrKey)
-		}
+		gvr[plural] = gvkList.Kind
+		gvrToGVK[plural] = gvk
+
+		list = append(list, plural)
 	}
 
-	// Create the fake dynamic client with the scheme and GVR map but without
-	// pre-loading objects. Objects are added via Create below so they are stored
-	// in the tracker under the correct GVR (the one from the CRD or the fallback
-	// guess) rather than the UnsafeGuessKindToResource result that tracker.Add
-	// would use internally.
+	// Create the fake client without pre-loading objects. Each non-CRD object is
+	// inserted below via Create so the tracker stores it under the GVR resolved
+	// above (CRD-declared plural) rather than the one tracker.Add would derive
+	// internally via UnsafeGuessKindToResource.
 	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr)
 
-	// Insert each non-CRD object into the tracker under the correct GVR using
-	// Create, which routes through ObjectReaction → tracker.Create(gvr, obj, ns)
-	// and stores the object under the explicit GVR from dyn.Resource(gvrKey).
 	for _, o := range objects {
 		if _, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
 			continue
@@ -176,14 +159,12 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 			continue
 		}
 		gvk := obj.GroupVersionKind()
-		var objGVR schema.GroupVersionResource
+		plural, _ := meta.UnsafeGuessKindToResource(gvk)
 		if mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
-			objGVR = mapping.Resource
-		} else {
-			objGVR, _ = meta.UnsafeGuessKindToResource(gvk)
+			plural = mapping.Resource
 		}
 		ns := obj.GetNamespace()
-		ri := dyn.Resource(objGVR)
+		ri := dyn.Resource(plural)
 		if ns != "" {
 			if _, err := ri.Namespace(ns).Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
 				return nil, err
