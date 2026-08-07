@@ -1,6 +1,6 @@
 ## Description
 
-This test create two policies that uses CEL expressions:
+This test creates two policies that use CEL expressions:
 - one that denies `Deployment/scale` in Audit mode
 - one that denies `StatefulSet/scale` in Enforce mode
 

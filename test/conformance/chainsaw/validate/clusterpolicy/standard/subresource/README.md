@@ -1,9 +1,9 @@
 ## Description
 
-This test create two policies:
+This test creates two policies:
 - one that denies `Deployment/scale` in Audit mode
 - one that denies `StatefulSet/scale` in Enforce mode
 
-It then create a statefulset and a deployment.
+It then creates a StatefulSet and a Deployment.
 
-Finally it tries to create the statefulset and expects failure, the, scales the deployment and expects success.
+Finally, it tries to scale the StatefulSet and expects failure, then scales the Deployment and expects success.
