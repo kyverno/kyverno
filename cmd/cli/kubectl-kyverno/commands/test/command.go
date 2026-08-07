@@ -172,6 +172,9 @@ func testCommandExecute(
 					fmt.Fprintln(out)
 					printer.Print(resultsTable.Rows(detailedResults))
 					fmt.Fprintln(out)
+					if !detailedResults {
+						printDiffs(out, resultsTable.RawRows, removeColor)
+					}
 				}
 			}
 		}
@@ -187,7 +190,7 @@ func testCommandExecute(
 			if len(outputFormat) > 0 {
 				printOutputFormats(out, outputFormat, fullTable, detailedResults)
 			} else {
-				printFailedTestResult(out, fullTable, detailedResults)
+				printFailedTestResult(out, fullTable, detailedResults, removeColor)
 			}
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
@@ -218,7 +221,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), resourceDiffReason
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
@@ -233,7 +236,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), resourceDiffReason
 		}
 	} else if len(test.GeneratedResources) > 0 {
 		matched := false
@@ -261,7 +264,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				lastDiff = StripANSI(lastDiff)
 			}
-			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), resourceDiffReason
 		}
 	}
 	return compareExpectedRuleResult(expected, response, rule)
