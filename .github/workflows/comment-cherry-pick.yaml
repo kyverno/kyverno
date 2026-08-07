@@ -69,7 +69,10 @@ jobs:
             exit 1
           fi
 
-          echo "::add-mask::$key"
+          # ::add-mask:: is line-based, mask each line of the key individually.
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done <<< "$key"
           {
             echo "private_key<<EOF"
             printf '%s\n' "$key"
