@@ -92,7 +92,6 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Cherry-pick to each branch
         if: steps.cherry.outputs.result != '[]'
         uses: ./.github/actions/git/cherry-pick
