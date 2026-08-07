@@ -47,7 +47,6 @@ import (
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -55,14 +54,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type TestResponse struct {
-	Trigger         map[string][]engineapi.EngineResponse
-	Target          map[string][]engineapi.EngineResponse
-	SkippedPolicies map[string]string
+	Trigger map[string][]engineapi.EngineResponse
+	// TriggerByOperation holds the responses of the additional evaluation runs
+	// performed for test results that declare an explicit admission operation.
+	// The outer key is the operation (CREATE, UPDATE or DELETE), the inner key
+	// is the resource key.
+	TriggerByOperation map[string]map[string][]engineapi.EngineResponse
+	Target             map[string][]engineapi.EngineResponse
+	SkippedPolicies    map[string]string
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
@@ -425,13 +430,32 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
-		Trigger:         map[string][]engineapi.EngineResponse{},
-		Target:          map[string][]engineapi.EngineResponse{},
-		SkippedPolicies: skippedPolicyNames,
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target:             map[string][]engineapi.EngineResponse{},
+		SkippedPolicies:    skippedPolicyNames,
 	}
-	for _, resource := range uniques {
+	// validate the operations declared on test results and collect the distinct
+	// explicit operations, each of which triggers a dedicated evaluation run
+	if _, err := processor.NormalizeValuesOperation(vars.GlobalOperation()); err != nil {
+		return nil, err
+	}
+	explicitOperations := sets.New[string]()
+	for _, res := range testCase.Test.Results {
+		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
+			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
+		}
+		if res.Operation == "" {
+			continue
+		}
+		if res.IsDeletingPolicy {
+			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
+		}
+		explicitOperations.Insert(res.Operation)
+	}
+	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
-		processor := processor.PolicyProcessor{
+		pp := processor.PolicyProcessor{
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -443,6 +467,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			MutatingAdmissionPolicyBindings:   results.MAPBindings,
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
+			Operation:                         operation,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,
@@ -464,7 +489,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
@@ -485,14 +510,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				operation,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 			}
 			ers = append(ers, ivpols...)
 		}
-
-		if len(results.DeletingPolicies) != 0 {
+		// deleting policies are not admission driven, they are only evaluated in
+		// the default run
+		if defaultRun && len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
@@ -512,10 +539,29 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			}
 			ers = append(ers, dpols...)
 		}
-
+		return ers, nil
+	}
+	for _, resource := range uniques {
 		resourceKey := generateResourceKey(resource)
+		// default run, honoring the values file operation when set
+		ers, err := evalResource(resource, "", true)
+		if err != nil {
+			return nil, err
+		}
 		engineResponses = append(engineResponses, ers...)
 		testResponse.Trigger[resourceKey] = ers
+		// one additional run per distinct operation explicitly declared on results
+		for _, operation := range sets.List(explicitOperations) {
+			ers, err := evalResource(resource, operation, false)
+			if err != nil {
+				return nil, err
+			}
+			engineResponses = append(engineResponses, ers...)
+			if testResponse.TriggerByOperation[operation] == nil {
+				testResponse.TriggerByOperation[operation] = map[string][]engineapi.EngineResponse{}
+			}
+			testResponse.TriggerByOperation[operation][resourceKey] = ers
+		}
 	}
 
 	for _, jp := range jsonPayloads {
@@ -571,6 +617,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 				true,
 				restMapper,
 				gceMap,
+				"",
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
@@ -653,6 +700,7 @@ func applyImageValidatingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
 	if err != nil {
@@ -679,6 +727,7 @@ func applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	if restMapper == nil {
@@ -709,6 +758,7 @@ func applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -716,10 +766,10 @@ func applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
@@ -905,7 +955,7 @@ func convertNumericValuesToFloat64(obj interface{}) interface{} {
 		return float64(v)
 	default:
 		rv := reflect.ValueOf(v)
-		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+		if rv.Kind() == reflect.Pointer && !rv.IsNil() {
 			elem := rv.Elem().Interface()
 			return convertNumericValuesToFloat64(elem)
 		}
