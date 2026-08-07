@@ -72,19 +72,12 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	list := []schema.GroupVersionResource{}
 	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
-	// objWithGVR pairs an unstructured instance with the GVR it should be stored
-	// under in the fake tracker — resolved once and reused for the Create call.
-	type objWithGVR struct {
-		obj *unstructured.Unstructured
-		gvr schema.GroupVersionResource
-	}
-	var toCreate []objWithGVR
-
-	// Collect CRDs first so the REST mapper below can resolve CR instance plurals
-	// before the main loop processes them. Without this, meta.UnsafeGuessKindToResource
-	// produces wrong plurals for CRDs with non-standard plural names (e.g. kind
-	// TeleportRoleV8 has CRD plural "teleportrolesv8" but the heuristic gives
-	// "teleportrolev8s"), causing resource.List to return empty results at test time.
+	// Collect CRDs in a first pass so we can build a REST mapper before the main
+	// loop. The mapper lets us detect CRDs whose plural name does not match the
+	// lowercase-kind + "s" heuristic (e.g. TeleportRoleV8: CRD plural
+	// "teleportrolesv8", UnsafeGuessKindToResource gives "teleportrolev8s").
+	// Without this, resource.List on the correct plural returns empty because
+	// tracker.Add stores instances under the wrong key.
 	var collectedCRDs []*apiextensionsv1.CustomResourceDefinition
 	for _, o := range objects {
 		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
@@ -130,20 +123,7 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		}
 
 		gvk := o.GetObjectKind().GroupVersionKind()
-		// Prefer the CRD-declared plural; fall back to the heuristic for built-in types.
 		plural, _ := meta.UnsafeGuessKindToResource(gvk)
-		if mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
-			plural = mapping.Resource
-		}
-
-		// Always collect unstructured instances with their resolved GVR so we can
-		// insert them into the tracker after the client is created. We do this before
-		// the duplicate-GVR check below because a CRD may have already registered the
-		// same GVR in the scheme/gvr maps — we still need to populate the tracker.
-		if obj, ok := o.(*unstructured.Unstructured); ok {
-			toCreate = append(toCreate, objWithGVR{obj: obj, gvr: plural})
-		}
-
 		if _, ok := gvr[plural]; ok {
 			continue
 		}
@@ -161,21 +141,35 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		list = append(list, plural)
 	}
 
-	// Create the fake client without pre-loading objects. Each collected instance
-	// is inserted via Create so the tracker stores it under the GVR resolved above
-	// (CRD-declared plural) rather than what tracker.Add derives internally via
-	// UnsafeGuessKindToResource.
-	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr)
+	allFakeObjects := make([]runtime.Object, 0, len(objects))
+	allFakeObjects = append(allFakeObjects, objects...)
 
-	for _, item := range toCreate {
-		ns := item.obj.GetNamespace()
-		ri := dyn.Resource(item.gvr)
+	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(s, gvr, allFakeObjects...)
+
+	// tracker.Add (called by the constructor above) always uses
+	// UnsafeGuessKindToResource to pick the storage key, so CR instances with
+	// non-standard plural names land under the wrong GVR. Re-insert them via
+	// Create, which routes through ObjectReaction → tracker.Create(gvr, obj, ns)
+	// and stores them under the explicit CRD-declared GVR instead.
+	for _, o := range objects {
+		obj, ok := o.(*unstructured.Unstructured)
+		if !ok {
+			continue
+		}
+		gvk := obj.GroupVersionKind()
+		guessed, _ := meta.UnsafeGuessKindToResource(gvk)
+		mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil || mapping.Resource == guessed {
+			continue // GVR is already correct; tracker.Add handled it fine
+		}
+		ns := obj.GetNamespace()
+		ri := dyn.Resource(mapping.Resource)
 		if ns != "" {
-			if _, err := ri.Namespace(ns).Create(context.Background(), item.obj, metav1.CreateOptions{}); err != nil {
+			if _, err := ri.Namespace(ns).Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		} else {
-			if _, err := ri.Create(context.Background(), item.obj, metav1.CreateOptions{}); err != nil {
+			if _, err := ri.Create(context.Background(), obj, metav1.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		}
