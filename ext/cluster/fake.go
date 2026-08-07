@@ -115,7 +115,7 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	// GVR for CR instances using the CRD-declared plural rather than the heuristic
 	// meta.UnsafeGuessKindToResource, which produces the wrong plural for resources
 	// like TeleportRoleV8 (CRD plural "teleportrolesv8", guessed "teleportrolev8s").
-	var crdAPIGroups []*restmapper.APIGroupResources
+	crdAPIGroups := make([]*restmapper.APIGroupResources, 0, len(collectedCRDs))
 	for _, crd := range collectedCRDs {
 		crdAPIGroups = append(crdAPIGroups, convertCRDToAPIGroupResources(crd))
 	}
