@@ -124,6 +124,8 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		})
 	}
 	return &Policy{
+		policyName:       policy.GetName(),
+		policyKind:       policy.GetKind(),
 		mode:             policieskyvernoio.EvaluationModeKubernetes,
 		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConstraints: spec.MatchConstraints,
@@ -199,6 +201,8 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}
 
 	return &Policy{
+		policyName:      policy.GetName(),
+		policyKind:      policy.GetKind(),
 		mode:            policieskyvernoio.EvaluationModeJSON,
 		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		matchConditions: matchConditions,
