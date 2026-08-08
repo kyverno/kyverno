@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/transform"
 	"github.com/kyverno/sdk/extensions/cel/libs/x509"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -223,9 +224,13 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 			MatchConditions: polexMatchConditions,
 		})
 	}
+	var failurePolicy admissionregistrationv1.FailurePolicyType
+	if g, ok := policy.(policiesv1beta1.GenericPolicy); ok {
+		failurePolicy = g.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore())
+	}
 	return &Policy{
 		namespace:        policy.GetNamespace(),
-		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		failurePolicy:    failurePolicy,
 		matchConditions:  matchConditions,
 		variables:        variables,
 		generations:      generations,
