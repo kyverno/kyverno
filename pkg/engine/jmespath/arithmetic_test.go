@@ -65,6 +65,11 @@ func Test_Add(t *testing.T) {
 			expectedResult: `25s`,
 		},
 		{
+			name:           "Duration + Duration -> Duration",
+			test:           "add('1m', '1s')",
+			expectedResult: `1m1s`,
+		},
+		{
 			name: "Duration + Scalar -> error",
 			test: "add('12s', `13`)",
 			err:  true,
@@ -308,6 +313,11 @@ func Test_Subtract(t *testing.T) {
 			name:           "Duration - Duration -> Duration",
 			test:           "subtract('12s', '13s')",
 			expectedResult: `-1s`,
+		},
+		{
+			name:           "Duration - Duration -> Duration",
+			test:           "subtract('1m', '1s')",
+			expectedResult: `59s`,
 		},
 		{
 			name: "Duration - Scalar -> error",
