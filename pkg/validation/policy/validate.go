@@ -47,7 +47,6 @@ var (
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-	bindingIdentifier                  = regexp.MustCompile(`^\w+$`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -1284,7 +1283,10 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 	case reflect.Slice:
 		values := reflect.ValueOf(v)
 		for i := 0; i < values.Len(); i++ {
-			value := values.Index(i).Interface().(string)
+			value, ok := values.Index(i).Interface().(string)
+			if !ok {
+				return fmt.Sprintf("value[%d]", i), fmt.Errorf("'value[%d]' found to be of the type %T. The provided values are expected to be strings", i, values.Index(i).Interface())
+			}
 			if !valuesAllowed[value] {
 				return fmt.Sprintf("value[%d]", i), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", value)
 			}
@@ -1307,13 +1309,6 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
-		}
-		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
-		// sure we can create the corresponding bindings
-		if rule.Validation != nil && rule.Validation.Assert != nil && rule.Validation.Assert.Value != nil {
-			if !bindingIdentifier.MatchString(entry.Name) {
-				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
-			}
 		}
 		for _, v := range []string{"images", "request", "serviceAccountName", "serviceAccountNamespace", "element", "elementIndex"} {
 			if entry.Name == v || strings.HasPrefix(entry.Name, v+".") {

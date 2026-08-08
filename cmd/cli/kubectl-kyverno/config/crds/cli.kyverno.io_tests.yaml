@@ -69,41 +69,6 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
-          checks:
-            description: Checks are the verifications to be checked in the test
-            items:
-              properties:
-                assert:
-                  description: Assert contains assertion to be performed on the relevant
-                    rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                error:
-                  description: Error contains negative assertion to be performed on
-                    the relevant rule responses
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                match:
-                  description: Match tells how to match relevant rule responses
-                  properties:
-                    policy:
-                      description: Policy filters engine responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    resource:
-                      description: Resource filters engine responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    rule:
-                      description: Rule filters rule responses
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                  type: object
-              required:
-              - assert
-              - error
-              type: object
-            type: array
           clusterResources:
             description: ClusterResources are the cluster resources to be used in
               the test
@@ -293,6 +258,20 @@ spec:
                 kind:
                   description: Kind mentions the kind of the resource on which the
                     policy is to be applied.
+                  type: string
+                operation:
+                  description: |-
+                    Operation mentions the admission operation to simulate when applying policies
+                    on the resources of this test result. Possible values are CREATE, UPDATE and
+                    DELETE. If unset, the operation defaults to CREATE, or to the operation
+                    declared via the `request.operation` global value in the values file.
+                    For UPDATE, both object and oldObject are set to the resource. For DELETE,
+                    object is null and oldObject is set to the resource, mirroring the API server.
+                    It is not supported for deleting policies and JSON payloads.
+                  enum:
+                  - CREATE
+                  - UPDATE
+                  - DELETE
                   type: string
                 patchedResources:
                   description: |-
