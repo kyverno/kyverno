@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -197,6 +198,13 @@ func TestMatch(t *testing.T) {
 		require.Error(t, err)
 		require.False(t, result)
 		require.Contains(t, err.Error(), "eval error")
+	})
+
+	t.Run("condition with eval error and failurePolicy Ignore", func(t *testing.T) {
+		pIgnore := &Policy{failurePolicy: admissionregistrationv1.Ignore}
+		result, err := pIgnore.match(ctx, data, []cel.Program{&errorEvalProgram{}})
+		require.NoError(t, err)
+		require.False(t, result)
 	})
 
 	t.Run("multiple errors combined", func(t *testing.T) {

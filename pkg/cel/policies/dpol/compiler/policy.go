@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +22,7 @@ import (
 type Policy struct {
 	deletionPropagationPolicy *metav1.DeletionPropagation
 	schedule                  string
+	failurePolicy             admissionregistrationv1.FailurePolicyType
 	conditions                []cel.Program
 	variables                 map[string]cel.Program
 	exceptions                []compiler.Exception
@@ -99,6 +101,8 @@ func (p *Policy) match(ctx context.Context, data map[string]any, conditions []ce
 	}
 	if err := multierr.Combine(errs...); err == nil {
 		return true, nil
+	} else if p.failurePolicy == admissionregistrationv1.Ignore {
+		return false, nil
 	} else {
 		return false, err
 	}

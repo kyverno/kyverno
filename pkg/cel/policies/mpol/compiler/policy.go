@@ -26,6 +26,7 @@ import (
 
 type Policy struct {
 	patchers              []Patcher
+	failurePolicy         admissionregistrationv1.FailurePolicyType
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
 	targetExpression      cel.Program
@@ -63,6 +64,9 @@ func (p *Policy) match(ctx context.Context, data map[string]any, matchConditions
 		}
 	}
 	if err := multierr.Combine(errs...); err != nil {
+		if p.failurePolicy == admissionregistrationv1.Ignore {
+			return false, nil
+		}
 		return false, err
 	}
 

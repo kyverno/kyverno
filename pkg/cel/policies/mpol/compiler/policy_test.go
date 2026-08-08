@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,6 +126,29 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "patch failed")
+	})
+
+	t.Run("match condition eval error and failurePolicy Ignore", func(t *testing.T) {
+		p := &Policy{
+			failurePolicy: admissionregistrationv1.Ignore,
+			matchConditions: []cel2.Program{
+				&mockProgram{err: errors.New("eval failed")},
+			},
+		}
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.Nil(t, res)
+	})
+
+	t.Run("match condition eval error and failurePolicy Fail", func(t *testing.T) {
+		p := &Policy{
+			failurePolicy: admissionregistrationv1.Fail,
+			matchConditions: []cel2.Program{
+				&mockProgram{err: errors.New("eval failed")},
+			},
+		}
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.EqualError(t, res.Error, "eval failed")
 	})
 
 	t.Run("successful evaluation", func(t *testing.T) {
