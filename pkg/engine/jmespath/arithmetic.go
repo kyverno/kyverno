@@ -34,10 +34,10 @@ func parseArithemticOperand(arguments []interface{}, index int, operator string)
 	if tmp, err := validateArg(operator, arguments, index, reflect.Float64); err == nil {
 		return scalar{float64: tmp.Float()}, nil
 	} else if tmp, err = validateArg(operator, arguments, index, reflect.String); err == nil {
-		if q, err := resource.ParseQuantity(tmp.String()); err == nil {
-			return quantity{Quantity: q}, nil
-		} else if d, err := time.ParseDuration(tmp.String()); err == nil {
+		if d, err := time.ParseDuration(tmp.String()); err == nil {
 			return duration{Duration: d}, nil
+		} else if q, err := resource.ParseQuantity(tmp.String()); err == nil {
+			return quantity{Quantity: q}, nil
 		}
 	}
 	return nil, formatError(genericError, operator, "invalid operand")
