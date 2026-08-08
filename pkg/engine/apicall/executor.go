@@ -73,6 +73,10 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
 
+	if err := validateServiceCallURL(apiCall.Service.URL); err != nil {
+		return nil, fmt.Errorf("failed to validate service URL for APICall %s: %w", a.name, err)
+	}
+
 	client, err := a.buildHTTPClient(apiCall.Service)
 	if err != nil {
 		return nil, err
@@ -163,8 +167,17 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
+		baseTransport, ok := http.DefaultTransport.(*http.Transport)
+		if !ok || baseTransport == nil {
+			baseTransport = &http.Transport{}
+		}
+		transport := baseTransport.Clone()
+		if err := applySSRFDialContext(transport); err != nil {
+			return nil, err
+		}
 		return &http.Client{
-			Timeout: timeout,
+			Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+			Timeout:   timeout,
 		}, nil
 	}
 	caCertPool := x509.NewCertPool()
@@ -176,6 +189,9 @@ func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client
 			RootCAs:    caCertPool,
 			MinVersion: tls.VersionTLS12,
 		},
+	}
+	if err := applySSRFDialContext(transport); err != nil {
+		return nil, err
 	}
 	return &http.Client{
 		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
