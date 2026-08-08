@@ -174,6 +174,21 @@ func TestCanAutoGen(t *testing.T) {
 			}},
 		},
 		want: true,
+	}, {
+		name: "with pod and ephemeralcontainers",
+		match: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods", "pods/ephemeralcontainers"},
+					},
+				},
+			}},
+		},
+		want: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

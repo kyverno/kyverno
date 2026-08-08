@@ -35,8 +35,16 @@ func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
 	if len(rule.APIVersions) != 1 || rule.APIVersions[0] != "v1" {
 		return false
 	}
-	if len(rule.Resources) != 1 || rule.Resources[0] != "pods" {
+	if len(rule.Resources) == 0 {
 		return false
 	}
-	return true
+	hasPods := false
+	for _, res := range rule.Resources {
+		if res == "pods" {
+			hasPods = true
+		} else if res != "pods/ephemeralcontainers" {
+			return false
+		}
+	}
+	return hasPods
 }
