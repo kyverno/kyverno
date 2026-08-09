@@ -100,16 +100,36 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 	return namespace.GetLabels(), nil
 }
 
-// MatchNamespaceSelector decideds whether the request matches the
-// namespaceSelctor of the webhook. Only when they match, the webhook is called.
+// MatchNamespaceSelector decides whether the request matches the
+// namespaceSelector of the webhook. Only when they match, the webhook is called.
 func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admission.Attributes) (bool, *apierrors.StatusError) {
 	namespaceName := attr.GetNamespace()
 	if len(namespaceName) == 0 && attr.GetResource().Resource != "namespaces" {
-		// If the request is about a cluster scoped resource, and it is not a
-		// namespace, it is never exempted.
-		// TODO: figure out a way selective exempt cluster scoped resources.
-		// Also update the comment in types.go
-		return true, nil
+		// For cluster-scoped resources (other than namespaces themselves), there
+		// is no namespace to select on. Instead, evaluate the NamespaceSelector
+		// against the resource's own labels. This allows policies to selectively
+		// target or exempt cluster-scoped resources (e.g. Nodes, ClusterRoles)
+		// by their own object labels. An empty selector matches everything.
+		selector, err := p.GetParsedNamespaceSelector()
+		if err != nil {
+			return false, apierrors.NewInternalError(err)
+		}
+		if selector.Empty() {
+			return true, nil
+		}
+		// For deletes, GetObject() is nil; fall back to the old object.
+		obj := attr.GetObject()
+		if obj == nil {
+			obj = attr.GetOldObject()
+		}
+		if obj == nil {
+			return true, nil
+		}
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return true, nil
+		}
+		return selector.Matches(labels.Set(accessor.GetLabels())), nil
 	}
 	selector, err := p.GetParsedNamespaceSelector()
 	if err != nil {

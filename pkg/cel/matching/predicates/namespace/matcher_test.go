@@ -24,6 +24,7 @@ import (
 	registrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -95,6 +96,7 @@ func TestGetNamespaceLabels(t *testing.T) {
 }
 
 func TestNotExemptClusterScopedResource(t *testing.T) {
+	// An empty NamespaceSelector must match everything, including cluster-scoped resources.
 	hook := &registrationv1.ValidatingWebhook{
 		NamespaceSelector: &metav1.LabelSelector{},
 	}
@@ -118,6 +120,142 @@ func TestNotExemptClusterScopedResource(t *testing.T) {
 	}
 	if !matches {
 		t.Errorf("cluster scoped resources (but not a namespace) should not be exempted from webhooks")
+	}
+}
+
+func TestClusterScopedResourceNamespaceSelectorMatchesOwnLabels(t *testing.T) {
+	// A non-empty NamespaceSelector is evaluated against a cluster-scoped
+	// resource's own labels, so policies can selectively target or exempt them.
+	nodeWithLabel := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "prod-node",
+			Labels: map[string]string{
+				"environment": "production",
+			},
+		},
+	}
+	nodeNoLabel := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "staging-node",
+			Labels: map[string]string{
+				"environment": "staging",
+			},
+		},
+	}
+
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"environment": "production"},
+	}
+	hook := &registrationv1.ValidatingWebhook{NamespaceSelector: selector}
+
+	tests := []struct {
+		name        string
+		object      runtime.Object
+		wantMatches bool
+	}{
+		{
+			name:        "node with matching label should match",
+			object:      nodeWithLabel,
+			wantMatches: true,
+		},
+		{
+			name:        "node without matching label should not match",
+			object:      nodeNoLabel,
+			wantMatches: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			attr := admission.NewAttributesRecord(
+				tt.object,
+				nil,
+				schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"},
+				"",
+				tt.object.(*corev1.Node).Name,
+				schema.GroupVersionResource{Version: "v1", Resource: "nodes"},
+				"",
+				admission.Create,
+				&metav1.CreateOptions{},
+				false,
+				nil,
+			)
+			matcher := namespace.Matcher{}
+			matches, err := matcher.MatchNamespaceSelector(webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook), attr)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if matches != tt.wantMatches {
+				t.Errorf("MatchNamespaceSelector() = %v, want %v", matches, tt.wantMatches)
+			}
+		})
+	}
+}
+
+func TestClusterScopedResourceNamespaceSelectorOnDelete(t *testing.T) {
+	// On delete, GetObject() is nil; the old object's labels should be used.
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "prod-node",
+			Labels: map[string]string{"environment": "production"},
+		},
+	}
+	hook := &registrationv1.ValidatingWebhook{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"environment": "production"},
+		},
+	}
+	attr := admission.NewAttributesRecord(
+		nil,  
+		node, 
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"},
+		"",
+		node.Name,
+		schema.GroupVersionResource{Version: "v1", Resource: "nodes"},
+		"",
+		admission.Delete,
+		&metav1.DeleteOptions{},
+		false,
+		nil,
+	)
+	matcher := namespace.Matcher{}
+	matches, err := matcher.MatchNamespaceSelector(webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook), attr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !matches {
+		t.Error("delete of cluster-scoped resource with matching label should match namespace selector")
+	}
+}
+
+func TestClusterScopedResourceNamespaceSelectorNilObjectFallback(t *testing.T) {
+	// When both the new and old objects are nil (unexpected but safe), the
+	// selector should fall through to matching (true) to preserve existing behavior.
+	hook := &registrationv1.ValidatingWebhook{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"environment": "production"},
+		},
+	}
+	attr := admission.NewAttributesRecord(
+		nil,
+		nil,
+		schema.GroupVersionKind{},
+		"",
+		"mystery-node",
+		schema.GroupVersionResource{Version: "v1", Resource: "nodes"},
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
+		false,
+		nil,
+	)
+	matcher := namespace.Matcher{}
+	matches, err := matcher.MatchNamespaceSelector(webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook), attr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !matches {
+		t.Error("cluster-scoped resource with nil object should default to matching (safe fallback)")
 	}
 }
 func TestGetNamespaceWithNilNamespace(t *testing.T) {
