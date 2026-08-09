@@ -108,40 +108,11 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if !strings.HasPrefix(manifestDesc.ArtifactType, "application/vnd.dev.sigstore.bundle") {
 			continue
 		}
-		refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
-		}
-		layers, err := refImg.Layers()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		if len(layers) == 0 {
-			return nil, nil, fmt.Errorf("layers not found")
-		}
-		layer := layers[0]
-		layerSize, err := layer.Size()
+		b, err := fetchBundle(ref, manifestDesc, remoteOpts)
 		if err != nil {
 			return nil, nil, err
 		}
-		if layerSize > maxLayerSize {
-			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
-		}
-		layerBytes, err := layer.Uncompressed()
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		defer layerBytes.Close()
-		bundleBytes, err := io.ReadAll(layerBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		b := &bundle.Bundle{}
-		err = b.UnmarshalJSON(bundleBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
-		}
-		bundles = append(bundles, &verificationBundle{ProtoBundle: b})
+		bundles = append(bundles, b)
 	}
 	if predicateType != "" {
 		filteredBundles := make([]*verificationBundle, 0)
@@ -167,6 +138,45 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		return filteredBundles, desc, nil
 	}
 	return bundles, desc, nil
+}
+
+// fetchBundle fetches a single sigstore bundle layer. It is factored out of fetchBundles
+// so the layer's ReadCloser is closed at the end of each iteration rather than accumulating
+// open readers until fetchBundles returns.
+func fetchBundle(ref name.Reference, manifestDesc v1.Descriptor, remoteOpts []remote.Option) (*verificationBundle, error) {
+	refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer image: %w", err)
+	}
+	layers, err := refImg.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+	}
+	if len(layers) == 0 {
+		return nil, fmt.Errorf("layers not found")
+	}
+	layer := layers[0]
+	layerSize, err := layer.Size()
+	if err != nil {
+		return nil, err
+	}
+	if layerSize > maxLayerSize {
+		return nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
+	}
+	layerBytes, err := layer.Uncompressed()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+	}
+	defer layerBytes.Close()
+	bundleBytes, err := io.ReadAll(layerBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+	}
+	b := &bundle.Bundle{}
+	if err := b.UnmarshalJSON(bundleBytes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
+	}
+	return &verificationBundle{ProtoBundle: b}, nil
 }
 
 func buildPolicy(desc *v1.Descriptor, opts verifiers.Options) (verify.PolicyBuilder, error) {
