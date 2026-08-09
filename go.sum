@@ -641,8 +641,6 @@ github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c7
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
 github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f h1:o2qMAiPpM+rD7kXqoezmrFs5Q8IZp37zWC/lzCUmZMU=
 github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f/go.mod h1:V6cgYzv4EwKXkqHGl6y4FTueyel5e6xlZ4AVxr6Ycec=
-github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e h1:gh9iMuJS8yloxo3JIzvgLWZWwy5iRjEkA8/U7rK3iu8=
-github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e/go.mod h1:3LgZogzltja+Sx0o5CIa7d7+991v8sWXHskU0fWSOsQ=
 github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55 h1:0EnvOmQqzChsnza54+CXcRS42WBi1cc6eaS8Pb+ye20=
 github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55/go.mod h1:02vxM0GNXz9+B/i6+rMfWAIwibUuAH+qFsd73IFskgQ=
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTsIwiRnZ3k9SvVJOagDyttWxVsngYLgvBownRG7So=
