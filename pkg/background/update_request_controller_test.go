@@ -1,6 +1,7 @@
 package background
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestReconcileURStatus_RetryOnAPIFailure(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: error should be non-nil to force retry
 	assert.Error(t, err, "reconcileURStatus should return error on API failure")
@@ -93,7 +94,7 @@ func TestReconcileURStatus_SkipOnNotFound(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: error should be nil for NotFound (graceful handling)
 	assert.NoError(t, err, "reconcileURStatus should not return error on NotFound")
@@ -132,7 +133,7 @@ func TestReconcileURStatus_DeleteOnCompleted(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: should complete without error
 	assert.NoError(t, err, "reconcileURStatus should not return error for Completed UR")
@@ -181,7 +182,7 @@ func TestReconcileURStatus_ResetFailedToPending(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: should complete without error
 	assert.NoError(t, err, "reconcileURStatus should not return error for Failed UR")
@@ -225,7 +226,7 @@ func TestReconcileURStatus_TimeoutError(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: should return error to force retry
 	assert.Error(t, err, "reconcileURStatus should return error on timeout")
@@ -263,7 +264,7 @@ func TestReconcileURStatus_ServerUnavailable(t *testing.T) {
 	}
 
 	// Call reconcileURStatus
-	state, err := c.reconcileURStatus(ur)
+	state, err := c.reconcileURStatus(context.TODO(), ur)
 
 	// Assert: should return error to force retry
 	assert.Error(t, err, "reconcileURStatus should return error on ServiceUnavailable")

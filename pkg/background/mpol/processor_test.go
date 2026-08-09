@@ -115,7 +115,7 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		},
 	}
 
-	err := p.Process(ur)
+	err := p.Process(context.TODO(), ur)
 
 	assert.NoError(t, err)
 }
@@ -167,7 +167,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		},
 	}
 
-	err := p.Process(ur)
+	err := p.Process(context.TODO(), ur)
 
 	assert.NoError(t, err)
 }
@@ -239,7 +239,7 @@ func TestProcess_FilteredTargetSkipsEngine(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, p.Process(ur))
+	assert.NoError(t, p.Process(context.TODO(), ur))
 	eng.AssertNotCalled(t, "Evaluate")
 	assert.True(t, sc.successCalled)
 	assert.False(t, sc.failedCalled)
@@ -314,7 +314,7 @@ func TestProcess_NilAdmissionRequest_DoesNotPanic(t *testing.T) {
 
 	// Must not panic with nil admission request.
 	assert.NotPanics(t, func() {
-		_ = p.Process(ur)
+		_ = p.Process(context.TODO(), ur)
 	})
 }
 
@@ -334,7 +334,7 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
+	result := collectGVK(context.TODO(), dclient.NewEmptyFakeClient(), mapper, m, "")
 
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))
@@ -356,7 +356,7 @@ func TestCollectGVK_PreservesSubresourceRoute(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+	result := collectGVK(context.TODO(), dclient.NewEmptyFakeClient(), mapper, constraints, "")
 
 	assert.Len(t, result["*"], 1)
 	for item := range result["*"] {
@@ -449,7 +449,7 @@ func TestProcess_EmptyPolicyKey(t *testing.T) {
 		Spec:       kyvernov2.UpdateRequestSpec{Policy: ""},
 	}
 
-	err := p.Process(ur)
+	err := p.Process(context.TODO(), ur)
 	assert.NoError(t, err)
 	assert.True(t, sc.failedCalled, "expected UR to be marked failed for empty policy key")
 }
@@ -615,7 +615,7 @@ func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
 		},
 	}
 
-	err := p.Process(ur)
+	err := p.Process(context.TODO(), ur)
 	assert.NoError(t, err)
 	assert.True(t, sc.failedCalled, "expected UR to be marked failed for invalid expression input")
 }

@@ -33,7 +33,7 @@ func TestHandleMutatePolicyAbsence_Success(t *testing.T) {
 	}
 
 	// Call the method
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	// Verify no error
 	assert.NoError(t, err, "handleMutatePolicyAbsence should succeed")
@@ -61,7 +61,7 @@ func TestHandleMutatePolicyAbsence_WithNamespacedPolicy(t *testing.T) {
 		},
 	}
 
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	assert.NoError(t, err)
 	actions := kyvernoClient.Actions()
@@ -86,7 +86,7 @@ func TestHandleMutatePolicyAbsence_EmptyPolicyName(t *testing.T) {
 		},
 	}
 
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	// Should succeed even with empty policy name (label selector will be empty)
 	assert.NoError(t, err)
@@ -116,7 +116,7 @@ func TestHandleMutatePolicyAbsence_DeleteCollectionError(t *testing.T) {
 		},
 	}
 
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	// Should return the error from DeleteCollection
 	assert.Error(t, err, "should return error from DeleteCollection")
@@ -148,7 +148,7 @@ func TestHandleMutatePolicyAbsence_VerifyLabelSelector(t *testing.T) {
 		},
 	}
 
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	assert.NoError(t, err)
 	// Verify label selector contains the policy name
@@ -177,7 +177,7 @@ func TestHandleMutatePolicyAbsence_PropagatesContextCanceledError(t *testing.T) 
 		},
 	}
 
-	err := c.handleMutatePolicyAbsence(ur)
+	err := c.handleMutatePolicyAbsence(context.TODO(), ur)
 
 	// Should propagate the error from DeleteCollection
 	assert.Error(t, err)

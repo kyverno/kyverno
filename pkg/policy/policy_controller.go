@@ -469,17 +469,17 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (pc *policyController) worker(ctx context.Context) {
-	for pc.processNextWorkItem() {
+	for pc.processNextWorkItem(ctx) {
 	}
 }
 
-func (pc *policyController) processNextWorkItem() bool {
+func (pc *policyController) processNextWorkItem(ctx context.Context) bool {
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
 	}
 	defer pc.queue.Done(key)
-	err := pc.syncPolicy(key.(string))
+	err := pc.syncPolicy(ctx, key.(string))
 	pc.handleErr(err, key)
 
 	return true
@@ -503,7 +503,7 @@ func (pc *policyController) handleErr(err error, key interface{}) {
 	pc.queue.Forget(key)
 }
 
-func (pc *policyController) syncPolicy(key string) error {
+func (pc *policyController) syncPolicy(ctx context.Context, key string) error {
 	logger := pc.log.WithName("syncPolicy")
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
@@ -524,12 +524,12 @@ func (pc *policyController) syncPolicy(key string) error {
 			}
 			return err
 		} else {
-			if err := pc.handleMutate(polName, policy); err != nil {
+			if err := pc.handleMutate(ctx, polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on mutate policy update")
 				errs = append(errs, err)
 			}
 
-			if err := pc.handleGenerate(polName, policy); err != nil {
+			if err := pc.handleGenerate(ctx, polName, policy); err != nil {
 				logger.Error(err, "failed to updateUR on generate policy update")
 				errs = append(errs, err)
 			}
@@ -545,7 +545,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// create UR on policy events to update/generate downstream resources
 		if gpol.Spec.SynchronizationEnabled() {
 			logger.V(4).Info("creating UR on generating policy events", "name", gpol.GetName())
-			if err := pc.createURForGeneratingPolicy(gpol); err != nil {
+			if err := pc.createURForGeneratingPolicy(ctx, gpol); err != nil {
 				logger.Error(err, "failed to create UR on generating policy events", "name", gpol.GetName())
 				errs = append(errs, err)
 			}
@@ -553,7 +553,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// generate resources for existing triggers
 		if gpol.Spec.GenerateExistingEnabled() {
 			logger.V(4).Info("generating resources for existing triggers for generatingpolicy", "name", gpol.GetName())
-			if err := pc.handleGenerateExisting(gpol); err != nil {
+			if err := pc.handleGenerateExisting(ctx, gpol); err != nil {
 				logger.Error(err, "failed to create UR for generating policy", "name", gpol.GetName())
 				errs = append(errs, err)
 			}
@@ -575,7 +575,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// create UR on policy events to update/generate downstream resources
 		if ngpol.Spec.SynchronizationEnabled() {
 			logger.V(4).Info("creating UR on namespaced generating policy events", "name", policyKey)
-			if err := pc.createURForNamespacedGeneratingPolicy(ngpol); err != nil {
+			if err := pc.createURForNamespacedGeneratingPolicy(ctx, ngpol); err != nil {
 				logger.Error(err, "failed to create UR on namespaced generating policy events", "name", policyKey)
 				errs = append(errs, err)
 			}
@@ -583,7 +583,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// generate resources for existing triggers
 		if ngpol.Spec.GenerateExistingEnabled() {
 			logger.V(4).Info("generating resources for existing triggers for namespacedgeneratingpolicy", "name", policyKey)
-			if err := pc.handleNamespacedGenerateExisting(ngpol); err != nil {
+			if err := pc.handleNamespacedGenerateExisting(ctx, ngpol); err != nil {
 				logger.Error(err, "failed to create UR for namespaced generating policy", "name", policyKey)
 				errs = append(errs, err)
 			}
@@ -600,7 +600,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		// mutate-existing execution (https://github.com/kyverno/kyverno/issues/16090).
 		if mpol.Spec.MutateExistingEnabled() {
 			logger.V(4).Info("creating UR for mutating policy on policy event or background scan", "name", mpol.GetName())
-			if err := pc.createURForMutatingPolicy(mpol); err != nil {
+			if err := pc.createURForMutatingPolicy(ctx, mpol); err != nil {
 				logger.Error(err, "failed to create UR for mutating policy", "name", mpol.GetName())
 				errs = append(errs, err)
 			}
@@ -620,7 +620,7 @@ func (pc *policyController) syncPolicy(key string) error {
 		if nmpol.Spec.MutateExistingEnabled() {
 			policyKey := nmpol.GetNamespace() + "/" + nmpol.GetName()
 			logger.V(4).Info("creating UR for namespaced mutating policy on policy event or background scan", "name", policyKey)
-			if err := pc.createURForNamespacedMutatingPolicy(nmpol); err != nil {
+			if err := pc.createURForNamespacedMutatingPolicy(ctx, nmpol); err != nil {
 				logger.Error(err, "failed to create UR for namespaced mutating policy", "name", policyKey)
 				errs = append(errs, err)
 			}
@@ -718,7 +718,7 @@ func (pc *policyController) requeuePolicies() {
 	}
 }
 
-func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+func (pc *policyController) handleUpdateRequest(ctx context.Context, ur *kyvernov2.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policy}, pc.log)
 	if err != nil {
 		return false, fmt.Errorf("failed to get namespace labels for rule %s: %w", ruleName, err)
@@ -729,7 +729,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", ruleName, err)
 	}
 
-	engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
+	engineResponse := pc.engine.ApplyBackgroundChecks(ctx, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}
@@ -745,7 +745,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+		created, err := pc.urGenerator.Generate(ctx, pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			return false, err
 		}
@@ -754,7 +754,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -762,11 +762,11 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 	return false, err
 }
 
-func getTriggers(client dclient.Interface, rule kyvernov1.Rule, isNamespacedPolicy bool, policyNamespace string, log logr.Logger) []*unstructured.Unstructured {
+func getTriggers(ctx context.Context, client dclient.Interface, rule kyvernov1.Rule, isNamespacedPolicy bool, policyNamespace string, log logr.Logger) []*unstructured.Unstructured {
 	var resources []*unstructured.Unstructured
 
 	appendResources := func(match kyvernov1.ResourceDescription) {
-		resources = append(resources, getResources(client, policyNamespace, isNamespacedPolicy, match, log)...)
+		resources = append(resources, getResources(ctx, client, policyNamespace, isNamespacedPolicy, match, log)...)
 	}
 
 	if !rule.MatchResources.ResourceDescription.IsEmpty() {
@@ -784,7 +784,7 @@ func getTriggers(client dclient.Interface, rule kyvernov1.Rule, isNamespacedPoli
 	return resources
 }
 
-func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy bool, match kyvernov1.ResourceDescription, log logr.Logger) []*unstructured.Unstructured {
+func getResources(ctx context.Context, client dclient.Interface, policyNs string, isNamespacedPolicy bool, match kyvernov1.ResourceDescription, log logr.Logger) []*unstructured.Unstructured {
 	var items []*unstructured.Unstructured
 
 	for _, kind := range match.Kinds {
@@ -802,7 +802,7 @@ func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy 
 			groupVersion = version
 		}
 
-		resources, err := client.ListResource(context.TODO(), groupVersion, kind, namespace, match.Selector)
+		resources, err := client.ListResource(ctx, groupVersion, kind, namespace, match.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue

@@ -144,7 +144,7 @@ func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, controller.ProcessUR(ur))
+	require.NoError(t, controller.ProcessUR(context.TODO(), ur))
 	assert.Zero(t, engine.calls)
 }
 
@@ -244,11 +244,11 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, controller.ProcessUR(newUR(true)))
+		require.NoError(t, controller.ProcessUR(context.TODO(), newUR(true)))
 	}()
 	go func() {
 		defer wg.Done()
-		require.NoError(t, controller.ProcessUR(newUR(false)))
+		require.NoError(t, controller.ProcessUR(context.TODO(), newUR(false)))
 	}()
 	wg.Wait()
 

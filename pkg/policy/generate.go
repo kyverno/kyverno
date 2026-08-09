@@ -42,24 +42,24 @@ func (pc *policyController) submitUR(ctx context.Context, ur *kyvernov2.UpdateRe
 	return nil
 }
 
-func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
+func (pc *policyController) handleGenerate(ctx context.Context, policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
 	logger.V(4).Info("update URs on policy event")
 
-	if err := pc.syncDataPolicyChanges(policy, false); err != nil {
+	if err := pc.syncDataPolicyChanges(ctx, policy, false); err != nil {
 		logger.Error(err, "failed to create UR on policy event")
 		return err
 	}
 
 	logger.V(4).Info("reconcile policy with generateExisting enabled")
-	if err := pc.handleGenerateForExisting(policy); err != nil {
+	if err := pc.handleGenerateForExisting(ctx, policy); err != nil {
 		logger.Error(err, "failed to create UR for generateExisting")
 		return err
 	}
 	return nil
 }
 
-func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterface, deleteDownstream bool) error {
+func (pc *policyController) syncDataPolicyChanges(ctx context.Context, policy kyvernov1.PolicyInterface, deleteDownstream bool) error {
 	var errs []error
 	var err error
 	ur := newGenerateUR(engineapi.NewKyvernoPolicy(policy))
@@ -89,14 +89,14 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 	}
 	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating URs for generate", "total", len(ur.Spec.RuleContext))
 	for _, batch := range splitUR(ur, generateBatchSize) {
-		if err := pc.submitUR(context.TODO(), batch); err != nil {
+		if err := pc.submitUR(ctx, batch); err != nil {
 			errs = append(errs, err)
 		}
 	}
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
+func (pc *policyController) handleGenerateForExisting(ctx context.Context, policy kyvernov1.PolicyInterface) error {
 	var errors []error
 	var triggers []*unstructured.Unstructured
 	policyNew := policy.CreateDeepCopy()
@@ -117,7 +117,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		} else if !policy.GetSpec().GenerateExisting {
 			continue
 		}
-		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
+		triggers = getTriggers(ctx, pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
 			namespaceLabels, err := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, []kyvernov1.PolicyInterface{policyNew}, pc.log)
@@ -130,7 +130,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
 				continue
 			}
-			engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
+			engineResponse := pc.engine.ApplyBackgroundChecks(ctx, policyContext)
 			if len(engineResponse.PolicyResponse.Rules) == 0 {
 				continue
 			}
@@ -145,7 +145,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 
 	logger.V(4).Info("creating URs for generateExisting", "total", len(ur.Spec.RuleContext))
 	for _, batch := range splitUR(ur, generateBatchSize) {
-		if err := pc.submitUR(context.TODO(), batch); err != nil {
+		if err := pc.submitUR(ctx, batch); err != nil {
 			errors = append(errors, err)
 		}
 	}

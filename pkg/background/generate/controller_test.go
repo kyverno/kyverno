@@ -184,7 +184,7 @@ func TestProcessUR_NilPolicy_NoEventPanic(t *testing.T) {
 	// 4. Status update fails, returning an error
 	// 5. ProcessUR error handling should gracefully handle nil policy
 	assert.NotPanics(t, func() {
-		err := controller.ProcessUR(ur)
+		err := controller.ProcessUR(context.TODO(), ur)
 		// We expect an error from the failed status update, but NO panic
 		// The error may or may not be nil depending on whether cleanup succeeds
 		_ = err
@@ -253,7 +253,7 @@ func TestProcessUR_NilPolicy_DeleteDownstream_StatusUpdateFails(t *testing.T) {
 
 	// Should not panic
 	assert.NotPanics(t, func() {
-		_ = controller.ProcessUR(ur)
+		_ = controller.ProcessUR(context.TODO(), ur)
 	}, "ProcessUR must not panic when policy is nil and error occurs during cleanup")
 
 	// Verify that either Success or Failed was called (cleanup was attempted)
@@ -308,7 +308,7 @@ func TestProcessUR_NilPolicy_NoGeneratedResources(t *testing.T) {
 
 	// Should not panic - deleteDownstream returns nil when no GeneratedResources
 	assert.NotPanics(t, func() {
-		err := controller.ProcessUR(ur)
+		err := controller.ProcessUR(context.TODO(), ur)
 		// Should complete without error since deleteDownstream returns nil
 		// when there are no GeneratedResources to clean up
 		_ = err
@@ -440,7 +440,7 @@ func TestProcessUR_ApplyGenerateError_MarksURFailed(t *testing.T) {
 	}
 
 	// Process the UR - applyGenerate will fail due to namespace lookup error
-	err := controller.ProcessUR(ur)
+	err := controller.ProcessUR(context.TODO(), ur)
 
 	// CRITICAL ASSERTIONS:
 	// With the bug fix, Failed() should be called because the error from
@@ -547,7 +547,7 @@ func TestProcessUR_ApplyGenerateError_MultipleRules_StillFails(t *testing.T) {
 		Status: kyvernov2.UpdateRequestStatus{},
 	}
 
-	_ = controller.ProcessUR(ur)
+	_ = controller.ProcessUR(context.TODO(), ur)
 
 	// Even with multiple rules where some might "succeed" (return nil),
 	// any failure should cause Failed() to be called
@@ -681,7 +681,7 @@ func TestProcessUR_PhantomUID_DoesNotGenerateDownstream(t *testing.T) {
 
 	// Process the UR - with the fix, GetResource detects the UID mismatch
 	// and returns nil, so ProcessUR marks the rule as Failed
-	err := controller.ProcessUR(ur)
+	err := controller.ProcessUR(context.TODO(), ur)
 
 	assert.NoError(t, err, "ProcessUR should not return an error")
 

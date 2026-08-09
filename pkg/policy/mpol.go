@@ -70,16 +70,16 @@ func (pc *policyController) newCELMutateURForTrigger(policyKey string, trigger *
 	return ur, nil
 }
 
-func (pc *policyController) createTriggerURs(policyKey string, matchConstraints *admissionregistrationv1.MatchResources, namespace string) error {
+func (pc *policyController) createTriggerURs(ctx context.Context, policyKey string, matchConstraints *admissionregistrationv1.MatchResources, namespace string) error {
 	if matchConstraints == nil {
 		return nil
 	}
-	triggers := filterTriggersByNamespace(pc.getGpolTriggers(matchConstraints), namespace)
+	triggers := filterTriggersByNamespace(pc.getGpolTriggers(ctx, matchConstraints), namespace)
 	var errs []error
 	for _, trigger := range triggers {
 		ur, err := pc.newCELMutateURForTrigger(policyKey, trigger)
 		if err == nil {
-			err = pc.submitUR(context.TODO(), ur)
+			err = pc.submitUR(ctx, ur)
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -90,18 +90,18 @@ func (pc *policyController) createTriggerURs(policyKey string, matchConstraints 
 
 // createURForMutatingPolicy creates a CELMutate UpdateRequest that causes the background
 // controller to apply this policy to all currently matching resources.
-func (pc *policyController) createURForMutatingPolicy(mpol *policiesv1beta1.MutatingPolicy) error {
+func (pc *policyController) createURForMutatingPolicy(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy) error {
 	if mpol.GetTargetMatchConstraints().Expression != "" {
-		return pc.createTriggerURs(mpol.GetName(), mpol.Spec.MatchConstraints, "")
+		return pc.createTriggerURs(ctx, mpol.GetName(), mpol.Spec.MatchConstraints, "")
 	}
-	return pc.submitUR(context.TODO(), newCELMutateUR(mpol))
+	return pc.submitUR(ctx, newCELMutateUR(mpol))
 }
 
 // createURForNamespacedMutatingPolicy creates a CELMutate UpdateRequest for a
 // NamespacedMutatingPolicy background scan.
-func (pc *policyController) createURForNamespacedMutatingPolicy(nmpol *policiesv1beta1.NamespacedMutatingPolicy) error {
+func (pc *policyController) createURForNamespacedMutatingPolicy(ctx context.Context, nmpol *policiesv1beta1.NamespacedMutatingPolicy) error {
 	if nmpol.GetTargetMatchConstraints().Expression != "" {
-		return pc.createTriggerURs(nmpol.GetNamespace()+"/"+nmpol.GetName(), nmpol.Spec.MatchConstraints, nmpol.GetNamespace())
+		return pc.createTriggerURs(ctx, nmpol.GetNamespace()+"/"+nmpol.GetName(), nmpol.Spec.MatchConstraints, nmpol.GetNamespace())
 	}
-	return pc.submitUR(context.TODO(), newCELMutateURFromNamespacedPolicy(nmpol))
+	return pc.submitUR(ctx, newCELMutateURFromNamespacedPolicy(nmpol))
 }

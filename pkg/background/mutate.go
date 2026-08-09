@@ -9,12 +9,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *controller) handleMutatePolicyAbsence(ur *kyvernov2.UpdateRequest) error {
+func (c *controller) handleMutatePolicyAbsence(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	selector := &metav1.LabelSelector{
 		MatchLabels: common.MutateLabelsSet(ur.Spec.Policy, nil),
 	}
 	return c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).DeleteCollection(
-		context.TODO(),
+		ctx,
 		metav1.DeleteOptions{},
 		metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
 	)

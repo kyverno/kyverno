@@ -150,18 +150,18 @@ func (c *controller) Run(ctx context.Context, workers int) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *controller) worker(ctx context.Context) {
-	for c.processNextWorkItem() {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *controller) processNextWorkItem() bool {
+func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
 
 	defer c.queue.Done(key)
-	err := c.syncUpdateRequest(key.(string))
+	err := c.syncUpdateRequest(ctx, key.(string))
 	c.handleErr(err, key)
 	return true
 }
@@ -188,7 +188,7 @@ func (c *controller) handleErr(err error, key interface{}) {
 	c.queue.Forget(key)
 }
 
-func (c *controller) syncUpdateRequest(key string) error {
+func (c *controller) syncUpdateRequest(ctx context.Context, key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	_, urName, err := cache.SplitMetaNamespaceKey(key)
@@ -204,17 +204,17 @@ func (c *controller) syncUpdateRequest(key string) error {
 	ur = ur.DeepCopy()
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil && apierrors.IsNotFound(err) {
 		if ur.Spec.GetRequestType() == kyvernov2.Mutate {
-			return c.handleMutatePolicyAbsence(ur)
+			return c.handleMutatePolicyAbsence(ctx, ur)
 		}
 	}
 
 	if ur.Status.State == kyvernov2.Pending {
-		if err := c.processUR(ur); err != nil {
+		if err := c.processUR(ctx, ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
 	}
 
-	urStatus, err := c.reconcileURStatus(ur)
+	urStatus, err := c.reconcileURStatus(ctx, ur)
 	if err != nil {
 		return err
 	}
@@ -246,27 +246,27 @@ func (c *controller) updateUR(_, cur interface{}) {
 	c.enqueueUpdateRequest(curUr)
 }
 
-func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
+func (c *controller) processUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
 	case kyvernov2.Mutate:
 		ctrl := mutate.NewMutateExistingController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
-		return ctrl.ProcessUR(ur)
+		return ctrl.ProcessUR(ctx, ur)
 	case kyvernov2.Generate:
 		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
-		return ctrl.ProcessUR(ur)
+		return ctrl.ProcessUR(ctx, ur)
 	case kyvernov2.CELGenerate:
 		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.eventGen, logger, c.configuration)
-		return ctrl.ProcessUR(ur)
+		return ctrl.ProcessUR(ctx, ur)
 	case kyvernov2.CELMutate:
 		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen, c.configuration)
-		return processor.Process(ur)
+		return processor.Process(ctx, ur)
 	}
 	return nil
 }
 
-func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
-	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
+func (c *controller) reconcileURStatus(ctx context.Context, ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
+	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, ur.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// UR was already deleted (e.g., by another controller or manually), nothing to do
@@ -281,10 +281,10 @@ func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.U
 	var errUpdate error
 	switch new.Status.State {
 	case kyvernov2.Completed:
-		errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
 	case kyvernov2.Failed:
 		new.Status.State = kyvernov2.Pending
-		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, new, metav1.UpdateOptions{})
 	}
 	return new.Status.State, errUpdate
 }

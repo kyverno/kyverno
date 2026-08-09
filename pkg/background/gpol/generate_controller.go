@@ -81,7 +81,7 @@ func NewCELGenerateController(
 	}
 }
 
-func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
+func (c *CELGenerateController) ProcessUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	generatedResources := make([]kyvernov1.ResourceSpec, 0)
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
@@ -130,7 +130,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		} else {
 			request = celengine.RequestFromAdmission(workerCtx, *admissionRequest)
 		}
-		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+		policy, err := c.provider.Get(ctx, ur.Spec.GetPolicyKey())
 		if err != nil {
 			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
@@ -198,7 +198,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					}(resourcesToSync)
 				}
 			}
-			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
+			if err := c.audit(ctx, engineResponse, generatedResources); err != nil {
 				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
 			}
 			if len(engineResponse.PolicyResponse.Rules) > 0 &&
@@ -207,7 +207,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 		}
 		if c.needsReports(*trigger) && len(reportableEngineResponses) > 0 {
-			if err := c.createReports(context.TODO(), *trigger, reportableEngineResponses...); err != nil {
+			if err := c.createReports(ctx, *trigger, reportableEngineResponses...); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
 		}
