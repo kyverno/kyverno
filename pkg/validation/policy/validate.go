@@ -1283,7 +1283,10 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 	case reflect.Slice:
 		values := reflect.ValueOf(v)
 		for i := 0; i < values.Len(); i++ {
-			value := values.Index(i).Interface().(string)
+			value, ok := values.Index(i).Interface().(string)
+			if !ok {
+				return fmt.Sprintf("value[%d]", i), fmt.Errorf("'value[%d]' found to be of the type %T. The provided values are expected to be strings", i, values.Index(i).Interface())
+			}
 			if !valuesAllowed[value] {
 				return fmt.Sprintf("value[%d]", i), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", value)
 			}
