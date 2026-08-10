@@ -9,6 +9,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -19,6 +20,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -127,9 +129,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	}
 	var result *compiler.EvaluationResult
 	var err error
-	if jsonPayload != nil {
+	switch {
+	case jsonPayload != nil:
 		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)
-	} else {
+	case policy.ExtractionMode:
+		result, err = e.evaluateExtracted(ctx, policy, attr, request, namespace, context)
+	default:
 		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context)
 	}
 	// TODO: error is about match conditions here ?
@@ -203,6 +208,50 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		}
 	}
 	return response
+}
+
+// evaluateExtracted implements ExtractionMode: instead of evaluating
+// CompiledPolicy against the real admitted object (a custom workload CRD,
+// whose shape CompiledPolicy's Pod-targeted rule knows nothing about), it
+// extracts every pod-template-shaped subtree, synthesizes a Pod from each,
+// and evaluates the same unmodified CompiledPolicy against each synthesized
+// Pod in turn. Any failing/erroring template denies the whole request; a
+// resource with no discoverable pod template is an explicit error rather
+// than a silent pass, since a coverage gap should be visible during this
+// phase rather than mistaken for correct enforcement.
+func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) (*compiler.EvaluationResult, error) {
+	obj, ok := attr.GetObject().(*unstructured.Unstructured)
+	if !ok || obj == nil {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())}, nil
+	}
+	templates := extract.ExtractPodTemplates(obj.Object)
+	if len(templates) == 0 {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", obj.GetAPIVersion(), obj.GetKind())}, nil
+	}
+	var oldTemplates []extract.Extracted
+	if oldObj, ok := attr.GetOldObject().(*unstructured.Unstructured); ok && oldObj != nil {
+		oldTemplates = extract.ExtractPodTemplates(oldObj.Object)
+	}
+	var last *compiler.EvaluationResult
+	for i, tpl := range templates {
+		var oldTpl *extract.Extracted
+		if i < len(oldTemplates) {
+			oldTpl = &oldTemplates[i]
+		}
+		synthAttr := extract.SynthesizePodAttributes(tpl, oldTpl, attr)
+		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, request, namespace, context)
+		if err != nil {
+			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+		}
+		if result != nil && (result.Error != nil || !result.Result) {
+			if result.Message != "" {
+				result.Message = fmt.Sprintf("%s (pod template at %s)", result.Message, tpl.Path)
+			}
+			return result, nil
+		}
+		last = result
+	}
+	return last, nil
 }
 
 const validationIndexKey = "cel.validationIndex"

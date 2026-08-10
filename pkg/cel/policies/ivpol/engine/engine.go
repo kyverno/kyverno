@@ -2,11 +2,13 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
@@ -235,6 +237,14 @@ func (e *engineImpl) handleMutation(
 	var responses []eval.ImageVerifyPolicyResponse
 	seen := map[string]bool{}
 	for _, ivpol := range policies {
+		if ivpol.ExtractionMode {
+			// Digest-pinning mutation for extraction-mode targets would need
+			// to write the patch back into the parent object at the
+			// extracted template's path, not the top level - not
+			// implemented yet. Skip rather than emit a patch at the wrong
+			// location; HandleValidating still enforces the policy.
+			continue
+		}
 		validationCfg := ivpol.Policy.GetSpec().ValidationConfigurations
 		if validationCfg.MutateDigest != nil && !*validationCfg.MutateDigest {
 			continue
@@ -282,6 +292,57 @@ func (e *engineImpl) handleMutation(
 		}
 	}
 	return patches, responses, nil
+}
+
+// evaluateExtractedIv mirrors vpol's evaluateExtracted: instead of evaluating
+// compiled against the real admitted object (a custom workload CRD, whose
+// shape the policy's Pod-targeted rule knows nothing about), it extracts
+// every pod-template-shaped subtree, synthesizes a Pod from each, and
+// evaluates the same unmodified compiled policy against each synthesized Pod
+// in turn. Any failing/erroring template denies the whole request; a
+// resource with no discoverable pod template is an explicit error rather
+// than a silent pass.
+func (e *engineImpl) evaluateExtractedIv(
+	ctx context.Context,
+	compiled eval.CompiledPolicy,
+	ictx imagedataloader.ImageContext,
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	libctx libs.Context,
+) (*eval.EvaluationResult, error) {
+	obj, ok := attr.GetObject().(*unstructured.Unstructured)
+	if !ok || obj == nil {
+		return &eval.EvaluationResult{Error: fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())}, nil
+	}
+	templates := extract.ExtractPodTemplates(obj.Object)
+	if len(templates) == 0 {
+		return &eval.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", obj.GetAPIVersion(), obj.GetKind())}, nil
+	}
+	var oldTemplates []extract.Extracted
+	if oldObj, ok := attr.GetOldObject().(*unstructured.Unstructured); ok && oldObj != nil {
+		oldTemplates = extract.ExtractPodTemplates(oldObj.Object)
+	}
+	var last *eval.EvaluationResult
+	for i, tpl := range templates {
+		var oldTpl *extract.Extracted
+		if i < len(oldTemplates) {
+			oldTpl = &oldTemplates[i]
+		}
+		synthAttr := extract.SynthesizePodAttributes(tpl, oldTpl, attr)
+		result, err := compiled.Evaluate(ctx, ictx, synthAttr, request, namespace, true, libctx)
+		if err != nil {
+			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+		}
+		if result != nil && (result.Error != nil || !result.Result) {
+			if result.Message != "" {
+				result.Message = fmt.Sprintf("%s (pod template at %s)", result.Message, tpl.Path)
+			}
+			return result, nil
+		}
+		last = result
+	}
+	return last, nil
 }
 
 func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, namespace runtime.Object) (bool, error) {
@@ -390,7 +451,12 @@ func (e *engineImpl) evaluatePolicies(
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
-		result, err := compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
+		var result *eval.EvaluationResult
+		if ivpol.ExtractionMode {
+			result, err = e.evaluateExtractedIv(ctx, compiled, ictx, attr, request, namespace, libctx)
+		} else {
+			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
+		}
 		if err != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))

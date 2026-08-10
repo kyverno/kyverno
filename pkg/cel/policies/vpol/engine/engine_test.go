@@ -7,13 +7,18 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // buildJSONPolicy creates a ValidatingPolicy in JSON evaluation mode with the
@@ -79,6 +84,119 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 	rule := resp.Policies[0].Rules[0]
 	assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
 	assert.Equal(t, "0", rule.Properties()["cel.validationIndex"])
+}
+
+// jobSetWithImage builds a minimal JobSet-shaped object (same shape as the
+// repro used against issue #16477) with the given container image.
+func jobSetWithImage(image string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]any{"name": "latest-tag-jobset", "namespace": "default"},
+		"spec": map[string]any{
+			"replicatedJobs": []any{
+				map[string]any{
+					"name": "workers",
+					"template": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{
+										map[string]any{"name": "worker", "image": image},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+}
+
+// buildDisallowLatestTagPolicy builds a Pod-targeted ValidatingPolicy, left
+// completely unmodified, with autogen configured for a custom CRD via
+// ExtractionReplacementsRef (see pkg/cel/policies/vpol/autogen).
+func buildDisallowLatestTagPolicy() *policiesv1beta1.ValidatingPolicy {
+	return &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "disallow-latest-tag"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+					Controllers: []string{"jobsets.v1alpha2.jobset.x-k8s.io"},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))"},
+			},
+		},
+	}
+}
+
+func TestHandle_ExtractionMode_JobSet(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+
+	assertSingleRuleResult := func(t *testing.T, image string) *engineapi.RuleResponse {
+		t.Helper()
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage(image),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1, "exactly one policy entry (the extraction-mode JobSet target) should have fired, not the base Pod-targeted one")
+		require.Len(t, fired[0].Rules, 1)
+		return &fired[0].Rules[0]
+	}
+
+	t.Run("bad image is denied, with the failing template's path in the message", func(t *testing.T) {
+		rule := assertSingleRuleResult(t, "bash:latest")
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Contains(t, rule.Message(), "spec.replicatedJobs[0].template.spec.template")
+	})
+
+	t.Run("compliant image is allowed", func(t *testing.T) {
+		rule := assertSingleRuleResult(t, "bash:1.0")
+		assert.Equal(t, engineapi.RuleStatusPass, rule.Status())
+	})
 }
 
 func TestWithValidationIndex(t *testing.T) {
