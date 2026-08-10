@@ -271,6 +271,33 @@ func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_ExpectedItem(t *
 	assert.Nil(t, err)
 }
 
+// A `{{request.operation}}` condition whose `value` list contains non-strings
+// used to panic on an unchecked type assertion rather than being rejected.
+// https://github.com/kyverno/kyverno/issues/16969
+func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_NonStringItem(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value": [
+				1,
+				2
+			]
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.Nil(t, err)
+
+	path, err := validateConditions(dcs, "conditions")
+	assert.NotNil(t, err)
+	assert.Contains(t, path, "value[0]")
+	assert.Contains(t, err.Error(), "expected to be strings")
+}
+
 func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *testing.T) {
 	preConditions := []byte(`
 	[
