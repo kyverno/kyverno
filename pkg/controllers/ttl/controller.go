@@ -153,18 +153,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
 		}
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
+		err = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
 			if c.metrics != nil {
-				c.metrics.RecordTTLFailure(context.Background(), c.gvr, metaObj.GetNamespace())
+				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
 			}
 			return err
 		}
 		logger.V(2).Info("resource has been deleted")
 	} else {
 		if c.metrics != nil {
-			c.metrics.RecordDeletedObject(context.Background(), c.gvr, metaObj.GetNamespace())
+			c.metrics.RecordDeletedObject(ctx, c.gvr, metaObj.GetNamespace())
 		}
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
