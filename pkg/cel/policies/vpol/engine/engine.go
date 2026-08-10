@@ -228,15 +228,19 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	if len(templates) == 0 {
 		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", obj.GetAPIVersion(), obj.GetKind())}, nil
 	}
-	var oldTemplates []extract.Extracted
+	var oldByPath map[string]extract.Extracted
 	if oldObj, ok := attr.GetOldObject().(*unstructured.Unstructured); ok && oldObj != nil {
-		oldTemplates = extract.ExtractPodTemplates(oldObj.Object)
+		oldTemplates := extract.ExtractPodTemplates(oldObj.Object)
+		oldByPath = make(map[string]extract.Extracted, len(oldTemplates))
+		for _, t := range oldTemplates {
+			oldByPath[t.Path] = t
+		}
 	}
 	var last *compiler.EvaluationResult
-	for i, tpl := range templates {
+	for _, tpl := range templates {
 		var oldTpl *extract.Extracted
-		if i < len(oldTemplates) {
-			oldTpl = &oldTemplates[i]
+		if o, ok := oldByPath[tpl.Path]; ok {
+			oldTpl = &o
 		}
 		synthAttr := extract.SynthesizePodAttributes(tpl, oldTpl, attr)
 		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, request, namespace, context)

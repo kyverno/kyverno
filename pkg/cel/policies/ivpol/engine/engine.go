@@ -319,15 +319,19 @@ func (e *engineImpl) evaluateExtractedIv(
 	if len(templates) == 0 {
 		return &eval.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", obj.GetAPIVersion(), obj.GetKind())}, nil
 	}
-	var oldTemplates []extract.Extracted
+	var oldByPath map[string]extract.Extracted
 	if oldObj, ok := attr.GetOldObject().(*unstructured.Unstructured); ok && oldObj != nil {
-		oldTemplates = extract.ExtractPodTemplates(oldObj.Object)
+		oldTemplates := extract.ExtractPodTemplates(oldObj.Object)
+		oldByPath = make(map[string]extract.Extracted, len(oldTemplates))
+		for _, t := range oldTemplates {
+			oldByPath[t.Path] = t
+		}
 	}
 	var last *eval.EvaluationResult
-	for i, tpl := range templates {
+	for _, tpl := range templates {
 		var oldTpl *extract.Extracted
-		if i < len(oldTemplates) {
-			oldTpl = &oldTemplates[i]
+		if o, ok := oldByPath[tpl.Path]; ok {
+			oldTpl = &o
 		}
 		synthAttr := extract.SynthesizePodAttributes(tpl, oldTpl, attr)
 		result, err := compiled.Evaluate(ctx, ictx, synthAttr, request, namespace, true, libctx)
