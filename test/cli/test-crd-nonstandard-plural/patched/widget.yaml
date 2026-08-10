@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: my-widget
+  namespace: default
+  annotations:
+    role-count: "1"   # proves resource.List found the TeleportRoleV8 instance
+  labels:
+    app.kubernetes.io/managed-by: kyverno
