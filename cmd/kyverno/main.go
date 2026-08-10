@@ -517,7 +517,7 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+		kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 		informerHealth := health.NewTracker(setup.Logger.WithName("informer-health"), clock.RealClock{})
 		registerAdmissionInformers(kyvernoInformer, setup.KyvernoClient, informerHealth, internal.PolicyExceptionEnabled())
 		certRenewer := tls.NewCertRenewer(

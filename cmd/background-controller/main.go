@@ -204,9 +204,9 @@ func main() {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
-		// informer factories
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
+	// informer factories
+	kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -305,9 +305,9 @@ func main() {
 			internal.LeaderElectionRetryPeriod(),
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
-				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+			// create leader factories
+			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 				nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 
 				restMapper, err := restmapper.GetRESTMapper(setup.KyvernoDynamicClient)
