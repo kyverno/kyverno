@@ -628,6 +628,37 @@ func TestExtractCertExtensionValue(t *testing.T) {
 	}
 }
 
+func TestDecodeStatementStringPayload(t *testing.T) {
+	// The happy path through the payload type check: a well formed base64
+	// in-toto statement still decodes.
+	statement := in_toto.Statement{ //nolint:staticcheck
+		StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+			Type:          in_toto.StatementInTotoV01,
+			PredicateType: "https://slsa.dev/provenance/v0.2",
+		},
+		Predicate: map[string]interface{}{"builder": "test"},
+	}
+	statementBytes, err := json.Marshal(statement)
+	if err != nil {
+		t.Fatalf("failed to marshal statement: %v", err)
+	}
+	envelope, err := json.Marshal(map[string]any{
+		"payload": base64.StdEncoding.EncodeToString(statementBytes),
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal envelope: %v", err)
+	}
+
+	sig, err := static.NewSignature(envelope, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decoded, _, err := decodeStatement(sig)
+	assert.NoError(t, err)
+	assert.Equal(t, "https://slsa.dev/provenance/v0.2", decoded["type"])
+}
+
 func TestDecodeStatementNonStringPayload(t *testing.T) {
 	// The signature payload is unmarshalled into a map, so "payload" is checked
 	// for presence but its type is whatever the JSON carried. A non-string value
