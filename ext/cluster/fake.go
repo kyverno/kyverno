@@ -73,23 +73,26 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 	list := []schema.GroupVersionResource{}
 	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
 
-	// Collect CRDs in a first pass so we can build a REST mapper before the main
-	// loop. The mapper lets us detect CRDs whose plural name does not match the
-	// lowercase-kind + "s" heuristic (e.g. TeleportRoleV8: CRD plural
-	// "teleportrolesv8", UnsafeGuessKindToResource gives "teleportrolev8s").
-	// Without this, resource.List on the correct plural returns empty because
-	// tracker.Add stores instances under the wrong key.
-	var collectedCRDs []*apiextensionsv1.CustomResourceDefinition
+	// Build a remap table from CRDs whose declared plural differs from the
+	// UnsafeGuessKindToResource heuristic (e.g. TeleportRoleV8: CRD plural
+	// "teleportrolesv8", heuristic gives "teleportrolev8s"). tracker.Add always
+	// uses the heuristic, so resource.List on the correct CRD plural would return
+	// empty without the remappingDynamic wrapper below.
+	gvrRemap := make(map[schema.GroupVersionResource]schema.GroupVersionResource)
 	for _, o := range objects {
-		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
-			collectedCRDs = append(collectedCRDs, crd)
+		crd, ok := o.(*apiextensionsv1.CustomResourceDefinition)
+		if !ok {
+			continue
+		}
+		for _, version := range crd.Spec.Versions {
+			gvk := schema.GroupVersionKind{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind}
+			guessed, _ := meta.UnsafeGuessKindToResource(gvk)
+			if crd.Spec.Names.Plural != guessed.Resource {
+				actual := schema.GroupVersionResource{Group: crd.Spec.Group, Version: version.Name, Resource: crd.Spec.Names.Plural}
+				gvrRemap[actual] = guessed
+			}
 		}
 	}
-	crdAPIGroups := make([]*restmapper.APIGroupResources, 0, len(collectedCRDs))
-	for _, crd := range collectedCRDs {
-		crdAPIGroups = append(crdAPIGroups, convertCRDToAPIGroupResources(crd))
-	}
-	crdMapper := restmapper.NewDiscoveryRESTMapper(crdAPIGroups)
 
 	for _, o := range objects {
 		if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
@@ -140,26 +143,6 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 		gvrToGVK[plural] = gvk
 
 		list = append(list, plural)
-	}
-
-	// Build a remap table: CRD-declared GVR → guessed GVR (where tracker.Add
-	// actually stores objects). tracker.Add uses UnsafeGuessKindToResource, so
-	// for CRDs with non-standard plural names the two diverge. We wrap the
-	// dynamic interface below so that callers using the correct CRD plural are
-	// transparently redirected to the GVR the tracker knows about.
-	gvrRemap := make(map[schema.GroupVersionResource]schema.GroupVersionResource)
-	for _, o := range objects {
-		obj, ok := o.(*unstructured.Unstructured)
-		if !ok {
-			continue
-		}
-		gvk := obj.GroupVersionKind()
-		guessed, _ := meta.UnsafeGuessKindToResource(gvk)
-		mapping, err := crdMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil || mapping.Resource == guessed {
-			continue
-		}
-		gvrRemap[mapping.Resource] = guessed // teleportrolesv8 → teleportrolev8s
 	}
 
 	allFakeObjects := make([]runtime.Object, 0, len(objects))

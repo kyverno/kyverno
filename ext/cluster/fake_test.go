@@ -126,8 +126,9 @@ func TestDClient_ConfigMapListDoesNotPanic(t *testing.T) {
 // what meta.UnsafeGuessKindToResource would produce.
 //
 // Concretely: kind "TeleportRoleV8" has CRD plural "teleportrolesv8", but the heuristic
-// produces "teleportrolev8s". Before the fix, resource.List with the correct CRD plural
-// returned an empty list because instances were stored under the wrong GVR key.
+// produces "teleportrolev8s". tracker.Add stores instances under the heuristic key;
+// DClient wraps the dynamic interface so that callers using the correct CRD plural
+// ("teleportrolesv8") are transparently redirected to where the tracker stored them.
 func TestDClient_CustomResourceNonStandardPluralListSucceeds(t *testing.T) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
