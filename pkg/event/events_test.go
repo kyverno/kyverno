@@ -199,6 +199,10 @@ func Test_NewFailedEvent_no_rule(t *testing.T) {
 
 func Test_NewCleanupPolicyEvent_success(t *testing.T) {
 	pol := &kyvernov2.ClusterCleanupPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v2",
+			Kind:       "ClusterCleanupPolicy",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "remove-stale-pods",
 			UID:  "pol-uid-1",
@@ -213,6 +217,8 @@ func Test_NewCleanupPolicyEvent_success(t *testing.T) {
 	ev := NewCleanupPolicyEvent(pol, res, nil)
 
 	assert.Equal(t, "remove-stale-pods", ev.Regarding.Name)
+	assert.Equal(t, "kyverno.io/v2", ev.Regarding.APIVersion)
+	assert.Equal(t, "ClusterCleanupPolicy", ev.Regarding.Kind)
 	assert.Equal(t, PolicyApplied, ev.Reason)
 	assert.Equal(t, ResourceCleanedUp, ev.Action)
 	assert.Equal(t, CleanupController, ev.Source)
@@ -222,6 +228,10 @@ func Test_NewCleanupPolicyEvent_success(t *testing.T) {
 
 func Test_NewCleanupPolicyEvent_failure(t *testing.T) {
 	pol := &kyvernov2.ClusterCleanupPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v2",
+			Kind:       "ClusterCleanupPolicy",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cleanup-cm",
 		},
@@ -242,6 +252,10 @@ func Test_NewCleanupPolicyEvent_failure(t *testing.T) {
 
 func Test_NewCleanupPolicyEvent_namespaced(t *testing.T) {
 	pol := &kyvernov2.CleanupPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v2",
+			Kind:       "CleanupPolicy",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret-cleaner",
 			Namespace: "team-a",
@@ -257,6 +271,8 @@ func Test_NewCleanupPolicyEvent_namespaced(t *testing.T) {
 
 	assert.Equal(t, "secret-cleaner", ev.Regarding.Name)
 	assert.Equal(t, "team-a", ev.Regarding.Namespace)
+	assert.Equal(t, "kyverno.io/v2", ev.Regarding.APIVersion)
+	assert.Equal(t, "CleanupPolicy", ev.Regarding.Kind)
 	assert.Equal(t, ResourceCleanedUp, ev.Action)
 }
 
@@ -369,3 +385,109 @@ func Test_NewPolicyAppliedEvent_NamespacedMutatingPolicy(t *testing.T) {
 	assert.Contains(t, ev.Message, "Secret team-a/credentials is successfully mutated")
 	assert.Equal(t, "team-a", ev.Regarding.Namespace)
 }
+
+func Test_NewBackgroundFailedEvent(t *testing.T) {
+	pol := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v1",
+			Kind:       "ClusterPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+	}
+	enginePol := engineapi.NewKyvernoPolicy(pol)
+
+	res := kyvernov1.ResourceSpec{
+		APIVersion: "v1",
+		Kind:       "Pod",
+		Namespace:  "default",
+		Name:       "test-pod",
+	}
+
+	err := errors.New("test error")
+	events := NewBackgroundFailedEvent(err, enginePol, "test-rule", GeneratePolicyController, res)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "kyverno.io/v1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "ClusterPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "test-policy", events[0].Regarding.Name)
+	assert.Equal(t, "v1", events[0].Related.APIVersion)
+	assert.Equal(t, "Pod", events[0].Related.Kind)
+}
+
+func Test_NewBackgroundSuccessEvent(t *testing.T) {
+	pol := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v1",
+			Kind:       "ClusterPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+	}
+	enginePol := engineapi.NewKyvernoPolicy(pol)
+
+	res := kyvernov1.ResourceSpec{
+		APIVersion: "v1",
+		Kind:       "Pod",
+		Namespace:  "default",
+		Name:       "test-pod",
+	}
+
+	events := NewBackgroundSuccessEvent(GeneratePolicyController, enginePol, []kyvernov1.ResourceSpec{res})
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "kyverno.io/v1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "ClusterPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "test-policy", events[0].Regarding.Name)
+}
+
+func Test_NewPolicyExceptionEvents(t *testing.T) {
+	pol := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v1",
+			Kind:       "ClusterPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+	}
+	enginePol := engineapi.NewKyvernoPolicy(pol)
+
+	exception := &kyvernov2.PolicyException{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kyverno.io/v2",
+			Kind:       "PolicyException",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-exception",
+			Namespace: "default",
+		},
+	}
+
+	ruleResp := engineapi.NewRuleResponse("test-rule", engineapi.Validation, "msg", engineapi.RuleStatusSkip, nil).WithExceptions([]engineapi.GenericException{engineapi.NewPolicyException(exception)})
+
+	resource := unstructured.Unstructured{}
+	resource.SetKind("Pod")
+	resource.SetNamespace("default")
+	resource.SetName("test-pod")
+
+	engineResp := engineapi.EngineResponse{
+		Resource:        resource,
+		PatchedResource: resource,
+	}
+	engineResp = engineResp.WithPolicy(enginePol)
+
+	events := NewPolicyExceptionEvents(engineResp, *ruleResp, AdmissionController)
+
+	assert.Len(t, events, 2)
+	assert.Equal(t, "kyverno.io/v2", events[0].Regarding.APIVersion)
+	assert.Equal(t, "PolicyException", events[0].Regarding.Kind)
+	assert.Equal(t, "test-exception", events[0].Regarding.Name)
+
+	assert.Equal(t, "kyverno.io/v1", events[1].Regarding.APIVersion)
+	assert.Equal(t, "ClusterPolicy", events[1].Regarding.Kind)
+	assert.Equal(t, "test-policy", events[1].Regarding.Name)
+}
+
