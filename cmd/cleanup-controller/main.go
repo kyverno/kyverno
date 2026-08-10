@@ -174,11 +174,11 @@ func main() {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
-		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
-		// informer factories
-		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
-		// listers
+	checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
+	// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// log policy changes
 		genericloggingcontroller.NewController(
@@ -247,11 +247,11 @@ func main() {
 			internal.LeaderElectionRetryPeriod(),
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
-				// informer factories
-				kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+			// informer factories
+			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 
-				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
+			cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
 				provider := engine.NewFetchProvider(
 					compiler.NewCompiler(),
 					kyvernoInformer.Policies().V1beta1().DeletingPolicies().Lister(),
