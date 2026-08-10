@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+subresources:
+- parentResource:
+    group: ""
+    kind: Pod
+    name: pods
+    namespaced: true
+    singularName: ""
+    verbs: null
+    version: v1
+  subresource:
+    group: ""
+    kind: Binding
+    name: pods/binding
+    namespaced: true
+    singularName: ""
+    verbs: null
+    version: v1

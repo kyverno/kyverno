@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+variables: values.yaml
+results:
+- isMutatingPolicy: true
+  kind: Binding
+  patchedResources: patched-resource.yaml
+  policy: mutate-add-aws-zone-id
+  resources:
+  - default/pod-to-get-aws-zone-id
+  result: pass
