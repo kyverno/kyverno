@@ -3,7 +3,7 @@ package kube
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_GetKindFromGVK(t *testing.T) {
