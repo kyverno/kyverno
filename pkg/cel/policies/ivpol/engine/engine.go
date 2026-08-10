@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -245,7 +246,9 @@ func (e *engineImpl) handleMutation(
 		if !matches {
 			continue
 		}
-		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
+		// digest mutation performs no verification, so it takes no part in the
+		// request-scoped verification results
+		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, nil)
 		if errList != nil {
 			// compile errors are surfaced by the validating webhook, skip mutation
 			continue
@@ -369,6 +372,10 @@ func (e *engineImpl) evaluatePolicies(
 		return nil, err
 	}
 	c := eval.NewCompiler(ictx, e.lister, requestResource, e.ivCache)
+	// shared by every policy compiled below, so required sees cross-policy evidence
+	verifications := imageverify.NewImageVerificationResults()
+	// resolved after the loop: evidence may come from a policy evaluated later
+	var pendingRequired []pendingRequiredCheck
 	for _, ivpol := range policies {
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,
@@ -376,7 +383,7 @@ func (e *engineImpl) evaluatePolicies(
 			Exceptions: ivpol.Exceptions,
 		}
 		startTime := time.Now()
-		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
+		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
 		if errList != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -414,6 +421,13 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RuleError(ruleName, engineapi.ImageVerify, "error", result.Error, nil)
 			} else if result.Result {
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
+				pendingRequired = append(pendingRequired, pendingRequiredCheck{
+					name:             ivpol.Policy.GetName(),
+					compiled:         compiled,
+					images:           result.MatchedImages,
+					auditAnnotations: result.AuditAnnotations,
+					startTime:        startTime,
+				})
 			} else {
 				response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 			}
@@ -421,5 +435,34 @@ func (e *engineImpl) evaluatePolicies(
 		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		responses[ivpol.Policy.GetName()] = response
 	}
+	enforceRequired(pendingRequired, responses)
 	return responses, nil
+}
+
+// pendingRequiredCheck defers a passing policy's required check until every
+// policy in the request has contributed its verifications.
+type pendingRequiredCheck struct {
+	name             string
+	compiled         eval.CompiledPolicy
+	images           []string
+	auditAnnotations map[string]string
+	startTime        time.Time
+}
+
+// enforceRequired turns a policy that passed its validations into a failure when
+// one of the images it matched was never verified, by any policy in the request.
+func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.ImageVerifyPolicyResponse) {
+	for _, check := range checks {
+		err := check.compiled.EnforceRequired(check.images)
+		if err == nil {
+			continue
+		}
+		response, ok := responses[check.name]
+		if !ok {
+			continue
+		}
+		result := *engineapi.RuleFail(check.name, engineapi.ImageVerify, err.Error(), check.auditAnnotations)
+		response.Result = result.WithStats(engineapi.NewExecutionStats(check.startTime, time.Now()))
+		responses[check.name] = response
+	}
 }
