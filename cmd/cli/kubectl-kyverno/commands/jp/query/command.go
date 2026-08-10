@@ -160,7 +160,8 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 	}
 	result, err := q.Search(input)
 	if err != nil {
-		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
+		var syntaxError gojmespath.SyntaxError
+		if errors.As(err, &syntaxError) {
 			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())
 		}
 		return nil, fmt.Errorf("error evaluating JMESPath expression: %w", err)
