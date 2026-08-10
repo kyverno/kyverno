@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-team-label-on-cluster-scoped
+spec:
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        environment: production
+    resourceRules:
+    - apiGroups:   ["rbac.authorization.k8s.io"]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [clusterroles]
+  validations:
+    - expression: >-
+        has(object.metadata.labels) && 'team' in object.metadata.labels
+      message: >-
+        ClusterRoles targeted by this policy must have a 'team' label.

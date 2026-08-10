@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chainsaw-test-clusterrole-reject
+  labels:
+    # This label matches the policy's namespaceSelector, so the policy
+    # will fire and the missing 'team' label will cause a denial.
+    environment: production
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]

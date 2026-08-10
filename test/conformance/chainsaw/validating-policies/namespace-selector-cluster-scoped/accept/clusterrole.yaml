@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chainsaw-test-clusterrole-accept
+  labels:
+    # This label does NOT match the policy's namespaceSelector (wants
+    # environment=production), so the policy is skipped entirely and
+    # the ClusterRole is admitted even without a 'team' label.
+    environment: staging
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
