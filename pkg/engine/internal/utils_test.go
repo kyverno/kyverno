@@ -3,6 +3,9 @@ package internal
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,4 +77,22 @@ func TestBuildStatementMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVerifyAttestationRejectsNonStringType(t *testing.T) {
+	// buildStatementMap's error has to reach the caller rather than being
+	// swallowed, since a malformed statement should fail the verification it
+	// belongs to. The error is returned before any other field of the verifier
+	// is touched, so a bare logger is enough here.
+	iv := &imageVerifier{logger: logr.Discard()}
+
+	err := iv.verifyAttestation(
+		[]map[string]any{{"type": float64(1)}},
+		kyvernov1.Attestation{Type: "https://slsa.dev/provenance/v0.2"},
+		apiutils.ImageInfo{},
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read attestations for image")
+	assert.Contains(t, err.Error(), "found to be of the type float64")
 }
