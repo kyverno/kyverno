@@ -47,7 +47,7 @@ require (
 	github.com/openreports/reports-api v0.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
-	github.com/robfig/cron/v3 v3.0.1
+	github.com/robfig/cron v1.2.0
 	github.com/rs/zerolog v1.35.1
 	github.com/sigstore/cosign/v3 v3.1.2
 	github.com/sigstore/k8s-manifest-sigstore v0.5.5-0.20251214123302-4152ec03ed3d
