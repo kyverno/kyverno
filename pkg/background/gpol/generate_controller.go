@@ -183,7 +183,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					// Pass resourcesToSync as an argument to safely capture it for the goroutine
 					go func(resources []*unstructured.Unstructured) {
 						if len(resources) > 0 {
-							if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), resources); err != nil {
+							if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), &ruleTrigger, resources); err != nil {
 								logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 							} else {
 								logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
