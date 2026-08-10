@@ -43,28 +43,9 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- $preconditions := index .Values "policyPreconditions" $name }}
-      {{- if $preconditions }}
-      {{- with $preconditions }}
+      {{- with index .Values "policyPreconditions" $name }}
       preconditions:
-        {{- if .all }}
-        all:
-        {{- if $.Values.podSecurityRelaxForUserNamespacePods }}
-        - key: "{{`{{ request.object.spec.hostUsers }}`}}"
-          operator: NotEquals
-          value: false
-        {{- end }}
-        {{- toYaml .all | nindent 8 }}
-        {{- else }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- end }}
-      {{- else if $.Values.podSecurityRelaxForUserNamespacePods }}
-      preconditions:
-        all:
-        - key: "{{`{{ request.object.spec.hostUsers }}`}}"
-          operator: NotEquals
-          value: false
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}

@@ -45,28 +45,9 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- $preconditions := index .Values "policyPreconditions" $name }}
-      {{- if $preconditions }}
-      {{- with $preconditions }}
+      {{- with index .Values "policyPreconditions" $name }}
       preconditions:
-        {{- if .all }}
-        all:
-        {{- if $.Values.podSecurityRelaxForUserNamespacePods }}
-        - key: "{{`{{ request.object.spec.hostUsers }}`}}"
-          operator: NotEquals
-          value: false
-        {{- end }}
-        {{- toYaml .all | nindent 8 }}
-        {{- else }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- end }}
-      {{- else if $.Values.podSecurityRelaxForUserNamespacePods }}
-      preconditions:
-        all:
-        - key: "{{`{{ request.object.spec.hostUsers }}`}}"
-          operator: NotEquals
-          value: false
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
@@ -86,8 +67,12 @@ spec:
           spec.containers[*].securityContext.procMount, spec.initContainers[*].securityContext.procMount,
           and spec.ephemeralContainers[*].securityContext.procMount must be unset or
           set to `Default`.
-        pattern:
-          spec:
+        anyPattern:
+        {{- if .Values.podSecurityUserNamespaces }}
+        - spec:
+            hostUsers: false
+        {{- end }}
+        - spec:
             =(ephemeralContainers):
               - =(securityContext):
                   =(procMount): "Default"
