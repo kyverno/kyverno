@@ -42,6 +42,9 @@ spec:
         object.spec.?ephemeralContainers.orValue([])
   validations:
     - expression: |-
+        {{- if .Values.podSecurityRelaxForUserNamespacePods }}
+        (has(object.spec.hostUsers) && object.spec.hostUsers == false) ||
+        {{- end }}
         (object.spec.?securityContext.?runAsNonRoot.orValue(false) == true
         && variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(true) == true))
         || variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(false) == true)

@@ -35,6 +35,10 @@ spec:
   {{ end }}
   validations:
     - expression: >-
+        {{- if .Values.podSecurityRelaxForUserNamespacePods }}
+        (has(object.spec.hostUsers) && object.spec.hostUsers == false) ||
+        (
+        {{- end }}
         (!has(object.spec.containers) || object.spec.containers.all(c, 
           !has(c.securityContext) || 
           !has(c.securityContext.procMount) || 
@@ -47,6 +51,9 @@ spec:
           !has(c.securityContext) || 
           !has(c.securityContext.procMount) || 
           c.securityContext.procMount == 'Default'))
+        {{- if .Values.podSecurityRelaxForUserNamespacePods }}
+        )
+        {{- end }}
       message: >-
         The default /proc masks are set up to reduce attack surface. The fields
         spec.containers[*].securityContext.procMount,

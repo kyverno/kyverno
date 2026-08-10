@@ -35,6 +35,10 @@ spec:
   {{ end }}
   validations:
     - expression: >-
+        {{- if .Values.podSecurityRelaxForUserNamespacePods }}
+        (has(object.spec.hostUsers) && object.spec.hostUsers == false) ||
+        (
+        {{- end }}
         (!has(object.spec.securityContext) || 
          !has(object.spec.securityContext.runAsUser) || 
          object.spec.securityContext.runAsUser != 0) &&
@@ -50,6 +54,9 @@ spec:
           !has(c.securityContext) || 
           !has(c.securityContext.runAsUser) || 
           c.securityContext.runAsUser != 0))
+        {{- if .Values.podSecurityRelaxForUserNamespacePods }}
+        )
+        {{- end }}
       message: >-
         Running as root user (UID 0) is not allowed. The fields
         spec.securityContext.runAsUser,
