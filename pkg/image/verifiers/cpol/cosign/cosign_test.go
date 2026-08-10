@@ -10,7 +10,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	cosignPkg "github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
+	"github.com/sigstore/cosign/v3/pkg/oci/static"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestExtractDigest(t *testing.T) {
@@ -624,4 +626,22 @@ func TestExtractCertExtensionValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeStatementNonStringPayload(t *testing.T) {
+	// The signature payload is unmarshalled into a map, so "payload" is checked
+	// for presence but its type is whatever the JSON carried. A non-string value
+	// used to reach an unchecked assertion and panic.
+	sig, err := static.NewSignature([]byte(`{"payload": 42}`), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = decodeStatement(sig)
+	assert.Error(t, err)
+	assert.Equal(
+		t,
+		"'payload' found to be of the type float64. The payload is expected to be a base64 encoded string",
+		err.Error(),
+	)
 }
