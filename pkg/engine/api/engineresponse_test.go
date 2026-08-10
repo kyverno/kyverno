@@ -1480,3 +1480,61 @@ func TestGetValidationFailureAction_RuleLevelOverride(t *testing.T) {
 		t.Errorf("expected rule-level %v, got %v", ruleAudit, action)
 	}
 }
+
+func TestEngineResponse_GetValidationFailureActionForRule(t *testing.T) {
+	audit := kyvernov1.Audit
+	enforce := kyvernov1.Enforce
+	// A policy that mixes actions, with the Enforce rule ordered first: the
+	// policy-wide accessor resolves Enforce for the whole policy, which is
+	// exactly the ordering sensitivity the per-rule accessor removes.
+	mixed := NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mixed"},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.Audit,
+			Rules: []kyvernov1.Rule{{
+				Name:       "enforce-rule",
+				Validation: &kyvernov1.Validation{FailureAction: &enforce},
+			}, {
+				Name:       "audit-rule",
+				Validation: &kyvernov1.Validation{FailureAction: &audit},
+			}, {
+				Name:       "plain-rule",
+				Validation: &kyvernov1.Validation{},
+			}},
+		},
+	})
+	tests := []struct {
+		name     string
+		policy   GenericPolicy
+		ruleName string
+		want     kyvernov1.ValidationFailureAction
+	}{{
+		name:     "audit rule is not masked by an earlier enforce rule",
+		policy:   mixed,
+		ruleName: "audit-rule",
+		want:     kyvernov1.Audit,
+	}, {
+		name:     "enforce rule resolves its own action",
+		policy:   mixed,
+		ruleName: "enforce-rule",
+		want:     kyvernov1.Enforce,
+	}, {
+		name:     "rule without an explicit action falls back to the spec-level action",
+		policy:   mixed,
+		ruleName: "plain-rule",
+		want:     kyvernov1.Audit,
+	}, {
+		name:     "unresolvable rule name falls back to the policy-wide action",
+		policy:   mixed,
+		ruleName: "no-such-rule",
+		want:     kyvernov1.Enforce,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := EngineResponse{}.WithPolicy(tt.policy)
+			if got := er.GetValidationFailureActionForRule(tt.ruleName); got != tt.want {
+				t.Errorf("GetValidationFailureActionForRule(%q) = %v, want %v", tt.ruleName, got, tt.want)
+			}
+		})
+	}
+}
