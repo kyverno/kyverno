@@ -1,17 +1,18 @@
 apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- cluster-resources.yaml
 kind: Test
 metadata:
   name: test-crd-nonstandard-plural
-clusterResources:
-  - cluster-resources.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - widget.yaml
+- widget.yaml
 results:
-  - isMutatingPolicy: true
-    policy: stamp-role-count
-    kind: Widget
-    resources: ["default/my-widget"]
-    patchedResources: patched/widget.yaml
-    result: pass
+- isMutatingPolicy: true
+  kind: Widget
+  patchedResources: patched/widget.yaml
+  policy: stamp-role-count
+  resources:
+  - default/my-widget
+  result: pass
