@@ -16,6 +16,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -84,6 +85,39 @@ func (testStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.Upda
 type testEventGen struct{}
 
 func (testEventGen) Add(...event.Info) {}
+
+type errorEngine struct{}
+
+func (e *errorEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+	return gpolengine.EngineResponse{
+		Trigger: &unstructured.Unstructured{},
+		Policies: []gpolengine.GeneratingPolicyResponse{{
+			Policy: p.Policy,
+			Result: engineapi.RuleError("rule", engineapi.Generation, "failed to evaluate policy", assert.AnError, nil),
+		}},
+	}, nil
+}
+
+type recordingStatusControl struct {
+	failed  bool
+	success bool
+	message string
+}
+
+func (r *recordingStatusControl) Failed(_ string, message string, _ []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+	r.failed = true
+	r.message = message
+	return nil, nil
+}
+
+func (r *recordingStatusControl) Success(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+	r.success = true
+	return nil, nil
+}
+
+func (r *recordingStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+	return nil, nil
+}
 
 type triggerClient struct {
 	*MockClient
@@ -256,4 +290,55 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 	defer wm.lock.Unlock()
 	assert.Len(t, client.deleted, 0)
 	assert.Contains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID())
+}
+
+// Regression test for kyverno/kyverno#16983: when the engine evaluation
+// returns an error result (e.g. a CEL evaluation error or a failure while
+// creating the downstream resource), ProcessUR must mark the UpdateRequest
+// as Failed with the error message instead of silently reporting it as
+// Completed with nothing generated.
+func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
+	policyName := "test-gpol"
+	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
+	// needsReports dereferences the global reporting configuration
+	reportutils.NewReportingConfig(nil)
+	statusControl := &recordingStatusControl{}
+	controller := &CELGenerateController{
+		client: &triggerClient{
+			MockClient: &MockClient{},
+			trigger:    trigger,
+		},
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: schema.GroupVersionResource{Group: gk.Group, Version: version, Resource: "configmaps"}}, nil
+		}},
+		context:       libs.NewFakeContextProvider(),
+		engine:        &errorEngine{},
+		provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
+		watchManager:  &WatchManager{},
+		statusControl: statusControl,
+		eventGen:      testEventGen{},
+		log:           logging.WithName("test-gpol-controller"),
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-error-result"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "rule",
+				Trigger: kyvernov1.ResourceSpec{
+					APIVersion: trigger.GetAPIVersion(),
+					Kind:       trigger.GetKind(),
+					Namespace:  trigger.GetNamespace(),
+					Name:       trigger.GetName(),
+				},
+			}},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+	assert.True(t, statusControl.failed, "UR should be marked as Failed")
+	assert.False(t, statusControl.success, "UR should not be marked as Completed")
+	assert.Contains(t, statusControl.message, "failed to evaluate policy")
 }
