@@ -147,14 +147,48 @@ func TestAddEngineResponse_AuditWarnMixedRuleOrdering(t *testing.T) {
 		expected:  ResultCounts{Fail: 1},
 	}}
 
+	// The mirror case, and the one that fails open: with the Audit rule declared
+	// first the policy-wide action resolved to Audit, so under --audit-warn a
+	// failing Enforce rule was counted as a warning and the command exited 0.
+	reversed := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "reversed"},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{{
+				Name:       "audit-rule",
+				Validation: &kyvernov1.Validation{FailureAction: &audit},
+			}, {
+				Name:       "enforce-rule",
+				Validation: &kyvernov1.Validation{FailureAction: &enforce},
+			}},
+		},
+	}
+	tests = append(tests, struct {
+		name      string
+		auditWarn bool
+		rule      engineapi.RuleResponse
+		expected  ResultCounts
+	}{
+		name:      "failing enforce rule is not downgraded by an earlier audit rule",
+		auditWarn: true,
+		rule:      *engineapi.RuleFail("enforce-rule", engineapi.Validation, "validation failed", nil),
+		expected:  ResultCounts{Fail: 1},
+	})
+	policies := map[string]*kyvernov1.ClusterPolicy{
+		"failing enforce rule is not downgraded by an earlier audit rule": reversed,
+	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			rc := &ResultCounts{}
+			pol := policy
+			if p, ok := policies[tt.name]; ok {
+				pol = p
+			}
 			response := engineapi.NewEngineResponse(
 				resource,
-				engineapi.NewKyvernoPolicy(policy),
+				engineapi.NewKyvernoPolicy(pol),
 				nil,
 			).WithPolicyResponse(engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{tt.rule},
