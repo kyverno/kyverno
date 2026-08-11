@@ -22,7 +22,7 @@ import (
 	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"

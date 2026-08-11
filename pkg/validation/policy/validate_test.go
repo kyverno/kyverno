@@ -8,7 +8,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
-	golangassert "gotest.tools/assert"
+	golangassert "gotest.tools/v3/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -269,6 +269,33 @@ func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_ExpectedItem(t *
 
 	_, err = validateConditions(dcs, "conditions")
 	assert.Nil(t, err)
+}
+
+// A `{{request.operation}}` condition whose `value` list contains non-strings
+// used to panic on an unchecked type assertion rather than being rejected.
+// https://github.com/kyverno/kyverno/issues/16969
+func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_NonStringItem(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value": [
+				1,
+				2
+			]
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.Nil(t, err)
+
+	path, err := validateConditions(dcs, "conditions")
+	assert.NotNil(t, err)
+	assert.Contains(t, path, "value[0]")
+	assert.Contains(t, err.Error(), "expected to be strings")
 }
 
 func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *testing.T) {
