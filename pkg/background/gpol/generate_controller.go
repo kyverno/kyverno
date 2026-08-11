@@ -168,8 +168,8 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				// surface evaluation/generation errors instead of silently
 				// reporting the UR as Completed, so users can diagnose why no
 				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)
-				err := fmt.Errorf("gpol %s failed for trigger %s: %s", ur.Spec.GetPolicyKey(), ur.Spec.RuleContext[i].Trigger.String(), res.Result.Message())
-				logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
+				err := fmt.Errorf("gpol %s rule %s %s for trigger %s: %s", ur.Spec.GetPolicyKey(), res.Result.Name(), res.Result.Status(), ur.Spec.RuleContext[i].Trigger.String(), res.Result.Message())
+				logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey(), "rule", res.Result.Name(), "status", res.Result.Status())
 				failures = append(failures, err)
 			} else {
 				resourcesToSync := res.Result.GeneratedResources()

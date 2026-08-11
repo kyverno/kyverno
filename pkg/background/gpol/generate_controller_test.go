@@ -300,8 +300,12 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 	policyName := "test-gpol"
 	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
-	// needsReports dereferences the global reporting configuration
-	reportutils.NewReportingConfig(nil)
+	// needsReports dereferences the global reporting configuration; set it
+	// explicitly for this test and restore the previous value afterwards to
+	// avoid order-dependent behavior across tests in this package.
+	prevReportingCfg := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
 	statusControl := &recordingStatusControl{}
 	controller := &CELGenerateController{
 		client: &triggerClient{
