@@ -25,7 +25,7 @@ func createFakeClient(objects ...runtime.Object) *fake.FakeDynamicClient {
 
 func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   2,
 		QueueSize: 5,
 		Logger:    logger,
@@ -72,7 +72,7 @@ func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 
 func TestWorkerPool_Pagination(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 10,
 		Logger:    logger,
@@ -122,7 +122,7 @@ func TestWorkerPool_Pagination(t *testing.T) {
 
 func TestWorkerPool_ErrorHandling(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,
@@ -170,7 +170,7 @@ func TestWorkerPool_ErrorHandling(t *testing.T) {
 
 func TestWorkerPool_GracefulShutdown(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,
@@ -191,7 +191,7 @@ func TestWorkerPool_GracefulShutdown(t *testing.T) {
 
 func TestNewWorkerPool_Initialization(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   3,
 		QueueSize: 10,
 		Logger:    logger,
@@ -207,7 +207,7 @@ func TestNewWorkerPool_Initialization(t *testing.T) {
 
 func TestWorkerPool_ResultChannelClosing(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,

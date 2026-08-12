@@ -26,11 +26,12 @@ type ClusterLoader struct {
 }
 
 func LoadResourcesConcurrent(policies []engineapi.GenericPolicy, dClient dclient.Interface, resourceOptions ResourceOptions, showPerformance bool) ([]*unstructured.Unstructured, error) {
-	resourceLoader, err := NewClusterLoader(dClient, resourceOptions)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resourceLoader, err := NewClusterLoader(ctx, dClient, resourceOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource loader: %w", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	defer resourceLoader.Close(cancel)
 	result, err := resourceLoader.LoadResources(ctx)
 	if err != nil {
@@ -44,7 +45,7 @@ func LoadResourcesConcurrent(policies []engineapi.GenericPolicy, dClient dclient
 	return result.Resources, nil
 }
 
-func NewClusterLoader(client dclient.Interface, resourceOptions ResourceOptions) (*ClusterLoader, error) {
+func NewClusterLoader(ctx context.Context, client dclient.Interface, resourceOptions ResourceOptions) (*ClusterLoader, error) {
 	if client == nil {
 		return nil, fmt.Errorf("dynamic client cannot be nil")
 	}
@@ -55,7 +56,7 @@ func NewClusterLoader(client dclient.Interface, resourceOptions ResourceOptions)
 		logger:          logrus.New(),
 	}
 
-	cl.workerPool = NewWorkerPool(WorkerPoolConfig{
+	cl.workerPool = NewWorkerPool(ctx, WorkerPoolConfig{
 		Workers:   resourceOptions.Concurrency,
 		QueueSize: resourceOptions.Concurrency * 2,
 		Logger:    cl.logger,
@@ -164,24 +165,36 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]
 		return nil, nil
 	}
 
-	for _, task := range tasks {
-		cl.workerPool.SubmitTask(ctx, task)
-	}
+	go func() {
+		for _, task := range tasks {
+			// Stop submitting if context is canceled
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				cl.workerPool.SubmitTask(ctx, task)
+			}
+		}
+	}()
 
 	var results []LoadTaskResult
 	expectedResults := len(tasks)
 
+	timeoutTimer := time.NewTimer(cl.resourceOptions.Timeout)
+	defer timeoutTimer.Stop()
+
+waitLoop:
 	for i := 0; i < expectedResults; i++ {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case result := <-cl.workerPool.GetResults():
 			results = append(results, result)
-		case <-time.After(cl.resourceOptions.Timeout):
+		case <-timeoutTimer.C:
 			if !cl.resourceOptions.ContinueOnError {
 				return nil, fmt.Errorf("timeout waiting for task results")
 			}
-			break
+			break waitLoop
 		}
 	}
 

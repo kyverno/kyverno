@@ -16,7 +16,7 @@ func TestNewClusterLoader(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
 		_, cancel := context.WithCancel(context.Background())
-		loader, err := NewClusterLoader(client, ResourceOptions{
+		loader, err := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 			Concurrency:   2,
 			BatchSize:     100,
@@ -27,7 +27,7 @@ func TestNewClusterLoader(t *testing.T) {
 	})
 
 	t.Run("nil client", func(t *testing.T) {
-		_, err := NewClusterLoader(nil, ResourceOptions{})
+		_, err := NewClusterLoader(context.Background(), nil, ResourceOptions{})
 		assert.Error(t, err)
 	})
 }
@@ -46,7 +46,7 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 		}
 
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil, obj)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{
 				{
 					Group:   "",
@@ -71,7 +71,7 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 
 	t.Run("closed loader", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{
 				{
 					Group:   "",
@@ -128,7 +128,7 @@ func TestClusterLoader_Tasks(t *testing.T) {
 func TestClusterLoader_Close(t *testing.T) {
 	t.Run("double close", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 		})
 		_, cancel := context.WithCancel(context.Background())

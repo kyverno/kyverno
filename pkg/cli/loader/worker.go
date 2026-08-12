@@ -43,7 +43,7 @@ type LoadTaskResult struct {
 	APICall   bool
 }
 
-func NewWorkerPool(config WorkerPoolConfig) *WorkerPool {
+func NewWorkerPool(ctx context.Context, config WorkerPoolConfig) *WorkerPool {
 	wp := &WorkerPool{
 		workers:    config.Workers,
 		taskQueue:  make(chan LoadTask, config.QueueSize),
@@ -53,7 +53,7 @@ func NewWorkerPool(config WorkerPoolConfig) *WorkerPool {
 
 	for i := 0; i < config.Workers; i++ {
 		wp.wg.Add(1)
-		go wp.worker(context.Background(), i)
+		go wp.worker(ctx, i)
 	}
 
 	return wp
@@ -123,17 +123,18 @@ func (wp *WorkerPool) processTask(ctx context.Context, task LoadTask) LoadTaskRe
 }
 
 func (wp *WorkerPool) SubmitTask(ctx context.Context, task LoadTask) {
+	defer func() {
+		if r := recover(); r != nil {
+			wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+		}
+	}()
+
 	select {
 	case <-ctx.Done():
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
 		return
-	default:
-		select {
-		case wp.taskQueue <- task:
-			return
-		default:
-			wp.logger.Debug("task queue is full; ignoring submitted task: ", task.ID)
-		}
+	case wp.taskQueue <- task:
+		return
 	}
 }
 
