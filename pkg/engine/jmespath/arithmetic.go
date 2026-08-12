@@ -34,9 +34,37 @@ func parseArithemticOperand(arguments []interface{}, index int, operator string)
 	if tmp, err := validateArg(operator, arguments, index, reflect.Float64); err == nil {
 		return scalar{float64: tmp.Float()}, nil
 	} else if tmp, err = validateArg(operator, arguments, index, reflect.String); err == nil {
-		if q, err := resource.ParseQuantity(tmp.String()); err == nil {
+		str := tmp.String()
+		d, derr := time.ParseDuration(str)
+		q, qerr := resource.ParseQuantity(str)
+
+		if qerr == nil && derr == nil {
+			hasDuration := false
+			hasQuantity := false
+			for i, arg := range arguments {
+				if i == index {
+					continue
+				}
+				if argStr, ok := arg.(string); ok {
+					_, oqerr := resource.ParseQuantity(argStr)
+					_, oderr := time.ParseDuration(argStr)
+					if oqerr != nil && oderr == nil {
+						hasDuration = true
+					} else if oqerr == nil && oderr != nil {
+						hasQuantity = true
+					}
+				}
+			}
+			if hasDuration && !hasQuantity {
+				return duration{Duration: d}, nil
+			}
 			return quantity{Quantity: q}, nil
-		} else if d, err := time.ParseDuration(tmp.String()); err == nil {
+		}
+
+		if qerr == nil {
+			return quantity{Quantity: q}, nil
+		}
+		if derr == nil {
 			return duration{Duration: d}, nil
 		}
 	}
