@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.PolicyInterface) error {
+func (pc *policyController) handleMutate(ctx context.Context, policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
 	logger.V(4).Info("update URs on policy event")
 
@@ -34,7 +35,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 		}
 
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
-		triggers := getTriggers(pc.client, rule, policyNew.IsNamespaced(), policyNew.GetNamespace(), pc.log)
+		triggers := getTriggers(ctx, pc.client, rule, policyNew.IsNamespaced(), policyNew.GetNamespace(), pc.log)
 		for _, trigger := range triggers {
 			murs := pc.listMutateURs(policyKey, trigger)
 			if murs != nil {
@@ -44,7 +45,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 
 			logger.V(4).Info("creating new UR for mutate")
 			ur := newMutateUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule.Name)
-			skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policyNew)
+			skip, err := pc.handleUpdateRequest(ctx, ur, trigger, rule.Name, policyNew)
 			if err != nil {
 				pc.log.Error(err, "failed to create new UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))

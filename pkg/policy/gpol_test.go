@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -123,7 +124,7 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(context.TODO(), match)
 
 	// Wildcard must resolve to a single (preferred version) and list once,
 	// so each of the 2 distinct objects appears exactly once.
@@ -188,7 +189,7 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(context.TODO(), match)
 
 	assert.Len(t, triggers, 1)
 }

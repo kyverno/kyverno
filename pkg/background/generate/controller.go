@@ -89,7 +89,7 @@ func NewGenerateController(
 	return &c
 }
 
-func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
+func (c *GenerateController) ProcessUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	var genResources []kyvernov1.ResourceSpec
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
@@ -109,7 +109,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 
-		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		genResources, err = c.applyGenerate(ctx, *trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
@@ -135,7 +135,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int) ([]kyvernov1.ResourceSpec, error) {
+func (c *GenerateController) applyGenerate(ctx context.Context, trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	logger.V(3).Info("applying generate policy")
 
@@ -185,14 +185,14 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 	}
 
 	// Apply the generate rule on resource
-	genResourcesMap, err := c.ApplyGeneratePolicy(logger, policyContext, applicableRules)
+	genResourcesMap, err := c.ApplyGeneratePolicy(ctx, logger, policyContext, applicableRules)
 	if err != nil {
 		return nil, err
 	}
 
 	for i, v := range engineResponse.PolicyResponse.Rules {
 		if resources, ok := genResourcesMap[v.Name()]; ok {
-			unstResources, err := c.GetUnstrResources(resources)
+			unstResources, err := c.GetUnstrResources(ctx, resources)
 			if err != nil {
 				c.log.Error(err, "failed to get unst resource names report")
 			}
@@ -201,7 +201,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 	}
 
 	if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
-		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
+		if err := c.createReports(ctx, policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
 	}
@@ -243,7 +243,7 @@ func (c *GenerateController) getPolicyObject(ur kyvernov2.UpdateRequest) (kyvern
 	return npolicyObj, nil
 }
 
-func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (map[string][]kyvernov1.ResourceSpec, error) {
+func (c *GenerateController) ApplyGeneratePolicy(ctx context.Context, log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (map[string][]kyvernov1.ResourceSpec, error) {
 	genResources := make(map[string][]kyvernov1.ResourceSpec)
 	policy := policyContext.Policy()
 	resource := policyContext.NewResource()
@@ -285,7 +285,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 		logger := log.WithValues("rule", rule.Name)
 		contextLoader := c.engine.ContextLoader(policy, rule)
-		if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
+		if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load rule level context", "reason", err.Error())
 			} else {
@@ -329,10 +329,10 @@ func NewGenerateControllerWithOnlyClient(client dclient.Interface, engine engine
 }
 
 // GetUnstrResource converts ResourceSpec object to type Unstructured
-func (c *GenerateController) GetUnstrResources(genResourceSpecs []kyvernov1.ResourceSpec) ([]*unstructured.Unstructured, error) {
+func (c *GenerateController) GetUnstrResources(ctx context.Context, genResourceSpecs []kyvernov1.ResourceSpec) ([]*unstructured.Unstructured, error) {
 	resources := []*unstructured.Unstructured{}
 	for _, genResourceSpec := range genResourceSpecs {
-		resource, err := c.client.GetResource(context.TODO(), genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
+		resource, err := c.client.GetResource(ctx, genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
 		if err != nil {
 			return nil, err
 		}

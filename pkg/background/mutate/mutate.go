@@ -78,7 +78,7 @@ func NewMutateExistingController(
 	return &c
 }
 
-func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
+func (c *mutateExistingController) ProcessUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
@@ -165,9 +165,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
 		}
 
-		er := c.engine.Mutate(context.TODO(), policyContext)
+		er := c.engine.Mutate(ctx, policyContext)
 		if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
-			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
+			if err := c.createReports(ctx, policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
 		}
@@ -195,7 +195,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 				patchedNew.SetResourceVersion(patched.GetResourceVersion())
 				var updateErr error
 				if patchedSubresource == "status" {
-					_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					_, updateErr = c.client.UpdateStatusResource(ctx, patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 				} else if patchedSubresource != "" {
 					parentResourceGVR := parentGVR
 					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
@@ -205,9 +205,9 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 						errs = append(errs, err)
 						continue
 					}
-					_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
+					_, updateErr = c.client.UpdateResource(ctx, parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
 				} else {
-					_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					_, updateErr = c.client.UpdateResource(ctx, patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 				}
 				if updateErr != nil {
 					errs = append(errs, updateErr)

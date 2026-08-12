@@ -238,7 +238,7 @@ func TestProcessUR_DeleteDownstreamFailure_MarksURFailed(t *testing.T) {
 		},
 	}
 
-	_ = controller.ProcessUR(ur)
+	_ = controller.ProcessUR(context.TODO(), ur)
 
 	assert.True(t, statusControl.failedCalled,
 		"statusControl.Failed() must be called when downstream deletion fails")
