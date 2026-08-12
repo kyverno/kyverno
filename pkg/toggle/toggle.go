@@ -57,10 +57,10 @@ const (
 	defaultAllowHTTPInNamespacedPolicies     = false
 	// http blocklist / allowlist flag names
 	HTTPBlocklistFlagName    = "httpBlocklist"
-	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post calls. Overrides the built-in defaults when set. Example: '169.254.169.254,metadata.google.internal'."
+	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post and legacy context.apiCall.service calls. Overrides the built-in defaults when set. Example: '169.254.169.254,metadata.google.internal'."
 	httpBlocklistEnvVar      = "FLAG_HTTP_BLOCKLIST"
 	HTTPAllowlistFlagName    = "httpAllowlist"
-	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
+	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post and legacy context.apiCall.service calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
 )
 
