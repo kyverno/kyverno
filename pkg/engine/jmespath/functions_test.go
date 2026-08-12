@@ -1854,3 +1854,38 @@ func Test_Random(t *testing.T) {
 		})
 	}
 }
+
+func Test_CustomFunctions_ValidationErrors(t *testing.T) {
+	t.Run("is_external_url", func(t *testing.T) {
+		_, err := jpIsExternalURL([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'is_external_url': argument #1 is not of type string")
+	})
+	t.Run("pattern_match arg 1", func(t *testing.T) {
+		_, err := jpPatternMatch([]any{123, "foo"})
+		assert.ErrorContains(t, err, "JMESPath function 'pattern_match': argument #1 is not of type string")
+	})
+	t.Run("pattern_match arg 2", func(t *testing.T) {
+		_, err := jpPatternMatch([]any{"foo", []any{}})
+		assert.ErrorContains(t, err, "JMESPath function 'pattern_match': argument #2 is not of type String or Real")
+	})
+	t.Run("base64_decode", func(t *testing.T) {
+		_, err := jpBase64Decode([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'base64_decode': argument #1 is not of type string")
+	})
+	t.Run("base64_encode", func(t *testing.T) {
+		_, err := jpBase64Encode([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'base64_encode': argument #1 is not of type string")
+	})
+	t.Run("sha256", func(t *testing.T) {
+		_, err := jpSha256([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'sha256': argument #1 is not of type string")
+	})
+	t.Run("sha1", func(t *testing.T) {
+		_, err := jpSha1([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'sha1': argument #1 is not of type string")
+	})
+	t.Run("md5", func(t *testing.T) {
+		_, err := jpMd5([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'md5': argument #1 is not of type string")
+	})
+}
