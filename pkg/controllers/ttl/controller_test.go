@@ -136,7 +136,8 @@ type mockMetrics struct {
 	failureCount int
 }
 
-func (m *mockMetrics) RecordTTLInfo(ctx context.Context, gvr schema.GroupVersionResource, observer metric.Observer) {}
+func (m *mockMetrics) RecordTTLInfo(ctx context.Context, gvr schema.GroupVersionResource, observer metric.Observer) {
+}
 
 func (m *mockMetrics) RecordDeletedObject(ctx context.Context, gvr schema.GroupVersionResource, namespace string) {
 	m.deletedCount++
@@ -166,15 +167,15 @@ func TestReconcileMetrics(t *testing.T) {
 	logger := logr.Discard()
 
 	tests := []struct {
-		name                 string
-		ttlValue             string
-		creationTime         time.Time
-		deleteErr            error
-		expectDelete         bool
-		expectDeleteCalled   bool
+		name                  string
+		ttlValue              string
+		creationTime          time.Time
+		deleteErr             error
+		expectDelete          bool
+		expectDeleteCalled    bool
 		expectedDeletedMetric int
 		expectedFailureMetric int
-		expectErr            bool
+		expectErr             bool
 	}{
 		{
 			name:                  "TTL not expired",
