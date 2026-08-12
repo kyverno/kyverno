@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Code freeze
+
+on:
+  pull_request:
+    branches:
+      - release-*
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions: {}
+
+jobs:
+  freeze:
+    name: Code freeze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether target branch is frozen
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          FROZEN_BRANCHES: ${{ vars.FROZEN_BRANCHES }}
+        run: |
+          set -euo pipefail
+
+          normalized_branches="$(printf '%s' "${FROZEN_BRANCHES:-}" | tr -d '[:space:]')"
+
+          if [[ -z "$normalized_branches" ]]; then
+            echo "No frozen branches are configured."
+            exit 0
+          fi
+
+          if printf ',%s,' "$normalized_branches" | grep -Fq ",${BASE_REF},"; then
+            echo "Code freeze is active for ${BASE_REF}. PR merges are blocked."
+            exit 1
+          fi
+
+          echo "No code freeze is configured for ${BASE_REF}."
