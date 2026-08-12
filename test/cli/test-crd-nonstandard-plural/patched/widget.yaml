@@ -5,5 +5,6 @@ metadata:
   namespace: default
   annotations:
     role-count: "1"   # proves resource.List found the TeleportRoleV8 instance
+    role-name: my-team-dev-role   # proves resource.Get resolved the CRD-declared plural correctly
   labels:
     app.kubernetes.io/managed-by: kyverno

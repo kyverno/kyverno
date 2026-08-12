@@ -18,6 +18,9 @@ spec:
     - name: roles
       expression: |
         dyn(resource.List("resources.teleport.dev/v1", "teleportrolesv8", "teleport").items)
+    - name: role
+      expression: |
+        resource.Get("resources.teleport.dev/v1", "teleportrolesv8", "teleport", "my-team-dev-role")
   mutations:
     - patchType: JSONPatch
       jsonPatch:
@@ -26,4 +29,9 @@ spec:
             op: "add",
             path: "/metadata/annotations/role-count",
             value: string(size(variables.roles))
+          },
+          JSONPatch{
+            op: "add",
+            path: "/metadata/annotations/role-name",
+            value: dyn(variables.role).metadata.name
           }]

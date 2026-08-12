@@ -75,9 +75,12 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 
 	// Build a remap table from CRDs whose declared plural differs from the
 	// UnsafeGuessKindToResource heuristic (e.g. TeleportRoleV8: CRD plural
-	// "teleportrolesv8", heuristic gives "teleportrolev8s"). tracker.Add always
-	// uses the heuristic, so resource.List on the correct CRD plural would return
-	// empty without the remappingDynamic wrapper below.
+	// "teleportrolesv8", heuristic gives "teleportrolev8s").
+	//
+	// tracker.Add always derives the storage key via UnsafeGuessKindToResource —
+	// it explicitly notes this is a heuristic and that tests with non-standard
+	// plurals must use tracker.Create instead:
+	// https://github.com/kubernetes/client-go/blob/v0.36.3/testing/fixture.go#L512-L517
 	gvrRemap := make(map[schema.GroupVersionResource]schema.GroupVersionResource)
 	for _, o := range objects {
 		crd, ok := o.(*apiextensionsv1.CustomResourceDefinition)
@@ -85,6 +88,9 @@ func (c fakeCluster) DClient(objects []runtime.Object) (dclient.Interface, error
 			continue
 		}
 		for _, version := range crd.Spec.Versions {
+			if !version.Storage {
+				continue
+			}
 			gvk := schema.GroupVersionKind{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind}
 			guessed, _ := meta.UnsafeGuessKindToResource(gvk)
 			if crd.Spec.Names.Plural != guessed.Resource {
