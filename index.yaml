@@ -11584,6 +11584,43 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.19.0-rc.3
+    created: "2026-08-12T07:12:32.762453017Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: ce197a15c53f6ce299b533e7290a2267e10d45001840fa6f0cff7f72366f9d1b
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: cncf-kyverno-maintainers@lists.cncf.io
+      name: kyverno-maintainers
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-3.9.0-rc.3.tgz
+    version: 3.9.0-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: Default policyType is now ValidatingPolicy (policies.kyverno.io), set policyType to ClusterPolicy to keep installing the deprecated legacy policy types
+        - kind: removed
+          description: Remove spec.validationFailureAction field from policies as it is deprecated
+        - kind: added
+          description: Add spec.validate[*].failureAction field to policies
+        - kind: fixed
+          description: Fix the merging of policyExclude customizations to avoid wrong overrides
+        - kind: added
+          description: Add spec.validate[*].allowExistingViolations field to policies
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.19.0-rc.2
     created: "2026-08-11T09:18:25.985617166Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -18011,4 +18048,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2026-08-12T07:10:53.981638312Z"
+generated: "2026-08-12T07:12:32.761233611Z"
