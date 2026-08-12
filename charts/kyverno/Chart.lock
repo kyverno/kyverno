@@ -1,10 +1,10 @@
 dependencies:
 - name: grafana
   repository: ""
-  version: 3.9.0-rc.2
+  version: 3.9.0-rc.3
 - name: crds
   repository: ""
-  version: 3.9.0-rc.2
+  version: 3.9.0-rc.3
 - name: kyverno-api
   repository: https://kyverno.github.io/api
   version: 0.0.1-alpha.4
@@ -14,5 +14,5 @@ dependencies:
 - name: reports-server
   repository: https://kyverno.github.io/reports-server/
   version: 0.1.6
-digest: sha256:b2c9d2411ded512e9cb3bc72feafb506912519357aedad1a996c141d3e7277b2
-generated: "2026-08-11T16:11:14.6596+08:00"
+digest: sha256:3cf177dc7a7a1fa3d6fdcd468ad876f4f56cd4c471b7545ec66f4a61e13b67b4
+generated: "2026-08-12T14:09:32.812924+08:00"
