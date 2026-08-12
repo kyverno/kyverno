@@ -171,17 +171,30 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]
 	var results []LoadTaskResult
 	expectedResults := len(tasks)
 
+	timer := time.NewTimer(cl.resourceOptions.Timeout)
+	defer timer.Stop()
+
 	for i := 0; i < expectedResults; i++ {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(cl.resourceOptions.Timeout)
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case result := <-cl.workerPool.GetResults():
 			results = append(results, result)
-		case <-time.After(cl.resourceOptions.Timeout):
+		case <-timer.C:
 			if !cl.resourceOptions.ContinueOnError {
 				return nil, fmt.Errorf("timeout waiting for task results")
 			}
-			break
+			// Note: break here only breaks the select, continuing the loop.
+			// If we want to skip remaining tasks on timeout, we should perhaps break the loop,
+			// but we will keep existing behavior.
 		}
 	}
 
