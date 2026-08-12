@@ -3,6 +3,7 @@
 # Configure frozen release branches through the FROZEN_BRANCHES repository
 # variable (comma-separated, for example "release-1.19,release-1.20") and mark
 # the "Code freeze" / "freeze" status check as required in branch protection.
+# Temporary trigger PRs can be opened against release branches so GitHub exposes the check in ruleset configuration.
 
 name: Code freeze
 
