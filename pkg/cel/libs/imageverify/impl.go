@@ -2,6 +2,7 @@ package imageverify
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -211,10 +212,13 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		f.logger.V(4).Info("verifyAttestationSignatures called", "image", image, "attestation", attestation, "attestorCount", len(attestors))
 		cacheRule := attestorCacheRule(attestationCacheRule, attestation, attestors)
 		if f.ivCache != nil {
-			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
+			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
+				if err := f.restoreCachedIntotoPayloads(ctx, image, attestation, payloads); err != nil {
+					return types.WrapErr(err)
+				}
 				f.verifications.Record(image, true)
 				return f.NativeToValue(len(attestors))
 			}
@@ -261,7 +265,8 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		}
 		f.logger.V(6).Info("verifyAttestationSignatures returning", "image", image, "attestation", attestation, "verifiedCount", count)
 		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
-			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, true); err != nil {
+			payloads := intotoPayloadsFromImage(img, attest)
+			if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
@@ -270,6 +275,50 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		}
 		return f.NativeToValue(count)
 	}
+}
+
+// restoreCachedIntotoPayloads repopulates verifiedIntotoPayloads on the request's
+// ImageData after an attestation verification cache hit, so extractPayload works.
+func (f *ivfuncs) restoreCachedIntotoPayloads(ctx context.Context, image, attestation string, payloads map[string][]byte) error {
+	if len(payloads) == 0 {
+		return nil
+	}
+	attest, ok := f.attestationList[attestation]
+	if !ok || !attest.IsInToto() {
+		return nil
+	}
+	img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+	if err != nil {
+		return fmt.Errorf("failed to get imagedata: %v", err)
+	}
+	for predicateType, data := range payloads {
+		img.AddVerifiedIntotoPayloads(predicateType, data)
+	}
+	return nil
+}
+
+// intotoPayloadsFromImage reads verified intoto payloads from ImageData after a
+// successful Cosign attestation verify. ImageData does not expose a getter for
+// the raw map, so we round-trip through GetPayload + json.Marshal.
+//
+// Safe degrade: if GetPayload (or Marshal) fails after verification already
+// succeeded, we return nil and SetWithPayload still records a presence-only
+// cache entry. A later cache hit then restores nothing — extractPayload fails
+// with the pre-fix "cannot be fetch before verifying" error rather than
+// crashing. Prefer missing payload over a false-positive cached payload.
+func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Attestation) map[string][]byte {
+	if img == nil || !attest.IsInToto() || attest.InToto == nil {
+		return nil
+	}
+	payload, err := img.GetPayload(attest)
+	if err != nil {
+		return nil
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return nil
+	}
+	return map[string][]byte{attest.InToto.Type: b}
 }
 
 func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {

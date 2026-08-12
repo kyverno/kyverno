@@ -92,6 +92,15 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 }
 
 func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
+}
+
+func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	found, _, err := c.GetWithPayload(ctx, policy, ruleName, imageRef, useCache)
+	return found, err
+}
+
+func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
@@ -101,7 +110,7 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), 1, c.ttl)
 	c.cache.Wait()
 	if stored {
 		return true, nil
@@ -109,18 +118,36 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
-		return false, nil
+		return false, nil, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
-		return false, nil
+		return false, nil, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
-	_, found := c.cache.Get(key)
-	if found {
-		return true, nil
+	val, found := c.cache.Get(key)
+	if !found {
+		return false, nil, nil
 	}
-	return false, nil
+	payloads, _ := val.(map[string][]byte)
+	return true, clonePayloads(payloads), nil
+}
+
+func clonePayloads(in map[string][]byte) map[string][]byte {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string][]byte, len(in))
+	for k, v := range in {
+		if v == nil {
+			out[k] = nil
+			continue
+		}
+		cp := make([]byte, len(v))
+		copy(cp, v)
+		out[k] = cp
+	}
+	return out
 }
