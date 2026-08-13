@@ -54,7 +54,7 @@ func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, na
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
 			}
-			matchConditions := validConditions(expressionCache, p.GetMatchConditions())
+			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
 			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
 				// For synchronize-enabled generating policies, match conditions must only
 				// filter CREATE requests at the API server. UPDATE and DELETE requests
@@ -106,7 +106,7 @@ func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, na
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -122,7 +122,7 @@ func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, na
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -140,7 +140,7 @@ func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, na
 					autogenPolicy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, webhookMatchConditions(validConditions(expressionCache, autogenPolicy.Spec.MatchConditions)))...,
 					)
 					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
