@@ -327,6 +327,11 @@ type Attestation struct {
 	// Name is the variable name.
 	Name string `json:"name,omitempty"`
 
+	// IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+	// timestamp. Default is false. Set to true if this was opted out during signing.
+	// +kubebuilder:validation:Optional
+	IgnoreSCT bool `json:"ignoreSCT,omitempty"`
+
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType"`

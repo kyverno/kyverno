@@ -429,7 +429,7 @@ func (iv *imageVerifier) buildCosignVerifier(
 	if attestation != nil {
 		opts.PredicateType = attestation.PredicateType
 		opts.Type = attestation.Type
-		opts.IgnoreSCT = true // TODO: Add option to allow SCT when attestors are not provided
+		opts.IgnoreSCT = attestation.IgnoreSCT
 		if attestation.PredicateType != "" && attestation.Type == "" {
 			iv.logger.V(4).Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
