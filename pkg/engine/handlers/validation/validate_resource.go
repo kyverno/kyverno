@@ -473,7 +473,11 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, err.Error())
 	} else {
-		msg := msgRaw.(string)
+		// A message consisting of a single variable reference (e.g. "{{
+		// request.object.spec.replicas }}") substitutes to the raw resolved
+		// value rather than a string, so msgRaw is not guaranteed to be a
+		// string here. %v formats any concrete type instead of panicking.
+		msg := fmt.Sprintf("%v", msgRaw)
 		if !strings.HasSuffix(msg, ".") {
 			msg = msg + "."
 		}
@@ -494,7 +498,9 @@ func (v *validator) buildAnyPatternErrorMessage(errors []string) string {
 		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
 	} else {
-		msg := msgRaw.(string)
+		// See buildErrorMessage: a message that is a single variable
+		// reference substitutes to the raw resolved value, not a string.
+		msg := fmt.Sprintf("%v", msgRaw)
 		if strings.HasSuffix(msg, ".") {
 			return fmt.Sprintf("validation error: %s %s", msg, errStr)
 		}
