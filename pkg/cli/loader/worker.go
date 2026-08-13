@@ -18,6 +18,7 @@ type WorkerPool struct {
 	resultChan chan LoadTaskResult
 	wg         sync.WaitGroup
 	logger     *logrus.Logger
+	done       chan struct{}
 }
 
 type WorkerPoolConfig struct {
@@ -43,17 +44,18 @@ type LoadTaskResult struct {
 	APICall   bool
 }
 
-func NewWorkerPool(config WorkerPoolConfig) *WorkerPool {
+func NewWorkerPool(ctx context.Context, config WorkerPoolConfig) *WorkerPool {
 	wp := &WorkerPool{
 		workers:    config.Workers,
 		taskQueue:  make(chan LoadTask, config.QueueSize),
 		resultChan: make(chan LoadTaskResult, config.QueueSize),
 		logger:     config.Logger,
+		done:       make(chan struct{}),
 	}
 
 	for i := 0; i < config.Workers; i++ {
 		wp.wg.Add(1)
-		go wp.worker(context.Background(), i)
+		go wp.worker(ctx, i)
 	}
 
 	return wp
@@ -68,16 +70,17 @@ func (wp *WorkerPool) worker(ctx context.Context, id int) {
 		case <-ctx.Done():
 			wp.logger.WithField("worker_id", id).Debug("Worker stopping")
 			return
-		case task, ok := <-wp.taskQueue:
-			if !ok {
-				return
-			}
-
+		case <-wp.done:
+			wp.logger.WithField("worker_id", id).Debug("Worker stopping")
+			return
+		case task := <-wp.taskQueue:
 			result := wp.processTask(ctx, task)
 
 			select {
 			case wp.resultChan <- result:
 			case <-ctx.Done():
+				return
+			case <-wp.done:
 				return
 			}
 		}
@@ -126,14 +129,9 @@ func (wp *WorkerPool) SubmitTask(ctx context.Context, task LoadTask) {
 	select {
 	case <-ctx.Done():
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
-		return
-	default:
-		select {
-		case wp.taskQueue <- task:
-			return
-		default:
-			wp.logger.Debug("task queue is full; ignoring submitted task: ", task.ID)
-		}
+	case <-wp.done:
+		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+	case wp.taskQueue <- task:
 	}
 }
 
@@ -143,7 +141,7 @@ func (wp *WorkerPool) GetResults() <-chan LoadTaskResult {
 
 func (wp *WorkerPool) Close(cancel context.CancelFunc) {
 	cancel()
-	close(wp.taskQueue)
+	close(wp.done)
 	wp.wg.Wait()
 	close(wp.resultChan)
 }

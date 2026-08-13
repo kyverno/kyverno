@@ -3,6 +3,7 @@ package loader
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func createFakeClient(objects ...runtime.Object) *fake.FakeDynamicClient {
 
 func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   2,
 		QueueSize: 5,
 		Logger:    logger,
@@ -72,7 +73,7 @@ func TestWorkerPool_SubmitAndReceiveResults(t *testing.T) {
 
 func TestWorkerPool_Pagination(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 10,
 		Logger:    logger,
@@ -122,7 +123,7 @@ func TestWorkerPool_Pagination(t *testing.T) {
 
 func TestWorkerPool_ErrorHandling(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,
@@ -170,7 +171,7 @@ func TestWorkerPool_ErrorHandling(t *testing.T) {
 
 func TestWorkerPool_GracefulShutdown(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,
@@ -191,7 +192,7 @@ func TestWorkerPool_GracefulShutdown(t *testing.T) {
 
 func TestNewWorkerPool_Initialization(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   3,
 		QueueSize: 10,
 		Logger:    logger,
@@ -207,7 +208,7 @@ func TestNewWorkerPool_Initialization(t *testing.T) {
 
 func TestWorkerPool_ResultChannelClosing(t *testing.T) {
 	logger := logrus.New()
-	wp := NewWorkerPool(WorkerPoolConfig{
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
 		Workers:   1,
 		QueueSize: 1,
 		Logger:    logger,
@@ -218,4 +219,58 @@ func TestWorkerPool_ResultChannelClosing(t *testing.T) {
 	// Verify result channel is closed after processing
 	_, ok := <-wp.GetResults()
 	assert.False(t, ok, "Result channel should be closed after Close()")
+}
+
+func TestWorkerPool_SubmitTaskDoesNotDropWhenQueueFull(t *testing.T) {
+	logger := logrus.New()
+	// A single worker with a queue smaller than the number of submitted tasks
+	// used to cause SubmitTask's non-blocking send to silently drop tasks
+	// once the queue filled up.
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
+		Workers:   1,
+		QueueSize: 1,
+		Logger:    logger,
+	})
+
+	obj := &unstructured.Unstructured{}
+	obj.SetName("test-object")
+	obj.SetNamespace("default")
+	obj.SetKind("ConfigMap")
+	obj.SetAPIVersion("v1")
+
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	client := createFakeClient(obj)
+	resourceClient := client.Resource(gvr).Namespace("default")
+
+	const numTasks = 5
+	go func() {
+		for i := 0; i < numTasks; i++ {
+			wp.SubmitTask(context.Background(), LoadTask{
+				ID:        fmt.Sprintf("task-%d", i),
+				GVK:       gvk,
+				GVR:       gvr,
+				Namespace: "default",
+				ListOptions: v1.ListOptions{
+					Limit: 100,
+				},
+				Client: resourceClient,
+			})
+		}
+	}()
+
+	seen := make(map[string]bool)
+	for i := 0; i < numTasks; i++ {
+		select {
+		case result := <-wp.GetResults():
+			assert.NoError(t, result.Error)
+			seen[result.TaskID] = true
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for result %d/%d; tasks were dropped", i+1, numTasks)
+		}
+	}
+	assert.Len(t, seen, numTasks, "all submitted tasks should have produced a result")
+
+	_, cancel := context.WithCancel(context.Background())
+	wp.Close(cancel)
 }
