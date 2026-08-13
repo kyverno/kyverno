@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	backoff "github.com/cenkalti/backoff/v7"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -30,14 +31,16 @@ type generator struct {
 	urLister kyvernov2listers.UpdateRequestNamespaceLister
 
 	urGenerator generatorutils.UpdateRequestGenerator
+	workerPool  pond.Pool
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client versioned.Interface, urInformer kyvernov2informers.UpdateRequestInformer, urGenerator generatorutils.UpdateRequestGenerator) Generator {
+func NewGenerator(client versioned.Interface, urInformer kyvernov2informers.UpdateRequestInformer, urGenerator generatorutils.UpdateRequestGenerator, workerPool pond.Pool) Generator {
 	return &generator{
 		client:      client,
 		urLister:    urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		urGenerator: urGenerator,
+		workerPool:  workerPool,
 	}
 }
 
@@ -47,7 +50,7 @@ func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) e
 		return nil
 	}
 	logger.V(4).Info("apply Update Request", "request", ur)
-	go g.applyResource(context.TODO(), ur) //nolint:gosec // background context is intentional: the goroutine outlives the request
+	g.workerPool.Submit(func() { g.applyResource(context.TODO(), ur) })
 	return nil
 }
 
