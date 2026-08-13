@@ -215,12 +215,17 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
-				f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
 				if err := f.restoreCachedIntotoPayloads(ctx, image, attestation, payloads); err != nil {
-					return types.WrapErr(err)
+					// A degraded cache entry (missing payload, or the restore itself
+					// failed) can't be trusted as a hit. Fall back to full
+					// re-verification below rather than denying an admission that
+					// was already verified once.
+					f.logger.V(4).Info("cache hit could not be restored, falling back to re-verification", "image", image, "attestation", attestation, "reason", err.Error())
+				} else {
+					f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
+					f.verifications.Record(image, true)
+					return f.NativeToValue(len(attestors))
 				}
-				f.verifications.Record(image, true)
-				return f.NativeToValue(len(attestors))
 			}
 		}
 		// Hoist invariant lookups out of the loop: both the attestation
@@ -266,7 +271,16 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		f.logger.V(6).Info("verifyAttestationSignatures returning", "image", image, "attestation", attestation, "verifiedCount", count)
 		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
 			payloads := intotoPayloadsFromImage(img, attest)
-			if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
+			if attest.IsInToto() && len(payloads) == 0 {
+				// Verification succeeded but we couldn't capture the payload to
+				// cache alongside it. Skip the cache write entirely rather than
+				// recording a presence-only hit: a future admission would see
+				// "found" but have nothing to restore, silently reproducing the
+				// "cannot be fetch before verifying" error. Leaving this
+				// uncached means the next request re-verifies from scratch
+				// instead of degrading.
+				f.logger.Error(nil, "skipping cache write: failed to capture intoto payload after successful verification", "image", image, "attestation", attestation)
+			} else if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
@@ -279,13 +293,16 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 
 // restoreCachedIntotoPayloads repopulates verifiedIntotoPayloads on the request's
 // ImageData after an attestation verification cache hit, so extractPayload works.
+// Returns an error if the attestation needs a cached payload but none is
+// available (or restoring it fails), signaling the caller to fall back to full
+// re-verification instead of trusting a degraded cache hit.
 func (f *ivfuncs) restoreCachedIntotoPayloads(ctx context.Context, image, attestation string, payloads map[string][]byte) error {
-	if len(payloads) == 0 {
-		return nil
-	}
 	attest, ok := f.attestationList[attestation]
 	if !ok || !attest.IsInToto() {
 		return nil
+	}
+	if len(payloads) == 0 {
+		return fmt.Errorf("cached verification found but no payload available for attestation %s", attestation)
 	}
 	img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
 	if err != nil {
@@ -302,10 +319,9 @@ func (f *ivfuncs) restoreCachedIntotoPayloads(ctx context.Context, image, attest
 // the raw map, so we round-trip through GetPayload + json.Marshal.
 //
 // Safe degrade: if GetPayload (or Marshal) fails after verification already
-// succeeded, we return nil and SetWithPayload still records a presence-only
-// cache entry. A later cache hit then restores nothing — extractPayload fails
-// with the pre-fix "cannot be fetch before verifying" error rather than
-// crashing. Prefer missing payload over a false-positive cached payload.
+// succeeded, we return nil and the caller skips caching this result entirely
+// rather than recording a presence-only entry. Prefer re-verifying next time
+// over a cache hit with no payload to restore.
 func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Attestation) map[string][]byte {
 	if img == nil || !attest.IsInToto() || attest.InToto == nil {
 		return nil

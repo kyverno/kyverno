@@ -110,7 +110,7 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), 1, c.ttl)
+	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
 	c.cache.Wait()
 	if stored {
 		return true, nil
@@ -133,6 +133,18 @@ func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 	}
 	payloads, _ := val.(map[string][]byte)
 	return true, clonePayloads(payloads), nil
+}
+
+// payloadCost estimates the memory footprint of a cache entry so ristretto's
+// MaxCost (--imageVerifyCacheMaxSize) bounds actual memory rather than just
+// entry count: a presence-only entry (nil payloads) still costs 1, while an
+// entry carrying attestation payload bytes costs roughly its real size.
+func payloadCost(payloads map[string][]byte) int64 {
+	cost := int64(1)
+	for _, v := range payloads {
+		cost += int64(len(v))
+	}
+	return cost
 }
 
 func clonePayloads(in map[string][]byte) map[string][]byte {

@@ -594,3 +594,99 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 
 	assert.NotEqual(t, slsaHitPayload, customHitPayload, "distinct attestation types must not share or overwrite payloads")
 }
+
+// Demonstrates that a degraded cache entry -- the cache reports "found" but
+// carries no payload to restore, e.g. from a TTL-window entry predating the
+// write-side fix that now skips caching on failed payload capture -- falls
+// back to full re-verification instead of hard-failing the CEL expression.
+// This is the fix requested in PR review for "cache-hit restore can deny
+// valid admissions": missing/degraded payloads must be treated as a cache
+// miss, not an error.
+func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reverify(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-attestation",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	attestations := []v1beta1.Attestation{
+		{
+			Name: "slsa",
+			InToto: &v1beta1.InToto{
+				Type: "https://slsa.dev/provenance/v1",
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "attestation-degraded-cache-policy",
+			UID:             "test-uid-attestation-degraded-cache",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors:    attestors,
+			Attestations: attestations,
+		},
+	}
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation"
+	attestationName := "slsa"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &ivfuncs{
+		Adapter:         types.DefaultTypeAdapter,
+		imgCtx:          imgCtx,
+		policy:          pol,
+		attestationList: attestationMap(pol),
+		cosignVerifier:  cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:  notary.NewVerifier(logr.Discard()),
+		ivCache:         ivCache,
+		verifications:   NewImageVerificationResults(),
+	}
+
+	// Seed a degraded (presence-only) cache entry directly, simulating what a
+	// failed payload capture used to leave behind before the write-side fix.
+	// This exercises the READ-side fallback independent of the write-side skip.
+	cacheRule := attestorCacheRule(attestationCacheRule, attestationName, attestors)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, nil)
+	assert.NoError(t, err)
+	assert.True(t, stored, "degraded presence-only entry must still be cacheable, matching pre-fix Set() behavior")
+
+	// Cache reports found=true but there is nothing to restore. The fix must
+	// NOT error the CEL expression here -- it must fall back to a real verify
+	// and succeed, exactly as if this had been a genuine cache miss.
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out), "degraded cache hit must fall back to re-verification, not error: %v", out)
+	assert.Equal(t, int64(len(attestors)), out.Value())
+
+	// extractPayload must succeed too: the fallback real-verify populates the
+	// payload on this request's ImageData, same as a genuine cache miss would.
+	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.False(t, types.IsError(payload), "extractPayload should succeed after fallback re-verification: %v", payload)
+	assert.NotNil(t, payload.Value())
+}
