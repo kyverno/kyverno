@@ -86,6 +86,15 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
+	// entry.ImageRegistry.JMESPath is optional; SubstituteAll("") returns
+	// the empty string unchanged, so pathString == "" still means "no
+	// JMESPath filtering" below. A non-string, non-empty result means the
+	// substituted value genuinely can't be used as a JMESPath expression.
+	pathString, ok := path.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid JMESPath %v for context entry %s, JMESPath must be a string", path, entry.Name)
+	}
+
 	resourceNamespace := getNamespaceFromContext(idl.enginectx)
 	// For ConfigMap context entries, imagePullSecrets are not available from image extraction
 	// They must be specified explicitly in ImageRegistryCredentials
@@ -99,8 +108,8 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, err
 	}
 
-	if path != "" {
-		imageData, err = applyJMESPath(idl.jp, path.(string), imageData)
+	if pathString != "" {
+		imageData, err = applyJMESPath(idl.jp, pathString, imageData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
