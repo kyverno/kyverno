@@ -1,7 +1,7 @@
 ## Description
 
 This test creates a mutate policy which adds labels to the newly created config maps.
-An event is generated upon successful generation.
+An event is generated upon successful mutation.
 
 ## Steps
 
