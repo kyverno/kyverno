@@ -2,6 +2,7 @@ package kube
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -37,14 +38,17 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 	updateSecret := map[string]interface{}{}
 	raw, err := json.Marshal(stringSecret)
 	if err != nil {
-		return *resource, nil
+		return *resource, fmt.Errorf("unable to convert secret to object: %w", err)
 	}
 	err = json.Unmarshal(raw, &updateSecret)
 	if err != nil {
 		return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
 	}
 	if secret.Data != nil {
-		v := updateSecret["string_data"].(map[string]interface{})
+		v, ok := updateSecret["string_data"].(map[string]interface{})
+		if !ok {
+			return *resource, errors.New("unable to convert secret string_data to map")
+		}
 		err = unstructured.SetNestedMap(resource.Object, v, "data")
 		if err != nil {
 			return *resource, fmt.Errorf("failed to set secret.data: %w", err)
@@ -55,13 +59,22 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 		if err != nil {
 			return *resource, fmt.Errorf("unable to convert metadata to map: %w", err)
 		}
-		updatedMeta := updateSecret["metadata"].(map[string]interface{})
-		if err != nil {
-			return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
+		updatedMeta, ok := updateSecret["metadata"].(map[string]interface{})
+		if !ok {
+			return *resource, errors.New("unable to convert secret metadata to map")
 		}
-		err = unstructured.SetNestedMap(metadata, updatedMeta["annotations"].(map[string]interface{}), "annotations")
-		if err != nil {
-			return *resource, fmt.Errorf("failed to set secret.annotations: %w", err)
+		// An empty (but non-nil) annotations map is dropped by `omitempty`
+		// during the marshal/unmarshal round trip above; in that case there
+		// is nothing to redact and redaction is a no-op.
+		if updatedAnnotations, found := updatedMeta["annotations"]; found {
+			annotations, ok := updatedAnnotations.(map[string]interface{})
+			if !ok {
+				return *resource, errors.New("unable to convert secret annotations to map")
+			}
+			err = unstructured.SetNestedMap(metadata, annotations, "annotations")
+			if err != nil {
+				return *resource, fmt.Errorf("failed to set secret.annotations: %w", err)
+			}
 		}
 	}
 	return *resource, nil
