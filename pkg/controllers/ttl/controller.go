@@ -162,10 +162,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 			return err
 		}
 		logger.V(2).Info("resource has been deleted")
-	} else {
 		if c.metrics != nil {
 			c.metrics.RecordDeletedObject(ctx, c.gvr, metaObj.GetNamespace())
 		}
+	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
 		// Add the item back to the queue after the remaining time
