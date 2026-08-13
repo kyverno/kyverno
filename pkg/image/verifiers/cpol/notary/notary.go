@@ -248,7 +248,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	logger.V(4).Info("verification started")
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(ctx, notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		logger.V(4).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
 		return targetDesc, err

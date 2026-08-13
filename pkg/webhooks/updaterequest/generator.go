@@ -98,7 +98,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 	}
 	updated := created.DeepCopy()
 	updated.Status.State = kyvernov2.Pending
-	_, err = g.client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+	_, err = g.client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return false, err
 	}
