@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 var cfg = config.NewDefaultConfiguration(false)

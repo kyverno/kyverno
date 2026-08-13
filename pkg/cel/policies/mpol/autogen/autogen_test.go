@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -97,6 +98,48 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
     }]
   }
 }}}`,
+		},
+		{
+			name:     "namespaceObject labels not modified",
+			config:   "deployments",
+			input:    `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+			expected: `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+		},
+		{
+			name:     "namespaceObject labels not modified for cronjobs",
+			config:   "cronjobs",
+			input:    `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+			expected: `'istio.io/dataplane-mode' in namespaceObject.metadata.labels`,
+		},
+		{
+			name:     "namespaceObject spec not modified",
+			config:   "deployments",
+			input:    `namespaceObject.spec.containers`,
+			expected: `namespaceObject.spec.containers`,
+		},
+		{
+			name:     "namespaceObject spec not modified for cronjobs",
+			config:   "cronjobs",
+			input:    `namespaceObject.spec.containers`,
+			expected: `namespaceObject.spec.containers`,
+		},
+		{
+			name:     "namespaceObject annotations not modified",
+			config:   "deployments",
+			input:    `'team' in namespaceObject.metadata.annotations`,
+			expected: `'team' in namespaceObject.metadata.annotations`,
+		},
+		{
+			name:     "namespaceObject annotations not modified for cronjobs",
+			config:   "cronjobs",
+			input:    `'team' in namespaceObject.metadata.annotations`,
+			expected: `'team' in namespaceObject.metadata.annotations`,
+		},
+		{
+			name:     "oldObject spec still modified",
+			config:   "deployments",
+			input:    `oldObject.spec.containers`,
+			expected: `oldObject.spec.template.spec.containers`,
 		},
 		{
 			name:   "no containers in expression",
@@ -402,6 +445,11 @@ func TestAutogenIntegration(t *testing.T) {
 		policy := &policiesv1beta1.MutatingPolicy{
 			Spec: policiesv1beta1.MutatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"team": "platform",
+						},
+					},
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -452,6 +500,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.True(t, exists)
 		assert.Len(t, deploymentAutogen.Targets, 1)
 		assert.Equal(t, "deployments", deploymentAutogen.Targets[0].Resource)
+		assert.Equal(t, policy.Spec.MatchConstraints.NamespaceSelector, deploymentAutogen.Spec.MatchConstraints.NamespaceSelector)
 
 		assert.Len(t, deploymentAutogen.Spec.Mutations, 1)
 		convertedExpr := deploymentAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
@@ -463,6 +512,11 @@ func TestAutogenIntegration(t *testing.T) {
 		policy := &policiesv1beta1.MutatingPolicy{
 			Spec: policiesv1beta1.MutatingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"team": "platform",
+						},
+					},
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -513,6 +567,7 @@ func TestAutogenIntegration(t *testing.T) {
 		assert.True(t, exists)
 		assert.Len(t, cronjobAutogen.Targets, 1)
 		assert.Equal(t, "cronjobs", cronjobAutogen.Targets[0].Resource)
+		assert.Equal(t, policy.Spec.MatchConstraints.NamespaceSelector, cronjobAutogen.Spec.MatchConstraints.NamespaceSelector)
 
 		assert.Len(t, cronjobAutogen.Spec.Mutations, 1)
 		convertedExpr := cronjobAutogen.Spec.Mutations[0].ApplyConfiguration.Expression
@@ -570,6 +625,20 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			config:   "deployments",
 			input:    "Object{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}",
 			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
+		},
+		{
+			name:   "whitespace between Object and brace",
+			config: "deployments",
+			input: `Object {
+  spec: Object.spec {
+    automountServiceAccountToken: false,
+  }
+}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{
+  spec: Object.spec.template.spec{
+    automountServiceAccountToken: false,
+  }
+}}}`,
 		},
 		{
 			name:   "complex nested expression",

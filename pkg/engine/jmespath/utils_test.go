@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_intNumber(t *testing.T) {
