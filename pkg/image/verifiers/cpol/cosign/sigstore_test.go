@@ -2,14 +2,19 @@ package cosign
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	"gotest.tools/assert"
+	"github.com/kyverno/sdk/extensions/registryclient"
+	"gotest.tools/v3/assert"
 )
 
 func TestSigstoreBundleSignatureVerification(t *testing.T) {
@@ -20,12 +25,11 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
-	_, err = verifier.VerifySignature(context.TODO(), opts)
+	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
 	opts.Subject = "invalid"
@@ -41,8 +45,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -68,8 +71,7 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 		Type:           "https://slsa.dev/provenance/v1",
 	}
 
-	rc, err := registryclient.New()
-	assert.NilError(t, err)
+	rc := registryclient.New(nil, "", "", "", false)
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -110,6 +112,40 @@ func TestIssue_StaticKeyWithSigstoreBundle(t *testing.T) {
 
 	_, err := buildPolicy(desc, opts)
 	assert.NilError(t, err)
+}
+
+func generateTestPublicKey(t *testing.T) string {
+	t.Helper()
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.NilError(t, err)
+	publicKey, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	assert.NilError(t, err)
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKey}))
+}
+
+func TestBuildKeyTrustedMaterial(t *testing.T) {
+	material, err := buildKeyTrustedMaterial(context.Background(), generateTestPublicKey(t), "sha256")
+	assert.NilError(t, err)
+	verifier, err := material.PublicKeyVerifier("")
+	assert.NilError(t, err)
+	assert.Assert(t, verifier != nil)
+}
+
+func TestStaticKeyPolicyAndVerifierOptions(t *testing.T) {
+	desc := &v1.Descriptor{Digest: v1.Hash{Algorithm: "sha256", Hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
+	opts := verifiers.Options{Key: generateTestPublicKey(t), IgnoreTlog: true, IgnoreSCT: true}
+	policy, err := buildPolicy(desc, opts)
+	assert.NilError(t, err)
+	material, err := getTrustedMaterial(context.Background(), opts)
+	assert.NilError(t, err)
+	_, err = verifyBundles(nil, desc, material, policy, buildVerifyOptions(opts))
+	assert.NilError(t, err)
+}
+
+func TestStaticKeyAndIdentityAreMutuallyExclusive(t *testing.T) {
+	opts := verifiers.Options{Key: generateTestPublicKey(t), Issuer: "issuer", Subject: "subject"}
+	_, err := getTrustedMaterial(context.Background(), opts)
+	assert.ErrorContains(t, err, "mutually exclusive")
 }
 
 func TestIssue_StaticKeyNoTlogUpload(t *testing.T) {
