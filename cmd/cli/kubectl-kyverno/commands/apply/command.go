@@ -17,7 +17,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
@@ -27,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -55,7 +55,6 @@ import (
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -293,6 +292,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
+	if _, err := processor.NormalizeValuesOperation(variables.GlobalOperation()); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
 	var store store.Store
 
 	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
@@ -463,7 +465,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -666,6 +668,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -695,6 +698,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -722,6 +726,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -729,14 +734,14 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -860,6 +865,13 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = fmt.Sprintf("%s did not match", payloadType)
 			}

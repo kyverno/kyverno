@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -73,8 +74,10 @@ var (
 	mpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("MutatingPolicy")
 	nmpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedMutatingPolicy")
 	nmpV1              = schema.GroupVersion(policiesv1.GroupVersion).WithKind("NamespacedMutatingPolicy")
+	mapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
@@ -331,12 +334,24 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 			return err
 		}
 		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case mapV1:
+		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPs = append(results.MAPs, *admissionpolicy.ConvertMutatingAdmissionPolicyToBeta(typed))
 	case mapV1alpha1, mapV1beta1:
 		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
 		if err != nil {
 			return err
 		}
 		results.MAPs = append(results.MAPs, *typed)
+	case mapBindingV1:
+		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicyBinding](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPBindings = append(results.MAPBindings, *admissionpolicy.ConvertMutatingAdmissionPolicyBindingToBeta(typed))
 	case mapBindingV1alpha1, mapBindingV1beta1:
 		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
 		if err != nil {

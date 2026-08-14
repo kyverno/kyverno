@@ -45,6 +45,7 @@ type ivfuncs struct {
 	ivCache         imageverifycache.Client
 	authOpts        []remote.Option
 	nameOpts        []name.Option
+	verifications   *ImageVerificationResults
 }
 
 func ImageVerifyCELFuncs(
@@ -54,6 +55,7 @@ func ImageVerifyCELFuncs(
 	lister corev1listers.SecretLister,
 	ivCache imageverifycache.Client,
 	adapter types.Adapter,
+	verifications *ImageVerificationResults,
 ) (*ivfuncs, error) {
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
@@ -88,6 +90,7 @@ func ImageVerifyCELFuncs(
 		ivCache:         ivCache,
 		nameOpts:        nameOpts,
 		authOpts:        authOpts[:],
+		verifications:   verifications,
 	}, nil
 }
 
@@ -135,16 +138,19 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image signature verification cache hit", "image", image, "policy", f.policy.GetName())
+				f.verifications.Record(image, true)
 				return f.NativeToValue(len(attestors))
 			}
 		}
 
-		for _, attestor := range attestors {
-			img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
+		// Fetch image data once before the loop: the image reference and
+		// credentials are the same for every attestor.
+		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
 
+		for _, attestor := range attestors {
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
@@ -176,6 +182,9 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
+		if len(attestors) > 0 {
+			f.verifications.Record(image, count > 0)
+		}
 		return f.NativeToValue(count)
 	}
 }
@@ -206,18 +215,22 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
+				f.verifications.Record(image, true)
 				return f.NativeToValue(len(attestors))
 			}
 		}
+		// Hoist invariant lookups out of the loop: both the attestation
+		// definition and the image data are the same for every attestor.
+		attest, ok := f.attestationList[attestation]
+		if !ok {
+			return types.NewErr("attestation not found in policy: %s", attestation)
+		}
+		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		if err != nil {
+			return types.NewErr("failed to get imagedata: %v", err)
+		}
+
 		for _, attestor := range attestors {
-			attest, ok := f.attestationList[attestation]
-			if !ok {
-				return types.NewErr("attestation not found in policy: %s", attestation)
-			}
-			img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
-			if err != nil {
-				return types.NewErr("failed to get imagedata: %v", err)
-			}
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
@@ -251,6 +264,9 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
+		}
+		if len(attestors) > 0 {
+			f.verifications.Record(image, count > 0)
 		}
 		return f.NativeToValue(count)
 	}
