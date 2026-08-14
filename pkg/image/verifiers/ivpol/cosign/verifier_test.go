@@ -2,12 +2,16 @@ package cosign
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -862,5 +866,68 @@ func Test_GitHubAttestationVerification(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
 		assert.NoError(t, err, "SLSA provenance attestation verification should succeed with GitHub Actions keyless")
+	})
+}
+
+func TestVerifyAttestationsWithFallback(t *testing.T) {
+	ref, err := name.ParseReference(v3KeylessImage)
+	require.NoError(t, err)
+
+	original := verifyImageAttestations
+	t.Cleanup(func() {
+		verifyImageAttestations = original
+	})
+
+	t.Run("falls back when v3 lookup finds no attestations", func(t *testing.T) {
+		var attemptedFormats []bool
+		expected := []oci.Signature{nil}
+
+		verifyImageAttestations = func(_ context.Context, _ name.Reference, co *cosign.CheckOpts, _ ...name.Option) ([]oci.Signature, bool, error) {
+			attemptedFormats = append(attemptedFormats, co.NewBundleFormat)
+			if co.NewBundleFormat {
+				return nil, true, nil
+			}
+			return expected, true, nil
+		}
+
+		sigs, verified, err := verifyAttestationsWithFallback(context.TODO(), ref, &cosign.CheckOpts{})
+		require.NoError(t, err)
+		assert.True(t, verified)
+		assert.Equal(t, expected, sigs)
+		assert.Equal(t, []bool{true, false}, attemptedFormats)
+	})
+
+	t.Run("falls back on missing new-bundle manifest", func(t *testing.T) {
+		var attemptedFormats []bool
+		expected := []oci.Signature{nil}
+
+		verifyImageAttestations = func(_ context.Context, _ name.Reference, co *cosign.CheckOpts, _ ...name.Option) ([]oci.Signature, bool, error) {
+			attemptedFormats = append(attemptedFormats, co.NewBundleFormat)
+			if co.NewBundleFormat {
+				return nil, false, errors.New("MANIFEST_UNKNOWN: manifest unknown")
+			}
+			return expected, true, nil
+		}
+
+		sigs, verified, err := verifyAttestationsWithFallback(context.TODO(), ref, &cosign.CheckOpts{})
+		require.NoError(t, err)
+		assert.True(t, verified)
+		assert.Equal(t, expected, sigs)
+		assert.Equal(t, []bool{true, false}, attemptedFormats)
+	})
+
+	t.Run("does not hide real v3 verification errors", func(t *testing.T) {
+		var attemptedFormats []bool
+
+		verifyImageAttestations = func(_ context.Context, _ name.Reference, co *cosign.CheckOpts, _ ...name.Option) ([]oci.Signature, bool, error) {
+			attemptedFormats = append(attemptedFormats, co.NewBundleFormat)
+			return nil, false, errors.New("bundle verification failed")
+		}
+
+		sigs, verified, err := verifyAttestationsWithFallback(context.TODO(), ref, &cosign.CheckOpts{})
+		require.Error(t, err)
+		assert.Nil(t, sigs)
+		assert.False(t, verified)
+		assert.Equal(t, []bool{true}, attemptedFormats)
 	})
 }
