@@ -646,12 +646,6 @@ github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTs
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2/go.mod h1:EumSDUMvIitgwlZBvVYnlgC285mZ0yCjAfoiu8s3o/g=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:9u+4QYMLdZPC8qeUB1TnfiUYRrFGYHxjYQsPiHKgJjI=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
-github.com/kyverno/sdk v0.0.0-20260703121625-e0dc6fb8661a h1:MN7azUnUBwx4zXz0PsYVKcoXTf9RK+barMKffst6YNg=
-github.com/kyverno/sdk v0.0.0-20260703121625-e0dc6fb8661a/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
-github.com/kyverno/sdk v0.0.0-20260813134112-67e4f0a4887a h1:mf2YeUDBwHgqlnGYEybr8B2ECtgvoPObMI+JEbkkOMQ=
-github.com/kyverno/sdk v0.0.0-20260813134112-67e4f0a4887a/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
-github.com/kyverno/sdk v0.0.0-20260814123320-02d94872c0cc h1:vbbGxsuxVvavCpOyCnJwdyy8CLvsbEgAS1aviXlBo3c=
-github.com/kyverno/sdk v0.0.0-20260814123320-02d94872c0cc/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
 github.com/kyverno/sdk v0.0.0-20260814124824-e037c4ffadfb h1:d5M+WoGXzhyvJTYwLSWkU2SnICTZKIJH4N8xT6yYLhE=
 github.com/kyverno/sdk v0.0.0-20260814124824-e037c4ffadfb/go.mod h1:LBPB/TdWmJ8VWZvRbc27SVHMutYX/lJIZnlFMm2xWes=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
