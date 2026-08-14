@@ -11,7 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // Minimal RegistryClient: only ForRef is ever called on the path this test
@@ -35,7 +35,7 @@ func (stubRegistryClient) Keychain() authn.Keychain {
 	panic("not used by this test")
 }
 
-func (stubRegistryClient) Options(gocontext.Context) ([]gcrremote.Option, error) {
+func (stubRegistryClient) Options(gocontext.Context) ([]gcrremote.Option, []name.Option, error) {
 	panic("not used by this test")
 }
 
