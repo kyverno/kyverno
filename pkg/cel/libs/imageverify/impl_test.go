@@ -249,7 +249,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 
 // Demonstrates that a verifyAttestationSignatures cache hit restores Cosign
 // verifiedIntotoPayloads onto a fresh ImageData so extractPayload still works.
-func Test_impl_verify_attestation_cache_hit_skips_payload_population(t *testing.T) {
+func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	attestors := []v1beta1.Attestor{
 		{
 			Name: "github-keyless-attestation",
@@ -304,14 +304,15 @@ func Test_impl_verify_attestation_cache_hit_skips_payload_population(t *testing.
 	assert.NoError(t, err)
 
 	f := &ivfuncs{
-		Adapter:         types.DefaultTypeAdapter,
-		imgCtx:          imgCtx,
-		policy:          pol,
-		attestationList: attestationMap(pol),
-		cosignVerifier:  cosign.NewVerifier(nil, logr.Discard()),
-		notaryVerifier:  notary.NewVerifier(logr.Discard()),
-		ivCache:         ivCache,
-		verifications:   NewImageVerificationResults(),
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
 	}
 
 	// 1. Cache miss: real Cosign verification populates verifiedIntotoPayloads and Sets the ivCache.
@@ -407,14 +408,15 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 	assert.NoError(t, err)
 
 	f := &ivfuncs{
-		Adapter:         types.DefaultTypeAdapter,
-		imgCtx:          imgCtx,
-		policy:          pol,
-		attestationList: attestationMap(pol),
-		cosignVerifier:  cosign.NewVerifier(nil, logr.Discard()),
-		notaryVerifier:  notary.NewVerifier(logr.Discard()),
-		ivCache:         ivCache,
-		verifications:   NewImageVerificationResults(),
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
 	}
 
 	out := f.verify_image_attestations_string_string_stringarray(
@@ -520,14 +522,15 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	assert.NoError(t, err)
 
 	f := &ivfuncs{
-		Adapter:         types.DefaultTypeAdapter,
-		imgCtx:          imgCtx,
-		policy:          pol,
-		attestationList: attestationMap(pol),
-		cosignVerifier:  cosign.NewVerifier(nil, logr.Discard()),
-		notaryVerifier:  notary.NewVerifier(logr.Discard()),
-		ivCache:         ivCache,
-		verifications:   NewImageVerificationResults(),
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
 	}
 
 	// Miss path for SLSA: real Cosign verify + SetWithPayload.
@@ -655,14 +658,15 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	assert.NoError(t, err)
 
 	f := &ivfuncs{
-		Adapter:         types.DefaultTypeAdapter,
-		imgCtx:          imgCtx,
-		policy:          pol,
-		attestationList: attestationMap(pol),
-		cosignVerifier:  cosign.NewVerifier(nil, logr.Discard()),
-		notaryVerifier:  notary.NewVerifier(logr.Discard()),
-		ivCache:         ivCache,
-		verifications:   NewImageVerificationResults(),
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
 	}
 
 	// Seed a degraded (presence-only) cache entry directly, simulating what a
