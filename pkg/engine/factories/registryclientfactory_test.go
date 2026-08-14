@@ -22,7 +22,7 @@ import (
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 
 	tests := []struct {
@@ -303,6 +303,83 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 	}
 }
 
+// fixedKeychain always resolves to the same authenticator, regardless of target.
+type fixedKeychain struct {
+	auth authn.Authenticator
+}
+
+func (k fixedKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+	return k.auth, nil
+}
+
+// testResource is a minimal authn.Resource implementation for exercising keychains in tests.
+type testResource string
+
+func (r testResource) String() string      { return string(r) }
+func (r testResource) RegistryStr() string { return string(r) }
+
+// mockGlobalClient is an engineapi.RegistryClient that also exposes a fixed keychain,
+// simulating the admission controller's global registry client (IRSA, credential
+// helpers, deployment pull secrets).
+type mockGlobalClient struct {
+	mockRegistryClient
+	keychain authn.Keychain
+}
+
+func (m *mockGlobalClient) Keychain() authn.Keychain {
+	return m.keychain
+}
+
+func TestGetClient_PreservesGlobalKeychain(t *testing.T) {
+	globalAuth := &authn.Basic{Username: "global-user", Password: "global-pass"}
+	global := &mockGlobalClient{keychain: fixedKeychain{auth: globalAuth}}
+
+	factory := DefaultRegistryClientFactory(global, nil)
+
+	// Force building a derived client via policy providers, which used to drop the
+	// global keychain entirely.
+	creds := &kyvernov1.ImageRegistryCredentials{
+		Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{"default"},
+	}
+	client, err := factory.GetClient(context.Background(), creds, "default", []string{"some-pull-secret"})
+	assert.NilError(t, err)
+	assert.Assert(t, client != nil)
+
+	// The returned client should not be the global instance (a derived client was built)...
+	_, isGlobal := client.(*mockGlobalClient)
+	assert.Assert(t, !isGlobal, "should build a derived client, not return the global instance")
+
+	// ...but it should still expose a composed keychain that resolves to the global
+	// credentials first.
+	kc, ok := client.(keychainSource)
+	assert.Assert(t, ok, "derived client should expose a composed keychain")
+	assert.Assert(t, kc.Keychain() != nil, "derived client should expose a composed keychain")
+
+	resolved, err := kc.Keychain().Resolve(testResource("example.com/repo"))
+	assert.NilError(t, err)
+	assert.Equal(t, resolved, authn.Authenticator(globalAuth), "global keychain should win over policy/resource credentials")
+}
+
+func TestGetClient_FallsBackWhenGlobalKeychainIsAnonymous(t *testing.T) {
+	global := &mockGlobalClient{keychain: fixedKeychain{auth: authn.Anonymous}}
+	factory := DefaultRegistryClientFactory(global, nil)
+
+	creds := &kyvernov1.ImageRegistryCredentials{
+		Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{"default"},
+	}
+	client, err := factory.GetClient(context.Background(), creds, "default", nil)
+	assert.NilError(t, err)
+
+	kc, ok := client.(keychainSource)
+	assert.Assert(t, ok)
+
+	resolved, err := kc.Keychain().Resolve(testResource("example.com/repo"))
+	assert.NilError(t, err)
+	// the default provider's keychain resolves anonymously in this test environment,
+	// so the composed keychain should also resolve anonymously (no error, no panic).
+	assert.Assert(t, resolved != nil)
+}
+
 // mockRegistryClient implements engineapi.RegistryClient for testing
 type mockRegistryClient struct{}
 
@@ -315,7 +392,12 @@ func (m *mockRegistryClient) FetchImageDescriptor(ctx context.Context, ref strin
 }
 
 func (m *mockRegistryClient) Keychain() authn.Keychain {
-	return authn.DefaultKeychain
+	// nil models a global client with no credentials to preserve, so GetClient's
+	// `global.Keychain() != nil` guard skips WithKeychain and the secrets keychain
+	// stays first. This isolates secret prefixing/lister access from ambient
+	// credential resolution. The real-production global keychain path is covered
+	// by mockGlobalClient, which overrides this method.
+	return nil
 }
 
 func (m *mockRegistryClient) Options(ctx context.Context) ([]gcrremote.Option, []name.Option, error) {
