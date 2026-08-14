@@ -190,12 +190,13 @@ func runCheckEndpoints() {
 
 func runCheckHTTP() {
 	var (
-		serviceName string
-		namespace   string
-		path        string
-		https       bool
-		port        int
-		timeout     time.Duration
+		serviceName        string
+		namespace          string
+		path               string
+		https              bool
+		insecureSkipVerify bool
+		port               int
+		timeout            time.Duration
 	)
 
 	fs := flag.NewFlagSet("check-http", flag.ExitOnError)
@@ -203,6 +204,7 @@ func runCheckHTTP() {
 	fs.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
 	fs.StringVar(&path, "path", "", "The endpoint path")
 	fs.BoolVar(&https, "https", false, "Use HTTPS in the request")
+	fs.BoolVar(&insecureSkipVerify, "insecure-skip-verify", false, "Disable TLS certificate verification for HTTPS requests")
 	fs.IntVar(&port, "port", 8000, "Service port")
 	fs.DurationVar(&timeout, "timeout", 60*time.Second, "HTTP request timeout")
 	err := fs.Parse(os.Args[2:])
@@ -219,6 +221,10 @@ func runCheckHTTP() {
 		fmt.Println("Error: --namespace is required")
 		os.Exit(1)
 	}
+	if insecureSkipVerify && !https {
+		fmt.Println("Error: --insecure-skip-verify requires --https")
+		os.Exit(1)
+	}
 
 	url := fmt.Sprintf("http://%s.%s:%d/%s", serviceName, namespace, port, path)
 	if https {
@@ -230,13 +236,7 @@ func runCheckHTTP() {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, //nolint:gosec
-			},
-		},
-	}
+	client := newHTTPClient(insecureSkipVerify)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -267,6 +267,18 @@ func runCheckHTTP() {
 			resp.Body.Close()
 			return
 		}
+	}
+}
+
+func newHTTPClient(insecureSkipVerify bool) *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if insecureSkipVerify {
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec
+		}
+	}
+	return &http.Client{
+		Transport: transport,
 	}
 }
 
