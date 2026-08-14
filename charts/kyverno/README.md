@@ -846,7 +846,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
 | webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
-| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -872,7 +872,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | test.sleep | int | `20` | Sleep time before running test |
 | test.image.registry | string | `"ghcr.io"` | Image registry |
 | test.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
-| test.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
+| test.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
