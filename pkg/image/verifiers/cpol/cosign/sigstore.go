@@ -7,18 +7,21 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
-	"github.com/sigstore/sigstore/pkg/tuf"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 var (
@@ -43,7 +46,7 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %v", opts.ImageRef)
 	}
-	remoteOpts, err := opts.Client.Options(ctx)
+	remoteOpts, _, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create remote opts: %v", opts.ImageRef)
 	}
@@ -56,9 +59,9 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 		return nil, errors.Wrapf(err, "failed to build policy: %v", opts.ImageRef)
 	}
 	verifyOpts := buildVerifyOptions(opts)
-	trustedMaterial, err := getTrustedRoot(ctx)
+	trustedMaterial, err := getTrustedMaterial(ctx, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get trusted root: %v", opts.ImageRef)
+		return nil, errors.Wrapf(err, "failed to get trusted material: %v", opts.ImageRef)
 	}
 	results, err := verifyBundles(bundles, desc, trustedMaterial, policy, verifyOpts)
 	if err != nil {
@@ -67,8 +70,8 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	return results, nil
 }
 
-func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedRoot *root.TrustedRoot, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*verificationResult, error) {
-	verifier, err := verify.NewSignedEntityVerifier(trustedRoot, verifierOpts...)
+func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedMaterial root.TrustedMaterial, policy verify.PolicyBuilder, verifierOpts []verify.VerifierOption) ([]*verificationResult, error) {
+	verifier, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -124,14 +127,16 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if layerSize > maxLayerSize {
 			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
 		}
-		layerBytes, err := layer.Uncompressed()
+		bundleBytes, err := func() ([]byte, error) {
+			layerBytes, err := layer.Uncompressed()
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			defer layerBytes.Close()
+			return io.ReadAll(layerBytes)
+		}()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		defer layerBytes.Close()
-		bundleBytes, err := io.ReadAll(layerBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			return nil, nil, err
 		}
 		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
@@ -175,11 +180,17 @@ func buildPolicy(desc *v1.Descriptor, opts verifiers.Options) (verify.PolicyBuil
 	hasIssuer := opts.Issuer != "" || opts.IssuerRegExp != ""
 	hasSubject := opts.Subject != "" || opts.SubjectRegExp != ""
 	if hasIssuer && hasSubject {
+		if opts.Key != "" {
+			return verify.PolicyBuilder{}, fmt.Errorf("static key and certificate identity are mutually exclusive")
+		}
 		id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
 		if err != nil {
 			return verify.PolicyBuilder{}, err
 		}
 		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithCertificateIdentity(id)), nil
+	}
+	if opts.Key != "" {
+		return verify.NewPolicy(artifactDigestVerificationOption, verify.WithKey()), nil
 	}
 	return verify.NewPolicy(artifactDigestVerificationOption), nil
 }
@@ -192,23 +203,61 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	if !opts.IgnoreSCT {
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
+	if len(verifierOptions) == 0 {
+		if opts.Key != "" {
+			verifierOptions = append(verifierOptions, verify.WithNoObserverTimestamps())
+		} else {
+			verifierOptions = append(verifierOptions, verify.WithCurrentTime())
+		}
+	}
 	return verifierOptions
 }
 
+func getTrustedMaterial(ctx context.Context, opts verifiers.Options) (root.TrustedMaterial, error) {
+	hasIdentity := opts.Issuer != "" || opts.IssuerRegExp != "" || opts.Subject != "" || opts.SubjectRegExp != ""
+	if opts.Key != "" {
+		if hasIdentity {
+			return nil, fmt.Errorf("static key and certificate identity are mutually exclusive")
+		}
+		keyMaterial, err := buildKeyTrustedMaterial(ctx, opts.Key, opts.SignatureAlgorithm)
+		if err != nil {
+			return nil, err
+		}
+		if opts.IgnoreTlog && opts.IgnoreSCT {
+			return keyMaterial, nil
+		}
+		trustedRoot, err := getTrustedRoot(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return root.TrustedMaterialCollection{keyMaterial, trustedRoot}, nil
+	}
+	return getTrustedRoot(ctx)
+}
+
+func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.TrustedMaterial, error) {
+	hashAlgorithm, ok := signatureAlgorithmMap[algorithm]
+	if !ok {
+		return nil, fmt.Errorf("unsupported signature algorithm %q", algorithm)
+	}
+	var verifier signature.Verifier
+	var err error
+	if strings.Contains(key, "PUBLIC KEY") {
+		verifier, err = decodePEM([]byte(key), hashAlgorithm)
+	} else {
+		verifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgorithm)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load public key: %w", err)
+	}
+	expiringKey := root.NewExpiringKey(verifier, time.Time{}, time.Time{})
+	return root.NewTrustedPublicKeyMaterial(func(string) (root.TimeConstrainedVerifier, error) {
+		return expiringKey, nil
+	}), nil
+}
+
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
-	tufClient, err := tuf.NewFromEnv(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("initializing tuf: %w", err)
-	}
-	targetBytes, err := tufClient.GetTarget("trusted_root.json")
-	if err != nil {
-		return nil, fmt.Errorf("error getting targets: %w", err)
-	}
-	trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error creating trusted root: %w", err)
-	}
-	return trustedRoot, nil
+	return sigstoretuf.TrustedRoot(ctx)
 }
 
 func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]any, error) {
