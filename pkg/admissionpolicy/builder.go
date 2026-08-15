@@ -101,12 +101,13 @@ func BuildValidatingAdmissionPolicy(
 		validations = rule.Validation.CEL.Expressions
 		auditAnnotations = rule.Validation.CEL.AuditAnnotations
 		variables = rule.Validation.CEL.Variables
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
+		spec := vpol.GetSpec()
+		matchResources = *spec.MatchConstraints
+		matchConditions = spec.MatchConditions
+		validations = spec.Validations
+		auditAnnotations = spec.AuditAnnotations
+		variables = spec.Variables
 
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
@@ -214,9 +215,13 @@ func BuildValidatingAdmissionPolicyBinding(
 		}
 		paramRef = rule.Validation.CEL.ParamRef
 		policyName = "cpol-" + cpol.GetName()
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationActions()
-		policyName = "vpol-" + vpol.GetName()
+	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
+		validationActions = vpol.GetSpec().ValidationActions()
+		if vpol.GetNamespace() != "" {
+			policyName = "nvpol-" + vpol.GetNamespace() + "-" + vpol.GetName()
+		} else {
+			policyName = "vpol-" + vpol.GetName()
+		}
 	}
 
 	// set owner reference

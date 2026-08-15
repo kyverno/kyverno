@@ -119,8 +119,17 @@ func NewController(
 	}
 
 	// Set up an event handler for when validating policies change
-	if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
-		logger.Error(err, "failed to register event handlers")
+	if vpolInformer != nil {
+		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+
+	// Set up an event handler for when namespaced validating policies change
+	if nvpolInformer != nil {
+		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 
 	// Set up an event handler for when mutating policies change
@@ -242,6 +251,24 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
+	} else if polType == "NamespacedValidatingPolicy" {
+		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		if !generateValidatingAdmissionPolicy {
+			return nil
+		}
+		nvpol, err := c.getNamespacedValidatingPolicy(namespace, name)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			logger.Error(err, "unable to get the policy from policy informer")
+			return err
+		}
+		policy = engineapi.NewNamespacedValidatingPolicy(nvpol)
+		err = c.handleVAPGeneration(ctx, polType, policy)
+		if err != nil {
+			return err
+		}
 	} else if polType == "MutatingPolicy" {
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
@@ -291,6 +318,18 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
+	} else if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		latest := nvpol.DeepCopy()
+		latest.Status.Generated = generated
+		latest.Status.GetConditionStatus().Message = msg
+
+		new, err := c.kyvernoClient.PoliciesV1beta1().NamespacedValidatingPolicies(nvpol.GetNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update namespaced validating policy status", "name", nvpol.GetName(), "namespace", nvpol.GetNamespace(), "status", latest.Status)
+			return
+		}
+
+		logging.V(3).Info("updated namespaced validating policy status", "name", nvpol.GetName(), "namespace", nvpol.GetNamespace(), "status", new.Status)
 	} else if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		latest := mpol.DeepCopy()
 		latest.Status.Generated = generated
