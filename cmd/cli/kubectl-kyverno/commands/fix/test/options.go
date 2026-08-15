@@ -117,7 +117,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 						fmt.Fprintf(out, "    ERROR: converting to yaml: %s\n", err)
 						continue
 					}
-					if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 						fmt.Fprintf(out, "    ERROR: saving user info file (%s): %s\n", path, err)
 						continue
 					}
@@ -178,7 +178,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 						fmt.Fprintf(out, "    ERROR: converting to yaml: %s\n", err)
 						continue
 					}
-					if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 						fmt.Fprintf(out, "    ERROR: saving values file (%s): %s\n", path, err)
 						continue
 					}
@@ -218,7 +218,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 				}
 				yamlBytes = append(yamlBytes, finalBytes...)
 			}
-			if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+			if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 				fmt.Fprintf(out, "    ERROR: saving test file (%s): %s", path, err)
 				fmt.Fprintln(out)
 				continue
