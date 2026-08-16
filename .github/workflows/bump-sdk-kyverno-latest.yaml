@@ -1,0 +1,355 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: bump-sdk-kyverno-latest
+
+# Opens:
+# 1) a PR on kyverno/sdk bumping KyvernoLatest (extensions/cel/libs/versions/versions.go)
+# 2) a PR on kyverno/kyverno bumping github.com/kyverno/sdk to that commit
+#
+# Prerequisite: PR_UPDATER GitHub App must be installed on kyverno/sdk with
+# Contents + Pull requests write (same secrets as cherry-pick / PR branch updater).
+#
+# Related: https://github.com/kyverno/kyverno/issues/17144
+
+permissions: {}
+
+concurrency:
+  group: bump-sdk-kyverno-latest
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      # Glob is approximate; script requires exact vMAJOR.MINOR.0 (no prerelease / no vX.Y.10).
+      - 'v*.*.0'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Target Kyverno major.minor (e.g. 1.20)'
+        required: true
+        type: string
+
+jobs:
+  bump:
+    name: Bump KyvernoLatest + SDK dep
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skipped: ${{ steps.resolve.outputs.skipped }}
+      major: ${{ steps.resolve.outputs.major }}
+      minor: ${{ steps.resolve.outputs.minor }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve target version
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          major=""
+          minor=""
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="${INPUT_VERSION#v}"
+            if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
+              echo "::error::workflow_dispatch version must be MAJOR.MINOR (e.g. 1.20), got: ${INPUT_VERSION}"
+              exit 1
+            fi
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # Exact stable minor/major release tag only: v1.20.0
+            # Rejects glob false-positives like v1.19.10 and any prerelease suffix.
+            if [[ ! "$REF_NAME" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
+              echo "Skipping: tag '${REF_NAME}' is not a stable vMAJOR.MINOR.0 release (patches and prereleases are ignored)."
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+          else
+            echo "::error::Unsupported event: ${EVENT_NAME}"
+            exit 1
+          fi
+
+          version="${major}.${minor}"
+          echo "Resolved target KyvernoLatest=${version}"
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          echo "major=${major}" >> "$GITHUB_OUTPUT"
+          echo "minor=${minor}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize GitHub App private key
+        if: steps.resolve.outputs.skipped != 'true'
+        id: normalize-key
+        shell: bash
+        env:
+          RAW_APP_PRIVATE_KEY: ${{ secrets.PR_UPDATER_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          key="$RAW_APP_PRIVATE_KEY"
+          # Support secrets saved with escaped newlines.
+          key="${key//\\n/$'\n'}"
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            # Support secrets saved as base64-encoded PEM.
+            decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
+            decoded="${decoded//\\n/$'\n'}"
+            if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+              key="$decoded"
+            fi
+          fi
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            echo "PR_UPDATER_APP_PRIVATE_KEY does not look like a valid PEM private key." >&2
+            exit 1
+          fi
+
+          # ::add-mask:: is line-based, mask each line of the key individually.
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done <<< "$key"
+          {
+            echo "private_key<<EOF"
+            printf '%s\n' "$key"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        if: steps.resolve.outputs.skipped != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.PR_UPDATER_APP_CLIENT_ID }}
+          private-key: ${{ steps.normalize-key.outputs.private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: kyverno,sdk
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout kyverno
+        if: steps.resolve.outputs.skipped != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: kyverno
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout sdk
+        if: steps.resolve.outputs.skipped != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/sdk
+          path: sdk
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Go
+        if: steps.resolve.outputs.skipped != 'true'
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: kyverno/go.mod
+          cache-dependency-path: kyverno/go.sum
+
+      - name: Bump SDK KyvernoLatest and open PRs
+        if: steps.resolve.outputs.skipped != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          OWNER: ${{ github.repository_owner }}
+          MAJOR: ${{ steps.resolve.outputs.major }}
+          MINOR: ${{ steps.resolve.outputs.minor }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          versions_file="sdk/extensions/cel/libs/versions/versions.go"
+          if [[ ! -f "$versions_file" ]]; then
+            echo "::error::Expected file not found: ${versions_file}"
+            exit 1
+          fi
+
+          current="$(grep -E 'var KyvernoLatest = version\.MajorMinor\([0-9]+,[[:space:]]*[0-9]+\)' "$versions_file" || true)"
+          if [[ -z "$current" ]]; then
+            echo "::error::Could not find KyvernoLatest declaration in ${versions_file}"
+            exit 1
+          fi
+          if [[ ! "$current" =~ MajorMinor\(([0-9]+),[[:space:]]*([0-9]+)\) ]]; then
+            echo "::error::Unable to parse current KyvernoLatest from: ${current}"
+            exit 1
+          fi
+          current_major="${BASH_REMATCH[1]}"
+          current_minor="${BASH_REMATCH[2]}"
+          current_version="${current_major}.${current_minor}"
+
+          target_line="var KyvernoLatest = version.MajorMinor(${MAJOR}, ${MINOR})"
+          sdk_already_at_target=false
+          if [[ "$current" == *"${target_line}"* ]]; then
+            echo "KyvernoLatest is already ${VERSION} on SDK main; will only ensure Kyverno go.mod is pinned."
+            sdk_already_at_target=true
+          elif (( MAJOR < current_major )) || { (( MAJOR == current_major )) && (( MINOR < current_minor )); }; then
+            echo "::error::Refusing to lower KyvernoLatest from ${current_version} to ${VERSION}"
+            exit 1
+          else
+            echo "Bumping KyvernoLatest from ${current_version} -> ${VERSION}"
+          fi
+
+          git_author_name="${APP_SLUG:-kyverno-bot}[bot]"
+          git_author_email="${APP_SLUG:-kyverno-bot}[bot]@users.noreply.github.com"
+
+          configure_git() {
+            local dir="$1"
+            git -C "$dir" config user.name "$git_author_name"
+            git -C "$dir" config user.email "$git_author_email"
+          }
+
+          # Fetch remote branch tip (if any) so --force-with-lease has a tracking ref on re-runs.
+          force_push_branch() {
+            local dir="$1"
+            local branch="$2"
+            git -C "$dir" fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" 2>/dev/null || true
+            git -C "$dir" push -u origin "HEAD:refs/heads/${branch}" --force-with-lease
+          }
+
+          ensure_pr() {
+            # ensure_pr <repo> <head> <title> <body_file>
+            local repo="$1"
+            local head="$2"
+            local title="$3"
+            local body_file="$4"
+            local number
+            number="$(gh pr list --repo "$repo" --head "$head" --state open --json number --jq '.[0].number // empty')"
+            if [[ -n "$number" ]]; then
+              gh pr edit "$number" --repo "$repo" --title "$title" --body-file "$body_file" >/dev/null
+              gh pr view "$number" --repo "$repo" --json url --jq '.url'
+              return 0
+            fi
+            gh pr create --repo "$repo" --title "$title" --body-file "$body_file"
+          }
+
+          sdk_branch="chore/bump-kyverno-latest-${VERSION}"
+          kyverno_branch="chore/bump-sdk-kyverno-latest-${VERSION}"
+
+          trigger_note="workflow_dispatch"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            trigger_note="release tag \`${REF_NAME}\`"
+          fi
+
+          configure_git sdk
+          git -C sdk fetch origin main
+          sdk_pr_url=""
+
+          if [[ "$sdk_already_at_target" == "true" ]]; then
+            # Use the commit on main that already has KyvernoLatest at target.
+            git -C sdk checkout --detach origin/main
+            sdk_sha="$(git -C sdk rev-parse HEAD)"
+            echo "SDK main already at KyvernoLatest ${VERSION}; commit ${sdk_sha}"
+            # Link any still-open bump PR for context; do not create a no-op PR.
+            sdk_pr_url="$(gh pr list --repo "${OWNER}/sdk" --head "$sdk_branch" --state open --json url --jq '.[0].url // empty')"
+            if [[ -z "$sdk_pr_url" ]]; then
+              sdk_pr_url="(SDK main already contains KyvernoLatest ${VERSION}; no SDK PR needed)"
+            fi
+          else
+            # --- SDK: update versions.go, push branch, open/reuse PR ---
+            git -C sdk checkout -B "$sdk_branch" origin/main
+
+            sed -i -E "s/var KyvernoLatest = version\.MajorMinor\([0-9]+,[[:space:]]*[0-9]+\)/${target_line}/" "$versions_file"
+
+            if ! grep -Fq "$target_line" "$versions_file"; then
+              echo "::error::Failed to update KyvernoLatest in ${versions_file}"
+              cat "$versions_file"
+              exit 1
+            fi
+
+            git -C sdk add extensions/cel/libs/versions/versions.go
+            if git -C sdk diff --cached --quiet; then
+              echo "::error::No SDK file changes after edit (unexpected)"
+              exit 1
+            fi
+
+            git -C sdk commit -m "bump kyverno latest to ${VERSION}" -m "Signed-off-by: ${git_author_name} <${git_author_email}>"
+            force_push_branch sdk "$sdk_branch"
+
+            sdk_sha="$(git -C sdk rev-parse HEAD)"
+            echo "SDK commit: ${sdk_sha}"
+
+            sdk_body="$(mktemp)"
+            {
+              echo "## Summary"
+              echo ""
+              echo "Bumps \`KyvernoLatest\` to \`${VERSION}\` so CEL extension libraries default to the new Kyverno minor line."
+              echo ""
+              echo "Trigger: ${trigger_note}"
+              echo "Automation run: ${RUN_URL}"
+              echo ""
+              echo "Related: https://github.com/kyverno/kyverno/issues/17144"
+              echo "Example: https://github.com/kyverno/sdk/pull/136"
+              echo ""
+              echo "## Test plan"
+              echo ""
+              echo "- [ ] Confirm \`extensions/cel/libs/versions/versions.go\` shows \`version.MajorMinor(${MAJOR}, ${MINOR})\`"
+              echo "- [ ] Merge this PR, then merge the follow-up Kyverno SDK dependency bump PR"
+            } >"$sdk_body"
+            sdk_pr_url="$(ensure_pr "${OWNER}/sdk" "$sdk_branch" "bump kyverno latest to ${VERSION}" "$sdk_body")"
+          fi
+          echo "SDK PR: ${sdk_pr_url}"
+
+          # --- Kyverno: bump github.com/kyverno/sdk to sdk_sha, open/reuse PR ---
+          configure_git kyverno
+          git -C kyverno fetch origin main
+          git -C kyverno checkout -B "$kyverno_branch" origin/main
+
+          (
+            cd kyverno
+            # Just-pushed commits may not be on the module proxy yet.
+            GOPROXY=direct go get "github.com/kyverno/sdk@${sdk_sha}"
+            go mod tidy
+          )
+
+          git -C kyverno add go.mod go.sum
+          if git -C kyverno diff --cached --quiet; then
+            echo "go.mod/go.sum already pin sdk@${sdk_sha}"
+            if git -C kyverno diff --quiet origin/main...HEAD; then
+              echo "Kyverno main already pins sdk@${sdk_sha}; nothing to do."
+              echo "Done. SDK: ${sdk_pr_url}"
+              exit 0
+            fi
+          else
+            git -C kyverno commit \
+              -m "chore: bump kyverno/sdk for KyvernoLatest ${VERSION}" \
+              -m "Pins github.com/kyverno/sdk to ${sdk_sha} (KyvernoLatest ${VERSION})." \
+              -m "Signed-off-by: ${git_author_name} <${git_author_email}>"
+          fi
+
+          force_push_branch kyverno "$kyverno_branch"
+
+          kyverno_body="$(mktemp)"
+          {
+            echo "## Summary"
+            echo ""
+            echo "- Bumps \`github.com/kyverno/sdk\` to \`${sdk_sha}\` which sets \`KyvernoLatest\` to \`${VERSION}\`"
+            echo "- Companion SDK PR: ${sdk_pr_url}"
+            echo ""
+            echo "Trigger: ${trigger_note}"
+            echo "Automation run: ${RUN_URL}"
+            echo "Related: https://github.com/kyverno/kyverno/issues/17144"
+            echo ""
+            echo "## Test plan"
+            echo ""
+            echo "- [ ] Merge the SDK PR first when one is open (or ensure commit \`${sdk_sha}\` remains reachable)"
+            echo "- [ ] \`go mod tidy\` / unit tests pass"
+            echo "- [ ] Confirm \`go.mod\` pins \`github.com/kyverno/sdk\` at the expected commit"
+          } >"$kyverno_body"
+
+          kyverno_pr_url="$(ensure_pr "${OWNER}/kyverno" "$kyverno_branch" "chore: bump kyverno/sdk for KyvernoLatest ${VERSION}" "$kyverno_body")"
+          echo "Done."
+          echo "SDK PR: ${sdk_pr_url}"
+          echo "Kyverno PR: ${kyverno_pr_url}"
