@@ -221,6 +221,8 @@ jobs:
 
           ensure_pr() {
             # ensure_pr <repo> <head> <title> <body_file>
+            # Always pass --head/--base: this step runs from the workspace root, which is
+            # not a git checkout of either target repo (checkouts live under kyverno/ and sdk/).
             local repo="$1"
             local head="$2"
             local title="$3"
@@ -232,7 +234,7 @@ jobs:
               gh pr view "$number" --repo "$repo" --json url --jq '.url'
               return 0
             fi
-            gh pr create --repo "$repo" --title "$title" --body-file "$body_file"
+            gh pr create --repo "$repo" --base main --head "$head" --title "$title" --body-file "$body_file"
           }
 
           sdk_branch="chore/bump-kyverno-latest-${VERSION}"
