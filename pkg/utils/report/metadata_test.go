@@ -361,3 +361,51 @@ func TestCleanupKyvernoLabels_NilLabels(t *testing.T) {
 	CleanupKyvernoLabels(obj)
 	assert.Nil(t, obj.Labels)
 }
+
+func TestGetResourceGVR_SplitLabelMismatch_64Chars(t *testing.T) {
+	report := &reportsv1.EphemeralReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-report",
+			Labels: make(map[string]string),
+		},
+	}
+
+	// Dotted length: 24 (resource) + 1 (dot) + 7 (version) + 1 (dot) + 31 (group) = 64.
+	// Combined length: 24 + 7 + 31 = 62 (which is <= 63).
+	gvr := schema.GroupVersionResource{
+		Group:    "infrastructure.cluster.x-k8s.io",
+		Version:  "v1beta1",
+		Resource: "openstackmachinecreators",
+	}
+
+	SetResourceGVR(report, gvr)
+	result := GetResourceGVR(report)
+
+	assert.Equal(t, gvr.Group, result.Group, "Group should match for 64-char GVR")
+	assert.Equal(t, gvr.Version, result.Version, "Version should match for 64-char GVR")
+	assert.Equal(t, gvr.Resource, result.Resource, "Resource should match for 64-char GVR")
+}
+
+func TestGetResourceGVR_SplitLabelMismatch_65Chars(t *testing.T) {
+	report := &reportsv1.EphemeralReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-report",
+			Labels: make(map[string]string),
+		},
+	}
+
+	// Dotted length: 25 (resource) + 1 (dot) + 7 (version) + 1 (dot) + 31 (group) = 65.
+	// Combined length: 25 + 7 + 31 = 63 (which is <= 63).
+	gvr := schema.GroupVersionResource{
+		Group:    "infrastructure.cluster.x-k8s.io",
+		Version:  "v1beta1",
+		Resource: "openstackmachinetemplates",
+	}
+
+	SetResourceGVR(report, gvr)
+	result := GetResourceGVR(report)
+
+	assert.Equal(t, gvr.Group, result.Group, "Group should match for 65-char GVR")
+	assert.Equal(t, gvr.Version, result.Version, "Version should match for 65-char GVR")
+	assert.Equal(t, gvr.Resource, result.Resource, "Resource should match for 65-char GVR")
+}
