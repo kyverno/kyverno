@@ -4,7 +4,6 @@ metadata:
   name: values
 subresources:
 - parentResource:
-    group: ""
     kind: Pod
     name: pods
     namespaced: true
@@ -12,7 +11,6 @@ subresources:
     verbs: null
     version: v1
   subresource:
-    group: ""
     kind: Binding
     name: pods/binding
     namespaced: true

@@ -6,7 +6,6 @@ policies:
 - policy.yaml
 resources:
 - resource.yaml
-variables: values.yaml
 results:
 - isMutatingPolicy: true
   kind: Binding
@@ -15,3 +14,4 @@ results:
   resources:
   - default/pod-to-get-aws-zone-id
   result: pass
+variables: values.yaml
