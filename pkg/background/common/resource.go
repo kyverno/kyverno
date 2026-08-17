@@ -28,6 +28,8 @@ func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i in
 			return getTriggerForDeleteOperation(client, spec, i, logger)
 		} else if operation == admissionv1.Create {
 			return getTriggerForCreateOperation(client, spec, i, logger)
+		} else if operation == admissionv1.Update {
+			return getTriggerForUpdateOperation(client, spec, i, logger)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -57,7 +59,30 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 		logger.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
 		return GetResource(client, resourceSpec, spec, logger)
 	}
+	// Verify the deletion was actually persisted: if the live object still exists
+	// with the same UID and is not terminating, the delete request was rejected
+	// downstream (e.g. by another webhook) and generation must not proceed.
+	// NotFound confirms the deletion; other lookup errors are retried so a transient
+	// API failure cannot make a rejected deletion appear persisted.
+	live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to verify deletion of trigger resource %s/%s %s/%s with uid %s: %w",
+			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID(), err)
+	}
+	if live != nil && live.GetUID() == oldResource.GetUID() && live.GetDeletionTimestamp() == nil {
+		return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s still exists in the cluster, the delete request may have been rejected by the API server",
+			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID())
+	}
 	return &oldResource, nil
+}
+
+func getTriggerForUpdateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+	// Resolve the trigger from the live cluster state rather than the admission
+	// request payload: a rejected UPDATE leaves the live object unchanged, and
+	// mutations applied in the admission chain may never have been persisted.
+	// Evaluating the live object guarantees generation reflects persisted state.
+	resourceSpec := spec.RuleContext[i].Trigger
+	return GetResource(client, resourceSpec, spec, logger)
 }
 
 func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
@@ -84,6 +109,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 	obj := resourceSpec
 	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
 		obj = urSpec.GetResource()
+		resourceSpec = obj
 	}
 
 	log.V(4).Info("fetching resource by UID",
@@ -103,6 +129,15 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 				return &trigger, nil
 			}
 		}
+
+		// The UID recorded in the UpdateRequest does not match any live resource.
+		// This means the originating admission request was rejected by the API server
+		// (e.g. AlreadyExists), or the resource was deleted (and possibly recreated)
+		// before this UpdateRequest was processed. Do NOT fall back to the admission
+		// request payload: it may carry mutated state that never got persisted and
+		// must not drive policy evaluation. See https://github.com/kyverno/kyverno/issues/16566.
+		return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s not found in the cluster, the corresponding admission request may have been rejected by the API server",
+			resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), obj.GetNamespace(), obj.GetName(), obj.GetUID())
 	} else if obj.GetName() != "" {
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""

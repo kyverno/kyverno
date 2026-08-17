@@ -45,13 +45,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
+	"go.yaml.in/yaml/v3"
 	"gomodules.xyz/jsonpatch/v2"
-	yamlv2 "gopkg.in/yaml.v2"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -81,12 +80,16 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	PolicyExceptions                  []*kyvernov2.PolicyException
-	CELExceptions                     []*policiesv1beta1.PolicyException
-	MutateLogPath                     string
-	MutateLogPathIsDir                bool
-	Variables                         *variables.Variables
-	ParameterResources                []runtime.Object
+	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// When empty, the `request.operation` global value from the values file is
+	// honored, defaulting to CREATE.
+	Operation          string
+	PolicyExceptions   []*kyvernov2.PolicyException
+	CELExceptions      []*policiesv1beta1.PolicyException
+	MutateLogPath      string
+	MutateLogPathIsDir bool
+	Variables          *variables.Variables
+	ParameterResources []runtime.Object
 	// TODO
 	ContextFs                 billy.Filesystem
 	ContextPath               string
@@ -103,7 +106,7 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
-	CrdPath                   string
+	CrdPaths                  []string
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
@@ -126,10 +129,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.NewOrDie()
+		rclient = registryclient.New(nil, "", "", "", false)
 	}
 	isCluster := false
-	if p.CrdPath != "" {
+	if len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
@@ -345,6 +348,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -352,10 +356,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				"",
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -550,6 +554,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					user = p.UserInfo.AdmissionUserInfo
 				}
 				// create engine request
+				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 				request := celengine.Request(
 					contextProvider,
 					gvk,
@@ -558,11 +563,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					"",
 					resource.GetName(),
 					resource.GetNamespace(),
-					// TODO: how to manage other operations ?
-					admissionv1.Create,
+					operation,
 					user,
-					&resource,
-					nil,
+					object,
+					oldObject,
 					false,
 					nil,
 				)
@@ -691,6 +695,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -698,10 +703,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				"",
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -788,6 +793,22 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	}
+	// an explicitly configured operation (e.g. from the test result entry) takes
+	// precedence over the values file
+	if p.Operation != "" {
+		switch p.Operation {
+		case "CREATE":
+			operation = kyvernov1.Create
+		case "DELETE":
+			operation = kyvernov1.Delete
+		case "UPDATE":
+			operation = kyvernov1.Update
+		}
+		if resourceValues == nil {
+			resourceValues = map[string]interface{}{}
+		}
+		resourceValues["request.operation"] = p.Operation
 	}
 
 	var newResource unstructured.Unstructured
@@ -925,7 +946,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 }
 
 func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
-	yamlEncodedResource, err := yamlv2.Marshal(resource)
+	yamlEncodedResource, err := yaml.Marshal(resource)
 	if err != nil {
 		return fmt.Errorf("failed to marshal (%w)", err)
 	}
@@ -935,7 +956,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		patchedTarget, _, _ := ruleResponese.PatchedTarget()
 
 		if patchedTarget != nil {
-			yamlEncodedResource, err := yamlv2.Marshal(patchedTarget.Object)
+			yamlEncodedResource, err := yaml.Marshal(patchedTarget.Object)
 			if err != nil {
 				return fmt.Errorf("failed to marshal (%w)", err)
 			}
@@ -1000,21 +1021,30 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	clients := make([]openapi.Client, 0)
 
 	if p.Cluster {
-		// Try to get OpenAPI from the cluster's discovery client.
-		// Prepend it to the composite so --crd-path and built-in schemas
-		// remain reachable even when cluster discovery succeeds.
-		// In CLI test mode the discovery client is a fake that panics
-		// on OpenAPIV3(), so we recover and skip it gracefully.
+		// In CLI test mode the discovery client is a fake that panics on
+		// OpenAPIV3(), so we recover and skip it gracefully.
 		if client := p.tryClusterOpenAPI(); client != nil {
 			clients = append(clients, client)
 		}
 	}
 
-	if p.CrdPath != "" {
-		absPath := getAbsPath(p.CrdPath)
-		diskCrds := os.DirFS(absPath)
-		clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
-	} else {
+	addedCrdClient := false
+	if len(p.CrdPaths) > 0 {
+		visitedDirs := make(map[string]struct{})
+		for _, crdPath := range p.CrdPaths {
+			if strings.TrimSpace(crdPath) == "" {
+				continue
+			}
+			absPath := getAbsPath(crdPath)
+			if _, seen := visitedDirs[absPath]; !seen {
+				diskCrds := os.DirFS(absPath)
+				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
+				visitedDirs[absPath] = struct{}{}
+				addedCrdClient = true
+			}
+		}
+	}
+	if !addedCrdClient {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
 		}
@@ -1250,7 +1280,15 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 }
 
 func (p *PolicyProcessor) loadCrds() error {
-	return common.LoadCrdsFromPath(p.CrdPath)
+	for _, crdPath := range p.CrdPaths {
+		if strings.TrimSpace(crdPath) == "" {
+			continue
+		}
+		if err := common.LoadCrdsFromPath(crdPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getAbsPath(path string) string {

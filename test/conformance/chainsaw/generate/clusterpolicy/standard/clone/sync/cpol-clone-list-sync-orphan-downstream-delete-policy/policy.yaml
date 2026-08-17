@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-list-sync-orphan-downstream-delete-policy
+spec:
+  rules:
+  - name: cpol-clone-list-sync-delete-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      generateExisting: false
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      orphanDownstreamOnPolicyDelete: false
+      cloneList:
+        namespace: default
+        kinds:
+        - v1/Secret
+        - v1/ConfigMap
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

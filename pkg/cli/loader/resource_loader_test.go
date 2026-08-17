@@ -7,7 +7,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
