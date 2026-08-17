@@ -2,6 +2,7 @@ package imageverify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -39,7 +40,8 @@ type ivfuncs struct {
 	policy          v1beta1.ImageValidatingPolicyLike
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
-	attestationList map[string]v1beta1.Attestation
+	attestationList map[string]v1beta1.Attestation						
+	[string]v1beta1.Attestation
 	cosignVerifier  *cosign.Verifier
 	notaryVerifier  *notary.Verifier
 	ivCache         imageverifycache.Client
@@ -94,6 +96,9 @@ func ImageVerifyCELFuncs(
 	}, nil
 }
 
+func isTransientVerificationError(err error) bool {
+	return errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded)
 // build a cache key from a CEL function name, a qualifier (attestation name in practice)
 // and the sorted group of attestors
 func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) string {
@@ -154,6 +159,16 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					if isTransientVerificationError(err) {
+						f.logger.V(4).Info(
+							"transient image verification failure detected",
+							"image", image,
+							"error", err,
+						)
+					}
+
+					f.logger.Info("failed to verify image cosign", "error", err)
+
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
