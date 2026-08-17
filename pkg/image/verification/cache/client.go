@@ -87,7 +87,8 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func generateKey(policy metav1.Object, ruleName string, imageRef string) string {
+// Key returns the process-local cache and coalescing key for an image verification.
+func Key(policy metav1.Object, ruleName string, imageRef string) string {
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
@@ -99,7 +100,7 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 		// Else If enabled globally then return if locally disabled
 		return false, nil
 	}
-	key := generateKey(policy, ruleName, imageRef)
+	key := Key(policy, ruleName, imageRef)
 
 	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
 	c.cache.Wait()
@@ -117,7 +118,7 @@ func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, 
 		// Else If enabled globally then return if locally disabled
 		return false, nil
 	}
-	key := generateKey(policy, ruleName, imageRef)
+	key := Key(policy, ruleName, imageRef)
 	_, found := c.cache.Get(key)
 	if found {
 		return true, nil

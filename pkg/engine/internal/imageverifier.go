@@ -37,6 +37,14 @@ type imageVerifier struct {
 	ivm           *engineapi.ImageVerificationMetadata
 }
 
+type sharedImageVerification struct {
+	ruleResponse engineapi.RuleResponse
+	digest       string
+	hasResponse  bool
+}
+
+var imageVerificationFlights verificationGroup[sharedImageVerification]
+
 func NewImageVerifier(
 	logger logr.Logger,
 	rclient engineapi.RegistryClient,
@@ -98,19 +106,7 @@ func (iv *imageVerifier) Verify(
 			digest = imageInfo.Digest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
-			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
-				if iv.ivCache != nil {
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
-					if err != nil {
-						iv.logger.Error(err, "error occurred during cache set", "image", image)
-					} else {
-						if setted {
-							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-						}
-					}
-				}
-			}
+			ruleResp, digest = iv.verifyImageOnCacheMiss(ctx, imageVerify, imageInfo, cfg)
 		}
 
 		if imageVerify.MutateDigest {
@@ -135,6 +131,52 @@ func (iv *imageVerifier) Verify(
 		}
 	}
 	return patches, responses
+}
+
+func (iv *imageVerifier) verifyImageOnCacheMiss(
+	ctx context.Context,
+	imageVerify kyvernov1.ImageVerification,
+	imageInfo apiutils.ImageInfo,
+	cfg config.Configuration,
+) (*engineapi.RuleResponse, string) {
+	image := imageInfo.String()
+	key := imageverifycache.Key(iv.policyContext.Policy(), iv.rule.Name, image)
+	result, err := imageVerificationFlights.Do(ctx, key, func() sharedImageVerification {
+		if iv.ivCache != nil && imageVerify.UseCache {
+			found, cacheErr := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, true)
+			if cacheErr != nil {
+				iv.logger.Error(cacheErr, "error occurred during cache recheck", "image", image)
+			} else if found {
+				return sharedImageVerification{
+					ruleResponse: *engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties),
+					digest:       imageInfo.Digest,
+					hasResponse:  true,
+				}
+			}
+		}
+
+		response, digest := iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+		if response == nil {
+			return sharedImageVerification{digest: digest}
+		}
+		if response.Status() == engineapi.RuleStatusPass && iv.ivCache != nil && imageVerify.UseCache {
+			stored, cacheErr := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, true)
+			if cacheErr != nil {
+				iv.logger.Error(cacheErr, "error occurred during cache set", "image", image)
+			} else if stored {
+				iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+			}
+		}
+		return sharedImageVerification{ruleResponse: *response, digest: digest, hasResponse: true}
+	})
+	if err != nil {
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "image verification canceled", err, iv.rule.ReportProperties), ""
+	}
+	if result.hasResponse {
+		response := result.ruleResponse
+		return &response, result.digest
+	}
+	return nil, result.digest
 }
 
 func (iv *imageVerifier) isPreviouslyVerified(image string) bool {
