@@ -286,6 +286,9 @@ func printTestResult(
 								resourceSkipped = true
 								continue
 							}
+							if isExpectedFailure(ok, reason, test) {
+								ok = true
+							}
 
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
 							rows = append(rows, resourceRows...)
@@ -298,6 +301,9 @@ func printTestResult(
 							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
+								if isExpectedFailure(ok, reason, test) {
+									ok = true
+								}
 
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
@@ -361,6 +367,9 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					if r != nil && rule != nil && (test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) || len(lookupRuleResponses(test, *rule)) > 0) {
 						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+						if isExpectedFailure(ok, reason, test) {
+							ok = true
+						}
 
 						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, displayResource)
 						rows = append(rows, resourceRows...)
