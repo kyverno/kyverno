@@ -3,22 +3,21 @@ kind: Test
 metadata:
   name: patched-resource-negative
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: test-mutation
-    rule: add-annotation
-    patchedResources: results.yaml
-    kind: ConfigMap
-    resources:
-      - expected-pass
-    result: pass
-
-  - policy: test-mutation
-    rule: add-annotation
-    patchedResources: results.yaml
-    kind: ConfigMap
-    resources:
-      - expected-fail
-    result: fail
+- kind: ConfigMap
+  patchedResources: results.yaml
+  policy: test-mutation
+  resources:
+  - expected-fail
+  result: fail
+  rule: add-annotation
+- kind: ConfigMap
+  patchedResources: results.yaml
+  policy: test-mutation
+  resources:
+  - expected-pass
+  result: pass
+  rule: add-annotation
