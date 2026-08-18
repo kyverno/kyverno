@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Limit open pull requests per user
-        uses: Homebrew/actions/limit-pull-requests@c8707045ccae42888fe98e86f2ee8938bc7cc193 # 2026.08.10.1
+        uses: Homebrew/actions/limit-pull-requests@b35a29a0f83ee8b8ca07b219fc8db3d7bb88ab49 # 2026.08.10.2
         with:
           except-author-associations: |
             MEMBER
