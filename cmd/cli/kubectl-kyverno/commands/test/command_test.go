@@ -196,6 +196,58 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	}
 }
 
+func TestIsExpectedFailure(t *testing.T) {
+	tests := []struct {
+		name     string
+		ok       bool
+		reason   string
+		expected string
+		want     bool
+	}{
+		{
+			name:     "resource diff with expected fail is rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusFail,
+			want:     true,
+		},
+		{
+			name:     "resource diff with expected pass is not rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusPass,
+			want:     false,
+		},
+		{
+			name:     "status mismatch with expected fail is not rescued",
+			ok:       false,
+			reason:   "Want fail, got pass",
+			expected: openreports.StatusFail,
+			want:     false,
+		},
+		{
+			name:     "matching result is not rescued (already ok)",
+			ok:       true,
+			reason:   "Ok",
+			expected: openreports.StatusFail,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(tt.expected),
+				},
+			}
+			assert.Equal(t, tt.want, isExpectedFailure(tt.ok, tt.reason, testResult))
+		})
+	}
+}
+
 func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
 	policy := &kyvernov1.ClusterPolicy{}
 	policy.SetName("test-policy")
