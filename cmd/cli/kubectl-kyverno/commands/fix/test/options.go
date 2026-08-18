@@ -1,4 +1,3 @@
-//nolint:gosec
 package test
 
 import (
