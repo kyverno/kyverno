@@ -466,6 +466,46 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 	}
 }
 
+// TestIgnoreTlog is a pure unit test (no registry access) for the ignoreTlog
+// helper shared by VerifyImageSignature and VerifyAttestationSignature. It
+// guards against a regression of https://github.com/kyverno/kyverno/issues/17109,
+// where VerifyAttestationSignature did not honor InsecureIgnoreTlog/InsecureIgnoreSCT
+// the way VerifyImageSignature does, breaking offline keyed attestation verification.
+func TestIgnoreTlog(t *testing.T) {
+	tests := []struct {
+		name     string
+		cosign   *v1beta1.Cosign
+		expected bool
+	}{
+		{
+			name:     "nil ctlog -> false",
+			cosign:   &v1beta1.Cosign{},
+			expected: false,
+		},
+		{
+			name:     "ctlog set but neither flag set -> false",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{URL: "https://rekor.sigstore.dev"}},
+			expected: false,
+		},
+		{
+			name:     "InsecureIgnoreTlog set -> true",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true}},
+			expected: true,
+		},
+		{
+			name:     "InsecureIgnoreSCT set -> true",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{InsecureIgnoreSCT: true}},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, ignoreTlog(tc.cosign))
+		})
+	}
+}
+
 func TestMultiPlatformImages(t *testing.T) {
 	t.Run("multi-platform manifest list verification", func(t *testing.T) {
 		idf, err := imagedataloader.New(nil, nil, nil)
