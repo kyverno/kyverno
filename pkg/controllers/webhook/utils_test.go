@@ -849,6 +849,30 @@ func TestSortedRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	rule_apps_pods_nil_scope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+			Scope:       nil,
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
+	rule_batch_jobs_nil_scope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"batch"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"jobs"},
+			Scope:       nil,
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Delete,
+		},
+	}
 
 	testCases := []struct {
 		name          string
@@ -880,6 +904,16 @@ func TestSortedRules(t *testing.T) {
 			name:          "Sorted by scope",
 			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_cluster},
 			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_cluster, rule_apps_pods},
+		},
+		{
+			name:          "Sorted by scope with nil scope",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_nil_scope},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_nil_scope, rule_apps_pods},
+		},
+		{
+			name:          "Sorted with multiple nil scopes",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_batch_jobs_nil_scope, rule_apps_pods_nil_scope},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_nil_scope, rule_batch_jobs_nil_scope},
 		},
 	}
 	for _, tc := range testCases {
