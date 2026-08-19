@@ -210,6 +210,9 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 					return nil, fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
 				}
 			}
+			if err := warnPolicyFieldDeprecations(path, gvk, &untyped); err != nil {
+				return nil, err
+			}
 		}
 		if err != nil {
 			// Check if this is a List object and handle it explicitly
@@ -234,6 +237,43 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		}
 	}
 	return results, nil
+}
+
+// warnPolicyFieldDeprecations emits warnings for deprecated fields in the spec
+// of a legacy kyverno.io ClusterPolicy/Policy (e.g. spec.validationFailureAction,
+// spec.webhookTimeoutSeconds, spec.failurePolicy). It mirrors the field-level
+// deprecation checks performed by the admission webhook so that kubectl-kyverno
+// surfaces them offline as well, not just in-cluster. PolicyException, cleanup
+// policies and the CEL-based types use different specs and have no deprecated
+// fields covered by deprecations.CheckPolicy.
+func warnPolicyFieldDeprecations(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured) error {
+	if gvk.Group != kyvernov1.GroupVersion.Group {
+		return nil
+	}
+	var spec *kyvernov1.Spec
+	switch gvk.Kind {
+	case "ClusterPolicy":
+		typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
+		if err != nil {
+			return nil
+		}
+		spec = &typed.Spec
+	case "Policy":
+		typed, err := convert.To[kyvernov1.Policy](*untyped)
+		if err != nil {
+			return nil
+		}
+		spec = &typed.Spec
+	default:
+		return nil
+	}
+	for _, w := range deprecations.CheckPolicy(spec) {
+		fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", path, w.Message)
+		if WarningsAsErrors {
+			return fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
+		}
+	}
+	return nil
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items
