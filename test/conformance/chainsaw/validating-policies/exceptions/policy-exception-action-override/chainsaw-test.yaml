@@ -42,8 +42,7 @@ spec:
               metadata:
                 name: allowed-pod-from-exception-without-labels
                 namespace: development-namespace
-        - sleep:
-            duration: 30s
+
         - assert:
             resource:
               apiVersion: wgpolicyk8s.io/v1alpha2
@@ -63,6 +62,7 @@ spec:
                   result: fail
                   scored: true
                   source: KyvernoValidatingPolicy
+            timeout: 60s
 
     - name: pod-denied-in-default-namespace-without-policy-exception
       try:
