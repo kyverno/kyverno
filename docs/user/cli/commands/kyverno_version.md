@@ -44,6 +44,7 @@ kyverno version [flags]
       --stderrthreshold severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false) (default 2)
   -v, --v Level                             number for the log level verbosity
       --vmodule moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
+      --warnings-as-errors                  fail the command if deprecated API versions or fields are detected
 ```
 
 ### SEE ALSO
