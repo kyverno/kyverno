@@ -279,23 +279,20 @@ func (c *serverResources) FindResource(groupVersion string, kind string) (apiRes
 
 func (c *serverResources) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
-	// if no resource was found, we have to force cache invalidation
-	if err != nil || len(resources) == 0 {
-		if !c.cachedClient.Fresh() || len(resources) == 0 {
-			c.cachedClient.Invalidate()
-			if c.mapper != nil {
-				c.mapper.Reset()
-			}
-			resources, err := c.findResources(group, version, kind, subresource)
-			if err != nil {
-				return nil, err
-			} else if len(resources) == 0 {
-				return nil, ErrResourceNotFound
-			}
-			return resources, err
+	if (err != nil || len(resources) == 0) && !c.cachedClient.Fresh() {
+		c.cachedClient.Invalidate()
+		if c.mapper != nil {
+			c.mapper.Reset()
 		}
+		resources, err = c.findResources(group, version, kind, subresource)
 	}
-	return resources, err
+	if err != nil {
+		return nil, err
+	}
+	if len(resources) == 0 {
+		return nil, ErrResourceNotFound
+	}
+	return resources, nil
 }
 
 func (c *serverResources) findResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {

@@ -4,8 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery/cached/memory"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	kubetesting "k8s.io/client-go/testing"
 )
 
 var (
@@ -173,6 +177,26 @@ func Test_getServerResourceGroupVersion(t *testing.T) {
 	apiResource = &metav1.APIResource{Name: "deployments/scale", SingularName: "", Namespaced: true, Group: "autoscaling", Version: "v1", Kind: "Scale"}
 	apiResourceListGV = "apps/v1"
 	assert.Equal(t, getServerResourceGroupVersion(apiResourceListGV, apiResource.Group, apiResource.Version), "autoscaling/v1")
+}
+
+func TestFindResources_NotFoundDoesNotRefetchFreshCache(t *testing.T) {
+	fake := &fakediscovery.FakeDiscovery{Fake: &kubetesting.Fake{
+		Resources: []*metav1.APIResourceList{
+			{GroupVersion: "v1", APIResources: []metav1.APIResource{podAPIResource}},
+		},
+	}}
+	sr := &serverResources{cachedClient: memory.NewMemCacheClient(fake)}
+
+	_, err := sr.FindResources("", "v1", "Pod", "")
+	require.NoError(t, err)
+	callsAfterWarmup := len(fake.Actions())
+	require.NotZero(t, callsAfterWarmup)
+
+	for range 3 {
+		_, err := sr.FindResources("", "v1", "DoesNotExist", "")
+		assert.ErrorIs(t, err, ErrResourceNotFound)
+	}
+	assert.Equal(t, callsAfterWarmup, len(fake.Actions()), "not-found lookups against a fresh cache should not trigger extra discovery calls")
 }
 
 func Test_findResourceFromResourceName(t *testing.T) {

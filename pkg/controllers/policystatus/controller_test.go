@@ -394,3 +394,91 @@ func TestReconcileBeta1Conditions_RBACGatedOnBackground(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileConditions_GeneratingPolicy_ConnectOnlySubresource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		resources     []string
+		wantRBAC      metav1.ConditionStatus
+		wantMsgSubstr string
+	}{
+		{
+			name:          "connect-only subresource (pods/exec): readiness is not blocked by unsatisfiable permissions",
+			resources:     []string{"pods/exec"},
+			wantRBAC:      metav1.ConditionTrue,
+			wantMsgSubstr: "Policy is ready for reporting",
+		},
+		{
+			name:          "plain resource (pods): missing get/list/watch still blocks readiness",
+			resources:     []string{"pods"},
+			wantRBAC:      metav1.ConditionFalse,
+			wantMsgSubstr: "missing permissions",
+		},
+		{
+			name:          "wildcard subresource (pods/*)",
+			resources:     []string{"pods/*"},
+			wantRBAC:      metav1.ConditionTrue,
+			wantMsgSubstr: "Policy is ready for reporting",
+		},
+		{
+			name:          "wildcard resource (*/exec)",
+			resources:     []string{"*/exec"},
+			wantRBAC:      metav1.ConditionTrue,
+			wantMsgSubstr: "Policy is ready for reporting",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			rule := []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Connect},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   tt.resources,
+						},
+					},
+				},
+			}
+
+			dc := dclient.NewEmptyFakeClient()
+			dc.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{{Version: "v1", Resource: "pods"}}))
+
+			// Deny every SubjectAccessReview: no RBAC is granted anywhere in this test.
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false, Reason: "denied by test"},
+				}, nil
+			})
+
+			c := controller{
+				dclient:          dc,
+				client:           versionedfake.NewSimpleClientset(),
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "system:serviceaccount:kyverno:reports-controller", nil),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			gpol := &policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{ResourceRules: rule},
+				},
+			}
+
+			status := c.reconcileConditions(ctx, engineapi.NewGeneratingPolicy(gpol))
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, tt.wantRBAC, cond.Status, "RBACPermissionsGranted status")
+			assert.Contains(t, cond.Message, tt.wantMsgSubstr, "RBACPermissionsGranted message")
+		})
+	}
+}

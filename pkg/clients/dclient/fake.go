@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -166,21 +167,60 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 	return c.getGVR(resource)
 }
 
+var fakeConnectOnlySubresources = []string{"exec", "attach", "portforward"}
+
 func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
-	r := strings.ToLower(kind) + "s"
+	subresources := []string{subresource}
+	if subresource != "" && strings.Contains(subresource, "*") {
+		subresources = fakeConnectOnlySubresources
+	}
+
+	results := map[TopLevelApiDescription]metav1.APIResource{}
 	for _, resource := range c.registeredResources {
-		if resource.Resource == r {
-			return map[TopLevelApiDescription]metav1.APIResource{
-				{
-					GroupVersion: schema.GroupVersion{Group: resource.Group, Version: resource.Version},
-					Kind:         kind,
-					Resource:     r,
-					SubResource:  subresource,
-				}: {},
-			}, nil
+		if kind != "*" && resource.Resource != strings.ToLower(kind)+"s" {
+			continue
+		}
+		desc := TopLevelApiDescription{
+			GroupVersion: schema.GroupVersion{Group: resource.Group, Version: resource.Version},
+			Kind:         inferKindFromResourceName(resource.Resource),
+			Resource:     resource.Resource,
+		}
+		if subresource == "" {
+			results[desc] = metav1.APIResource{Verbs: fakeVerbsFor("")}
+			continue
+		}
+		if kind == "*" && subresource == "*" {
+			// mirrors the real discovery client, which merges the plain
+			// top-level resource in alongside its subresources here.
+			results[desc] = metav1.APIResource{Verbs: fakeVerbsFor("")}
+		}
+		for _, sub := range subresources {
+			if !wildcard.Match(subresource, sub) {
+				continue
+			}
+			d := desc
+			d.SubResource = sub
+			results[d] = metav1.APIResource{Verbs: fakeVerbsFor(sub)}
 		}
 	}
-	return nil, fmt.Errorf("not found")
+	if len(results) == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	return results, nil
+}
+
+// fakeVerbsFor approximates real API server verbs: connect-only
+// subresources (exec/attach/portforward) get no get/list/watch, others
+// behave like a status subresource.
+func fakeVerbsFor(subresource string) []string {
+	switch subresource {
+	case "":
+		return []string{"get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"}
+	case "exec", "attach", "portforward":
+		return []string{"create"}
+	default:
+		return []string{"get", "patch", "update"}
+	}
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {

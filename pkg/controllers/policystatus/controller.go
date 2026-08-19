@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -16,10 +17,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
@@ -440,16 +444,35 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 	return status
 }
 
-func (c controller) resolveGVRs(rules []admissionregistrationv1.NamedRuleWithOperations) []metav1.GroupVersionResource {
-	gvrs := []metav1.GroupVersionResource{}
+// backgroundReadVerbs are the verbs background scanning needs on a matched resource.
+var backgroundReadVerbs = []string{"get", "list", "watch"}
+
+type gvrTarget struct {
+	schema.GroupVersionResource
+	Subresource string
+}
+
+func (t gvrTarget) String() string {
+	if t.Subresource == "" {
+		return t.GroupVersionResource.String()
+	}
+	return fmt.Sprintf("%s, Subresource=%s", t.GroupVersionResource.String(), t.Subresource)
+}
+
+func (c controller) resolveGVRs(rules []admissionregistrationv1.NamedRuleWithOperations) []gvrTarget {
+	gvrs := []gvrTarget{}
 	for _, rule := range rules {
 		for _, g := range rule.RuleWithOperations.APIGroups {
 			for _, v := range rule.RuleWithOperations.APIVersions {
 				for _, r := range rule.RuleWithOperations.Resources {
-					gvrs = append(gvrs, metav1.GroupVersionResource{
-						Group:    g,
-						Version:  v,
-						Resource: r,
+					resource, subresource := kubeutils.SplitSubresource(r)
+					gvrs = append(gvrs, gvrTarget{
+						GroupVersionResource: schema.GroupVersionResource{
+							Group:    g,
+							Version:  v,
+							Resource: resource,
+						},
+						Subresource: subresource,
 					})
 				}
 			}
@@ -459,11 +482,11 @@ func (c controller) resolveGVRs(rules []admissionregistrationv1.NamedRuleWithOpe
 	return gvrs
 }
 
-func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVersionResource) []error {
+func (c controller) permissionsCheck(ctx context.Context, gvrs []gvrTarget) []error {
 	var errs []error
 	for _, gvr := range gvrs {
-		for _, verb := range []string{"get", "list", "watch"} {
-			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
+		for _, verb := range c.backgroundVerbsFor(gvr) {
+			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, gvr.Subresource, "", "", verb)
 			if baseerrors.Is(err, auth.ErrNoServiceAccount) {
 				continue
 			} else if err != nil {
@@ -475,4 +498,39 @@ func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVer
 	}
 
 	return errs
+}
+
+// backgroundVerbsFor intersects backgroundReadVerbs with what gvr supports.
+// gvr.Resource/Subresource may be wildcards (e.g. "pods/*", "*/exec"), and
+// verbs from every match are unioned first. Falls back to the full list on
+// error or no match.
+func (c controller) backgroundVerbsFor(gvr gvrTarget) []string {
+	resources, err := c.dclient.Discovery().FindResources(gvr.Group, gvr.Version, "*", gvr.Subresource)
+	if err != nil {
+		return backgroundReadVerbs
+	}
+
+	supported := sets.New[string]()
+	matched := false
+	for desc, apiResource := range resources {
+		if !wildcard.Match(gvr.Resource, desc.Resource) || !subresourceMatches(gvr.Subresource, desc.SubResource) {
+			continue
+		}
+		matched = true
+		supported.Insert(apiResource.Verbs...)
+	}
+	if !matched {
+		return backgroundReadVerbs
+	}
+
+	return sets.New(backgroundReadVerbs...).Intersection(supported).UnsortedList()
+}
+
+// subresourceMatches reports whether name satisfies pattern. A subresource
+// pattern never matches the plain top-level resource, even if pattern is "*".
+func subresourceMatches(pattern, name string) bool {
+	if pattern == "" {
+		return name == ""
+	}
+	return name != "" && wildcard.Match(pattern, name)
 }
