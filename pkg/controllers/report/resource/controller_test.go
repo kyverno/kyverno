@@ -275,13 +275,13 @@ func TestWarmupSkipsBackgroundDisabledCELPolicy(t *testing.T) {
 
 func TestWarmupWatchesBackgroundEnabledCELPolicy(t *testing.T) {
 	ctrl, dyn := setupController(t, newValidatingPolicy("background-on", ptr.To(true)))
-	_ = ctrl.Warmup(context.Background())
+	require.NoError(t, ctrl.Warmup(context.Background()))
 	assert.Greater(t, countConfigMapLists(t, dyn), 0)
 }
 
 func TestWarmupWatchesDefaultBackgroundCELPolicy(t *testing.T) {
 	ctrl, dyn := setupController(t, newValidatingPolicy("background-default", nil))
-	_ = ctrl.Warmup(context.Background())
+	require.NoError(t, ctrl.Warmup(context.Background()))
 	assert.Greater(t, countConfigMapLists(t, dyn), 0)
 }
 
@@ -293,7 +293,7 @@ func TestWarmupSkipsBackgroundDisabledLegacyPolicy(t *testing.T) {
 
 func TestWarmupWatchesBackgroundEnabledLegacyPolicy(t *testing.T) {
 	ctrl, dyn := setupController(t, newClusterPolicy("legacy-background-on", ptr.To(true)))
-	_ = ctrl.Warmup(context.Background())
+	require.NoError(t, ctrl.Warmup(context.Background()))
 	assert.Greater(t, countConfigMapLists(t, dyn), 0)
 }
 
@@ -302,6 +302,6 @@ func TestWarmupKeepsSharedGVRWhenAnyBackgroundPolicyMatches(t *testing.T) {
 		newValidatingPolicy("admission-only", ptr.To(false)),
 		newValidatingPolicy("background-on", ptr.To(true)),
 	)
-	_ = ctrl.Warmup(context.Background())
+	require.NoError(t, ctrl.Warmup(context.Background()))
 	assert.Greater(t, countConfigMapLists(t, dyn), 0)
 }
